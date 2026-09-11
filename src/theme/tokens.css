@@ -313,7 +313,14 @@ body::before {
   text-transform: uppercase;
 }
 [data-theme="neon-kingdom"] .stat-label {
-  letter-spacing: 0.22em;
+  letter-spacing: 0.16em;
+}
+/* Rajdhani is condensed with a low x-height; small headings need a nudge to read at HUD scale. */
+[data-theme="neon-kingdom"] .font-heading.text-sm {
+  font-size: 0.95rem;
+}
+[data-theme="neon-kingdom"] .font-heading.text-base {
+  font-size: 1.1rem;
 }
 
 /* Cards: three constructions of the same box. */
