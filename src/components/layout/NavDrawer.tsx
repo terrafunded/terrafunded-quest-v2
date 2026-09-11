@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { ThemeMenu } from "@/theme/ThemeMenu";
 import { useTheme } from "@/theme/ThemeProvider";
 import { themeIcon, type IconName } from "@/theme/icons";
+import { useLang } from "@/i18n/lang";
+import type { QualityLang } from "@/domain/quality_human";
+
+const LANG_OPTIONS: readonly { id: QualityLang; label: string; name: string }[] = [
+  { id: "es", label: "ES", name: "Español" },
+  { id: "en", label: "EN", name: "English" },
+];
 
 const NAV_ITEMS: readonly { to: string; label: string; icon: IconName }[] = [
   { to: "/", label: "Throne Room", icon: "throne" },
@@ -42,6 +49,7 @@ interface NavDrawerProps {
 export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
   const { session, signOut } = useAuth();
   const { themeId, d } = useTheme();
+  const [lang, setLang] = useLang();
   const reduceMotion = useReducedMotion();
   const panelRef = useRef<HTMLElement>(null);
   const titleId = useId();
@@ -188,6 +196,29 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
               <div>
                 <div className="stat-label mb-2">Skin</div>
                 <ThemeMenu />
+              </div>
+              <div>
+                <div className="stat-label mb-2">Idioma · Language</div>
+                <div role="radiogroup" aria-label="Language" className="grid grid-cols-2 gap-2" data-testid="lang-toggle" data-lang={lang}>
+                  {LANG_OPTIONS.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={lang === o.id}
+                      data-lang-option={o.id}
+                      onClick={() => setLang(o.id)}
+                      className={cn(
+                        "flex min-h-11 items-center justify-center gap-2 rounded-md border px-3 text-sm transition-colors",
+                        lang === o.id ? "border-gold/60 bg-secondary/70 text-gold" : "border-border/70 text-muted-foreground hover:border-gold/40 hover:bg-secondary/40 hover:text-foreground",
+                      )}
+                    >
+                      <span className="font-heading">{o.label}</span>
+                      <span className="text-xs">{o.name}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">Data Quality follows this; the rest of Quest stays in English.</p>
               </div>
               <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                 <div className="min-w-0 truncate" title={session?.user.email ?? ""} data-testid="nav-user-email">
