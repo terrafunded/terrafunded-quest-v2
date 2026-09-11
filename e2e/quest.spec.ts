@@ -152,13 +152,24 @@ test.describe("Page specifics", () => {
     await expect(page.getByTestId("lot-tile")).toHaveCount(109);
   });
 
-  test("quality panel lists the documented disagreements", async ({ page }) => {
+  test("quality groups the documented disagreements one card per lot, in Spanish by default", async ({ page }) => {
     await page.goto("/quality");
     await waitForRealm(page);
-    const list = page.getByTestId("quality-list");
+    await expect(page.getByTestId("quality-page")).toHaveAttribute("data-lang", "es");
+    await expect(page.getByRole("heading", { level: 1, name: "Calidad de datos" })).toBeVisible();
     for (const lot of ["Titus — Lot 6", "Lamar — Lot 5", "Lamar — Lot 6", "Lamar — Lot 7", "Eastland — Lot 3"]) {
-      await expect(list.locator("[data-kind='price_mismatch']", { hasText: lot })).toHaveCount(1);
+      const card = page.locator(`[data-testid='quality-card'][data-lot='${lot}']`);
+      await expect(card).toHaveCount(1);
+      await expect(card.locator("[data-kind='price_mismatch']")).toHaveCount(1);
     }
+    // Every price mismatch shows the two figures side by side and says which one Quest uses.
+    const lamar5 = page.locator("[data-testid='quality-card'][data-lot='Lamar — Lot 5']").locator("[data-kind='price_mismatch']");
+    await expect(lamar5.getByTestId("quality-values")).toHaveAttribute("data-line", /^Expediente: \$[\d,]+\.\d{2} \/ Nota: \$[\d,]+\.\d{2}$/);
+    await expect(lamar5.getByTestId("quality-fix")).toContainText("File Cases → Lamar Lot 5 → Sale price");
+    await expect(lamar5.getByTestId("quality-using")).toContainText(/^Quest usa la nota/);
+    await expect(lamar5.getByTestId("quality-technical").locator("summary")).toHaveText("Detalles técnicos");
+    // Column names stay behind the collapsed technical toggle.
+    expect(await page.getByTestId("quality-list").innerText()).not.toMatch(/file_cases|original_amount|sale_price|investor_capital|is_sold/);
   });
 
   test("sponsors shows Townson Family as the only profit-share card", async ({ page }) => {
@@ -176,6 +187,136 @@ test.describe("Page specifics", () => {
     expect(await page.locator("[data-rarity='legendary']").count()).toBeGreaterThan(0);
     await expect(page.getByTestId("streaks")).toBeVisible();
     await expect(page.getByTestId("streak-current")).toContainText(/\d+ weeks?/);
+  });
+});
+
+test.describe("Data Quality for operations", () => {
+  /** Captures clipboard writes in-page so the test can read what "Copiar para WhatsApp" produced. */
+  async function stubClipboard(page: Page) {
+    await page.addInitScript(() => {
+      const copied: string[] = [];
+      (window as unknown as { __copied: string[] }).__copied = copied;
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: (text: string) => (copied.push(text), Promise.resolve()) },
+      });
+    });
+  }
+  const lastCopied = (page: Page) => page.evaluate(() => (window as unknown as { __copied: string[] }).__copied.at(-1) ?? "");
+
+  test("summary counts lots and farms with issues, the dollars moved by price mismatches and the oldest open issue", async ({ page }) => {
+    await page.goto("/quality");
+    await waitForRealm(page);
+    const summary = page.getByTestId("quality-summary");
+    // Live Payments keeps fixing cases (fixture: 18 lots, live: 15 on 2026-09-11 — OPEN_QUESTIONS #59),
+    // so the lot count is checked for shape and against the card list rather than pinned.
+    const lots = Number(await summary.getByTestId("quality-summary-lots").getAttribute("data-value"));
+    expect(lots).toBeGreaterThan(0);
+    await expect(summary.getByTestId("quality-summary-lots")).toContainText(/y \d+ fincas/);
+    const farms = Number((await summary.getByTestId("quality-summary-lots").innerText()).match(/y (\d+) fincas/)?.[1]);
+    await expect(page.getByTestId("quality-card")).toHaveCount(lots + farms);
+    // The five price mismatches are still on file: $21,801.50 of net profit between file case and note.
+    await expect(summary.getByTestId("quality-summary-dollars")).toHaveAttribute("data-value", "21801.5");
+    await expect(summary.getByTestId("quality-summary-dollars")).toHaveText("$21,801.50");
+    await expect(summary).toContainText("suma de las diferencias en 5 lotes; Quest usa la nota");
+    await expect(summary.getByTestId("quality-summary-oldest")).toHaveText("Ben White");
+    await expect(summary).toContainText(/\d+ días · desde el 30 jul 2024/);
+    const benWhite = page.locator("[data-testid='quality-card'][data-lot='Ben White']");
+    await expect(benWhite).toHaveCount(1);
+    await expect(benWhite).toContainText("Finca");
+    await expect(benWhite.locator("[data-kind='farm_capital_null']").getByTestId("quality-fix")).toContainText("Farm Acquisitions → Ben White → Investor capital");
+  });
+
+  test("Copiar para WhatsApp puts a Spanish plain-text message with the lot name on the clipboard", async ({ page }) => {
+    await stubClipboard(page);
+    await page.goto("/quality");
+    await waitForRealm(page);
+    const card = page.locator("[data-testid='quality-card'][data-lot='Lamar — Lot 5']");
+    const copy = card.getByTestId("quality-copy-card");
+    await expect(copy).toHaveText(/Copiar para WhatsApp/);
+    await copy.click();
+    await expect(copy).toHaveAttribute("data-status", "copied");
+    await expect(copy).toHaveText(/Copiado/);
+    const text = await lastCopied(page);
+    expect(text).toContain("Lamar — Lot 5");
+    expect(text.split("\n")[0]).toMatch(/^\*Lamar — Lot 5\* \(finca Lamar\) — \d+ problemas?$/);
+    expect(text).toContain("Precio distinto entre expediente y nota");
+    expect(text).toMatch(/Expediente: \$[\d,]+\.\d{2} \/ Nota: \$[\d,]+\.\d{2}/);
+    expect(text).toContain("Corregir en Payments: File Cases → Lamar Lot 5 → Sale price");
+    expect(text).not.toMatch(/<[a-z]+>|file_cases|original_amount/);
+
+    const all = page.getByTestId("quality-copy-all");
+    await all.click();
+    await expect(all).toHaveAttribute("data-status", "copied");
+    const everything = await lastCopied(page);
+    expect(everything.split("\n")[0]).toMatch(/^\*Calidad de datos — \d{1,2} [a-z]{3} \d{4}\*$/);
+    const lots = Number(await page.getByTestId("quality-summary-lots").getAttribute("data-value"));
+    expect(everything.split("\n")[1]).toBe(`${lots} lotes con problemas y 3 fincas · $21,801.50 de ganancia afectada por diferencias de precio`);
+    expect(everything.split("\n")[2]).toBe("");
+    for (const lot of ["Titus — Lot 6", "Lamar — Lot 5", "Lamar — Lot 6", "Lamar — Lot 7", "Eastland — Lot 3", "Ben White"]) expect(everything).toContain(`*${lot}*`);
+  });
+
+  test("Revisado and Nota persist in localStorage per lot and issue kind, and reviewed issues can be hidden", async ({ page }) => {
+    await page.goto("/quality");
+    await waitForRealm(page);
+    const card = page.locator("[data-testid='quality-card'][data-lot='Lamar — Lot 5']");
+    const issue = card.locator("[data-kind='price_mismatch']");
+    const reviewed = issue.getByTestId("quality-reviewed");
+    await expect(reviewed).toHaveAttribute("aria-checked", "false");
+    await reviewed.click();
+    await expect(reviewed).toHaveAttribute("aria-checked", "true");
+    await expect(issue).toHaveAttribute("data-reviewed", "true");
+    await issue.getByTestId("quality-note").fill("Pedido a contabilidad");
+    await issue.getByTestId("quality-note").press("Enter");
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("quest.quality.review") ?? "{}") as Record<string, { reviewed: boolean; note: string }>);
+    expect(stored["Lamar — Lot 5::price_mismatch"]).toMatchObject({ reviewed: true, note: "Pedido a contabilidad" });
+    // The oldest-open summary and the per-card tally react to the review.
+    await expect(card).toContainText("1 de");
+
+    await page.reload();
+    await waitForRealm(page);
+    await expect(issue.getByTestId("quality-reviewed")).toHaveAttribute("aria-checked", "true");
+    await expect(issue.getByTestId("quality-note")).toHaveValue("Pedido a contabilidad");
+    // Quest never writes to Payments: the other price mismatches are untouched.
+    await expect(page.locator("[data-testid='quality-issue'][data-kind='price_mismatch'][data-reviewed='true']")).toHaveCount(1);
+
+    await page.getByTestId("quality-toggle-reviewed").click();
+    await expect(card.locator("[data-kind='price_mismatch']")).toHaveCount(0);
+    await expect(page.getByTestId("quality-issue").filter({ has: page.locator("[aria-checked='true']") })).toHaveCount(0);
+    await page.getByTestId("quality-toggle-reviewed").click();
+    await expect(card.locator("[data-kind='price_mismatch']")).toHaveCount(1);
+  });
+
+  test("the drawer language toggle switches the page to English, persists, and keeps the WhatsApp text in Spanish", async ({ page }) => {
+    await stubClipboard(page);
+    await page.goto("/quality");
+    await waitForRealm(page);
+    await openNavDrawer(page);
+    const toggle = page.getByTestId("lang-toggle");
+    await expect(toggle).toHaveAttribute("data-lang", "es");
+    await toggle.locator("[data-lang-option='en']").click();
+    await expect(toggle).toHaveAttribute("data-lang", "en");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("nav-drawer")).toHaveCount(0);
+
+    await expect(page.getByTestId("quality-page")).toHaveAttribute("data-lang", "en");
+    await expect(page.getByRole("heading", { level: 1, name: "Data Quality" })).toBeVisible();
+    const card = page.locator("[data-testid='quality-card'][data-lot='Lamar — Lot 5']");
+    await expect(card.getByTestId("quality-copy-card")).toHaveText(/Copy for WhatsApp/);
+    await expect(card.locator("[data-kind='price_mismatch']").getByTestId("quality-values")).toHaveAttribute("data-line", /^File case: \$[\d,]+\.\d{2} \/ Note: \$[\d,]+\.\d{2}$/);
+    await expect(card.locator("[data-kind='price_mismatch']").getByTestId("quality-technical").locator("summary")).toHaveText("Technical details");
+    expect(await page.evaluate(() => localStorage.getItem("quest.lang"))).toBe("en");
+
+    await card.getByTestId("quality-copy-card").click();
+    expect(await lastCopied(page)).toContain("Corregir en Payments:");
+
+    await page.reload();
+    await waitForRealm(page);
+    await expect(page.getByTestId("quality-page")).toHaveAttribute("data-lang", "en");
+    await openNavDrawer(page);
+    await page.getByTestId("lang-toggle").locator("[data-lang-option='es']").click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("heading", { level: 1, name: "Calidad de datos" })).toBeVisible();
   });
 });
 
