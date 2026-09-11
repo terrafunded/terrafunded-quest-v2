@@ -34,3 +34,36 @@ Re-inspected all 22 screenshots. All six pass-1 fixes hold (quest chain two rows
 ### Pass 3 — confirmation
 
 Screenshots re-taken to `/tmp` (no code changed between pass 2 and 3, so no new set is committed); spot-checked Throne Room, Realm, Quests, Trophies at both widths. Nothing worth fixing. Two consecutive clean passes → loop closed after 3 passes.
+
+### Pass 4 — reopened by a screenshot (`pass-04/before-sponsors-390.jpg` → `pass-04/sponsors-390.jpg`)
+
+The Gilded loop's pass-3 shot of `/sponsors` at 390 showed that the pass-1 fix to the `LiberationBoard` heading had broken the phone layout: the no-wrap heading squeezed the summary into a four-line column and pushed the card past the viewport (document 390 → ~470 px wide; the bottom nav slid off). Same defect in `iron-crown/pass-02/sponsors-390.jpg`, missed in pass 2. Fixed once for all themes: the header stacks on phones (`flex-col`) and only goes side-by-side from `sm:`. The 390-wide overflow audit (every route × every theme) is now clean. Verified with build, lint, 162 unit tests, 61 e2e.
+
+## Loop 2 · Gilded Realm
+
+### Pass 1 — baseline `docs/screenshots/gilded-realm/pass-01/` → after `pass-02/`
+
+Weaknesses found (route · element):
+
+1. `/` at 1280 and 390 · `net-profit-counter` (`.gold-shimmer.counter-glow`) — the headline number read as washed-out pale yellow on parchment. Root cause: gradient-clipped text is `color: transparent`, so the theme's `text-shadow` glow painted *through* the glyphs. Fixed for all themes: on `.gold-shimmer` / `.gold-text` counters the glow becomes a `drop-shadow()` filter, which follows the painted pixels; Gilded gets an engraved 1 px `gold-dim` shadow and a fainter halo.
+2. `/` · `AmbientParticles` motes — dark green/teal specks read as dirt on parchment. Fixed: gold-dust recipe (three luminous golds), larger motes (1.4–3 px) with a wider soft glow.
+3. Sidebar and mobile header · brand "EXODUS" (`font-display tracking-[0.25em]`) — Cinzel Decorative's swashes plus 0.25 em tracking produced uneven, gappy letter spacing. Fixed: `--brand-tracking` token (Iron 0.25 em, Gilded 0.1 em, Neon 0.3 em) used by the sidebar, mobile header and `/login` title.
+4. `/realm` at 1280 · territory name `<text>` — gold on gold-filled conquered farms (Lamar, Freestone) had poor contrast. Fixed: `--map-label` token (Gilded ink `--foreground`; Iron and Neon keep gold).
+
+Verification: build, lint, 162 unit tests, 61 e2e green. No reverts.
+
+### Pass 2 — `pass-02/`
+
+Counter is rich gold with an engraved edge, motes are gold dust, brand tracking even, farm names legible. Desktop routes (Throne, Realm, Pipeline, Trophies, Oracle, Treasury) and phone Throne/Chronicle inspected: nothing worth fixing.
+
+### Pass 3 — `pass-03/` (before of the fix: `pass-03/before-sponsors-390.jpg`)
+
+Regression spotted on `/sponsors` at 390 (see Iron pass 4 above): fixed the `LiberationBoard` header stacking; full set re-taken after the fix. Verified with build, lint, unit tests, e2e and the overflow audit.
+
+### Pass 4 — confirmation (to `/tmp`)
+
+Nothing worth fixing across the 22 shots; overflow audit clean on all 30 route × theme combinations.
+
+### Pass 5 — confirmation (to `/tmp`)
+
+Nothing worth fixing. Two consecutive clean passes → loop closed after 5 passes.
