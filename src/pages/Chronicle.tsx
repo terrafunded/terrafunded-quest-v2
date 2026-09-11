@@ -102,9 +102,9 @@ function EventRow({ e, index, prose }: { e: RealmEvent; index: number; prose?: s
           {e.description ? ` · ${e.description}` : ""}
         </div>
       </div>
-      <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-0">
+      <div className="flex shrink-0 items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-0">
         <span className="font-heading tabular">{e.amount !== null ? money(e.amount) : "—"}</span>
-        <span className="text-[11px] text-muted-foreground tabular">net to date {moneyCompact(e.cumulativeNetProfit)}</span>
+        <span className="whitespace-nowrap text-[11px] text-muted-foreground tabular">net to date {moneyCompact(e.cumulativeNetProfit)}</span>
       </div>
     </motion.div>
   );

@@ -128,7 +128,7 @@ export default function Quests() {
             </option>
           ))}
         </Select>
-        <Select value={stage} onChange={(e) => setStage(e.target.value)} aria-label="Filter by stage" className="w-40">
+        <Select value={stage} onChange={(e) => setStage(e.target.value)} aria-label="Filter by stage" className="w-52">
           <option value="sold">All sales (with a case)</option>
           <option value="all">All lots</option>
           <option value={STUCK_FILTER}>Stuck reservations ({data?.realm.pipeline.stuckAfterDays ?? 60}+ days)</option>

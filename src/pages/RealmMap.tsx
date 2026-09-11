@@ -125,99 +125,102 @@ export default function RealmMap() {
       </PageHeader>
       <TableErrorsBanner errors={data.tableErrors} />
 
-      <div className="parchment-card overflow-x-auto p-3 sm:p-5">
-        <svg
-          viewBox={`0 0 ${MAP_W} ${layout.height}`}
-          className="mx-auto block h-auto w-full min-w-[640px]"
-          role="img"
-          aria-label="Map of the realm"
-          data-testid="realm-map"
-          onMouseLeave={() => setHover(null)}
-        >
-          <defs>
-            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="3" result="b" />
-              <feMerge>
-                <feMergeNode in="b" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          {layout.territories.map((t, i) => {
-            const campaign = campaignByFarm?.get(t.farm.farmId);
-            const meta = campaign ? CAMPAIGN_META[campaign.state] : null;
-            return (
-            <motion.g
-              key={t.farm.farmId}
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.05, duration: 0.5 }}
-              style={{ transformOrigin: `${t.x + t.w / 2}px ${t.y + t.h / 2}px` }}
-            >
-              <rect
-                x={t.x}
-                y={t.y}
-                width={t.w}
-                height={t.h}
-                rx={22}
-                fill={territoryFill(t.farm.pctClosed)}
-                stroke={meta?.stroke ?? "hsl(var(--gold) / 0.35)"}
-                strokeWidth={campaign?.state === "losing_ground" ? 2 : 1.4}
-                strokeDasharray={campaign?.state === "losing_ground" ? "6 4" : undefined}
-                className="cursor-pointer transition-[stroke-width] hover:[stroke-width:3]"
-                onClick={() => setOpenFarm(t.farm)}
-                role="button"
-                aria-label={`${t.farm.name} territory${meta ? `, ${meta.label}` : ""}`}
-                data-testid="territory"
-                data-campaign={campaign?.state}
-              />
-              {campaign && meta && (
-                <text x={t.x + PAD} y={t.y + TITLE_H + 6} fontSize={9} fontWeight={600} className="pointer-events-none uppercase" style={{ fill: meta.stroke, letterSpacing: "0.08em" }}>
-                  {meta.label}
-                  {campaign.state !== "conquered" && campaign.lotsLeftToCover !== null ? ` · ${campaign.lotsLeftToCover} to cover` : ""}
-                </text>
-              )}
-              <text x={t.x + PAD} y={t.y + 22} className="pointer-events-none fill-[hsl(var(--gold))] font-heading" fontSize={14} fontWeight={600}>
-                {t.farm.name}
-              </text>
-              <text x={t.x + PAD} y={t.y + 37} className="pointer-events-none fill-[hsl(var(--muted-foreground))]" fontSize={10}>
-                {t.farm.soldLots}/{t.farm.totalLots} closed · {pct(t.farm.pctClosed, 0)} · {DEAL_SHORT[t.farm.dealType ?? ""] ?? t.farm.dealType}
-              </text>
-              {t.tiles.map(({ lot, x, y }) => {
-                const ring = lot.stage !== "reserved" ? null : pipeline?.stuckIds.has(lot.propertyId) ? "stuck" : "reserved";
-                return (
+      <div className="parchment-card relative p-3 sm:p-5">
+        <p className="mb-2 text-[11px] text-muted-foreground sm:hidden">Swipe sideways to see every farm →</p>
+        <div className="map-scroll -mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+          <svg
+            viewBox={`0 0 ${MAP_W} ${layout.height}`}
+            className="mx-auto block h-auto w-full min-w-[640px]"
+            role="img"
+            aria-label="Map of the realm"
+            data-testid="realm-map"
+            onMouseLeave={() => setHover(null)}
+          >
+            <defs>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3" result="b" />
+                <feMerge>
+                  <feMergeNode in="b" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            {layout.territories.map((t, i) => {
+              const campaign = campaignByFarm?.get(t.farm.farmId);
+              const meta = campaign ? CAMPAIGN_META[campaign.state] : null;
+              return (
+              <motion.g
+                key={t.farm.farmId}
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.05, duration: 0.5 }}
+                style={{ transformOrigin: `${t.x + t.w / 2}px ${t.y + t.h / 2}px` }}
+              >
                 <rect
-                  key={lot.propertyId}
-                  x={x}
-                  y={y}
-                  width={TILE}
-                  height={TILE}
-                  rx={4}
-                  fill={STAGE_FILL[lot.stage]}
-                  fillOpacity={lot.stage === "available" ? 0.45 : ring ? 0.2 : 0.95}
-                  stroke={ring ? RING_STROKE[ring] : undefined}
-                  strokeWidth={ring ? 2.5 : undefined}
-                  strokeDasharray={ring === "stuck" ? "4 3" : undefined}
-                  data-ring={ring ?? undefined}
-                  filter={lot.stage === "note_sold" ? "url(#glow)" : undefined}
-                  className="cursor-pointer transition-transform hover:scale-110"
-                  style={{ transformOrigin: `${x + TILE / 2}px ${y + TILE / 2}px`, transformBox: "fill-box" }}
-                  onMouseEnter={(e) => onMove(e, lot)}
-                  onMouseMove={(e) => onMove(e, lot)}
-                  onMouseLeave={() => setHover(null)}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpenFarm(t.farm);
-                  }}
-                  aria-label={`${lot.name}: ${STAGE_LABEL[lot.stage]}${ring === "stuck" ? ", stuck reservation" : ""}`}
-                  data-testid="lot-tile"
+                  x={t.x}
+                  y={t.y}
+                  width={t.w}
+                  height={t.h}
+                  rx={22}
+                  fill={territoryFill(t.farm.pctClosed)}
+                  stroke={meta?.stroke ?? "hsl(var(--gold) / 0.35)"}
+                  strokeWidth={campaign?.state === "losing_ground" ? 2 : 1.4}
+                  strokeDasharray={campaign?.state === "losing_ground" ? "6 4" : undefined}
+                  className="cursor-pointer transition-[stroke-width] hover:[stroke-width:3]"
+                  onClick={() => setOpenFarm(t.farm)}
+                  role="button"
+                  aria-label={`${t.farm.name} territory${meta ? `, ${meta.label}` : ""}`}
+                  data-testid="territory"
+                  data-campaign={campaign?.state}
                 />
-                );
-              })}
-            </motion.g>
-            );
-          })}
-        </svg>
+                {campaign && meta && (
+                  <text x={t.x + PAD} y={t.y + TITLE_H + 6} fontSize={9} fontWeight={600} className="pointer-events-none uppercase" style={{ fill: meta.stroke, letterSpacing: "0.08em" }}>
+                    {meta.label}
+                    {campaign.state !== "conquered" && campaign.lotsLeftToCover !== null ? ` · ${campaign.lotsLeftToCover} to cover` : ""}
+                  </text>
+                )}
+                <text x={t.x + PAD} y={t.y + 22} className="pointer-events-none fill-[hsl(var(--gold))] font-heading" fontSize={14} fontWeight={600}>
+                  {t.farm.name}
+                </text>
+                <text x={t.x + PAD} y={t.y + 37} className="pointer-events-none fill-[hsl(var(--muted-foreground))]" fontSize={10}>
+                  {t.farm.soldLots}/{t.farm.totalLots} closed · {pct(t.farm.pctClosed, 0)} · {DEAL_SHORT[t.farm.dealType ?? ""] ?? t.farm.dealType}
+                </text>
+                {t.tiles.map(({ lot, x, y }) => {
+                  const ring = lot.stage !== "reserved" ? null : pipeline?.stuckIds.has(lot.propertyId) ? "stuck" : "reserved";
+                  return (
+                  <rect
+                    key={lot.propertyId}
+                    x={x}
+                    y={y}
+                    width={TILE}
+                    height={TILE}
+                    rx={4}
+                    fill={STAGE_FILL[lot.stage]}
+                    fillOpacity={lot.stage === "available" ? 0.45 : ring ? 0.2 : 0.95}
+                    stroke={ring ? RING_STROKE[ring] : undefined}
+                    strokeWidth={ring ? 2.5 : undefined}
+                    strokeDasharray={ring === "stuck" ? "4 3" : undefined}
+                    data-ring={ring ?? undefined}
+                    filter={lot.stage === "note_sold" ? "url(#glow)" : undefined}
+                    className="cursor-pointer transition-transform hover:scale-110"
+                    style={{ transformOrigin: `${x + TILE / 2}px ${y + TILE / 2}px`, transformBox: "fill-box" }}
+                    onMouseEnter={(e) => onMove(e, lot)}
+                    onMouseMove={(e) => onMove(e, lot)}
+                    onMouseLeave={() => setHover(null)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenFarm(t.farm);
+                    }}
+                    aria-label={`${lot.name}: ${STAGE_LABEL[lot.stage]}${ring === "stuck" ? ", stuck reservation" : ""}`}
+                    data-testid="lot-tile"
+                  />
+                  );
+                })}
+              </motion.g>
+              );
+            })}
+          </svg>
+        </div>
       </div>
 
       {hover && (

@@ -41,6 +41,14 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Horizontal scrollers on phones fade at the right edge so the overflow is discoverable. */
+  @media (max-width: 639px) {
+    .map-scroll {
+      -webkit-mask-image: linear-gradient(to right, #000 88%, transparent);
+      mask-image: linear-gradient(to right, #000 88%, transparent);
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

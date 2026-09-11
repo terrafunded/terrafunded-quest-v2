@@ -24,14 +24,21 @@ interface QuestTreeProps {
 export function QuestTree({ nodes, current, className }: QuestTreeProps) {
   const nextIndex = nodes.findIndex((n) => !n.reached);
   return (
-    <ol className={cn("flex items-start gap-1 overflow-x-auto pb-2 sm:gap-2", className)} aria-label="Quest chain">
+    <ol className={cn("flex flex-wrap items-start gap-y-4 pb-2 sm:flex-nowrap sm:gap-2", className)} aria-label="Quest chain">
       {nodes.map((n, i) => {
         const prevTarget = i === 0 ? 0 : (nodes[i - 1]?.target ?? 0);
         const within = n.reached ? 100 : i === nextIndex ? Math.max(0, Math.min(100, ((current - prevTarget) / (n.target - prevTarget)) * 100)) : 0;
         return (
-          <li key={n.id} className="flex min-w-[56px] flex-1 flex-col items-center gap-1.5 text-center">
+          <li key={n.id} className="flex basis-1/5 flex-col items-center gap-1.5 text-center sm:min-w-[56px] sm:flex-1 sm:basis-auto">
             <div className="flex w-full items-center">
-              <div className={cn("h-px flex-1", i === 0 ? "bg-transparent" : n.reached || i === nextIndex ? "bg-gold/60" : "bg-border")} />
+              <div
+                className={cn(
+                  "h-px flex-1",
+                  i === 0 ? "bg-transparent" : n.reached || i === nextIndex ? "bg-gold/60" : "bg-border",
+                  // second row on phones starts a fresh chain
+                  i === 5 && "max-sm:bg-transparent",
+                )}
+              />
               <motion.div
                 initial={{ scale: 0.6, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -53,7 +60,7 @@ export function QuestTree({ nodes, current, className }: QuestTreeProps) {
                   </svg>
                 )}
               </motion.div>
-              <div className={cn("h-px flex-1", i === nodes.length - 1 ? "bg-transparent" : n.reached ? "bg-gold/60" : "bg-border")} />
+              <div className={cn("h-px flex-1", i === nodes.length - 1 ? "bg-transparent" : n.reached ? "bg-gold/60" : "bg-border", i === 4 && "max-sm:bg-transparent")} />
             </div>
             <div className={cn("text-[10px] uppercase tracking-wider", n.reached ? "text-gold" : "text-muted-foreground")}>{n.label}</div>
           </li>

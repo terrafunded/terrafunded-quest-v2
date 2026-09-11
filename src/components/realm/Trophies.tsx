@@ -38,9 +38,12 @@ export function TrophyCard({ trophy, index = 0 }: { trophy: Trophy; index?: numb
         {trophy.earned ? <Icon className="h-7 w-7" /> : <Lock className="h-5 w-5 text-muted-foreground" />}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <h3 className={cn("font-heading text-base", trophy.earned ? "text-gold" : "text-foreground")}>{trophy.title}</h3>
-          <span className={cn("rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-widest", RARITY_STYLE[trophy.rarity].className)} data-rarity={trophy.rarity}>
+        <div className="flex items-start justify-between gap-x-3">
+          <h3 className={cn("min-w-0 font-heading text-base leading-tight", trophy.earned ? "text-gold" : "text-foreground")}>{trophy.title}</h3>
+          <span
+            className={cn("mt-0.5 shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-widest", RARITY_STYLE[trophy.rarity].className)}
+            data-rarity={trophy.rarity}
+          >
             {RARITY_STYLE[trophy.rarity].label}
           </span>
         </div>
