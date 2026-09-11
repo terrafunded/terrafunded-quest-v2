@@ -12,3 +12,4 @@ blob-report
 playwright/.cache
 .DS_Store
 *.log
+playwright/.auth
