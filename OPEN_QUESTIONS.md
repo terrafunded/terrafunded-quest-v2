@@ -252,3 +252,39 @@ templates are unit-tested. Prose dates omit the year when the event is in the cu
 capital lent vs owed, closings and net profit vs the goal, total days gained, liberations, and
 the countdown with the required daily profit. Cards with no data (e.g. no liberation yet) are
 dropped rather than shown with zeros.
+
+## 32. "Reservations per month" counts reservations that are still waiting
+
+The request defines the leading indicator as reservations from `file_cases.reservation_date`
+with status `active`, no `closing_date` and no note — i.e. lots that are *still* reserved. A
+reservation made 80 days ago that already closed is therefore not in the 21 / 7.1 per month
+figure, though it is in `reservationsMadeTrailing` (22 / 7.44 per month), which the `/pipeline`
+page shows next to it. If the intended reading is "all reservations signed in the window", swap
+the two fields in `PipelinePanel`; both are computed and tested.
+
+## 33. Conversion cohort and maturity
+
+Conversion = closed ÷ (closed + still reserved) over lots whose reservation is dated on or
+before `asOf − 90 days` (`CONVERSION_MATURITY_DAYS`). Lots whose only file case is cancelled
+have no reservation in Quest (they are `available`) and so are neither a success nor a failure
+here; cancellations would need their own metric ("of reservations made, how many were
+cancelled") if that question matters. The 90-day maturity is ours: younger reservations have
+not had a fair chance to close, given the 63-day median.
+
+## 34. Stuck = 60 days, net profit at stake = the goal's pipeline formula
+
+`STUCK_AFTER_DAYS = 60` follows the request and matches the campaign "losing ground" rule. "Net
+profit at stake" is `grossProfit − investorTake` at today's prices and today's accrued interest —
+exactly what `computeGoal` sums into `netProfitInPipeline`, so the two layers reconcile
+($2,222,188.97). Because a reserved lot's interest share keeps accruing on fixed-interest farms,
+the trapped figure drifts down slowly the longer a lot waits. All 33 reserved lots have a
+reservation date today; a reserved lot without one would be excluded from the stuck list and the
+quality panel would be the place to surface it.
+
+## 35. Median days to close ignores negative durations
+
+A closed lot whose reservation is dated after its closing (a disagreement the quality panel
+flags) is left out of the median, not clamped to 0, matching `daysInPipeline` (#19). Farms with
+no closed lot (Avery, Franklin, Franklin 2) show "—" on the drawer and the realm median next to
+it. The per-farm median uses the file case's `closing_date`, or the note's `start_date` when the
+case has none, as everywhere else in Quest (#6).

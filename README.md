@@ -46,7 +46,7 @@ of a login form.
 | `npm run build` | `tsc -b` (strict type-check of app, scripts and tests) then `vite build` → `dist/` |
 | `npm run preview` | Serves `dist/` on port 4173 (what the e2e suite runs against) |
 | `npm run lint` | ESLint 9 flat config, including the "no React/Supabase in `src/domain`" rule |
-| `npm run test` | Vitest — 146 unit tests under `src/domain/__tests__/` |
+| `npm run test` | Vitest — 162 unit tests under `src/domain/__tests__/` |
 | `npm run test:watch` | Same, in watch mode |
 | `npm run e2e` | Playwright, headless. Builds, serves, logs in with the env credentials and runs the suite on a 1280×800 desktop and a 390×844 phone viewport |
 | `npm run snapshot` | **Read-only.** Signs in as the viewer, runs exactly the app's `select` queries and writes `src/domain/__fixtures__/payments.json`. Re-run it whenever you want the fixture tests to reflect current data |
@@ -69,6 +69,7 @@ src/
     events.ts  investors.ts  treasury.ts  oracle.ts  trophies.ts
     debt.ts  oxygen.ts  liberation.ts  campaigns.ts  streaks.ts      Phase 2: Epic
     futures.ts  narrative.ts  story.ts  visits.ts
+    pipeline.ts           reservations layer (never feeds the goal)
     realm.ts              buildRealm(snapshot, now) — runs the pipeline in order
     __fixtures__/         payments.json written by scripts/snapshot.ts
     __tests__/            Vitest suites (fixture-based + synthetic builders)
@@ -77,7 +78,7 @@ src/
     realm/                AnimatedCounter, ProgressRing, GrowthBurst, MilestoneCelebration,
                           QuestTree, CinematicIntro, Trophies, StageBadge, PageStates,
                           DebtCountdown, OxygenScore, Liberation, StreaksPanel,
-                          Celebration, SinceLastVisit
+                          Celebration, SinceLastVisit, PipelinePanel
     layout/               AppShell (sidebar + mobile bottom nav), RequireAuth
   pages/                  one file per route
   routes.tsx  main.tsx  index.css
@@ -92,9 +93,10 @@ GOAL.md  payments_schema.md  PROGRESS.md  OPEN_QUESTIONS.md
 
 | Route | Page |
 |---|---|
-| `/` | **Throne Room** — giant animated net-profit counter, remaining amount, days to deadline, verdict sentence, cash vs. paper, pipeline, capital outstanding; **The Debt** (capital owed to investors, days left, required net profit per day) and the **Oxygen** score (days gained toward the exit); the 5 latest events narrated in prose |
-| `/realm` | **The Map** — stylized SVG realm; one territory per farm sized by lots and colored by % closed; borders show the **campaign state** (conquered / under siege / losing ground); lot tiles lit by stage; hover for economics, click for the farm drawer with the campaign panel (lots left to sell to cover capital + interest) |
-| `/quests` | **Sales ledger** — every lot as a row with buyer, farm, stage, prices, gross, investor take, net, cash realized, days in pipeline and **Oxygen** (days gained); filters by farm/stage/investor; sortable; totals row |
+| `/` | **Throne Room** — giant animated net-profit counter, remaining amount, days to deadline, verdict sentence, cash vs. paper, pipeline, capital outstanding; **The Debt** (capital owed to investors, days left, required net profit per day) and the **Oxygen** score (days gained toward the exit); the 5 latest events narrated in prose; the **Pipeline** panel (reservations vs closings per month, conversion, median days to close, and the "profit trapped in reservations" counter) |
+| `/realm` | **The Map** — stylized SVG realm; one territory per farm sized by lots and colored by % closed; borders show the **campaign state** (conquered / under siege / losing ground); lot tiles lit by stage — reserved tiles are hollow rings, stuck reservations dashed amber; hover for economics, click for the farm drawer with the campaign panel and the farm's median days from reservation to closing |
+| `/quests` | **Sales ledger** — every lot as a row with buyer, farm, stage, prices, gross, investor take, net, cash realized, days in pipeline and **Oxygen** (days gained); filters by farm/stage/investor plus a **Stuck reservations** filter (`?filter=stuck`); sortable; totals row |
+| `/pipeline` | **Pipeline** — the reservations layer in full: trapped profit, reservations vs closings per month, conversion, median days to close per farm, and every stuck reservation (60+ days) with buyer, lot, dates, sale price and net profit at stake, sorted by days waiting |
 | `/sponsors` | **Investors** — **Liberation** board: every investor × farm is a hostage with a capital-returned bar; a farm that returned 100 % is freed (full-screen fanfare once, then the Liberated gallery); one card per sponsor; Townson Family (profit share) is styled and measured differently from fixed-interest sponsors; distribution timeline |
 | `/treasury` | **Cash** — cash in (down payments + note sales) vs. cash out (distributions) by month; chart + table |
 | `/oracle` | **What-if** — **three futures** side by side (current pace, required pace, current pace + one more farm), each with its exit date; sliders seeded from real trailing averages; goal date recomputed live |
@@ -189,6 +191,18 @@ described in `src/domain/quality.ts`.
 - **Celebrations** — on open, any closing, note sale or liberation dated after your last visit
   (`localStorage` `quest.lastVisit`) is celebrated; nothing is ever written back to Payments.
 
+### Pipeline layer (reservations lead, closings pay)
+Everything in `src/domain/pipeline.ts` is a read-only view of the reserved lots; closings remain
+the only source of net profit, pace, oxygen and the goal date.
+- **Reservations per month** — reserved lots (active file case, no closing date, no note) whose
+  reservation falls in the trailing 90 days, per month, next to closings per month.
+- **Conversion** — of reservations made 90+ days ago, the share that has closed.
+- **Stuck** — reserved lots with no closing after 60 days; net profit at stake is
+  `grossProfit − investorTake`, the same formula as the goal's pipeline figure. The sum is the
+  "profit trapped in reservations" counter.
+- **Median days to close** — reservation → closing over closed lots with both dates, overall
+  and per farm (negative durations are data disagreements and are excluded).
+
 ## 7. Hard constraints (and where they are enforced)
 
 | Constraint | Enforcement |
@@ -209,10 +223,11 @@ npm run build && npm run lint && npm run test && npm run e2e
 
 The e2e suite logs in with the env credentials, checks that the Throne Room counter shows a
 dollar amount greater than zero, that the ledger totals row shows **$8,986,794.30**, that all
-ten routes render on desktop and at 390px without console errors, and a few page-specific
+eleven routes render on desktop and at 390px without console errors, and a few page-specific
 assertions (109 lot tiles, the documented quality issues, Townson Family as the only
 profit-share sponsor, at least 15 trophies). Phase 2 adds: the **Debt counter** (capital owed
 > 0, days left equal to the days until 2027-12-31, required net profit per day > 0 and smaller
 than the debt) and the **Oxygen score** (≥ 0 and equal to the sum of the ledger's "days gained"
 column), plus campaign states on every territory, hostages and the Liberated gallery, the three
-futures, and prose on every chronicle entry.
+futures, and prose on every chronicle entry. The pipeline layer adds one test: the stuck-pipeline
+counter renders on the Throne Room, and `/pipeline` and `/quests?filter=stuck` list the same lots.

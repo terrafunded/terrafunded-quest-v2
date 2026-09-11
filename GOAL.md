@@ -225,3 +225,28 @@ Definition of Done additions:
 - [ ] `npm run e2e` also asserts the Debt counter (capital owed > 0, days left > 0, per-day > 0)
       and the Oxygen score (a number of days ≥ 0 that equals the sum of the ledger rows).
 - [ ] Every Phase 2 module in `src/domain/` has tests, including fixture-based ones.
+
+## Phase 2b: Pipeline layer
+
+A "Pipeline" layer sits alongside the closings-based numbers. **Closings remain the only source
+of net profit and pace for the $10M goal**; nothing below changes `netProfitToDate`, the pace,
+oxygen or the goal date. All of it lives in `src/domain/pipeline.ts` and is computed from real
+`file_cases` dates.
+
+1. **Reservations per month** over the trailing 90 days — reservations (`file_cases.reservation_date`,
+   status `active`, no `closing_date`, no note) — shown on the Throne Room next to closings per
+   month as the leading indicator.
+2. **Reservation-to-closing conversion** — of reservations made 90+ days ago, the share that has
+   closed, from real dates.
+3. **Stuck pipeline** — every reserved lot with no closing after 60 days, with days waiting, buyer,
+   farm, lot, sale price and net profit at stake; total dollars stuck; sorted by days waiting. The
+   total is its own Throne Room counter ("profit trapped in reservations"); the full list is on
+   `/quests` behind a filter and on a dedicated `/pipeline` route.
+4. **Median days from reservation to closing** for closed lots, overall and per farm, shown on the
+   farm drawer of the map.
+5. A **reserved ring** on the map tiles, distinct from closed.
+
+Definition of Done additions:
+
+- [ ] Unit tests with the fixture for every pipeline number.
+- [ ] `npm run e2e` asserts the stuck-pipeline counter renders.

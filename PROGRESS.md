@@ -1,10 +1,10 @@
 # PROGRESS — Quest v2 ("Exodus")
 
 Branch `v2`. Snapshot of live Payments taken **2026-09-11 02:07 UTC** (`npm run snapshot`).
-Last full verification (build · lint · 146 unit tests · 47 Playwright tests): **2026-09-11**.
+Last full verification (build · lint · 162 unit tests · 51 Playwright tests): **2026-09-11**.
 
 Order of work, as requested: Phase 1 numbers verified → connection check → domain reproduces the
-verified numbers → **Phase 2: Epic** (this section is at the end of the file).
+verified numbers → **Phase 2: Epic** → **Pipeline layer** (both sections are at the end of the file).
 
 ## Payments connection check (`npm run check`, 2026-09-11 02:52 UTC)
 
@@ -53,14 +53,15 @@ contract-price total ($8,986,794.30) — the Playwright suite asserts that exact
 |---|---|---|
 | `npm run build` zero TS errors (strict) | ✓ | `tsc -b && vite build` clean; largest chunk is Recharts (553 kB, gzip 157 kB) |
 | `npm run lint` clean | ✓ | ESLint 9, zero warnings |
-| `npm run test` ≥ 40 tests in `src/domain/**` incl. fixture tests | ✓ | **146** tests / 9 files; `fixture.test.ts` reproduces every row of the table above from `src/domain/__fixtures__/payments.json`; `epic_fixture.test.ts` pins every Phase 2 number below |
+| `npm run test` ≥ 40 tests in `src/domain/**` incl. fixture tests | ✓ | **162** tests / 10 files; `fixture.test.ts` reproduces every row of the table above from `src/domain/__fixtures__/payments.json`; `epic_fixture.test.ts` pins every Phase 2 and pipeline number below |
 | `scripts/snapshot.ts` read-only fixture generator | ✓ | signs in as viewer, runs the app's own `select` queries, writes the fixture |
-| `npm run e2e` logs in, counter > 0, ledger total $8,986,794.30 | ✓ | **47** Playwright tests pass (setup + desktop + mobile) |
+| `npm run e2e` logs in, counter > 0, ledger total $8,986,794.30 | ✓ | **51** Playwright tests pass (setup + desktop + mobile) |
+| Pipeline e2e: stuck counter | ✓ | `pipeline-trapped` renders as dollars; `/pipeline` rows equal the stuck count, sorted by days waiting (≥ 60), totals match; `/quests?filter=stuck` shows the same rows |
 | Phase 2 e2e: Debt counter and Oxygen score | ✓ | capital owed > 0, days left == days to 2027-12-31, per-day > 0 and < owed; Oxygen score == Σ ledger "days gained" (≥ 0) |
-| 10 routes without console errors, desktop and 390px | ✓ | route smoke test per viewport, fails on any `console.error` / page error |
+| 11 routes without console errors, desktop and 390px | ✓ | route smoke test per viewport, fails on any `console.error` / page error |
 | Zero `select("*")`, key-like literals, mock data in `src/` | ✓ | grep audit (see below) |
 | `README.md` | ✓ | setup, env vars, scripts, routes, domain rules in plain English |
-| `PROGRESS.md`, `OPEN_QUESTIONS.md` | ✓ | this file; 31 assumptions listed |
+| `PROGRESS.md`, `OPEN_QUESTIONS.md` | ✓ | this file; 35 assumptions listed |
 | `sql/proposed_views.sql` | ✓ | 6 commented views, not applied |
 
 ### Audit commands used
@@ -76,10 +77,10 @@ The only JSON under `src/` is `src/domain/__fixtures__/payments.json`, the live 
 - [x] Repo scaffold: Vite 6 + React 18 + TS strict + Tailwind 3 + shadcn-style primitives + TanStack Query + Router v6 + Recharts + Framer Motion + Vitest + Playwright; `.env.example`; ESLint flat config with a rule that keeps `src/domain` free of React/Supabase imports.
 - [x] `scripts/snapshot.ts` (read-only).
 - [x] Data layer: `src/data/queries/` with explicit column lists, `notes.is_test = false`, `clients.is_test = false`, never `ssn_itin_encrypted`, per-table error collection surfaced as a banner.
-- [x] Domain layer (`src/domain/`, pure TS): lot, interest, farm, goal, quality (15 issue kinds), events, investors, treasury, oracle, trophies (25), realm — plus the Phase 2 modules debt, oxygen, liberation, campaigns, streaks, futures, narrative, story, visits.
-- [x] 146 unit tests, 30 + 17 of them fixture-based.
+- [x] Domain layer (`src/domain/`, pure TS): lot, interest, farm, goal, quality (15 issue kinds), events, investors, treasury, oracle, trophies (25), realm — plus the Phase 2 modules debt, oxygen, liberation, campaigns, streaks, futures, narrative, story, visits, and the pipeline layer (`pipeline.ts`).
+- [x] 162 unit tests, 30 + 24 of them fixture-based.
 - [x] Auth (`/login`), app shell with sidebar + mobile bottom nav, `RequireAuth`.
-- [x] All 10 routes: Throne Room, Realm map (SVG, hover tooltip, farm drawer), Quests ledger (filters, sort, totals), Sponsors, Treasury (chart + table), Oracle (sliders seeded from trailing averages), Chronicle (milestone celebrations), Trophies, Quality.
+- [x] All 11 routes: Throne Room, Realm map (SVG, hover tooltip, farm drawer), Quests ledger (filters, sort, totals), Sponsors, Treasury (chart + table), Oracle (sliders seeded from trailing averages), Chronicle (milestone celebrations), Trophies, Quality, Pipeline.
 - [x] v1 components rebuilt from their descriptions: `AnimatedCounter`, `ProgressRing`, `MilestoneCelebration`, `GrowthBurst`, `QuestTree`, `CinematicIntro`, `Trophies`.
 - [x] Playwright suite, desktop and 390px.
 - [x] README, `sql/proposed_views.sql`.
@@ -125,6 +126,26 @@ Playwright adds the Debt and Oxygen checks the goal asks for, plus campaigns, ho
 three futures, chronicle prose, rarity and streaks (47 tests, desktop + 390 px).
 
 Assumptions introduced by Phase 2 are OPEN_QUESTIONS #23–#31.
+
+## Pipeline layer — status (as of 2026-09-11, fixture numbers pinned in `epic_fixture.test.ts`)
+
+`src/domain/pipeline.ts` reads the same lots the goal reads and feeds nothing back: a test builds
+the same realm with and without reservations and asserts identical `netProfitToDate`,
+`closedLotsPerMonth`, `projectedDate`, oxygen and required-per-day. The reservations' net profit
+at stake uses the goal's own formula (`grossProfit − investorTake`), so the layer's pipeline total
+($2,222,188.97) equals `goal.netProfitInPipeline` to the cent.
+
+| # | Item | Where | Computed today |
+|---|---|---|---|
+| 1 | **Reservations / month** (leading indicator) | `PipelinePanel` on `/` | **7.1 / mo** (21 reservations in the trailing 90 days still waiting; 22 made in total) next to **4.4 closings / mo** |
+| 2 | **Conversion** | `/`, `/pipeline` | of 47 reservations made on or before 2026-06-13, **35 closed (74.5 %)**, 12 still waiting |
+| 3 | **Stuck pipeline** | counter on `/`, list on `/pipeline`, filter on `/quests?filter=stuck` | **16 reservations** waiting 60+ days · **$1,116,862.67 of net profit trapped** on $2,024,531 of sales · longest: Titus Lot 2 (Crystal Thompson, 132 days) · Avery 7 stuck ($616,838.59), Franklin 5 ($314,478.15), Wichita 3, Titus 1 |
+| 4 | **Median reservation → closing** | farm drawer on `/realm`, `/pipeline` | realm **63 days** over 35 closed lots · Lamar 41.5 · Eastland 63 · Wichita 63 · Freestone 70 · Titus 73 · Promised Valley 90 · Avery / Franklin / Franklin 2 none yet |
+| 5 | **Reserved ring** | lot tiles on `/realm` | reserved tiles are hollow with a ring in the reserved colour; stuck ones get a dashed amber ring; legend updated |
+
+Tests: `pipeline.test.ts` (9 synthetic, built from raw rows) + 7 fixture tests. Playwright: one
+test covering the Throne Room counter, the `/pipeline` list and the ledger filter; `/pipeline`
+joined the route smoke test. Assumptions: OPEN_QUESTIONS #32–#35.
 
 ## What I would do next
 
