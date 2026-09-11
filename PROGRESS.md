@@ -11,7 +11,7 @@
 | **Check** | `npm run verify:live -- <url>` (`scripts/verify-live.ts`): deep link `/pipeline` is not a 404, signs in as the viewer, asserts the Throne Room net-profit counter is a real dollar amount > 0 and reads the trapped-profit counter and the verdict, then picks each of the three themes on `/login`, asserts `html[data-theme]` + `localStorage` and that the choice survives a reload, and saves `docs/live-<theme>.jpg`. Run against the local production build (`http://localhost:4173`) it reports net profit **$2,272,304**, trapped **$1,116,863**, "You need 8.31 lots/month; you are doing 4.4." and all three skins switching — the same run is the acceptance test for the live URL. |
 
 Branch `v2`. Snapshot of live Payments taken **2026-09-11 02:07 UTC** (`npm run snapshot`).
-Last full verification (build · lint · 310 unit tests · 232 Playwright tests): **2026-09-11**.
+Last full verification (build · lint · 310 unit tests · 233 Playwright tests): **2026-09-11**.
 
 Order of work, as requested: Phase 1 numbers verified → connection check → domain reproduces the
 verified numbers → **Phase 2: Epic** → **Pipeline layer** → **three visual themes + POLISH loops
@@ -498,6 +498,6 @@ against an all-time realm (`buildRealm(fixture, ASOF, { eraStart: null })`). `wa
 a freed farm funded before the era keeps its turn on record but out of the median; the land-cost
 trend drops a pre-era purchase; the synthetic realm's defaults with and without the era. e2e: one
 test walks the labels across the Throne Room, Oracle, War Plan and Trophies and checks the
-Seasonal button is disabled. Full run: 232 Playwright tests green.
+Seasonal button is disabled. Full run: 233 Playwright tests green (desktop + mobile + the device matrix).
 
 **Open questions** #72–#79 in `OPEN_QUESTIONS.md`.
