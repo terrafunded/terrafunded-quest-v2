@@ -28,6 +28,12 @@ describe("fixture: THE DEBT", () => {
     expect(realm.debt.ownCapitalOutstanding).toBe(800_000);
     // sponsor debt + own capital = the goal's capitalOutstanding over all subdivided farms
     expect(round2(realm.debt.capitalOwed + realm.debt.ownCapitalOutstanding)).toBe(realm.goal.capitalOutstanding);
+    // The Throne Room Key-figures Stat must render debt.capitalOwed (same figure the Rotation
+    // strip and the Debt use) — never goal.capitalOutstanding, which blends in the $800,000 of
+    // own capital and must not be labeled "owed to sponsors".
+    expect(realm.debt.capitalOwed).toBe(realm.rotation.capitalOutstanding);
+    expect(realm.goal.capitalOutstanding).not.toBe(realm.debt.capitalOwed);
+    expect(realm.goal.capitalOutstanding).toBe(4_945_355.48);
   });
 
   it("has 476 days left and needs $16,310.13 of net profit per day", () => {
@@ -845,6 +851,8 @@ describe("fixture: EXPECTED (reservations first-class)", () => {
   it("the deadline demands 8.44 closings/month, i.e. 11.25 reservations/month at 75 % conversion; the realm reserves 7.1 and closes 4.73", () => {
     expect(e.requiredClosingsPerMonth).toBe(8.44);
     expect(e.requiredClosingsPerMonth).toBe(realm.goal.requiredLotsPerMonthToHitDeadline);
+    // Same figure the Throne verdict speaks; the War Plan's required plan is a different model (8.5).
+    expect(realm.warPlan.required.closingsPerMonth).not.toBe(e.requiredClosingsPerMonth);
     expect(e.requiredReservationsPerMonth).toBe(11.25);
     expect(e.requiredReservationsPerMonth).toBe(round2(8.44 / 0.75));
     expect(e.reservationsTrailing).toBe(21);

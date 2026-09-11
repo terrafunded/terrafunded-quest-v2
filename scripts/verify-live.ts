@@ -114,7 +114,15 @@ async function main() {
   if (!(target > 0)) fail(`net-profit counter target is ${target}`);
   const verdict = (await page.getByTestId("verdict").textContent())?.trim() ?? "";
   const trapped = Number(await page.getByTestId("pipeline-trapped").getAttribute("data-target"));
+  const owed = Number(await page.getByTestId("key-capital-outstanding").getAttribute("data-value"));
+  const debtOwed = Number(await page.getByTestId("debt-capital-owed").getAttribute("data-target"));
+  const owedHint = (await page.getByTestId("key-capital-outstanding-hint").textContent())?.replace(/\s+/g, " ").trim() ?? "";
+  if (!(owed > 0) || Math.round(owed) !== debtOwed) fail(`Key figures Capital outstanding is ${owed}, Debt is ${debtOwed}`);
+  if (!owedHint.includes("Still owed to sponsors") || !owedHint.includes("own capital tied up")) {
+    fail(`Capital outstanding hint is "${owedHint}"`);
+  }
   console.log(`✓ Throne Room: net profit $${target.toLocaleString("en-US")} · trapped $${trapped.toLocaleString("en-US")} · "${verdict}"`);
+  console.log(`✓ Capital outstanding Stat: $${owed.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (= Debt) · ${owedHint}`);
 
   // 5. Every theme switches and persists (drawer skin picker when signed in; /login when not).
   for (const theme of THEMES) {

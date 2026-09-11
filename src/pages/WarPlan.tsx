@@ -345,7 +345,9 @@ export default function WarPlanPage() {
       <section aria-label="Verdict" className={cn("parchment-card mb-6 p-5", plan.feasible ? "border-gold/40" : "border-destructive/50")}>
         <div className="stat-label">The verdict</div>
         <p className="mt-2 font-heading text-lg leading-snug sm:text-xl" data-testid="warplan-verdict" data-feasible={plan.feasible}>
-          {plan.verdict}
+          {plan.verdict.includes("lots/month")
+            ? plan.verdict.replace("lots/month", "lots/month per the War Plan's real deal terms")
+            : plan.verdict}
         </p>
         <p className="mt-3 text-sm text-muted-foreground">
           Measured on {MODE_LABEL[inputs.targetMode]}. {number(plan.monthsToDeadline)} months to {date(plan.goal.deadline)}, {number(plan.startInventory)} lots in inventory today (available + reserved). A new farm needs {plan.landLag} {plan.landLag === 1 ? "month" : "months"} to its first closing and {plan.closeLag} more to close a reservation
@@ -782,6 +784,9 @@ function ColumnCard({ c, plan, modeShort, selected, onSelect }: { c: WarPlanColu
         <dt className="text-muted-foreground">Lots / month</dt>
         <dd className="text-right tabular" data-testid="warplan-column-pace">
           {number(c.closingsPerMonth)}
+          {(c.id === "required_plan" || c.id === "required_plus_buffer") && (
+            <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">per the War Plan's real deal terms</span>
+          )}
         </dd>
         <dt className="text-muted-foreground">Farms to buy</dt>
         <dd className="text-right tabular" data-testid="warplan-column-farms">

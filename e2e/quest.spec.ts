@@ -49,6 +49,23 @@ test.describe("Throne Room", () => {
     expect(errors).toEqual([]);
   });
 
+  test("Key figures Capital outstanding equals Debt/Rotation sponsor-owed and discloses own capital", async ({ page }) => {
+    await page.goto("/");
+    await waitForRealm(page);
+    const stat = page.getByTestId("key-capital-outstanding");
+    const debt = page.getByTestId("debt-capital-owed");
+    const rotation = page.getByTestId("rotation-outstanding");
+    await expect(stat).toBeVisible();
+    const owed = Number(await stat.getAttribute("data-value"));
+    const debtOwed = Number(await debt.getAttribute("data-target"));
+    expect(Math.round(owed)).toBe(debtOwed);
+    expect(owed).toBeGreaterThan(0);
+    // Same dollars the Rotation strip shows (whole-dollar label) — never the blended goal figure.
+    await expect(stat).toHaveText((await rotation.textContent()) ?? "");
+    await expect(page.getByTestId("key-capital-outstanding-hint")).toContainText("Still owed to sponsors");
+    await expect(page.getByTestId("key-own-capital")).toHaveText(/^\s*· \+ \$[\d,]+ own capital tied up$/);
+  });
+
   test("the Debt counter shows capital owed, days left and a required net profit per day, all > 0", async ({ page }) => {
     await page.goto("/");
     await waitForRealm(page);
@@ -115,7 +132,7 @@ test.describe("Throne Room", () => {
     const committedValue = Number(await counter.getAttribute("data-value"));
     // Committed is what is at stake weighted by the conversion: never more than the stake, never the realized figure.
     const when = page.getByTestId("committed-when");
-    await expect(when).toContainText(/\$[\d,]+ at stake × \d+% conversion/);
+    await expect(when).toContainText(/\$[\d,]+ at stake × \d+% conversion = this figure/);
     const atStake = Number(((await when.textContent()) ?? "").match(/\$([\d,]+) at stake/)?.[1]?.replace(/,/g, ""));
     expect(committedValue).toBeLessThanOrEqual(atStake);
     await expect(page.getByTestId("committed-lands-by")).toHaveText(/^[A-Z][a-z]{2} \d{4}$/);
@@ -124,15 +141,19 @@ test.describe("Throne Room", () => {
 
     // Two pace lines: reserving X/month, closing Y/month, need Z reservations/month.
     await expect(page.getByTestId("pace-line-reservations")).toHaveText(/^Reserving [\d.]+\/month, closing [\d.]+\/month · trailing \d+ days$/);
-    await expect(page.getByTestId("pace-line-required")).toHaveText(/^Need [\d.]+ reservations\/month · [\d.]+ closings\/month at \d+% conversion$/);
+    await expect(page.getByTestId("pace-line-required")).toHaveText(
+      /^Need [\d.]+ reservations\/month · [\d.]+ closings\/month at \d+% conversion from the ledger average$/,
+    );
     const reserving = Number(((await page.getByTestId("pace-line-reservations").textContent()) ?? "").match(/Reserving ([\d.]+)/)?.[1]);
     const closing = Number(((await page.getByTestId("pace-line-reservations").textContent()) ?? "").match(/closing ([\d.]+)/)?.[1]);
     const needRes = Number(((await page.getByTestId("pace-line-required").textContent()) ?? "").match(/Need ([\d.]+)/)?.[1]);
     const needClose = Number(((await page.getByTestId("pace-line-required").textContent()) ?? "").match(/· ([\d.]+) closings/)?.[1]);
     expect(reserving).toBeGreaterThanOrEqual(closing);
     expect(needRes).toBeGreaterThanOrEqual(needClose);
-    // The verdict still speaks in closings per month.
+    // The verdict still speaks in closings per month, and names the ledger-average model when it is a required pace.
+    const verdict = (await page.getByTestId("verdict").textContent()) ?? "";
     await expect(page.getByTestId("verdict")).toContainText(/lots\/month/);
+    if (verdict.startsWith("You need")) expect(verdict).toContain("from the ledger average");
 
     // This month: reservations, closings, and closings expected next month from reservations already made.
     const strip = page.getByTestId("this-month");
@@ -680,6 +701,7 @@ test.describe("Phase 2: Epic", () => {
       await expect(page.locator(`[data-future='${id}']`)).toBeVisible();
     }
     await expect(page.locator("[data-future='required_pace']").getByTestId("future-exit")).toHaveText(/(2026|2027)/);
+    await expect(page.locator("[data-future='required_pace']")).toContainText("replaying today's mix");
     // The current pace carries every live reservation as a scheduled closing; the comparison line carries none.
     const current = page.locator("[data-future='current_pace']");
     const scheduled = Number(await current.getAttribute("data-scheduled"));
@@ -703,6 +725,7 @@ test.describe("Phase 2: Epic", () => {
 
     const verdict = page.getByTestId("warplan-verdict");
     await expect(verdict).toBeVisible();
+    await expect(verdict).toContainText("per the War Plan's real deal terms");
     const before = (await verdict.textContent()) ?? "";
     expect(before).toMatch(/\$[\d.,]+[KM]?/);
     expect(before).toMatch(/\b\d+ farms?\b/);

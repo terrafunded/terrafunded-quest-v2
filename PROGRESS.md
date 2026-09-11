@@ -828,3 +828,22 @@ e-mail is visible in the bundle by design (an address, never the password); no a
 available, so the admin path is proven by unit tests and the refusals/acceptance by e2e + live, not by
 a real admin sign-in; the gate protects the app, RLS protects the data; fail closed on read errors;
 local-scope sign-out; one check per page load.
+
+## Labels — Capital outstanding and required-pace models (2026-09-11; copy only)
+
+Three labeling fixes; no domain math changed.
+
+1. **Throne Room Key figures "Capital outstanding"** now renders `debt.capitalOwed` (**$4,145,355.48**,
+   the same figure the Rotation strip and the Debt use) with hint *"Still owed to sponsors · + $800,000
+   own capital tied up"*. It previously showed `goal.capitalOutstanding` ($4,945,355.48, which includes
+   Terrafunded's $800,000 in Promised Valley) under "Still owed to sponsors" — two different values
+   both labeled as owed to sponsors. Unit test: `debt.capitalOwed === rotation.capitalOutstanding !==
+   goal.capitalOutstanding`; e2e and `verify:live` assert the Stat equals the Debt.
+2. **Required-pace figures** name their model in a few words: Throne verdict / required-pace line
+   *"from the ledger average"* (8.44 = `lotsStillNeeded ÷ months`); `/warplan` *"per the War Plan's
+   real deal terms"* (8.5); Oracle required-pace *"replaying today's mix"*. Why Throne is not tagged
+   War Plan: OPEN_QUESTIONS #104.
+3. **Committed sub-line** ends *"= this figure"* so "$X at stake × 75% conversion" cannot be read as
+   the big number being the at-stake amount.
+
+**Live (filled after the deploy below).**

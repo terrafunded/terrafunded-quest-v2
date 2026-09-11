@@ -226,7 +226,11 @@ function FutureCard({ f, index, onAdopt, cadenceSince }: { f: Future; index: num
           </>
         )}
       </div>
-      <p className="mt-3 flex-1 text-sm text-foreground/85">{f.premise}</p>
+      <p className="mt-3 flex-1 text-sm text-foreground/85">
+        {f.id === "required_pace" && f.premise.includes("lots/month")
+          ? f.premise.replace("lots/month", "lots/month replaying today's mix")
+          : f.premise}
+      </p>
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
         {f.scheduled.length > 0 && (
           <>
@@ -237,7 +241,10 @@ function FutureCard({ f, index, onAdopt, cadenceSince }: { f: Future; index: num
           </>
         )}
         <dt className="text-muted-foreground">{f.scheduled.length > 0 ? "Then lots / month" : "Lots / month"}</dt>
-        <dd className="text-right tabular">{f.params.lotsPerMonth}</dd>
+        <dd className="text-right tabular" data-testid="future-pace">
+          {f.params.lotsPerMonth}
+          {f.id === "required_pace" && <span className="mt-0.5 block text-[11px] text-muted-foreground">replaying today's mix</span>}
+        </dd>
         <dt className="text-muted-foreground">Farm every</dt>
         <dd className="text-right tabular" data-testid="future-cadence">
           {f.params.newFarmEveryMonths} mo{cadenceSince ? <span className="ml-1 text-[11px] text-muted-foreground">{cadenceSince}</span> : null}

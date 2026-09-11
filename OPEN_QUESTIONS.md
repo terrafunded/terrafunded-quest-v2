@@ -1082,3 +1082,18 @@ on `/login`, both tabs show the refusal and one logout may 403 harmlessly. The s
 check in its own context. Second lesson: where a sign-in lands depends on the deep link the browser
 came from (`state.from`, kept by Chromium across a same-URL `goto` of `/login`), so the script asserts
 "not `/login`" after signing in and then navigates to `/` explicitly for the Throne Room figures.
+
+## 104. Pace labels: the Throne's 8.44 is the ledger average, not the War Plan's 8.5
+
+The request treated the Throne verdict ("You need 8.44 lots/month") as the War Plan model (each new
+farm pays its own real deal terms) and the Oracle required pace as a replay of today's mix. The
+numbers do not match that pairing: `goal.requiredLotsPerMonthToHitDeadline` is `lotsStillNeeded ÷
+monthsToDeadline` at the historical average net profit per closed lot (8.44 on the 21:31 fixture;
+`expected.requiredClosingsPerMonth` is the same figure). The War Plan's required plan solves for
+the smallest pace under each new farm's real deal terms and lands at **8.5**. The Oracle
+`required_pace` future uses the Oracle's own net-profit-per-lot (`closingsOnly.result.lotsNeeded ÷
+whole months left`) — a replay of today's mix. Labeling the Throne 8.44 "per the War Plan's real
+deal terms" would have put two different numbers under the same model. Copy only, no math change:
+Throne verdict (when it is a "You need") and the required-pace line read **"from the ledger
+average"**; `/warplan` verdict and the required / +1-buffer "Lots / month" cells read **"per the
+War Plan's real deal terms"**; the Oracle required-pace card reads **"replaying today's mix"**.

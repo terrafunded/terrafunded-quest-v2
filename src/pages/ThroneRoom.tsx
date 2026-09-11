@@ -104,7 +104,7 @@ export function ThroneRoom() {
                 "no reservation is waiting to close"
               ) : (
                 <>
-                  {money(x.netProfitAtStake)} at stake × {pct(x.conversionPct, 0)} conversion
+                  {money(x.netProfitAtStake)} at stake × {pct(x.conversionPct, 0)} conversion = this figure
                   {x.landsBy && (
                     <>
                       {" "}
@@ -130,7 +130,9 @@ export function ThroneRoom() {
           </ProgressRing>
           <div className="space-y-3">
             <p className="font-heading text-lg leading-snug text-foreground sm:text-xl" data-testid="verdict">
-              {g.verdict}
+              {g.verdict.startsWith("You need")
+                ? g.verdict.replace("lots/month", "lots/month from the ledger average")
+                : g.verdict}
             </p>
             <div className="space-y-1 text-sm text-muted-foreground">
               <p data-testid="pace-line-reservations">
@@ -145,7 +147,7 @@ export function ThroneRoom() {
                 Need <strong className="text-foreground tabular">{x.requiredReservationsPerMonth === null ? "—" : number(x.requiredReservationsPerMonth)}</strong> reservations/month
                 <span className="text-xs">
                   {" "}
-                  · {x.requiredClosingsPerMonth === null ? "—" : number(x.requiredClosingsPerMonth)} closings/month at {pct(x.conversionPct, 0)} conversion
+                  · {x.requiredClosingsPerMonth === null ? "—" : number(x.requiredClosingsPerMonth)} closings/month at {pct(x.conversionPct, 0)} conversion from the ledger average
                 </span>
               </p>
             </div>
@@ -280,7 +282,27 @@ export function ThroneRoom() {
           hint={`${g.reservedLots} reserved lots, if every one closes as priced · ${money(x.committedNetProfit)} committed at ${pct(x.conversionPct, 0)} · ${money(realm.pipeline.netProfitTrapped)} stuck`}
           valueClassName="text-stage-reserved"
         />
-        <Stat label="Capital outstanding" value={money(g.capitalOutstanding)} hint="Still owed to sponsors" valueClassName="text-sponsor" />
+        <Stat
+          label="Capital outstanding"
+          value={
+            <span data-testid="key-capital-outstanding" data-value={realm.debt.capitalOwed}>
+              {money(realm.debt.capitalOwed)}
+            </span>
+          }
+          hint={
+            <span data-testid="key-capital-outstanding-hint">
+              Still owed to sponsors
+              {realm.debt.ownCapitalOutstanding > 0 ? (
+                <span data-testid="key-own-capital">
+                  {" · + "}
+                  {money(realm.debt.ownCapitalOutstanding)} own capital tied up
+                </span>
+              ) : null}
+            </span>
+          }
+          valueClassName="text-sponsor"
+          data-testid="key-capital-outstanding-stat"
+        />
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
