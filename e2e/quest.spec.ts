@@ -1,7 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
-/** Ledger contract-price total verified in GOAL.md; tolerance documented in PROGRESS.md. */
-const VERIFIED_LEDGER_TOTAL = "$8,986,794.30";
+/**
+ * Ledger contract-price total: $8,986,794.30 in GOAL.md until Payments re-priced Titus Lot 6's file case from $141,802 to its
+ * note's $140,000 on 2026-09-11 (21:17Z); drift documented in PROGRESS.md.
+ */
+const VERIFIED_LEDGER_TOTAL = "$8,984,992.30";
 
 const ROUTES = ["/", "/warplan", "/exodus", "/realm", "/quests", "/pipeline", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"] as const;
 
@@ -232,11 +235,12 @@ test.describe("Every route renders without console errors", () => {
 });
 
 test.describe("Page specifics", () => {
-  test("realm map draws one territory per farm and 109 lot tiles", async ({ page }) => {
+  test("realm map draws one territory per farm and 121 lot tiles", async ({ page }) => {
     await page.goto("/realm");
     await waitForRealm(page);
-    await expect(page.getByTestId("territory")).toHaveCount(9);
-    await expect(page.getByTestId("lot-tile")).toHaveCount(109);
+    // 9 farms / 109 lots until Lakeview (12 lots) was added to Payments on 2026-09-11 21:15Z
+    await expect(page.getByTestId("territory")).toHaveCount(10);
+    await expect(page.getByTestId("lot-tile")).toHaveCount(121);
   });
 
   test("quality groups the documented disagreements one card per lot, in Spanish by default", async ({ page }) => {
@@ -244,11 +248,13 @@ test.describe("Page specifics", () => {
     await waitForRealm(page);
     await expect(page.getByTestId("quality-page")).toHaveAttribute("data-lang", "es");
     await expect(page.getByRole("heading", { level: 1, name: "Calidad de datos" })).toBeVisible();
-    for (const lot of ["Titus — Lot 6", "Lamar — Lot 5", "Lamar — Lot 6", "Lamar — Lot 7", "Eastland — Lot 3"]) {
+    // Titus Lot 6 left the list on 2026-09-11 when its file case was corrected to the note's $140,000
+    for (const lot of ["Lamar — Lot 5", "Lamar — Lot 6", "Lamar — Lot 7", "Eastland — Lot 3"]) {
       const card = page.locator(`[data-testid='quality-card'][data-lot='${lot}']`);
       await expect(card).toHaveCount(1);
       await expect(card.locator("[data-kind='price_mismatch']")).toHaveCount(1);
     }
+    await expect(page.locator("[data-testid='quality-card'][data-lot='Titus — Lot 6']")).toHaveCount(0);
     // Every price mismatch shows the two figures side by side and says which one Quest uses.
     const lamar5 = page.locator("[data-testid='quality-card'][data-lot='Lamar — Lot 5']").locator("[data-kind='price_mismatch']");
     await expect(lamar5.getByTestId("quality-values")).toHaveAttribute("data-line", /^Expediente: \$[\d,]+\.\d{2} \/ Nota: \$[\d,]+\.\d{2}$/);
@@ -308,10 +314,10 @@ test.describe("Data Quality for operations", () => {
     await expect(summary.getByTestId("quality-summary-lots")).toContainText(/y \d+ fincas/);
     const farms = Number((await summary.getByTestId("quality-summary-lots").innerText()).match(/y (\d+) fincas/)?.[1]);
     await expect(page.getByTestId("quality-card")).toHaveCount(lots + farms);
-    // The five price mismatches are still on file: $21,801.50 of net profit between file case and note.
-    await expect(summary.getByTestId("quality-summary-dollars")).toHaveAttribute("data-value", "21801.5");
-    await expect(summary.getByTestId("quality-summary-dollars")).toHaveText("$21,801.50");
-    await expect(summary).toContainText("suma de las diferencias en 5 lotes; Quest usa la nota");
+    // Four price mismatches remain on file (Titus Lot 6 was corrected on 2026-09-11): $19,999.50 of net profit between file case and note.
+    await expect(summary.getByTestId("quality-summary-dollars")).toHaveAttribute("data-value", "19999.5");
+    await expect(summary.getByTestId("quality-summary-dollars")).toHaveText("$19,999.50");
+    await expect(summary).toContainText("suma de las diferencias en 4 lotes; Quest usa la nota");
     await expect(summary.getByTestId("quality-summary-oldest")).toHaveText("Ben White");
     await expect(summary).toContainText(/\d+ días · desde el 30 jul 2024/);
     const benWhite = page.locator("[data-testid='quality-card'][data-lot='Ben White']");
@@ -344,9 +350,10 @@ test.describe("Data Quality for operations", () => {
     const everything = await lastCopied(page);
     expect(everything.split("\n")[0]).toMatch(/^\*Calidad de datos — \d{1,2} [a-z]{3} \d{4}\*$/);
     const lots = Number(await page.getByTestId("quality-summary-lots").getAttribute("data-value"));
-    expect(everything.split("\n")[1]).toBe(`${lots} lotes con problemas y 3 fincas · $21,801.50 de ganancia afectada por diferencias de precio`);
+    expect(everything.split("\n")[1]).toBe(`${lots} lotes con problemas y 3 fincas · $19,999.50 de ganancia afectada por diferencias de precio`);
     expect(everything.split("\n")[2]).toBe("");
-    for (const lot of ["Titus — Lot 6", "Lamar — Lot 5", "Lamar — Lot 6", "Lamar — Lot 7", "Eastland — Lot 3", "Ben White"]) expect(everything).toContain(`*${lot}*`);
+    for (const lot of ["Lamar — Lot 5", "Lamar — Lot 6", "Lamar — Lot 7", "Eastland — Lot 3", "Ben White"]) expect(everything).toContain(`*${lot}*`);
+    expect(everything).not.toContain("*Titus — Lot 6*");
   });
 
   test("Revisado and Nota persist in localStorage per lot and issue kind, and reviewed issues can be hidden", async ({ page }) => {
@@ -486,7 +493,7 @@ test.describe("Pipeline layer", () => {
 
     await page.goto("/pipeline");
     await waitForRealm(page);
-    await expect(page.getByTestId("pipeline-farm")).toHaveCount(9);
+    await expect(page.getByTestId("pipeline-farm")).toHaveCount(10);
     const rows = page.getByTestId("stuck-row");
     await expect(rows).toHaveCount(stuckCount);
     if (stuckCount > 0) {
@@ -508,7 +515,7 @@ test.describe("Phase 2: Epic", () => {
     await page.goto("/realm");
     await waitForRealm(page);
     const territories = page.getByTestId("territory");
-    await expect(territories).toHaveCount(9);
+    await expect(territories).toHaveCount(10);
     const states = await territories.evaluateAll((els) => els.map((el) => el.getAttribute("data-campaign")));
     for (const s of states) expect(["conquered", "under_siege", "closing_pending", "losing_ground"]).toContain(s);
     await territories.first().click();

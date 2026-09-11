@@ -580,6 +580,60 @@ months, note-sale lag 3.17 months, 33 live reservations, 16 stuck on $2,024,531 
 seasonality still "not enough history" (6 of 12 months). `OPEN_QUESTIONS.md` #50, #52, #59, #69,
 #72, #75 and #79 carry a "refreshed" note; the live site and the fixture now describe the same data.
 
+### Second refresh the same day (`npm run snapshot`, 21:31 UTC — Payments moved again at 21:15–21:17 UTC)
+
+While Exodus Step 4 was running, the live e2e suite failed on seven pinned live numbers (territory
+count, lot tiles, ledger total, quality cards, pipeline farms). A read-only diff of live Payments
+against the 19:42 fixture (scratch script, nothing written) found three edits made in Payments at
+**21:15–21:17 UTC**, after the 19:42 snapshot. The fixture was regenerated (21:31 UTC), the RPC
+ledgers re-fetched (still 49 lots on 6 fixed-interest farms, parity intact) and **every pinned
+expectation re-pinned; no old number was kept** — 41 unit tests broke (9 in `fixture.test.ts`, 1 in
+`lotLedger.test.ts`, 31 in `epic_fixture.test.ts`) plus 7 Playwright tests × 2 projects, and all
+343 / 251 pass again.
+
+| Raw change in Payments (21:15–21:17 UTC) | Detail |
+|---|---|
+| **New farm `Lakeview`** | Titus county, `deal_type = profit_share`, investor **Townson Family**, `investor_capital` **$495,000**, `closing_date` **2026-10-22**, `funding_date` null, `total_lots` 12 (127.8 acres); 12 `properties` rows "Lakeview — Lot 1…12" created 21:15:02 UTC, all available, no file case, note or cost yet. |
+| **`Franklin 2` corrected** | county "Franklin County (2/2)" → **Franklin**; `closing_date` 2026-10-15 → **2026-10-02**; `total_acres` 55 → 54; investor Kevin Concua → **Julio Arriola** (25 %); `investor_capital` 334,800 → **329,400**. Four of its lots were renamed "Franklin — Lot 7/8/9/10" → "Franklin 2 — Lot 7/8/9/10" (10.7 → 10.8 acres). |
+| **Titus Lot 6's file case now agrees with its note** | `sale_price` 141,802 → **140,000**, `down_payment` 7,090.10 → **5,000**, `monthly_payment` 1,300 → 1,302.78 — exactly TIT-L06's `original_amount` / `down_payment`. |
+| `properties.investor_id` filled on 112 lots; Franklin 2 Lot 11 `updated_at` touched | No pinned number reads either. |
+
+| Pinned number | 19:17 / 19:42 snapshot | 21:31 snapshot | Reason |
+|---|---|---|---|
+| Subdivided farms · lots · lots per farm · inventory to sell | 9 · 109 · 12.11 · 71 | **10 · 121 · 12.1 · 83** | Lakeview's 12 lots (available 38 → 50; 38 closed, 33 reserved unchanged) |
+| Σ `file_cases.sale_price` (ledger contract-price total) | $8,986,794.30 | **$8,984,992.30** | Titus Lot 6 −$1,802; the rule-based total, net profit to date ($2,236,378.34) and cash realized do not move because Quest already read Titus 6's price and down payment from the note |
+| Price mismatches · dollars · quality issues · lot cards | 5 · $21,801.50 · 26 · 15 | **4 · $19,999.50 · 24 · 14** | Titus Lot 6's price and down-payment mismatches are cleared; Lamar 5/6/7 and Eastland 3 remain |
+| profit_share farms · Townson % returned | Lamar, Wichita · 36.35 % | **Lakeview, Lamar, Wichita · 28.15 %** | $618,248.52 returned over $2,196,000 |
+| Hostage positions · Σ sponsor capital · % returned · capital owed | 8 · $4,274,004 · 14.47 % · $3,655,755.48 | **9 · $4,763,604 · 12.98 % · $4,145,355.48** | +$495,000 Lakeview − $5,400 Franklin 2 = +$489,600 (goal capital outstanding $4,945,355.48 with the $800,000 of own capital) |
+| Story card 1 · card 2 | "9 farms across 9 counties, cut into 109 lots." · "$4,274,004 lent … $3,655,755 still owed." | **"10 farms across 8 counties, cut into 121 lots." · "$4,763,604 lent … $4,145,355 still owed."** | Franklin 2 now shares Franklin's county and Lakeview sits in Titus's |
+| Campaigns | nine farms | **ten: Lakeview `under_siege`, 4 lots to cover $495,000** (realm average price, nothing recovered, no reservation) | new farm |
+| Farm cadence since Mar 2026 · all-time · required-pace cadence | 1.51 mo (5 farms, last 2026-10-15) · 1.72 (9) · 1.38 | **1.26 mo (6 farms: … 2026-10-02, 2026-10-22) · 1.56 (10) · 1.26** | Franklin 2 moved 13 days earlier and Lakeview was added; every Oracle premise now says "a new farm every 1.26 months"; the four exit dates do not move (land was never the constraint); one-more-farm start inventory 83.1 → 95.1 |
+| Pipeline net profit · November expected · Committed · provisional oxygen | $2,197,857.18 · $318,051.94 ($424,069.22 at stake) · $1,648,392.95 · 340 d | **$2,198,937.18 · $318,861.94 ($425,149.22) · $1,649,202.95 · 341 d** | Franklin 2's land cost per lot $66,960 → $65,880: its Lot 11 reservation carries $1,080 more at stake (+$810 at 75 %) and rounds up one provisional day |
+| Rotation grades | Franklin 2 −34 days | **Franklin 2 −21 days · Lakeview −41 days**, both unrated; capital outstanding $4,145,355.48 | closing dates 2026-10-02 / 2026-10-22 |
+| War Plan investor mix | Kevin 1,423,128 · Townson 1,701,000 · Julio 390,861 | **Kevin 1,088,328 · Townson 2,196,000 · Julio 720,261** (Rony 373,520, Motta 385,495 unchanged) | Franklin 2 left Kevin for Julio; Lakeview joined Townson |
+| Ledger: owed today | $4,311,591.96 | **$4,801,191.96** | +$489,600 capital; unpaid take $655,836.48 and cash kept $1,362,503.84 unchanged |
+| Required plan (profit mode) | 8.43 lots/mo · 131.79 lots · 7 farms · $3.3M (Kevin + Townson + Julio $155,512) · ads $28,100 · 11.24 res/mo · first month 5.34 · final $10,003,815.08 / inventory 9.21 | **8.5 · 132.88 · 5 farms · $2.3M (Kevin $1,088,328 + Townson $1,254,272) · $28,333.33 · 11.33 · 5.38 · $10,001,938.87 / 0.12** | 12 more lots in hand need two farms fewer; more of the mix is Townson's 50 % share, so the same $10M needs 1.1 more lots and a fraction more per month |
+| Rotation on the required plan | 1 turn · 4 of 7 incomplete · first turn by Feb 2027 · purchases months 6–11 | **1 turn · 3 of 5 incomplete · first turn by Apr 2027 · purchases months 8–11** | fewer, later farms; peak = total deployed $2,342,600 |
+| 2028-12-31 deadline | 4.35 lots/mo · 1.67 turns · peak $1,405,560 · recycled $937,040 · Kevin alone | **4.49 · 1.25 turns · peak $1,874,080 · recycled $468,520 · Kevin 1.43 turns + Townson $785,752** · first turn by Dec 2027 | the five farms are bought Dec 2027 – Jul 2028, so only the first comes back in time to fund one more |
+| Blended take · 12.1-lot farms · buffer column | 8.33 / 130.23 / 6 farms · 6 farms · 8 farms, inventory 19.21 | **8.35 / 130.54 / 5 · 5 · 6 farms, inventory 10.12 (Kevin $1,088,328 + Townson $1,722,792)** | as above |
+| Current pace column · all-time cadence column | exit 2029-01-09 · $6,619,557.99 at deadline · 10 farms (5 fresh) · too late months 14–15 · required 375 d earlier · all-time 2029-02-14 / 9 farms | **2029-02-11 · $6,588,034.98 · 13 farms (6 fresh, 7 recycled) · too late 14–16 · 408 d · 2029-02-24 / 10 farms** | a farm every 1.26 months buys more farms, more of them on Townson's share, so 4.73 closings/month net slightly less |
+| Cash mode | 254.56 lots · 20.15/mo · 19 farms · raise $8,433,360 · unfunded $4,159,356 · one farm on recycled capital, first turn by Sep 2026 | **259.36 · 20.53 · 18 farms · $8,433,360 · $3,669,756 · nothing recycled, first turn by Oct 2026** | $489,600 more to pay sponsors first (unfunded −$489,600); one farm fewer with 83 lots in hand |
+| Cash by 2027-03-31 (infeasible) | "even 12.9 lots/month … lands at $1.0M" | **"even 16.9 lots/month … lands at $1.8M"** · "from today's 83 lots" | inventory-bound ceiling rises with Lakeview |
+| Seasonal plan when forced | 8.41 lots/mo (May 25.93, Jan 2.53) | **8.49 (May 26.18, Jan 2.56)** | the flat 8.5 |
+| Exodus 30 % | cash to LPs $10,263,747.45 · back 2027-09-26 · releases $197,378.52 (Franklin 2 Sep 2026 ratio 2.06) · 250.67 notes sold ($23,636,632.86) · ads $848,538.93 · target met Dec 2026 · Sep 2026 pays $6,453.31 to LPs · 6.44 unsold lots / $341,957.13 partner balance | **$9,998,755.77 · 2027-10-05 · $203,192.36 (Franklin 2 ratio 2.10; 4.78 releases in Sep + 0.11 of an Avery lot in Oct, still 4.89) · 255.47 ($24,087,607.72) · $864,541.07 · Jan 2027 · $0 (all of September's cash buys releases) · 3.64 lots / $193,280.12** | the cash-mode War Plan underneath sells 259.36 lots over 18 farms and pays $489,600 more to sponsors; Franklin 2 accrues at 25 % on $329,400 |
+| Exodus package at 30 % | $3.0M · 27.89 notes · 9.31 % · 138.49 mo (9 free + 2 released today, 14 free + 2.89 released future) | **unchanged** | the same notes are delivered; only the cash side moved |
+| Exodus baseline (0 %) · versus | $12,667,312.84 · back 2027-10-13 · 254.56 lots; 3.25 lots not needed · 17 d earlier | **$12,401,779.56 · 2027-10-23 · 259.36; 0 lots not needed · 18 d (0.59 mo) earlier**; discount saved **$572,400 unchanged** | both plans now land in October 2027, after the War Plan's last closing (Sep 2027), so every lot is sold either way |
+| Exodus 60 % | $7,849,014.95 cash · back 2027-09-08 · 30.72 releases / $1,128,018.39 | **$7,569,060.67 · 2027-09-18 · 30.75 / $1,136,230.49** | as above; `maxNotesPct` still 60 (slider ceiling) |
+| War Plan ↔ Exodus bridge | start −$2,949,088.12 · partner payments −$401,339.92 · replay drift −$144.82 | **−$3,438,688.12 · −$1,136,076.03 · −$202.42** (tolerance $150 → $250) | more sponsor capital to clear; 16 rounded rows on $27M of receipts; the residual is still $0 |
+| Playwright live pins | 9 territories · 109 tiles · 9 pipeline farms · "$8,986,794.30" · Titus — Lot 6 card · $21,801.50 in 5 lotes | **10 · 121 · 10 · "$8,984,992.30" · no Titus — Lot 6 card · $19,999.50 in 4 lotes** | the live site shows the same data the fixture now holds |
+
+Unchanged and re-asserted: 71 file cases (37 completed / 34 active), 15 note sales / $1,356,405.86,
+32 distributions / $793,990.46, 24 property costs / $5,901,906, net profit to date $2,236,378.34,
+38 closed lots, 534 oxygen days, 4.73 closings and 7.1 reservations a month, 75 % conversion,
+16 stuck on $2,024,531, the 219.5-day cycle, $468,520 farm cost, "not enough history for
+seasonality", 49 ledger lots at parity, 9 free own-capital notes / $671,227.84, the 80.92 %
+note-sale ratio, Ben White as the oldest issue (773 days), Lamar at 98.14 %.
+
 ## Exodus — Step 1: the lot ledger (`src/domain/lotLedger.ts`, parity pinned in `lotLedger.test.ts`)
 
 `computeLotLedger(farmId, source, asOf)` is a pure port of Payments' `compute_lot_ledger(p_farm_id,

@@ -90,7 +90,7 @@ describe("lot ledger: parity with Payments' compute_lot_ledger RPC (fixture, 202
     const fixed = computeLotLedgers(fixture, ASOF);
     expect([...fixed.values()].map((l) => l.farmName)).toEqual(["Eastland", "Titus", "Freestone", "Avery", "Franklin", "Franklin 2"]);
     const profitShare = computeLotLedgers(fixture, ASOF, "profit_share");
-    expect([...profitShare.values()].map((l) => l.farmName)).toEqual(["Lamar", "Wichita"]);
+    expect([...profitShare.values()].map((l) => l.farmName)).toEqual(["Lamar", "Wichita", "Lakeview"]);
     const all = computeLotLedgers(fixture, ASOF, null);
     expect(all.size).toBe(fixture.farmAcquisitions.length);
   });

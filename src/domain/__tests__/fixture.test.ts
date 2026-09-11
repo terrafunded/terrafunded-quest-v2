@@ -19,13 +19,13 @@ const realm = buildRealm(fixture, ASOF);
 const money = (n: number) => round2(n);
 
 describe("fixture: subdivided farms and lots", () => {
-  it("has exactly 9 subdivided farms", () => {
+  it("has exactly 10 subdivided farms (Lakeview was added to Payments on 2026-09-11 at 21:15Z)", () => {
     expect(realm.farms.map((f) => f.name).sort()).toEqual(
-      ["Avery", "Eastland", "Franklin", "Franklin 2", "Freestone", "Lamar", "Promised Valley", "Titus", "Wichita"].sort(),
+      ["Avery", "Eastland", "Franklin", "Franklin 2", "Freestone", "Lakeview", "Lamar", "Promised Valley", "Titus", "Wichita"].sort(),
     );
   });
 
-  it("matches the per-farm lot counts from GOAL.md (sums to 109)", () => {
+  it("matches the per-farm lot counts from GOAL.md plus Lakeview's 12 (sums to 121)", () => {
     const counts = Object.fromEntries(realm.farms.map((f) => [f.name, f.lotRows]));
     expect(counts).toEqual({
       Eastland: 11,
@@ -37,8 +37,9 @@ describe("fixture: subdivided farms and lots", () => {
       Freestone: 7,
       Titus: 6,
       "Promised Valley": 19,
+      Lakeview: 12,
     });
-    expect(realm.lots).toHaveLength(109);
+    expect(realm.lots).toHaveLength(121);
   });
 
   it("every farm's property rows equal its total_lots", () => {
@@ -57,9 +58,9 @@ describe("fixture: file cases on subdivided lots", () => {
   const lotIds = new Set(realm.lots.map((l) => l.propertyId));
   const onLots = fixture.fileCases.filter((c) => c.property_id && lotIds.has(c.property_id));
 
-  it("counts 71 file cases with Σ sale_price = $8,986,794.30", () => {
+  it("counts 71 file cases with Σ sale_price = $8,984,992.30 (Titus Lot 6 re-priced from $141,802 to $140,000 on 2026-09-11)", () => {
     expect(onLots).toHaveLength(71);
-    expect(money(sum(onLots.map((c) => c.sale_price)))).toBe(8_986_794.3);
+    expect(money(sum(onLots.map((c) => c.sale_price)))).toBe(8_984_992.3);
   });
 
   it("splits 37 completed / 34 active and 7 cash / 64 financed (Lamar 5, 6, 7 and Eastland 4, 8 completed on 2026-09-11)", () => {
@@ -69,17 +70,17 @@ describe("fixture: file cases on subdivided lots", () => {
     expect(onLots.filter((c) => c.deal_type === "financed")).toHaveLength(64);
   });
 
-  it("ledger contract-price total reproduces $8,986,794.30 from the lots", () => {
-    expect(money(sum(realm.lots.map((l) => l.fileCaseSalePrice)))).toBe(8_986_794.3);
+  it("ledger contract-price total reproduces $8,984,992.30 from the lots", () => {
+    expect(money(sum(realm.lots.map((l) => l.fileCaseSalePrice)))).toBe(8_984_992.3);
     expect(realm.lots.filter((l) => l.fileCaseId)).toHaveLength(71);
   });
 
-  it("rule-based sale price differs from contract price only by the documented mismatches", () => {
+  it("rule-based sale price differs from contract price only by the four documented mismatches (Titus Lot 6 now agrees with its note)", () => {
     const ruleTotal = money(sum(realm.lots.map((l) => l.salePrice)));
     const mismatched = realm.lots.filter((l) => l.noteOriginalAmount !== null && l.fileCaseSalePrice !== null && l.noteOriginalAmount !== l.fileCaseSalePrice);
-    expect(mismatched.map((l) => l.name).sort()).toEqual(["Eastland — Lot 3", "Lamar — Lot 5", "Lamar — Lot 6", "Lamar — Lot 7", "Titus — Lot 6"]);
+    expect(mismatched.map((l) => l.name).sort()).toEqual(["Eastland — Lot 3", "Lamar — Lot 5", "Lamar — Lot 6", "Lamar — Lot 7"]);
     const delta = money(sum(mismatched.map((l) => (l.fileCaseSalePrice ?? 0) - (l.noteOriginalAmount ?? 0))));
-    expect(money(ruleTotal + delta)).toBe(8_986_794.3);
+    expect(money(ruleTotal + delta)).toBe(8_984_992.3);
   });
 });
 
@@ -122,9 +123,9 @@ describe("fixture: notes, note sales, distributions, costs", () => {
 });
 
 describe("fixture: investors", () => {
-  it("Townson Family is the only profit_share investor, on Wichita and Lamar", () => {
+  it("Townson Family is the only profit_share investor, on Wichita, Lamar and the new Lakeview", () => {
     const ps = realm.farms.filter((f) => f.dealType === "profit_share");
-    expect(ps.map((f) => f.name).sort()).toEqual(["Lamar", "Wichita"]);
+    expect(ps.map((f) => f.name).sort()).toEqual(["Lakeview", "Lamar", "Wichita"]);
     expect(new Set(ps.map((f) => f.investorName))).toEqual(new Set(["Townson Family"]));
     const psInvestors = realm.investors.filter((i) => i.farms.some((f) => f.dealType === "profit_share"));
     expect(psInvestors.map((i) => i.name)).toEqual(["Townson Family"]);
@@ -165,8 +166,11 @@ describe("fixture: investors", () => {
 describe("fixture: data quality", () => {
   const lotNames = (kind: string) => realm.quality.filter((q) => q.kind === kind).map((q) => q.lotName);
 
-  it("lists Titus Lot 6, Lamar Lots 5/6/7 and Eastland Lot 3 as price mismatches", () => {
-    expect(lotNames("price_mismatch").sort()).toEqual(["Eastland — Lot 3", "Lamar — Lot 5", "Lamar — Lot 6", "Lamar — Lot 7", "Titus — Lot 6"]);
+  it("lists Lamar Lots 5/6/7 and Eastland Lot 3 as price mismatches (Titus Lot 6 was corrected to $140,000 on 2026-09-11)", () => {
+    expect(lotNames("price_mismatch").sort()).toEqual(["Eastland — Lot 3", "Lamar — Lot 5", "Lamar — Lot 6", "Lamar — Lot 7"]);
+    const titus6 = realm.lots.find((l) => l.name === "Titus — Lot 6");
+    expect(titus6?.fileCaseSalePrice).toBe(140_000);
+    expect(titus6?.noteOriginalAmount).toBe(140_000);
   });
 
   it("no reservation follows its note start any more: Lamar Lot 5's reservation_date was corrected to 2025-09-07 on 2026-09-11", () => {
@@ -192,20 +196,21 @@ describe("fixture: data quality", () => {
     expect(realm.quality.filter((q) => q.kind === "sold_note_without_sale")).toHaveLength(0);
   });
 
-  it("groups the 26 issues into 15 lot cards and 3 farm cards, $21,801.50 of profit moved by price mismatches, oldest Ben White's blank capital", () => {
+  it("groups the 24 issues into 14 lot cards and 3 farm cards, $19,999.50 of profit moved by price mismatches, oldest Ben White's blank capital", () => {
     const cards = groupIssuesByLot(realm.quality, "es");
     const summary = summarizeQuality(cards, ASOF.toISOString());
     // 33 before 2026-09-11: the six file cases that moved to completed with closing dates cleared five active_file_case_with_note
-    // (Lamar 5, 6, 7; Eastland 4, 8) and Eastland Lot 6's completed_without_closing_date; Lamar Lot 5's corrected reservation cleared reservation_after_note_start
-    expect(realm.quality).toHaveLength(26);
-    expect(summary.issues).toBe(26);
-    expect(summary.lotsWithIssues).toBe(15);
+    // (Lamar 5, 6, 7; Eastland 4, 8) and Eastland Lot 6's completed_without_closing_date; Lamar Lot 5's corrected reservation cleared reservation_after_note_start.
+    // 26 → 24 at 21:17Z the same day: Titus Lot 6's file case now matches its note ($140,000 / $5,000 down), clearing its price and down-payment mismatches.
+    expect(realm.quality).toHaveLength(24);
+    expect(summary.issues).toBe(24);
+    expect(summary.lotsWithIssues).toBe(14);
     expect(summary.farmsWithIssues).toBe(3);
     expect(lotNames("active_file_case_with_note")).toEqual(["Promised Valley — Lot 3"]);
     expect(lotNames("completed_without_closing_date")).toEqual(["Eastland — Lot 2"]);
     expect(cards.filter((c) => c.isFarm).map((c) => c.title).sort()).toEqual(["Ben White", "Red River 1", "Sharps Rd"]);
-    expect(summary.priceMismatches).toBe(5);
-    expect(summary.priceMismatchDollars).toBe(21_801.5);
+    expect(summary.priceMismatches).toBe(4);
+    expect(summary.priceMismatchDollars).toBe(19_999.5);
     expect(summary.oldest?.card.title).toBe("Ben White");
     expect(summary.oldest?.issue.kind).toBe("farm_capital_null");
     expect(summary.oldest?.since).toBe("2024-07-30");
@@ -219,9 +224,10 @@ describe("fixture: data quality", () => {
 });
 
 describe("fixture: goal and rollups reconcile", () => {
-  it("stage counts add up to 109 and sold lots equal closed + note_sold", () => {
+  it("stage counts add up to 121 (Lakeview's 12 lots are all available) and sold lots equal closed + note_sold", () => {
     const g = realm.goal;
-    expect(g.availableLots + g.reservedLots + g.closedLots).toBe(109);
+    expect(g.availableLots + g.reservedLots + g.closedLots).toBe(121);
+    expect(realm.farms.find((f) => f.name === "Lakeview")?.stages).toEqual({ available: 12, reserved: 0, closed: 0, note_sold: 0 });
     expect(realm.lots.filter((l) => l.stage === "note_sold")).toHaveLength(g.noteSoldLots);
     expect(g.noteSoldLots).toBe(14);
   });
