@@ -1,14 +1,47 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Crown, Percent, Scale } from "lucide-react";
+import { Crown, Percent, Scale, Sparkles } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
-import type { InvestorSummary } from "@/domain";
+import type { InvestorSummary, RealmEvent } from "@/domain";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Celebration } from "@/components/realm/Celebration";
+import { LiberationBoard } from "@/components/realm/Liberation";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { DEAL_LABEL, date, money, moneyExact, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+const SEEN_KEY = "quest.liberations.seen";
+
 export default function Sponsors() {
   const { data, isLoading, error, refetch } = useRealm();
+  const [fanfare, setFanfare] = useState<RealmEvent[] | null>(null);
+  const events = data?.realm.events;
+  const liberationEvents = useMemo(() => events?.filter((e) => e.kind === "liberation" && !e.future), [events]);
+  const checked = useRef(false);
+
+  // Full-screen liberation the first time this browser sees a freed position.
+  useEffect(() => {
+    if (!liberationEvents || liberationEvents.length === 0 || checked.current) return;
+    checked.current = true;
+    let seen: string[] = [];
+    try {
+      const raw = localStorage.getItem(SEEN_KEY);
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      seen = Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      seen = [];
+    }
+    const fresh = liberationEvents.filter((e) => !seen.includes(e.id));
+    if (fresh.length === 0) return;
+    try {
+      localStorage.setItem(SEEN_KEY, JSON.stringify([...seen, ...fresh.map((e) => e.id)]));
+    } catch {
+      // ignore
+    }
+    setFanfare(fresh);
+  }, [liberationEvents]);
+
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
   if (!data) return null;
@@ -18,8 +51,18 @@ export default function Sponsors() {
 
   return (
     <div>
-      <PageHeader title="Sponsors" subtitle="Who funded which farm, on what terms, and what they have been paid. Profit-share and fixed-interest are never blended." />
+      <PageHeader title="Sponsors" subtitle="Who funded which farm, on what terms, and what they have been paid. Profit-share and fixed-interest are never blended. Every position is a hostage until its capital comes home.">
+        {liberationEvents && liberationEvents.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => setFanfare(liberationEvents)}>
+            <Sparkles /> Replay liberation
+          </Button>
+        )}
+      </PageHeader>
       <TableErrorsBanner errors={data.tableErrors} />
+      <div className="mb-6">
+        <LiberationBoard liberation={data.realm.liberation} />
+      </div>
+      {fanfare && <Celebration events={fanfare} narrative={data.realm.narrative} onDone={() => setFanfare(null)} />}
       {funded.length === 0 ? (
         <EmptyState title="No sponsors" body="No investor is attached to a subdivided farm." />
       ) : (

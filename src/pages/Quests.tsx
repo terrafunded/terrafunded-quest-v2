@@ -22,6 +22,7 @@ type SortKey =
   | "netProfit"
   | "cashRealized"
   | "daysInPipeline"
+  | "daysGained"
   | "reservationDate";
 
 const STAGE_ORDER: Record<LotStage, number> = { available: 0, reserved: 1, closed: 2, note_sold: 3 };
@@ -38,9 +39,13 @@ const COLUMNS: { key: SortKey; label: string; numeric?: boolean; className?: str
   { key: "netProfit", label: "Net", numeric: true },
   { key: "cashRealized", label: "Cash realized", numeric: true },
   { key: "daysInPipeline", label: "Days", numeric: true },
+  { key: "daysGained", label: "Oxygen", numeric: true },
 ];
 
-function compare(a: Lot, b: Lot, key: SortKey): number {
+/** A ledger row: the lot plus its oxygen score (days gained toward the exit). */
+type Row = Lot & { daysGained: number | null };
+
+function compare(a: Row, b: Row, key: SortKey): number {
   if (key === "stage") return STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage];
   const va = a[key];
   const vb = b[key];
@@ -50,7 +55,7 @@ function compare(a: Lot, b: Lot, key: SortKey): number {
   return String(va).localeCompare(String(vb));
 }
 
-const sumOf = (lots: Lot[], key: keyof Lot) => lots.reduce((s, l) => s + ((l[key] as number | null) ?? 0), 0);
+const sumOf = (lots: Row[], key: keyof Row) => lots.reduce((s, l) => s + ((l[key] as number | null) ?? 0), 0);
 
 export default function Quests() {
   const { data, isLoading, error, refetch } = useRealm();
@@ -60,7 +65,8 @@ export default function Quests() {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "reservationDate", dir: "desc" });
 
   const realmLots = data?.realm.lots;
-  const lots = useMemo(() => realmLots ?? [], [realmLots]);
+  const oxygen = data?.realm.oxygen;
+  const lots = useMemo<Row[]>(() => (realmLots ?? []).map((l) => ({ ...l, daysGained: oxygen?.perLot.get(l.propertyId)?.daysGained ?? null })), [realmLots, oxygen]);
   const farms = useMemo(() => [...new Set(lots.map((l) => l.farmName))].sort(), [lots]);
   const investors = useMemo(() => [...new Set(lots.map((l) => l.investorName).filter((n): n is string => !!n))].sort(), [lots]);
 
@@ -94,11 +100,12 @@ export default function Quests() {
     take: sumOf(filtered.filter((l) => l.stage === "closed" || l.stage === "note_sold"), "investorTake"),
     net: sumOf(filtered, "netProfit"),
     cash: sumOf(filtered, "cashRealized"),
+    oxygen: sumOf(filtered, "daysGained"),
   };
 
   return (
     <div>
-      <PageHeader title="Quests" subtitle="Every lot sale, straight from file cases and notes. Contract price is the file-case figure; sale price follows the note when one exists.">
+      <PageHeader title="Quests" subtitle="Every lot sale, straight from file cases and notes. Contract price is the file-case figure; sale price follows the note when one exists. Oxygen is the days each closing moved the exit date.">
         <Select value={farm} onChange={(e) => setFarm(e.target.value)} aria-label="Filter by farm" className="w-40">
           <option value="all">All farms</option>
           {farms.map((f) => (
@@ -132,7 +139,7 @@ export default function Quests() {
         <EmptyState title="No quests match" body="Loosen the filters to see lots." />
       ) : (
         <div className="parchment-card overflow-hidden">
-          <Table className="min-w-[1280px]" data-testid="ledger-table">
+          <Table className="min-w-[1360px]" data-testid="ledger-table">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {COLUMNS.map((c) => (
@@ -174,6 +181,9 @@ export default function Quests() {
                   <TableCell className={cn("text-right tabular font-medium", (l.netProfit ?? 0) < 0 && "text-red-300")}>{moneyExact(l.netProfit)}</TableCell>
                   <TableCell className="text-right tabular text-stage-closed">{moneyExact(l.cashRealized)}</TableCell>
                   <TableCell className="text-right tabular">{days(l.daysInPipeline)}</TableCell>
+                  <TableCell className={cn("text-right tabular", l.daysGained !== null && l.daysGained > 0 && "text-sky-200")} data-testid="ledger-oxygen" data-value={l.daysGained ?? ""}>
+                    {l.daysGained === null ? "—" : `${l.daysGained > 0 ? "+" : ""}${l.daysGained}d`}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -198,6 +208,10 @@ export default function Quests() {
                   {moneyExact(totals.cash)}
                 </TableCell>
                 <TableCell />
+                <TableCell className="text-right tabular font-semibold text-sky-200" data-testid="ledger-total-oxygen" data-value={totals.oxygen}>
+                  {totals.oxygen > 0 ? "+" : ""}
+                  {totals.oxygen}d
+                </TableCell>
               </TableRow>
             </TableFooter>
           </Table>
