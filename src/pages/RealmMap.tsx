@@ -1,7 +1,7 @@
 import { useMemo, useState, type MouseEvent } from "react";
 import { motion } from "framer-motion";
 import { useRealm } from "@/data/useRealm";
-import type { FarmEconomics, Lot, LotStage } from "@/domain";
+import type { Campaign, CampaignState, FarmEconomics, Lot, LotStage } from "@/domain";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { StageBadge } from "@/components/realm/StageBadge";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
@@ -11,11 +11,17 @@ import { cn } from "@/lib/utils";
 const TILE = 26;
 const GAP = 6;
 const PAD = 16;
-const TITLE_H = 46;
+const TITLE_H = 56;
 const MIN_W = 190;
 const MAP_W = 1000;
 
 const DEAL_SHORT: Record<string, string> = { fixed_interest: "Fixed", profit_share: "Share", own_capital: "Own" };
+
+const CAMPAIGN_META: Record<CampaignState, { label: string; stroke: string; text: string; badge: string }> = {
+  conquered: { label: "Conquered", stroke: "hsl(152 55% 50%)", text: "text-stage-closed", badge: "bg-stage-closed/15 text-stage-closed border-stage-closed/40" },
+  under_siege: { label: "Under siege", stroke: "hsl(var(--gold))", text: "text-gold", badge: "bg-gold/15 text-gold border-gold/40" },
+  losing_ground: { label: "Losing ground", stroke: "hsl(0 70% 60%)", text: "text-red-300", badge: "bg-red-500/15 text-red-300 border-red-500/40" },
+};
 
 const STAGE_FILL: Record<LotStage, string> = {
   available: "hsl(var(--stage-available))",
@@ -81,6 +87,7 @@ export default function RealmMap() {
   const [openFarm, setOpenFarm] = useState<FarmEconomics | null>(null);
 
   const layout = useMemo(() => (data ? layoutTerritories(data.realm.farms) : null), [data]);
+  const campaignByFarm = data?.realm.campaignByFarm;
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
@@ -91,12 +98,18 @@ export default function RealmMap() {
 
   return (
     <div>
-      <PageHeader title="The Realm" subtitle="One territory per farm, sized by lots and tinted by how much has closed. Hover a lot for its economics; click a territory for the farm.">
+      <PageHeader title="The Realm" subtitle="One territory per farm, sized by lots and tinted by how much has closed. Each farm fights its own campaign: sell enough lots to cover its capital and accrued interest. Hover a lot for its economics; click a territory for the farm.">
         <ul className="flex flex-wrap gap-3 text-xs text-muted-foreground" aria-label="Legend">
           {(Object.keys(STAGE_FILL) as LotStage[]).map((s) => (
             <li key={s} className="inline-flex items-center gap-1.5">
               <span className="inline-block h-3 w-3 rounded-sm" style={{ background: STAGE_FILL[s] }} />
               {STAGE_LABEL[s]}
+            </li>
+          ))}
+          {(Object.keys(CAMPAIGN_META) as CampaignState[]).map((c) => (
+            <li key={c} className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-full border-2" style={{ borderColor: CAMPAIGN_META[c].stroke }} />
+              {CAMPAIGN_META[c].label}
             </li>
           ))}
         </ul>
@@ -121,7 +134,10 @@ export default function RealmMap() {
               </feMerge>
             </filter>
           </defs>
-          {layout.territories.map((t, i) => (
+          {layout.territories.map((t, i) => {
+            const campaign = campaignByFarm?.get(t.farm.farmId);
+            const meta = campaign ? CAMPAIGN_META[campaign.state] : null;
+            return (
             <motion.g
               key={t.farm.farmId}
               initial={{ opacity: 0, scale: 0.96 }}
@@ -136,14 +152,22 @@ export default function RealmMap() {
                 height={t.h}
                 rx={22}
                 fill={territoryFill(t.farm.pctClosed)}
-                stroke="hsl(var(--gold) / 0.35)"
-                strokeWidth={1.2}
-                className="cursor-pointer transition-[stroke] hover:[stroke:hsl(var(--gold))]"
+                stroke={meta?.stroke ?? "hsl(var(--gold) / 0.35)"}
+                strokeWidth={campaign?.state === "losing_ground" ? 2 : 1.4}
+                strokeDasharray={campaign?.state === "losing_ground" ? "6 4" : undefined}
+                className="cursor-pointer transition-[stroke-width] hover:[stroke-width:3]"
                 onClick={() => setOpenFarm(t.farm)}
                 role="button"
-                aria-label={`${t.farm.name} territory`}
+                aria-label={`${t.farm.name} territory${meta ? `, ${meta.label}` : ""}`}
                 data-testid="territory"
+                data-campaign={campaign?.state}
               />
+              {campaign && meta && (
+                <text x={t.x + PAD} y={t.y + TITLE_H + 6} fontSize={9} fontWeight={600} className="pointer-events-none uppercase" style={{ fill: meta.stroke, letterSpacing: "0.08em" }}>
+                  {meta.label}
+                  {campaign.state !== "conquered" && campaign.lotsLeftToCover !== null ? ` · ${campaign.lotsLeftToCover} to cover` : ""}
+                </text>
+              )}
               <text x={t.x + PAD} y={t.y + 22} className="pointer-events-none fill-[hsl(var(--gold))] font-heading" fontSize={14} fontWeight={600}>
                 {t.farm.name}
               </text>
@@ -175,7 +199,8 @@ export default function RealmMap() {
                 />
               ))}
             </motion.g>
-          ))}
+            );
+          })}
         </svg>
       </div>
 
@@ -192,7 +217,7 @@ export default function RealmMap() {
       <Sheet open={!!openFarm} onOpenChange={(o) => !o && setOpenFarm(null)}>
         {openFarm && (
           <SheetContent title={openFarm.name} description={`${openFarm.county ?? ""} · ${DEAL_LABEL[openFarm.dealType ?? ""] ?? openFarm.dealType} · ${openFarm.investorName ?? "own capital"}`}>
-            <FarmDetail farm={openFarm} />
+            <FarmDetail farm={openFarm} campaign={campaignByFarm?.get(openFarm.farmId)} />
           </SheetContent>
         )}
       </Sheet>
@@ -228,7 +253,7 @@ export function LotEconomics({ lot }: { lot: Lot }) {
   );
 }
 
-export function FarmDetail({ farm }: { farm: FarmEconomics }) {
+export function FarmDetail({ farm, campaign }: { farm: FarmEconomics; campaign?: Campaign }) {
   const stat = (label: string, value: string, className?: string) => (
     <div className="rounded-md bg-muted/40 p-3">
       <div className="stat-label">{label}</div>
@@ -237,6 +262,7 @@ export function FarmDetail({ farm }: { farm: FarmEconomics }) {
   );
   return (
     <div className="space-y-5 text-sm">
+      {campaign && <CampaignPanel c={campaign} />}
       <div className="grid grid-cols-2 gap-2">
         {stat("Capital deployed", money(farm.capitalDeployed))}
         {stat("Land cost / lot", money(farm.landCostPerLot))}
@@ -273,5 +299,40 @@ export function FarmDetail({ farm }: { farm: FarmEconomics }) {
           ))}
       </ol>
     </div>
+  );
+}
+
+export function CampaignPanel({ c }: { c: Campaign }) {
+  const meta = CAMPAIGN_META[c.state];
+  return (
+    <section className={cn("rounded-lg border p-3", meta.badge)} aria-label="Campaign" data-testid="campaign" data-state={c.state}>
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="font-heading text-xs uppercase tracking-[0.2em]">Campaign · {meta.label}</div>
+        <div className="text-xs tabular">{pct(c.pctCovered, 0)} covered</div>
+      </div>
+      <div className="mt-1 text-xs text-foreground/80">{c.reason}</div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background/60">
+        <motion.div className="h-full rounded-full bg-current" initial={{ width: 0 }} animate={{ width: `${c.pctCovered}%` }} transition={{ duration: 1 }} />
+      </div>
+      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-foreground/90">
+        <dt className="text-muted-foreground">Goal (capital + interest)</dt>
+        <dd className="text-right tabular">{money(c.target)}</dd>
+        <dt className="text-muted-foreground">Sold so far</dt>
+        <dd className="text-right tabular">{money(c.recovered)}</dd>
+        <dt className="text-muted-foreground">Lots left to cover</dt>
+        <dd className="text-right tabular">
+          {c.lotsLeftToCover ?? "—"} of {c.lotsUnsold} unsold
+          {c.lotsShort > 0 ? ` (${c.lotsShort} short)` : ""}
+        </dd>
+        <dt className="text-muted-foreground">Last closing</dt>
+        <dd className="text-right tabular">{c.lastClosingDate ? `${date(c.lastClosingDate)} · ${c.daysSinceLastClosing}d ago` : "none yet"}</dd>
+        {c.interestAccruing && (
+          <>
+            <dt className="text-muted-foreground">Interest accrued</dt>
+            <dd className="text-right tabular">{money(c.accruedInterest)}</dd>
+          </>
+        )}
+      </dl>
+    </section>
   );
 }

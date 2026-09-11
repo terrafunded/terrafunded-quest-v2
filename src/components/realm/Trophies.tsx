@@ -11,6 +11,14 @@ const TIER_STYLE: Record<Trophy["tier"], { ring: string; icon: typeof Award; lab
   legendary: { ring: "from-fuchsia-500/40 to-accent/40 text-fuchsia-200", icon: Gem, label: "Legendary" },
 };
 
+/** Rarity tiers (Phase 2 §5): how hard a trophy is to earn. */
+const RARITY_STYLE: Record<Trophy["rarity"], { label: string; className: string }> = {
+  common: { label: "Common", className: "border-slate-500/40 text-slate-300" },
+  rare: { label: "Rare", className: "border-sky-400/40 text-sky-200" },
+  epic: { label: "Epic", className: "border-fuchsia-400/50 text-fuchsia-200" },
+  legendary: { label: "Legendary", className: "border-gold/60 text-gold" },
+};
+
 export function TrophyCard({ trophy, index = 0 }: { trophy: Trophy; index?: number }) {
   const style = TIER_STYLE[trophy.tier];
   const Icon = style.icon;
@@ -32,7 +40,9 @@ export function TrophyCard({ trophy, index = 0 }: { trophy: Trophy; index?: numb
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
           <h3 className={cn("font-heading text-base", trophy.earned ? "text-gold" : "text-foreground")}>{trophy.title}</h3>
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{style.label}</span>
+          <span className={cn("rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-widest", RARITY_STYLE[trophy.rarity].className)} data-rarity={trophy.rarity}>
+            {RARITY_STYLE[trophy.rarity].label}
+          </span>
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">{trophy.description}</p>
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">

@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from "recharts";
 import { RotateCcw } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
-import { runOracle, type OracleParams } from "@/domain";
+import { runOracle, type Future, type OracleParams } from "@/domain";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Stat } from "@/components/realm/Stat";
 import { ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { date, money, moneyCompact, number } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 interface SliderDef {
   key: keyof OracleParams;
@@ -54,13 +55,20 @@ export default function Oracle() {
 
   return (
     <div>
-      <PageHeader title="Oracle" subtitle="What if? Every slider starts at the real trailing average. Drag, and the goal date recomputes from today's net profit and inventory.">
+      <PageHeader title="Oracle" subtitle="Three futures from the real 90-day averages, then your own: every slider starts at the trailing average and the exit date recomputes from today's net profit and inventory.">
         <Button variant="outline" size="sm" onClick={() => setParams(defaults)}>
           <RotateCcw /> Reset to real averages
         </Button>
       </PageHeader>
       <TableErrorsBanner errors={data.tableErrors} />
 
+      <section className="mb-8 grid gap-3 lg:grid-cols-3" aria-label="Three futures" data-testid="futures">
+        {data.realm.futures.all.map((f, i) => (
+          <FutureCard key={f.id} f={f} index={i} onAdopt={() => setParams(f.params)} />
+        ))}
+      </section>
+
+      <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-gold">Your own future</h2>
       <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Goal reached"
@@ -136,5 +144,46 @@ export default function Oracle() {
         </div>
       </div>
     </div>
+  );
+}
+
+function FutureCard({ f, index, onAdopt }: { f: Future; index: number; onAdopt: () => void }) {
+  const tone = f.hitsDeadline ? "text-stage-closed" : f.exitDate ? "text-red-300" : "text-muted-foreground";
+  return (
+    <article
+      className={cn("parchment-card flex flex-col p-5", f.hitsDeadline && "border-stage-closed/40", index === 0 && "border-gold/30")}
+      data-testid="future"
+      data-future={f.id}
+    >
+      <div className="stat-label">{f.title}</div>
+      <div className={cn("mt-2 font-display text-2xl leading-none sm:text-3xl", tone)} data-testid="future-exit">
+        {f.exitDate ? date(f.exitDate) : "beyond 10 years"}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        {f.exitDate ? (f.hitsDeadline ? `before the ${date(f.result.deadline)} deadline` : `after the ${date(f.result.deadline)} deadline`) : "the goal is not reached within the horizon"}
+        {f.daysEarlierThanCurrent !== null && f.id !== "current_pace" && (
+          <>
+            {" · "}
+            <span className={f.daysEarlierThanCurrent > 0 ? "text-stage-closed" : f.daysEarlierThanCurrent < 0 ? "text-red-300" : ""}>
+              {f.daysEarlierThanCurrent > 0 ? `${number(f.daysEarlierThanCurrent)} days earlier` : f.daysEarlierThanCurrent < 0 ? `${number(-f.daysEarlierThanCurrent)} days later` : "same day"}
+            </span>
+          </>
+        )}
+      </div>
+      <p className="mt-3 flex-1 text-sm text-foreground/85">{f.premise}</p>
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <dt className="text-muted-foreground">Lots / month</dt>
+        <dd className="text-right tabular">{f.params.lotsPerMonth}</dd>
+        <dt className="text-muted-foreground">Farm every</dt>
+        <dd className="text-right tabular">{f.params.newFarmEveryMonths} mo</dd>
+        <dt className="text-muted-foreground">Inventory today</dt>
+        <dd className="text-right tabular">{number(f.startInventory)} lots</dd>
+        <dt className="text-muted-foreground">Net at deadline</dt>
+        <dd className="text-right tabular">{moneyCompact(f.result.netProfitAtDeadline)}</dd>
+      </dl>
+      <Button variant="outline" size="sm" className="mt-4 self-start" onClick={onAdopt}>
+        Load into the sliders
+      </Button>
+    </article>
   );
 }

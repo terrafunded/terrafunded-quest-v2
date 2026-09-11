@@ -18,7 +18,7 @@ const KIND_META: Record<EventKind, { label: string; dot: string }> = {
   liberation: { label: "Liberation", dot: "bg-emerald-300" },
 };
 
-const FILTERS: (EventKind | "all")[] = ["all", "closing", "reservation", "note_sale", "distribution", "farm_acquired"];
+const FILTERS: (EventKind | "all")[] = ["all", "closing", "reservation", "note_sale", "distribution", "liberation", "farm_acquired"];
 const PAGE = 60;
 
 export default function Chronicle() {
@@ -31,6 +31,7 @@ export default function Chronicle() {
     const filtered = filter === "all" ? all : all.filter((e) => e.kind === filter || e.kind === "milestone");
     return [...filtered].reverse();
   }, [data, filter]);
+  const narrative = data?.realm.narrative;
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
@@ -40,7 +41,7 @@ export default function Chronicle() {
 
   return (
     <div>
-      <PageHeader title="Chronicle" subtitle="Every real event, newest first, with the running net profit and a celebration each time it crosses another million.">
+      <PageHeader title="Chronicle" subtitle="Every real event, newest first, told as the scribes would tell it — each line from the row that produced it — with the running net profit and a celebration each time it crosses another million.">
         <div className="flex flex-wrap gap-1">
           {FILTERS.map((f) => (
             <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)}>
@@ -61,7 +62,7 @@ export default function Chronicle() {
               {e.kind === "milestone" ? (
                 <MilestoneCelebration amount={e.milestone ?? 0} date={date(e.date)} caption={e.description} />
               ) : (
-                <EventRow e={e} index={i} />
+                <EventRow e={e} index={i} prose={narrative?.get(e.id)} />
               )}
             </li>
           ))}
@@ -78,7 +79,7 @@ export default function Chronicle() {
   );
 }
 
-function EventRow({ e, index }: { e: RealmEvent; index: number }) {
+function EventRow({ e, index, prose }: { e: RealmEvent; index: number; prose?: string }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -8 }}
@@ -93,8 +94,13 @@ function EventRow({ e, index }: { e: RealmEvent; index: number }) {
           <span>{KIND_META[e.kind].label}</span>
           {e.future && <span className="text-sky-300">· upcoming</span>}
         </div>
-        <div className="font-medium">{e.title}</div>
-        {e.description && <div className="truncate text-xs text-muted-foreground">{e.description}</div>}
+        <p className="font-heading leading-snug" data-testid="chronicle-prose">
+          {prose ?? e.title}
+        </p>
+        <div className="truncate text-xs text-muted-foreground">
+          {e.title}
+          {e.description ? ` · ${e.description}` : ""}
+        </div>
       </div>
       <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-0">
         <span className="font-heading tabular">{e.amount !== null ? money(e.amount) : "—"}</span>
