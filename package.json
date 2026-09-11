@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "snapshot": "tsx scripts/snapshot.ts"
+    "snapshot": "tsx scripts/snapshot.ts",
+    "check": "tsx scripts/check-connection.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",
