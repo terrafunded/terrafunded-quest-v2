@@ -1,10 +1,11 @@
 # PROGRESS — Quest v2 ("Exodus")
 
 Branch `v2`. Snapshot of live Payments taken **2026-09-11 02:07 UTC** (`npm run snapshot`).
-Last full verification (build · lint · 162 unit tests · 51 Playwright tests): **2026-09-11**.
+Last full verification (build · lint · 162 unit tests · 61 Playwright tests): **2026-09-11**.
 
 Order of work, as requested: Phase 1 numbers verified → connection check → domain reproduces the
-verified numbers → **Phase 2: Epic** → **Pipeline layer** (both sections are at the end of the file).
+verified numbers → **Phase 2: Epic** → **Pipeline layer** → **three visual themes + POLISH loops
++ performance/mobile audit** (all at the end of the file).
 
 ## Payments connection check (`npm run check`, 2026-09-11 02:52 UTC)
 
@@ -147,10 +148,97 @@ Tests: `pipeline.test.ts` (9 synthetic, built from raw rows) + 7 fixture tests. 
 test covering the Throne Room counter, the `/pipeline` list and the ledger filter; `/pipeline`
 joined the route smoke test. Assumptions: OPEN_QUESTIONS #32–#35.
 
+## Themes — status (as of 2026-09-11)
+
+Three switchable skins, same data and layouts. Chosen from the menu on `/login` (and the three
+swatches in the sidebar / mobile header), persisted in `localStorage` under `quest.theme`, applied
+to `<html data-theme>` by an inline script before the first paint so there is no flash. Everything
+a theme owns is one `[data-theme]` block in `src/theme/tokens.css` plus its entry in
+`src/theme/themes.ts`: colour tokens (all colour in the app now goes through them — no raw Tailwind
+palette classes remain), type pairing (self-hosted latin subsets via `@fontsource`, only the active
+theme's faces download), textures (`body::before`), motion language (scale, easing, page-transition
+preset, particle recipe) and an icon dialect (per-theme Lucide mapping + stroke style).
+
+| | Iron Crown (default) | Gilded Realm | Neon Kingdom |
+|---|---|---|---|
+| Palette | dark stone, cold steel, ember | parchment, warm gold, forest green | black glass, electric gold, violet |
+| Type | Cinzel 700/900 · Crimson Pro | Cinzel Decorative · Cormorant Garamond · EB Garamond | Orbitron · Rajdhani · Inter · **JetBrains Mono numerals** |
+| Texture | stone grain (feTurbulence) | parchment fibre + vignette | grid + scanlines, glass blur |
+| Cards | steel top highlight | double inset rule + corner fleurons | bracket corners, backdrop blur |
+| Motion | scale 1.5, slow ease-out, "rise" | scale 1, "turn" (page-turn) | scale 0.55, snap ease, "hud" |
+| Throne Room ambience | embers rising | gold dust drifting | data streaks falling |
+| Icons | Castle / Crown / Swords / Shield… round caps | Landmark / ScrollText / Gem / Feather… fine strokes | Hexagon / Zap / Radar / Vault… square caps |
+
+Cross-theme layer: Framer Motion page transitions (`PageTransition`, preset per theme), a
+particle canvas on the Throne Room (`AmbientParticles`, paused when the tab is hidden, absent
+under `prefers-reduced-motion`), hover states on every `.parchment-card` and table row, and a
+`counter-glow` on every `AnimatedCounter` (a `drop-shadow` filter on gradient-clipped counters so
+the glow does not wash out the glyphs). `MotionConfig reducedMotion="user"`, CSS and the counters
+all honour reduced motion (Playwright asserts the particle layer is absent under it).
+
+### My ranking
+
+1. **Iron Crown.** The strongest fit for what the app is: a ledger dressed as a war room. Dark
+   stone gives the gold counters and ember accents the most contrast per pixel, so the numbers —
+   the point of every screen — read first and the decoration second. Cinzel's heavy caps carry the
+   fantasy tone without hurting Crimson Pro's legibility in dense tables, and the slow, deliberate
+   motion matches the cadence of a chronicle rather than a stock ticker. It also needed the fewest
+   theme-specific fixes in its POLISH loop (all six were layout issues shared by every skin), which
+   tells me its tokens are the most robust. It stays the default.
+2. **Neon Kingdom.** The most *legible* of the three for scanning data: monospace numerals line up
+   every column, the fast HUD motion makes navigation feel instant, and the black-glass cards with
+   bracket corners are genuinely striking on the Throne Room and Oracle. It ranks second because it
+   drifts from "fantasy strategy" toward "sci-fi HUD", and because its type has less headroom —
+   Rajdhani is condensed and needed size nudges, Inter is wide and wraps labels that fit elsewhere.
+   Violet-and-gold on black is also the most fatiguing of the three over a long session.
+3. **Gilded Realm.** The most distinctive and the one people will screenshot: drop caps, fleurons,
+   a page-turn transition and a hero counter that looks engraved. It ranks last on fitness, not
+   beauty: a light scheme fights the brief's glow language (glow on cream had to become an engraved
+   shadow; the particles had to be recoloured from motes to gold dust), gold-on-parchment contrast
+   is inherently tight so several accents run darker than the palette wants, and the Recharts
+   fills are less vivid. It is the best skin for daylight reading and printing, and the one I would
+   show a sponsor.
+
+### POLISH loops (full detail in `POLISH_LOG.md`, screenshots in `docs/screenshots/<theme>/pass-NN/`)
+
+| Theme | Passes | Fixes | Reverts | Closed |
+|---|---|---|---|---|
+| Iron Crown | 3 (+1 reopened by a Gilded screenshot) | quest chain wraps on phones; wider stage filter; no-wrap headings/badges; realm map swipe hint; hostages header stacks on phones | 0 | two clean passes |
+| Gilded Realm | 5 | drop-shadow glow on gradient counters; gold-dust motes; `--brand-tracking` and `--map-label` tokens; hostages header | 0 | two clean passes |
+| Neon Kingdom | 4 | tighter HUD labels; theme-driven `rounded-xl/2xl`; legible small headings | 1 (`th` no-wrap clipped the stuck table) | two clean passes |
+
+### Performance and mobile (`npx tsx scripts/perf.ts`, production build, 390×844, Lighthouse "slow 4G" 1.6 Mbps / 150 ms RTT, 4× CPU)
+
+| Theme | Page | First paint | FCP | LCP | CLS | Transfer |
+|---|---|---|---|---|---|---|
+| Iron Crown | `/login` (cold) | 0.77 s | 0.77 s | 0.77 s | 0 | 444 KB |
+| Iron Crown | `/` (signed in, cold) | 0.76 s | 0.76 s | 3.34 s | 0 | 425 KB |
+| Gilded Realm | `/login` (cold) | 0.78 s | 0.78 s | 0.78 s | 0 | 469 KB |
+| Gilded Realm | `/` (signed in, cold) | 0.77 s | 0.77 s | 3.47 s | 0.001 | 444 KB |
+| Neon Kingdom | `/login` (cold) | 0.77 s | 0.77 s | 0.77 s | 0 | 478 KB |
+| Neon Kingdom | `/` (signed in, cold) | 0.76 s | 0.76 s | 3.47 s | 0 | 478 KB |
+
+- **First paint < 2 s** on every theme (0.76–0.78 s; the budget is met with 1.2 s to spare on a
+  link slower than the brief's "throttled 4G"). Before the audit FCP was 2.5–2.7 s on Neon because
+  Chrome does not count a CSS-gradient background as content; a static first-paint shell in
+  `index.html` (brand + "Entering the war room…") now paints with the stylesheet.
+- **No layout shift**: CLS was 0.05–0.09 from web-font swap and the hero counter growing. Fixed by
+  (a) a build-time plugin that injects `<link rel="preload" as="font">` for the *active* theme's
+  first-screen faces so they arrive with the CSS instead of after the bundle, and (b) counters that
+  reserve their finished width (`data-final` painted invisibly in the same grid cell).
+- **Thumb-usable at 390 px**: the audit lists every interactive element under 40 px on every
+  route; it went from 36 (inline text links, slider knobs, the "All" chip, swatch buttons) to **0**
+  on all three themes via `@media (pointer: coarse)` rules — 44 px buttons/inputs/nav items,
+  44 px slider thumbs and swatches, and `.touch-link` hit boxes on inline links.
+- LCP on the signed-in Throne Room (3.3–3.5 s) is the hero counter waiting for the Supabase data on
+  the throttled link, not rendering; the shell and the skeleton are on screen from 0.8 s.
+- Reduced motion: particles absent, shimmer/transitions off, counters jump to their value.
+
 ## What I would do next
 
 1. Confirm OPEN_QUESTIONS #2–#5 and #18 with Rodrigo — they move the headline number.
 2. Get read access to the v1 repo and port the exact colour tokens and animations.
 3. Review and apply `sql/proposed_views.sql` in Payments, then swap `fetchPaymentsSnapshot` to read the views (keeping the domain tests as a cross-check).
-4. Add a Lighthouse / throttled-network budget check to CI for the "< 2 s first meaningful paint" target.
+4. Put `scripts/perf.ts` in CI with budgets (first paint < 2 s, CLS < 0.01, zero sub-40 px targets) so the numbers above cannot regress silently.
 5. Add a `farm_acquisitions.is_subdivided` column so `LEGACY_FARM_NAMES` can go away.
+6. Cache the realm snapshot in `localStorage` so a returning visit paints the last numbers before the network answers (would bring the throttled LCP under 1 s).

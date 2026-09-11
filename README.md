@@ -9,7 +9,10 @@ profit from subdivided farm lots by 2027-12-31**. Every number on screen is comp
 - **Read-only:** the app only ever runs `select`. There is no write surface, so there are no roles
   inside Quest — any authenticated Payments user may view.
 - **Math lives in one place:** `src/domain/` is pure TypeScript with no React or Supabase imports
-  (enforced by ESLint) and is covered by 96 unit tests. Pages only render what the domain computes.
+  (enforced by ESLint) and is covered by 162 unit tests. Pages only render what the domain computes.
+- **Three skins, one app:** Iron Crown, Gilded Realm and Neon Kingdom are pure CSS-token themes
+  chosen on `/login` and remembered in `localStorage` (`quest.theme`). Same data, same layouts;
+  only the skin changes. See §9.
 
 ---
 
@@ -51,6 +54,8 @@ of a login form.
 | `npm run e2e` | Playwright, headless. Builds, serves, logs in with the env credentials and runs the suite on a 1280×800 desktop and a 390×844 phone viewport |
 | `npm run snapshot` | **Read-only.** Signs in as the viewer, runs exactly the app's `select` queries and writes `src/domain/__fixtures__/payments.json`. Re-run it whenever you want the fixture tests to reflect current data |
 | `npm run check` | Connection check: signs in, prints `count(*)` for every table Quest reads against the expected counts, then proves the login is read-only by attempting one dummy insert into `property_costs` and asserting RLS rejects it (exit 3 and a loud warning if it does not) |
+| `npm run screenshots -- --theme <id> --out <dir>` | Read-only. Against the preview server on :4173, screenshots every route (incl. `/login`) at 1280×800 and 390×844 for one theme — the input to every POLISH pass (`POLISH_LOG.md`, `docs/screenshots/<theme>/pass-NN/`) |
+| `npm run perf` | Read-only. Emulates a 390×844 phone on Lighthouse "slow 4G" with 4× CPU throttling, reports first paint / FCP / LCP / CLS / transfer for `/login` and the Throne Room per theme, then lists every interactive element under 40 px on every route |
 
 ## 4. Project layout
 
@@ -79,11 +84,26 @@ src/
                           QuestTree, CinematicIntro, Trophies, StageBadge, PageStates,
                           DebtCountdown, OxygenScore, Liberation, StreaksPanel,
                           Celebration, SinceLastVisit, PipelinePanel
-    layout/               AppShell (sidebar + mobile bottom nav), RequireAuth
+                          AmbientParticles (Throne Room canvas, per-theme recipe)
+    layout/               AppShell (sidebar + mobile bottom nav), RequireAuth,
+                          PageTransition (Framer Motion, preset per theme)
+  theme/
+    themes.ts             ThemeId, THEMES registry (motion language, particle recipe, swatches)
+    tokens.css            one [data-theme] block per skin: colour, type, radius, glow, textures,
+                          card constructions, icon stroke dialect, touch and reduced-motion rules
+    fonts.css             self-hosted @fontsource latin subsets (only the active theme's download)
+    ThemeProvider.tsx     context + localStorage + MotionConfig; useTheme()
+    ThemeMenu.tsx         the /login picker (full) and the sidebar/header swatches (compact)
+    icons.ts              per-theme Lucide mapping for nav and brand icons
   pages/                  one file per route
   routes.tsx  main.tsx  index.css
+index.html                theme bootstrap (data-theme before first paint) + first-paint shell
+vite.config.ts            build plugin: per-theme <link rel=preload as=font> for first-screen faces
 scripts/snapshot.ts       read-only fixture generator
 scripts/check-connection.ts  connection + read-only proof (`npm run check`)
+scripts/screenshots.ts    per-theme route screenshots at 1280 and 390 (`npm run screenshots`)
+scripts/perf.ts           slow-4G paint metrics, CLS and 44 px thumb-target audit (`npm run perf`)
+docs/screenshots/         POLISH pass screenshots, one folder per theme
 e2e/                      Playwright: auth.setup.ts + quest.spec.ts
 sql/proposed_views.sql    proposed Postgres views — NOT applied
 GOAL.md  payments_schema.md  PROGRESS.md  OPEN_QUESTIONS.md
@@ -103,7 +123,7 @@ GOAL.md  payments_schema.md  PROGRESS.md  OPEN_QUESTIONS.md
 | `/chronicle` | **Timeline** — every real event newest first as one line of medieval prose from code templates (no external API), with a celebration each time cumulative net profit crosses $1M and each time a sponsor is liberated |
 | `/trophies` | **Achievements** — **streaks** (consecutive weeks with a closing, best week, best month) and 25 trophies computed from real data with rarity tiers (common / rare / epic / legendary) |
 | `/quality` | **Data quality** — every disagreement between tables, never hidden, never "corrected" |
-| `/login` | Supabase email/password auth against Payments |
+| `/login` | Supabase email/password auth against Payments, plus the skin picker |
 
 ## 6. The domain rules, in plain English
 
@@ -231,3 +251,42 @@ than the debt) and the **Oxygen score** (≥ 0 and equal to the sum of the ledge
 column), plus campaign states on every territory, hostages and the Liberated gallery, the three
 futures, and prose on every chronicle entry. The pipeline layer adds one test: the stuck-pipeline
 counter renders on the Throne Room, and `/pipeline` and `/quests?filter=stuck` list the same lots.
+The theme suite adds: switching skins on `/login` updates `html[data-theme]`, `localStorage`
+(`quest.theme`) and the numeric font; the choice survives a reload; every theme renders the
+Throne Room with its particle layer, a glowing counter and a page transition without console
+errors; and the particle layer is absent under `prefers-reduced-motion`.
+
+## 9. Themes
+
+Pick a skin from the menu on `/login` (or the three swatches in the sidebar / mobile header). The
+choice is stored in `localStorage` as `quest.theme` and applied to `<html data-theme="…">` by an
+inline script in `index.html` before the first paint, so there is no flash of the default skin.
+
+| Skin | Palette | Type | Motion | Throne Room ambience |
+|---|---|---|---|---|
+| **Iron Crown** (default) | dark stone, cold steel, ember accents | Cinzel 700/900 · Crimson Pro | slow, deliberate (×1.5), "rise" page transition | embers rising |
+| **Gilded Realm** | parchment, warm gold, forest green; fleurons, drop caps, double rules | Cinzel Decorative · Cormorant Garamond · EB Garamond | ×1, "turn" (page-turn) | gold dust drifting |
+| **Neon Kingdom** | black glass, electric gold, violet; sharp corners, bracket cards, grid + scanlines | Orbitron · Rajdhani · Inter · JetBrains Mono for every number | fast HUD (×0.55), "hud" | data streaks falling |
+
+How it is built:
+
+- **Tokens.** Every colour, radius, font stack, glow and motion scale is a CSS custom property in
+  `src/theme/tokens.css`; Tailwind reads them (`hsl(var(--x) / <alpha-value>)`), so a theme is one
+  `[data-theme]` block and nothing in `src/pages` or `src/components` knows which skin is active.
+  Semantic accents (`ember`, `siege`, `oxygen`, `liberty`, `sponsor`, `steel`, `arcane`, the stage
+  colours, `--territory-from/--territory-to` for the map fill) replaced every raw palette class.
+- **Type.** Fonts are self-hosted latin subsets from `@fontsource` (`src/theme/fonts.css`), declared
+  with `font-display: swap`; a build plugin in `vite.config.ts` injects `<link rel="preload">` for the
+  *active* theme's first-screen faces so they arrive with the stylesheet (no swap shift).
+- **Motion.** `ThemeProvider` wraps the app in Framer Motion's `MotionConfig` with the theme's
+  duration scale and easing and `reducedMotion="user"`. `PageTransition` picks the theme's preset;
+  `AnimatedCounter` scales its tween; `AmbientParticles` draws the theme's recipe on one canvas
+  (paused when the tab is hidden, not rendered at all under `prefers-reduced-motion`).
+- **Iconography.** `src/theme/icons.ts` maps each nav slot to a different Lucide glyph per theme,
+  and `tokens.css` sets stroke width and cap style per skin.
+- **Touch.** `@media (pointer: coarse)` grows buttons, inputs, nav items, slider thumbs, swatches
+  and inline `.touch-link`s to 44 px hit boxes without moving the layout.
+
+`POLISH_LOG.md` records the polish passes per theme with before/after screenshots in
+`docs/screenshots/<theme>/pass-NN/`; `PROGRESS.md` has the ranking, the throttled-4G paint metrics
+and the thumb-target audit.

@@ -250,3 +250,28 @@ Definition of Done additions:
 
 - [ ] Unit tests with the fixture for every pipeline number.
 - [ ] `npm run e2e` asserts the stuck-pipeline counter renders.
+
+## Phase 3: Three visual themes
+
+Three switchable skins for the whole app, selectable from a small menu on `/login` and persisted
+in `localStorage`, each with its own colour tokens, type pairing, textures, motion language and
+iconography. **Same data, same layouts; only the skin changes.**
+
+- **A · Iron Crown** — dark stone, cold steel, ember accents, heavy serif, slow deliberate motion.
+- **B · Gilded Realm** — parchment, warm gold, forest green, illuminated-manuscript flourishes,
+  ornamental borders.
+- **C · Neon Kingdom** — black glass, electric gold and violet, sharp geometry, fast HUD-style
+  motion, monospace numbers.
+
+Every theme must feel like a AAA fantasy strategy game, not a dashboard: ambient particle motion
+on the Throne Room, page transitions with Framer Motion, hover states on every tile, gold glow on
+every counter.
+
+Definition of Done additions:
+
+- [x] Theme menu on `/login`; choice persisted (`quest.theme`) and applied before first paint.
+- [x] One POLISH RULE loop per theme (`POLISH_LOG.md`), screenshot set per theme under
+      `docs/screenshots/<theme>/`.
+- [x] Per theme: first paint under 2 s on throttled 4G, no layout shift, every page thumb-usable at
+      390 px, animations respect `prefers-reduced-motion` (`scripts/perf.ts`, Playwright).
+- [x] `PROGRESS.md` ranks the three themes with one paragraph of reasoning each.

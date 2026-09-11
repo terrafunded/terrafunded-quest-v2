@@ -288,3 +288,44 @@ flags) is left out of the median, not clamped to 0, matching `daysInPipeline` (#
 no closed lot (Avery, Franklin, Franklin 2) show "—" on the drawer and the realm median next to
 it. The per-farm median uses the file case's `closing_date`, or the note's `start_date` when the
 case has none, as everywhere else in Quest (#6).
+
+## 36. Default theme and where the switcher lives
+
+The brief asks for the menu on `/login`; Iron Crown is the default for a first visit (it ranked
+first in `PROGRESS.md`). I also put the three swatches in the sidebar footer and the mobile header
+so a signed-in user does not have to sign out to change skin — an addition beyond the spec, easy
+to remove (`ThemeMenu variant="compact"` in `AppShell`). The choice is per browser
+(`localStorage`), not per Payments user; syncing it to a profile would be a write, which Quest
+never does.
+
+## 37. Type pairings and self-hosting
+
+The brief named the character of each pairing, not the faces. I chose Cinzel + Crimson Pro
+(Iron), Cinzel Decorative + Cormorant Garamond + EB Garamond (Gilded) and Orbitron + Rajdhani +
+Inter + JetBrains Mono (Neon), all under the SIL Open Font License, self-hosted as latin subsets via
+`@fontsource` so the app has no third-party request at runtime and the e2e/perf runs are
+deterministic offline. Only the active theme's faces download (fonts are fetched lazily by the
+browser; the build injects preloads for the current theme's first-screen faces).
+
+## 38. Touch sizing changes the layout on phones
+
+Under `@media (pointer: coarse)` every button, input, select, nav item, slider thumb and swatch is
+at least 44 px, and inline text links get a 44 px hit box via negative block margins. The desktop
+screenshots (fine pointer) do not show this; the 390 px screenshots in `docs/screenshots` are taken
+with `hasTouch: true` and do. The touch-target rules for slider thumbs and inline links landed after
+the last POLISH pass, so those two details differ slightly from the committed phone screenshots;
+`scripts/perf.ts` audits the touch version and reports zero targets under 40 px on every route.
+
+## 39. Reduced motion and the "AAA" layer
+
+With `prefers-reduced-motion: reduce` the particle canvas is not rendered, the shimmer and card
+transitions are off, Framer Motion animations are disabled through `MotionConfig
+reducedMotion="user"`, and counters jump to their value. Hover glows still apply (no motion).
+The stone/parchment/grid textures stay: they are static images, not motion.
+
+## 40. Performance numbers are from Lighthouse "slow 4G", not devtools "Fast 4G"
+
+`scripts/perf.ts` throttles to 1.6 Mbps down / 750 Kbps up / 150 ms RTT with a 4× CPU slowdown,
+which is harsher than the brief's "throttled 4G". First paint is 0.76–0.78 s on every theme; the
+signed-in Throne Room's LCP (≈3.4 s) is the hero counter waiting for Supabase on that link. A
+cached last snapshot would bring it under a second (PROGRESS.md, "What I would do next").
