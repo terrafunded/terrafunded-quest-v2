@@ -17,6 +17,7 @@ import { computeStreaks, type Streaks } from "./streaks";
 import { computeFutures, type Futures } from "./futures";
 import { narrateAll } from "./narrative";
 import { buildStory, type Story } from "./story";
+import { computePipeline, type Pipeline } from "./pipeline";
 import { startOfUtcDay } from "./dates";
 
 /** Everything the pages render. Built once from a snapshot; pages never compute money. */
@@ -43,6 +44,8 @@ export interface Realm {
   /** One line of chronicle prose per event id. */
   narrative: Map<string, string>;
   story: Story;
+  /** Reservations layer — read-only view of the pipeline; never feeds the goal, pace or oxygen. */
+  pipeline: Pipeline;
   snapshot: PaymentsSnapshot;
 }
 
@@ -105,6 +108,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
     currentYear: asOf.getUTCFullYear(),
   });
   const story = buildStory(goal, farms, debt, oxygen, liberation);
+  const pipeline = computePipeline(lots, asOf, { closedLotsPerMonth: goal.closedLotsPerMonth });
 
   return {
     asOf,
@@ -127,6 +131,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
     futures,
     narrative,
     story,
+    pipeline,
     snapshot,
   };
 }

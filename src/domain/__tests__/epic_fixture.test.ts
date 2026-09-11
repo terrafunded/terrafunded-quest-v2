@@ -188,3 +188,62 @@ describe("fixture: NARRATED CHRONICLE and STORY", () => {
     ]);
   });
 });
+
+describe("fixture: PIPELINE (reservations layer)", () => {
+  const p = realm.pipeline;
+
+  it("33 reserved lots carry $2,222,188.97 of net profit — the same pipeline figure the goal reports", () => {
+    expect(p.reserved).toBe(33);
+    expect(p.pipelineNetProfit).toBe(2_222_188.97);
+    expect(p.pipelineNetProfit).toBe(realm.goal.netProfitInPipeline);
+  });
+
+  it("21 reservations in the trailing 90 days are still waiting: 7.1/month vs 4.4 closings/month", () => {
+    expect(p.newReservationsTrailing).toBe(21);
+    expect(p.reservationsPerMonth).toBe(7.1);
+    expect(p.reservationsMadeTrailing).toBe(22);
+    expect(p.closedLotsPerMonth).toBe(4.4);
+    expect(p.closedLotsPerMonth).toBe(realm.goal.closedLotsPerMonth);
+  });
+
+  it("of the 47 reservations made on or before 2026-06-13, 35 closed (74.47%)", () => {
+    expect(p.conversion).toMatchObject({ cutoff: "2026-06-13", cohort: 47, closed: 35, stillReserved: 12, pct: 74.47 });
+  });
+
+  it("16 reservations are stuck past 60 days, trapping $1,116,862.67 of net profit on $2,024,531 of sales", () => {
+    expect(p.stuckCount).toBe(16);
+    expect(p.netProfitTrapped).toBe(1_116_862.67);
+    expect(p.salePriceTrapped).toBe(2_024_531);
+    expect(p.netProfitTrapped).toBe(round2(p.stuck.reduce((a, s) => a + s.netProfitAtStake, 0)));
+    expect(p.stuck[0]).toMatchObject({ lotName: "Titus — Lot 2", buyerName: "Crystal Thompson", daysWaiting: 132, salePrice: 135_412, netProfitAtStake: 61_723.32, reservationDate: "2026-05-02" });
+    expect(p.stuck.at(-1)).toMatchObject({ lotName: "Avery — Lot 5", daysWaiting: 67 });
+    for (let i = 1; i < p.stuck.length; i++) expect(p.stuck[i - 1]!.daysWaiting).toBeGreaterThanOrEqual(p.stuck[i]!.daysWaiting);
+    for (const s of p.stuck) expect(realm.lots.find((l) => l.propertyId === s.propertyId)?.stage).toBe("reserved");
+  });
+
+  it("Avery traps the most: 7 stuck lots, $616,838.59; Franklin 5, $314,478.15", () => {
+    const byName = new Map(p.farms.map((f) => [f.farmName, f]));
+    expect(byName.get("Avery")).toMatchObject({ reserved: 12, stuck: 7, netProfitTrapped: 616_838.59, medianDaysToClose: null });
+    expect(byName.get("Franklin")).toMatchObject({ reserved: 5, stuck: 5, netProfitTrapped: 314_478.15 });
+    expect(byName.get("Wichita")).toMatchObject({ reserved: 8, stuck: 3, netProfitTrapped: 123_822.61, medianDaysToClose: 63 });
+    expect(byName.get("Titus")).toMatchObject({ stuck: 1, netProfitTrapped: 61_723.32 });
+    expect(p.farms[0]?.farmName).toBe("Avery");
+  });
+
+  it("median reservation-to-closing is 63 days over 35 closed lots; Lamar 41.5, Promised Valley 90", () => {
+    expect(p.medianDaysToClose).toBe(63);
+    expect(p.closedWithBothDates).toBe(35);
+    const byName = new Map(p.farms.map((f) => [f.farmName, f]));
+    expect(byName.get("Lamar")?.medianDaysToClose).toBe(41.5);
+    expect(byName.get("Promised Valley")?.medianDaysToClose).toBe(90);
+    expect(byName.get("Freestone")?.medianDaysToClose).toBe(70);
+    expect(byName.get("Eastland")?.medianDaysToClose).toBe(63);
+  });
+
+  it("changes nothing in the goal, pace, oxygen or debt", () => {
+    expect(realm.goal.netProfitToDate).toBe(2_272_304.32);
+    expect(realm.goal.closedLotsPerMonth).toBe(4.4);
+    expect(realm.oxygen.totalDaysGained).toBe(547);
+    expect(realm.debt.requiredNetProfitPerDay).toBe(16_234.65);
+  });
+});
