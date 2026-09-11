@@ -179,3 +179,49 @@ small amount when you run, note it in PROGRESS.md; a large gap means your query 
 - If Supabase returns a permission error on any table, record the exact table and error in
   OPEN_QUESTIONS.md and keep working with the fixture so the rest of the app progresses.
 - Do not touch `/reference/quest-v1/` beyond reading and copying components.
+
+## Phase 2: Epic
+
+Only after the connection check passes and the domain layer reproduces the verified numbers.
+Everything below is computed from real Payments data in `src/domain/`; nothing is decorative,
+nothing is hard-coded, and every module has unit tests. Numbers first, epic second.
+
+1. **THE DEBT** (`src/domain/debt.ts`) — on the Throne Room, a permanent countdown of
+   - capital still owed to investors (`investor_capital − capital_return distributions`, over
+     subdivided farms whose deal is not `own_capital`),
+   - days left to `GOAL_DEADLINE`,
+   - required net profit **per day** from today: `remaining ÷ daysLeft`. It takes `asOf` as an
+     input so it recomputes every day without a deploy.
+2. **OXYGEN** (`src/domain/oxygen.ts`) — every closed lot is scored as **days gained** toward the
+   exit date: the shift of the projected goal date computed with the ledger *without* that closing
+   versus *with* it (same `asOf`, same trailing window, so pace and remaining both move). Shown on
+   each sale row and, summed, as the primary score of the game on the Throne Room.
+3. **INVESTOR LIBERATION** (`src/domain/liberation.ts`) — each sponsor is a hostage of the realm
+   with a capital-returned bar from `investor_distributions` (`kind = 'capital_return'`). When a
+   farm has returned 100 % of its capital, that position is *freed* (full-screen animation the
+   first time it is seen, then a Liberated gallery). A sponsor with every position freed is a free
+   sponsor.
+4. **FARM CAMPAIGNS** (`src/domain/campaigns.ts`) — each territory on the map has its own goal:
+   lots left to sell to cover `investor_capital` plus accrued interest (at the farm's average sale
+   price, falling back to the realm average), and a state: `conquered` (covered or sold out),
+   `losing_ground` (interest accruing on outstanding capital with no closing in 60 days),
+   otherwise `under_siege`.
+5. **STREAKS** (`src/domain/streaks.ts`) — consecutive ISO weeks with at least one closing from
+   real closing dates (current and best), best week and best month; trophies gain rarity tiers
+   (`common`, `rare`, `epic`, `legendary`).
+6. **ORACLE** — three futures side by side, all starting from the real 90-day averages: current
+   pace, required pace, and current pace plus one more farm; each with its exit date.
+7. **NARRATED CHRONICLE** (`src/domain/narrative.ts`) — every real event gets one line of
+   medieval-chronicle prose from templates in code (no external API), e.g. "On May 30, Diego Reyes
+   claimed Lot 14 of Wichita for $137,780. The realm gained 9 days."
+8. **CINEMATIC INTRO** — `CinematicIntro` tells the real story with real numbers (farms, lots,
+   net profit, days gained, days left) computed by `src/domain/story.ts`.
+9. **CELEBRATIONS** — on app open, if any closing or note sale is dated on or after the last visit
+   (a `localStorage` timestamp) and has not been celebrated yet, celebrate it. First visit only
+   records the timestamp.
+
+Definition of Done additions:
+
+- [ ] `npm run e2e` also asserts the Debt counter (capital owed > 0, days left > 0, per-day > 0)
+      and the Oxygen score (a number of days ≥ 0 that equals the sum of the ledger rows).
+- [ ] Every Phase 2 module in `src/domain/` has tests, including fixture-based ones.
