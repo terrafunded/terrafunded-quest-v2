@@ -8,7 +8,7 @@ const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HT
     <select
       ref={ref}
       className={cn(
-        "h-9 w-full appearance-none rounded-md border border-input bg-background/60 pl-3 pr-8 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "h-11 w-full appearance-none rounded-md border border-input bg-background/60 pl-3 pr-8 text-base shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className,
       )}
       {...props}

@@ -17,7 +17,9 @@
     "perf": "tsx scripts/perf.ts",
     "qr": "tsx scripts/qr.ts",
     "verify:live": "tsx scripts/verify-live.ts",
-    "deploy": "npx -y vercel@latest deploy --prod --yes"
+    "deploy": "npx -y vercel@latest deploy --prod --yes",
+    "mobile:audit": "tsx scripts/mobile-audit.ts",
+    "e2e:matrix": "playwright test e2e/mobile-matrix.spec.ts"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.3.0",

@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StageBadge } from "@/components/realm/StageBadge";
+import { Ellipsize } from "@/components/realm/FitMoney";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { STAGE_LABEL, date, days, moneyExact } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -146,6 +147,19 @@ export default function Quests() {
             </option>
           ))}
         </Select>
+        <Select
+          value={sort.key}
+          onChange={(e) => setSort({ key: e.target.value as SortKey, dir: e.target.value === "name" || e.target.value === "buyerName" ? "asc" : "desc" })}
+          aria-label="Sort by"
+          className="w-44 sm:hidden"
+          data-testid="mobile-sort"
+        >
+          {COLUMNS.map((c) => (
+            <option key={c.key} value={c.key}>
+              Sort: {c.label}
+            </option>
+          ))}
+        </Select>
       </PageHeader>
 
       <TableErrorsBanner errors={data.tableErrors} />
@@ -154,7 +168,7 @@ export default function Quests() {
         <EmptyState title="No quests match" body="Loosen the filters to see lots." />
       ) : (
         <div className="parchment-card overflow-hidden">
-          <Table className="min-w-[1360px]" data-testid="ledger-table">
+          <Table className="min-w-[1360px] max-sm:min-w-0" data-mobile="cards" data-testid="ledger-table">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {COLUMNS.map((c) => (
@@ -170,36 +184,42 @@ export default function Quests() {
             <TableBody>
               {filtered.map((l) => (
                 <TableRow key={l.propertyId} data-testid="ledger-row" data-stuck={l.stuck || undefined} className={cn(l.stuck && "bg-siege/8")}>
-                  <TableCell className="whitespace-nowrap">
-                    <div className="font-medium">{l.name}</div>
+                  <TableCell data-label="Lot" className="whitespace-nowrap">
+                    <Ellipsize className="font-medium">{l.name}</Ellipsize>
                     <div className="text-xs text-muted-foreground">
                       {l.dealType ?? "—"} · {l.investorName ?? "own capital"}
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-[220px] whitespace-nowrap">
-                    <div className="truncate">{l.buyerName ?? (l.buyerIsTestClient ? <span className="italic text-muted-foreground">test client</span> : "—")}</div>
+                  <TableCell data-label="Buyer" className="max-w-[220px] whitespace-nowrap">
+                    {l.buyerName ? (
+                      <Ellipsize>{l.buyerName}</Ellipsize>
+                    ) : l.buyerIsTestClient ? (
+                      <span className="italic text-muted-foreground">test client</span>
+                    ) : (
+                      "—"
+                    )}
                     <div className="truncate text-xs text-muted-foreground">
                       {l.reservationDate ? `Res. ${date(l.reservationDate)}` : ""}
                       {l.closeDate ? ` · Closed ${date(l.closeDate)}` : ""}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell data-label="Stage">
                     <StageBadge stage={l.stage} />
                   </TableCell>
-                  <TableCell className="text-right tabular">{moneyExact(l.fileCaseSalePrice)}</TableCell>
-                  <TableCell className={cn("text-right tabular", l.priceSource === "note" && l.fileCaseSalePrice !== l.salePrice && "text-stage-reserved")}>
+                  <TableCell data-label="Contract price" className="text-right tabular">{moneyExact(l.fileCaseSalePrice)}</TableCell>
+                  <TableCell className={cn("text-right tabular", l.priceSource === "note" && l.fileCaseSalePrice !== l.salePrice && "text-stage-reserved")} data-label="Sale price">
                     {moneyExact(l.salePrice)}
                   </TableCell>
-                  <TableCell className="text-right tabular">{moneyExact(l.landCost)}</TableCell>
-                  <TableCell className="text-right tabular">{moneyExact(l.grossProfit)}</TableCell>
-                  <TableCell className="text-right tabular">{moneyExact(l.investorTake)}</TableCell>
-                  <TableCell className={cn("text-right tabular font-medium", (l.netProfit ?? 0) < 0 && "text-ember")}>{moneyExact(l.netProfit)}</TableCell>
-                  <TableCell className="text-right tabular text-stage-closed">{moneyExact(l.cashRealized)}</TableCell>
-                  <TableCell className={cn("text-right tabular whitespace-nowrap", l.stuck && "text-siege")}>
+                  <TableCell data-label="Land cost" className="text-right tabular">{moneyExact(l.landCost)}</TableCell>
+                  <TableCell data-label="Gross" className="text-right tabular">{moneyExact(l.grossProfit)}</TableCell>
+                  <TableCell data-label="Investor take" className="text-right tabular">{moneyExact(l.investorTake)}</TableCell>
+                  <TableCell className={cn("text-right tabular font-medium", (l.netProfit ?? 0) < 0 && "text-ember")} data-label="Net">{moneyExact(l.netProfit)}</TableCell>
+                  <TableCell data-label="Cash realized" className="text-right tabular text-stage-closed">{moneyExact(l.cashRealized)}</TableCell>
+                  <TableCell className={cn("text-right tabular whitespace-nowrap", l.stuck && "text-siege")} data-label="Days">
                     {l.stuck && <Hourglass className="mr-1 inline h-3 w-3" aria-label="Stuck reservation" />}
                     {days(l.daysInPipeline)}
                   </TableCell>
-                  <TableCell className={cn("text-right tabular", l.daysGained !== null && l.daysGained > 0 && "text-oxygen")} data-testid="ledger-oxygen" data-value={l.daysGained ?? ""}>
+                  <TableCell className={cn("text-right tabular", l.daysGained !== null && l.daysGained > 0 && "text-oxygen")} data-testid="ledger-oxygen" data-value={l.daysGained ?? ""} data-label="Oxygen">
                     {l.daysGained === null ? "—" : `${l.daysGained > 0 ? "+" : ""}${l.daysGained}d`}
                   </TableCell>
                 </TableRow>
@@ -207,7 +227,7 @@ export default function Quests() {
             </TableBody>
             <TableFooter>
               <TableRow data-testid="ledger-totals">
-                <TableCell className="font-heading">Totals · {totals.count} lots</TableCell>
+                <TableCell data-label="Totals" className="font-heading">Totals · {totals.count} lots</TableCell>
                 <TableCell />
                 <TableCell />
                 <TableCell className="text-right tabular font-semibold text-gold" data-testid="ledger-total-contract-price">

@@ -143,7 +143,7 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
             aria-modal="true"
             aria-labelledby={titleId}
             data-testid="nav-drawer"
-            className="absolute inset-y-0 left-0 flex w-[280px] flex-col border-r border-border/70 bg-card shadow-2xl md:w-[320px]"
+            className="absolute inset-y-0 left-0 flex h-[100dvh] max-h-[100dvh] w-[min(280px,100vw)] flex-col border-r border-border/70 bg-card shadow-2xl md:w-[320px]"
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
@@ -151,7 +151,7 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
           >
-            <div className="flex h-14 shrink-0 items-center justify-between border-b border-border/70 px-4 pt-[env(safe-area-inset-top)]">
+            <div className="flex min-h-14 shrink-0 items-center justify-between border-b border-border/70 px-4 pt-[env(safe-area-inset-top)]">
               <h2 id={titleId} className="font-display text-sm uppercase tracking-[var(--brand-tracking)] text-gold">
                 Exodus
               </h2>

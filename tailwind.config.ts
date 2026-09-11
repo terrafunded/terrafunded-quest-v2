@@ -11,6 +11,11 @@ export default {
       screens: { "2xl": "1400px" },
     },
     extend: {
+      // Body-copy floor: never ship Tailwind's default 14px text-sm on phones.
+      fontSize: {
+        sm: ["0.9375rem", { lineHeight: "1.45" }], // 15px
+        xs: ["0.9375rem", { lineHeight: "1.45" }], // 15px — labels use .stat-label / text-[11px]
+      },
       fontFamily: {
         display: ["var(--font-display)"],
         heading: ["var(--font-heading)"],

@@ -12,12 +12,29 @@
 
   html {
     -webkit-tap-highlight-color: transparent;
+    /* Never allow the document itself to scroll sideways. */
+    overflow-x: hidden;
+    /* 100dvh tracks the visible viewport on mobile browsers (toolbars show/hide). */
+    height: 100%;
   }
 
   body {
     @apply bg-background text-foreground font-body antialiased;
     background-attachment: fixed;
     min-height: 100dvh;
+    /* Body copy floor: 15px. Labels may still use .stat-label at 11px. */
+    font-size: 15px;
+    line-height: 1.5;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  /* iOS zooms any input under 16px on focus — beat utility classes like text-sm. */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 
   h1,
@@ -36,6 +53,105 @@
 
   .stat-label {
     @apply text-[11px] uppercase tracking-[0.18em] text-muted-foreground;
+  }
+
+  /* Secondary body copy on phones — never dip below 15px. */
+  .body-sm {
+    font-size: 0.9375rem; /* 15px */
+    line-height: 1.45;
+  }
+
+  /* Tailwind text-sm is 14px; raise the floor so body copy never dips below 15px. */
+  .text-sm {
+    font-size: 0.9375rem; /* 15px */
+    line-height: 1.45;
+  }
+
+  /* Same floor for text-xs body fragments (dates, secondary lines). Labels stay on .stat-label / text-[11px]. */
+  .text-xs {
+    font-size: 0.9375rem; /* 15px */
+    line-height: 1.45;
+  }
+
+  /* Tap-to-expand truncated names: 44×44 hit box without blowing layout. */
+  .ellipsize-tap {
+    display: block;
+    max-width: 100%;
+    min-width: 44px;
+    min-height: 44px;
+    margin-block: -0.35rem;
+    padding-block: 0.35rem;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  /*
+   * Responsive data tables: below 640px the thead is hidden and each tbody tr becomes a
+   * stacked card. Cells expose their column name via data-label (set on TableCell).
+   */
+  @media (max-width: 639.98px) {
+    table[data-mobile="cards"] {
+      display: block;
+      width: 100%;
+      min-width: 0 !important;
+    }
+    table[data-mobile="cards"] thead {
+      display: none;
+    }
+    table[data-mobile="cards"] tbody,
+    table[data-mobile="cards"] tfoot {
+      display: block;
+      width: 100%;
+    }
+    table[data-mobile="cards"] tbody tr,
+    table[data-mobile="cards"] tfoot tr {
+      display: block;
+      width: 100%;
+      margin-bottom: 0.75rem;
+      border: 1px solid hsl(var(--border) / 0.7);
+      border-radius: var(--radius);
+      background: hsl(var(--card) / var(--card-bg-alpha, 0.85));
+      padding: 0.75rem 1rem;
+    }
+    table[data-mobile="cards"] tbody td,
+    table[data-mobile="cards"] tfoot td {
+      display: flex;
+      width: 100%;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.35rem 0;
+      border: 0;
+      text-align: right;
+      white-space: normal;
+    }
+    table[data-mobile="cards"] tbody td::before,
+    table[data-mobile="cards"] tfoot td::before {
+      content: attr(data-label);
+      flex: 0 1 auto;
+      text-align: left;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: hsl(var(--muted-foreground));
+    }
+    table[data-mobile="cards"] tbody td:first-child {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.15rem;
+      padding-bottom: 0.6rem;
+      margin-bottom: 0.35rem;
+      border-bottom: 1px solid hsl(var(--border) / 0.5);
+      text-align: left;
+    }
+    table[data-mobile="cards"] tbody td:first-child::before {
+      content: none;
+    }
+    /* Kill the overflow-x wrapper scroll on card tables. */
+    .relative.w-full.overflow-x-auto:has(table[data-mobile="cards"]) {
+      overflow-x: visible;
+    }
   }
 
   .tabular {

@@ -69,7 +69,7 @@ function SwatchButton({ id, active, onSelect }: { id: ThemeId; active: boolean; 
       title={t.name}
       data-theme-option={id}
       onClick={() => onSelect(id)}
-      className="swatch-button group flex h-8 w-8 items-center justify-center rounded-full"
+      className="swatch-button group flex h-11 w-11 items-center justify-center rounded-full"
     >
       <span
         className={cn(

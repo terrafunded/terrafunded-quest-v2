@@ -48,7 +48,7 @@ export default function Treasury() {
                     formatter={(v: number, name: string) => [moneyExact(Math.abs(v)), name]}
                     labelStyle={{ color: GOLD }}
                   />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Legend wrapperStyle={{ fontSize: 15 }} />
                   <Bar dataKey="downPayments" name="Down payments" stackId="in" fill={GREEN} radius={[0, 0, 0, 0]} />
                   <Bar dataKey="noteSales" name="Note sales" stackId="in" fill={GOLD} />
                   <Bar dataKey="otherNoteSales" name="Other notes" stackId="in" fill="hsl(var(--gold-dim))" radius={[4, 4, 0, 0]} />
@@ -72,7 +72,7 @@ export default function Treasury() {
                     formatter={(v: number, name: string) => [moneyExact(v), name]}
                     labelStyle={{ color: GOLD }}
                   />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Legend wrapperStyle={{ fontSize: 15 }} />
                   <Bar dataKey="cumulativeCashIn" name="Cumulative in" fill={GREEN} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="cumulativeCashOut" name="Cumulative out" fill={PINK} radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -81,7 +81,7 @@ export default function Treasury() {
           </div>
 
           <div className="parchment-card overflow-hidden">
-            <Table className="min-w-[760px]" data-testid="treasury-table">
+            <Table className="min-w-[760px] max-sm:min-w-0" data-mobile="cards" data-testid="treasury-table">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Month</TableHead>
@@ -99,23 +99,23 @@ export default function Treasury() {
               <TableBody>
                 {[...rows].reverse().map((m) => (
                   <TableRow key={m.month}>
-                    <TableCell className="font-medium">{m.label}</TableCell>
-                    <TableCell className="text-right tabular">{moneyExact(m.downPayments)}</TableCell>
-                    <TableCell className="text-right tabular">{moneyExact(m.noteSales)}</TableCell>
-                    <TableCell className="text-right tabular text-muted-foreground">{m.otherNoteSales ? moneyExact(m.otherNoteSales) : "—"}</TableCell>
-                    <TableCell className="text-right tabular text-stage-closed">{moneyExact(m.cashIn)}</TableCell>
-                    <TableCell className="text-right tabular">{moneyExact(m.capitalReturns)}</TableCell>
-                    <TableCell className="text-right tabular">{moneyExact(m.profitShares)}</TableCell>
-                    <TableCell className="text-right tabular text-sponsor">{moneyExact(m.cashOut)}</TableCell>
-                    <TableCell className={`text-right tabular ${m.net < 0 ? "text-ember" : ""}`}>{moneyExact(m.net)}</TableCell>
-                    <TableCell className="text-right tabular">{moneyExact(m.cumulativeNet)}</TableCell>
+                    <TableCell data-label="Month" className="font-medium">{m.label}</TableCell>
+                    <TableCell data-label="Down payments" className="text-right tabular">{moneyExact(m.downPayments)}</TableCell>
+                    <TableCell data-label="Note sales" className="text-right tabular">{moneyExact(m.noteSales)}</TableCell>
+                    <TableCell data-label="Other notes" className="text-right tabular text-muted-foreground">{m.otherNoteSales ? moneyExact(m.otherNoteSales) : "—"}</TableCell>
+                    <TableCell data-label="Cash in" className="text-right tabular text-stage-closed">{moneyExact(m.cashIn)}</TableCell>
+                    <TableCell data-label="Capital returned" className="text-right tabular">{moneyExact(m.capitalReturns)}</TableCell>
+                    <TableCell data-label="Profit shared" className="text-right tabular">{moneyExact(m.profitShares)}</TableCell>
+                    <TableCell data-label="Cash out" className="text-right tabular text-sponsor">{moneyExact(m.cashOut)}</TableCell>
+                    <TableCell data-label="Net" className={`text-right tabular ${m.net < 0 ? "text-ember" : ""}`}>{moneyExact(m.net)}</TableCell>
+                    <TableCell data-label="Cumulative" className="text-right tabular">{moneyExact(m.cumulativeNet)}</TableCell>
                   </TableRow>
                 ))}
                 {t.undatedCashIn > 0 && (
                   <TableRow className="text-muted-foreground">
                     <TableCell className="italic">Undated closings</TableCell>
                     <TableCell className="text-right tabular">{moneyExact(t.undatedCashIn)}</TableCell>
-                    <TableCell colSpan={8} className="text-xs">
+                    <TableCell colSpan={8} className="text-sm">
                       Completed file cases with no closing_date (see Data Quality). Counted in totals, not in any month.
                     </TableCell>
                   </TableRow>

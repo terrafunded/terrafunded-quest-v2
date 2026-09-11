@@ -126,11 +126,10 @@ export default function RealmMap() {
       <TableErrorsBanner errors={data.tableErrors} />
 
       <div className="parchment-card relative p-3 sm:p-5">
-        <p className="mb-2 text-[11px] text-muted-foreground sm:hidden">Swipe sideways to see every farm →</p>
-        <div className="map-scroll -mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+        <div className="w-full">
           <svg
             viewBox={`0 0 ${MAP_W} ${layout.height}`}
-            className="mx-auto block h-auto w-full min-w-[640px]"
+            className="mx-auto block h-auto w-full max-w-full"
             role="img"
             aria-label="Map of the realm"
             data-testid="realm-map"

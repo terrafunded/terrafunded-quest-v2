@@ -5,7 +5,7 @@ import { ArrowRight, CalendarClock, Coins, Landmark, Scroll } from "lucide-react
 import { useRealm } from "@/data/useRealm";
 import { latestEvents, type RealmEvent } from "@/domain";
 import { GOAL_DEADLINE, MILESTONE_STEP } from "@/config/goal";
-import { AnimatedCounter } from "@/components/realm/AnimatedCounter";
+import { FitMoney } from "@/components/realm/FitMoney";
 import { ProgressRing } from "@/components/realm/ProgressRing";
 import { GrowthBurst } from "@/components/realm/GrowthBurst";
 import { QuestTree, type QuestNode } from "@/components/realm/QuestTree";
@@ -72,9 +72,9 @@ export function ThroneRoom() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-3 font-display text-[11vw] leading-none sm:text-6xl lg:text-7xl"
+          className="mx-auto mt-3 w-full max-w-full font-display text-[clamp(1.75rem,9vw,4.5rem)] leading-none"
         >
-          <AnimatedCounter value={g.netProfitToDate} className="gold-shimmer" data-testid="net-profit-counter" />
+          <FitMoney value={g.netProfitToDate} className="gold-shimmer text-center" data-testid="net-profit-counter" />
         </motion.div>
         <div className="mt-2 text-sm text-muted-foreground">
           of <span className="text-foreground">{money(g.goal)}</span> · <span className="text-foreground tabular">{money(g.remaining)}</span> remaining

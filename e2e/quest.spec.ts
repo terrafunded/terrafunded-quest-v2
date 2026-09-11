@@ -110,7 +110,9 @@ test.describe("Quests ledger", () => {
     await expect(page.getByTestId("ledger-row")).toHaveCount(9);
     await page.getByLabel("Filter by stage").selectOption("note_sold");
     await expect(page.getByTestId("ledger-row")).toHaveCount(7);
-    await page.getByRole("button", { name: /^Net/ }).click();
+    const netHeader = page.getByRole("button", { name: /^Net/ });
+    if (await netHeader.isVisible()) await netHeader.click();
+    else await page.getByTestId("mobile-sort").selectOption("netProfit");
     const first = await page.getByTestId("ledger-row").first().textContent();
     expect(first).toContain("Lamar");
   });

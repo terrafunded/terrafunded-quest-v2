@@ -6,6 +6,7 @@ import type { StuckLot } from "@/domain";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Stat } from "@/components/realm/Stat";
+import { Ellipsize } from "@/components/realm/FitMoney";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { date, money, moneyExact, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -103,7 +104,7 @@ export default function Pipeline() {
         <EmptyState title="Nothing stuck" body={`No reservation has waited ${p.stuckAfterDays} days without closing${farm !== "all" ? ` on ${farm}` : ""}.`} />
       ) : (
         <div className="parchment-card overflow-hidden">
-          <Table className="min-w-[900px]" data-testid="stuck-table">
+          <Table className="min-w-[900px] max-sm:min-w-0" data-mobile="cards" data-testid="stuck-table">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="text-right">Days waiting</TableHead>
@@ -118,18 +119,28 @@ export default function Pipeline() {
             <TableBody>
               {stuck.map((s) => (
                 <TableRow key={s.propertyId} data-testid="stuck-row" data-days={s.daysWaiting}>
-                  <TableCell className="text-right">
+                  <TableCell data-label="Days waiting" className="text-right">
                     <span className="inline-flex items-center gap-1 font-heading text-lg tabular text-siege">
                       <Hourglass className="h-3.5 w-3.5" />
                       {s.daysWaiting}
                     </span>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap font-medium">{s.lotName}</TableCell>
-                  <TableCell className="max-w-[260px] truncate">{s.buyerName ?? (s.buyerIsTestClient ? <span className="italic text-muted-foreground">test client</span> : "—")}</TableCell>
-                  <TableCell className="whitespace-nowrap tabular">{date(s.reservationDate)}</TableCell>
-                  <TableCell className="whitespace-nowrap tabular text-muted-foreground">{s.estimatedClosingDate ? date(s.estimatedClosingDate) : "—"}</TableCell>
-                  <TableCell className="text-right tabular">{moneyExact(s.salePrice)}</TableCell>
-                  <TableCell className="text-right tabular font-medium text-siege">{moneyExact(s.netProfitAtStake)}</TableCell>
+                  <TableCell data-label="Lot" className="whitespace-nowrap font-medium">
+                    <Ellipsize>{s.lotName}</Ellipsize>
+                  </TableCell>
+                  <TableCell data-label="Buyer" className="max-w-[260px]">
+                    {s.buyerName ? (
+                      <Ellipsize>{s.buyerName}</Ellipsize>
+                    ) : s.buyerIsTestClient ? (
+                      <span className="italic text-muted-foreground">test client</span>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell data-label="Reserved" className="whitespace-nowrap tabular">{date(s.reservationDate)}</TableCell>
+                  <TableCell data-label="Est. closing" className="whitespace-nowrap tabular text-muted-foreground">{s.estimatedClosingDate ? date(s.estimatedClosingDate) : "—"}</TableCell>
+                  <TableCell data-label="Sale price" className="text-right tabular">{moneyExact(s.salePrice)}</TableCell>
+                  <TableCell data-label="Net at stake" className="text-right tabular font-medium text-siege">{moneyExact(s.netProfitAtStake)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

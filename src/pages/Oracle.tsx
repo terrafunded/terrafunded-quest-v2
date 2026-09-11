@@ -137,7 +137,7 @@ export default function Oracle() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className="mt-3 text-sm text-muted-foreground">
             Starts at {money(g.netProfitToDate)} net and {number(g.availableLots + g.reservedLots)} lots of inventory (available + reserved). Each closed lot books (price − land) × (1 − take); cash lands as{" "}
             {defaults.downPaymentPct}% down now and {defaults.noteSalePct}% of the balance {params.avgMonthsToSellNote} months later.
           </p>
@@ -159,7 +159,7 @@ function FutureCard({ f, index, onAdopt }: { f: Future; index: number; onAdopt: 
       <div className={cn("mt-2 font-display text-2xl leading-none sm:text-3xl", tone)} data-testid="future-exit">
         {f.exitDate ? date(f.exitDate) : "beyond 10 years"}
       </div>
-      <div className="mt-1 text-xs text-muted-foreground">
+      <div className="mt-1 text-sm text-muted-foreground">
         {f.exitDate ? (f.hitsDeadline ? `before the ${date(f.result.deadline)} deadline` : `after the ${date(f.result.deadline)} deadline`) : "the goal is not reached within the horizon"}
         {f.daysEarlierThanCurrent !== null && f.id !== "current_pace" && (
           <>
@@ -171,7 +171,7 @@ function FutureCard({ f, index, onAdopt }: { f: Future; index: number; onAdopt: 
         )}
       </div>
       <p className="mt-3 flex-1 text-sm text-foreground/85">{f.premise}</p>
-      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
         <dt className="text-muted-foreground">Lots / month</dt>
         <dd className="text-right tabular">{f.params.lotsPerMonth}</dd>
         <dt className="text-muted-foreground">Farm every</dt>

@@ -66,7 +66,7 @@ export function AppShell() {
             title="Oxygen — days gained toward the exit"
             aria-label={oxygenDays === undefined ? "Oxygen loading" : `Oxygen ${oxygenLabel}`}
           >
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-oxygen/10 px-2 py-1 text-xs font-medium sm:text-sm">
+            <span className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-oxygen/10 px-2.5 py-1.5 text-sm font-medium">
               <Wind className="h-3.5 w-3.5" aria-hidden />
               <span className="font-heading">{oxygenLabel}</span>
             </span>
@@ -76,7 +76,7 @@ export function AppShell() {
 
       <main
         id="main"
-        className="px-4 pb-10 sm:px-6 lg:px-10"
+        className="px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-10"
         style={{ paddingTop: `calc(${TOPBAR_HEIGHT_PX}px + env(safe-area-inset-top) + 1.25rem)` }}
       >
         <div className="mx-auto w-full max-w-7xl">

@@ -131,7 +131,48 @@ function SponsorCard({ inv, index }: { inv: InvestorSummary; index: number }) {
         )}
       </div>
 
-      <table className="mt-4 w-full text-xs">
+      {/* Phone: stacked farm cards. Desktop: compact table. */}
+      <ul className="mt-4 space-y-2 sm:hidden" data-testid="sponsor-farms-cards">
+        {inv.farms.map((f) => (
+          <li key={f.farmId} className="rounded-md border border-border/50 bg-background/40 px-3 py-2.5">
+            <div className="font-medium">
+              {f.farmName}
+              <span className="ml-1 text-muted-foreground">· {date(f.fundingDate)}</span>
+            </div>
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">Capital</dt>
+                <dd className="tabular">{money(f.capitalDeployed)}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">Terms</dt>
+                <dd className="tabular">
+                  {f.dealType === "profit_share"
+                    ? pct(f.profitSharePct, 0) + " share"
+                    : f.dealType === "fixed_interest"
+                      ? pct(f.annualRatePct, 0) + " / yr"
+                      : "own"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">Lots</dt>
+                <dd className="tabular">
+                  {f.lotsSold}/{f.totalLots}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">{isProfitShare ? "Share earned" : "Accrued"}</dt>
+                <dd className="tabular">{money(f.dealType === "profit_share" ? f.investorTakeEarned : f.interestAccrued)}</dd>
+              </div>
+              <div className="col-span-2 flex justify-between gap-2">
+                <dt className="text-muted-foreground">Outstanding</dt>
+                <dd className="tabular">{money(f.capitalOutstanding)}</dd>
+              </div>
+            </dl>
+          </li>
+        ))}
+      </ul>
+      <table className="mt-4 hidden w-full text-sm sm:table" data-testid="sponsor-farms-table">
         <thead className="text-muted-foreground">
           <tr className="text-left">
             <th className="py-1 font-medium">Farm</th>
@@ -150,7 +191,13 @@ function SponsorCard({ inv, index }: { inv: InvestorSummary; index: number }) {
                 <span className="ml-1 text-muted-foreground">· {date(f.fundingDate)}</span>
               </td>
               <td className="py-1.5 text-right tabular">{money(f.capitalDeployed)}</td>
-              <td className="py-1.5 text-right tabular">{f.dealType === "profit_share" ? pct(f.profitSharePct, 0) + " share" : f.dealType === "fixed_interest" ? pct(f.annualRatePct, 0) + " / yr" : "own"}</td>
+              <td className="py-1.5 text-right tabular">
+                {f.dealType === "profit_share"
+                  ? pct(f.profitSharePct, 0) + " share"
+                  : f.dealType === "fixed_interest"
+                    ? pct(f.annualRatePct, 0) + " / yr"
+                    : "own"}
+              </td>
               <td className="py-1.5 text-right tabular">
                 {f.lotsSold}/{f.totalLots}
               </td>
