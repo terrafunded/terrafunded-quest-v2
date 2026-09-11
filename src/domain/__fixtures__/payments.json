@@ -1,5 +1,5 @@
 {
-  "snapshotAt": "2026-09-11T19:17:29.292Z",
+  "snapshotAt": "2026-09-11T19:42:11.549Z",
   "farmAcquisitions": [
     {
       "id": "088979f5-e0da-4070-bdec-8169c2a474f1",
@@ -3245,11 +3245,11 @@
       "estimated_closing_date": "2026-10-25",
       "note_buyer_destination": null,
       "assigned_seller": "Rodrigo Blanco",
-      "current_stage_name": "Onboarding de RMLO",
-      "progress_pct": 31,
+      "current_stage_name": "Aprobado por RMLO",
+      "progress_pct": 35,
       "days_since_start": 9,
       "created_at": "2026-08-26T21:50:55.751696+00:00",
-      "updated_at": "2026-09-11T17:51:25.625113+00:00"
+      "updated_at": "2026-09-11T19:24:07.881699+00:00"
     },
     {
       "id": "d3ae6076-b244-4f80-8bcc-5990523731f2",
@@ -6348,6 +6348,827 @@
       "full_name": "Willie Lee Rogers III",
       "is_test": false,
       "created_at": "2026-06-01T20:53:12.468545+00:00"
+    }
+  ],
+  "lotLedgers": [
+    {
+      "farmId": "74325ec5-2128-41ea-bbc7-699961f598df",
+      "farmName": "Eastland",
+      "asOf": "2026-09-11",
+      "rows": [
+        {
+          "property_id": "58697500-9ea2-4d11-8987-ee4c52c038c7",
+          "lot_number": "1",
+          "lot_capital": 51363.63636363636,
+          "accrued_return": 10751.183063511831,
+          "credits": 11151.54,
+          "lot_balance": 50963.27942714819,
+          "floor_amount": 61636.36363636364,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2025-08-25",
+          "credit_detail": [
+            {
+              "dt": "2026-05-15",
+              "amt": 11151.54,
+              "kind": "down_payment"
+            }
+          ]
+        },
+        {
+          "property_id": "66b89e39-94d4-486b-927e-303d0a48d523",
+          "lot_number": "10",
+          "lot_capital": 51363.63636363636,
+          "accrued_return": 10751.183063511831,
+          "credits": 4000,
+          "lot_balance": 58114.81942714819,
+          "floor_amount": 61636.36363636364,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2025-08-25",
+          "credit_detail": [
+            {
+              "dt": "2026-05-15",
+              "amt": 4000,
+              "kind": "down_payment"
+            }
+          ]
+        },
+        {
+          "property_id": "b667147c-16a1-449b-8c2d-cfd0cec309f2",
+          "lot_number": "2",
+          "lot_capital": 51363.63636363636,
+          "accrued_return": 10526.027397260274,
+          "credits": 61889.66376089664,
+          "lot_balance": 0,
+          "floor_amount": 61636.36363636364,
+          "released_at": "2026-09-03",
+          "residual": 35573.33623910336,
+          "first_cost_date": "2025-08-25",
+          "credit_detail": [
+            {
+              "dt": "2026-05-15",
+              "amt": 6405,
+              "kind": "down_payment"
+            },
+            {
+              "dt": "2026-09-03",
+              "amt": 91058,
+              "kind": "note_sale"
+            }
+          ]
+        },
+        {
+          "property_id": "f839b010-f213-42ca-95b7-450891dd5cbf",
+          "lot_number": "3",
+          "lot_capital": 51363.63636363636,
+          "accrued_return": 8161.892901618929,
+          "credits": 59525.529265255296,
+          "lot_balance": 0,
+          "floor_amount": 61636.36363636364,
+          "released_at": "2026-06-11",
+          "residual": 40474.470734744704,
+          "first_cost_date": "2025-08-25",
+          "credit_detail": [
+            {
+              "dt": "2026-06-11",
+              "amt": 100000,
+              "kind": "note_sale"
+            }
+          ]
+        },
+        {
+          "property_id": "02211906-0864-4013-80dd-ec4c5b45adab",
+          "lot_number": "4",
+          "lot_capital": 51363.63636363636,
+          "accrued_return": 10751.183063511831,
+          "credits": 45000,
+          "lot_balance": 17114.819427148195,
+          "floor_amount": 61636.36363636364,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2025-08-25",
+          "credit_detail": [
+            {
+              "dt": "2025-10-31",
+              "amt": 45000,
+              "kind": "down_payment"
+            }
+          ]
+        },
+        {
+          "property_id": "2e4966ef-20eb-425b-99cc-9c41977c7ea5",
+          "lot_number": "5",
+          "lot_capital": 51363.63636363636,
+          "accrued_return": 10357.160647571607,
+          "credits": 61720.79701120797,
+          "lot_balance": 0,
+          "floor_amount": 61636.36363636364,
+          "released_at": "2026-08-28",
+          "residual": 20279.20298879203,
+          "first_cost_date": "2025-08-25",
+          "credit_detail": [
+            {
+              "dt": "2026-05-31",
+              "amt": 20000,
+              "kind": "down_payment"
+            },
+            {
+              "dt": "2026-08-28",
+              "amt": 62000,
+              "kind": "note_sale"
+            }
+          ]
+        },
+        {
+          "property_id": "f4fc218c-6b61-4c28-8f6f-bed0c28526d7",
+          "lot_number": "6",
+          "lot_capital": 51363.63636363636,
+          "accrued_return": 8949.937733499377,
+          "credits": 60313.574097135745,
+          "lot_balance": 0,
+          "floor_amount": 61636.36363636364,
+          "released_at": "2026-07-09",
+          "residual": 29686.42590286426,
+          "first_cost_date": "2025-08-25",
+          "credit_detail": [
+            {
+              "dt": "2026-07-09",
+              "amt": 90000,
+              "kind": "cash_sale"
+            }
+          ]
+        },
+        {
+          "property_id": "1627715e-6c99-4f3a-bc3c-897f91cc07de",
+          "lot_number": "7",
+          "lot_capital": 51363.63636363636,
+          "accrued_return": 10751.183063511831,
+          "credits": 5380,
+          "lot_balance": 56734.81942714819,
+          "floor_amount": 61636.36363636364,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2025-08-25",
+          "credit_detail": [
+            {
+              "dt": "2026-05-15",
+              "amt": 5380,
+              "kind": "down_payment"
+            }
+          ]
+        },
+        {
+          "property_id": "97ff9c89-7515-411b-9825-02ff05878d13",
+          "lot_number": "8",
+          "lot_capital": 51363.63636363636,
+          "accrued_return": 10666.749688667496,
+          "credits": 62030.38605230386,
+          "lot_balance": 0,
+          "floor_amount": 61636.36363636364,
+          "released_at": "2026-09-08",
+          "residual": 19976.61394769614,
+          "first_cost_date": "2025-08-25",
+          "credit_detail": [
+            {
+              "dt": "2026-05-15",
+              "amt": 5380,
+              "kind": "down_payment"
+            },
+            {
+              "dt": "2026-09-08",
+              "amt": 76627,
+              "kind": "note_sale"
+            }
+          ]
+        },
+        {
+          "property_id": "98cda3f6-c6d6-4b60-84ab-1555f759a228",
+          "lot_number": "9",
+          "lot_capital": 51363.63636363636,
+          "accrued_return": 10751.183063511831,
+          "credits": 0,
+          "lot_balance": 62114.81942714819,
+          "floor_amount": 61636.36363636364,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2025-08-25",
+          "credit_detail": []
+        },
+        {
+          "property_id": "04399455-962e-4a6c-a9fb-64a793dd0404",
+          "lot_number": null,
+          "lot_capital": 51363.63636363636,
+          "accrued_return": 10751.183063511831,
+          "credits": 0,
+          "lot_balance": 62114.81942714819,
+          "floor_amount": 61636.36363636364,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2025-08-25",
+          "credit_detail": []
+        }
+      ]
+    },
+    {
+      "farmId": "02994eed-a6b1-430a-a11c-aeb1f558ad24",
+      "farmName": "Titus",
+      "asOf": "2026-09-11",
+      "rows": [
+        {
+          "property_id": "eece8f2f-4bc7-48d7-a0fd-36eec8e8ad44",
+          "lot_number": "1",
+          "lot_capital": 64249.166666666664,
+          "accrued_return": 6196.08401826484,
+          "credits": 70445.25068493151,
+          "lot_balance": 0,
+          "floor_amount": 77099,
+          "released_at": "2026-05-06",
+          "residual": 73754.74931506849,
+          "first_cost_date": "2025-11-11",
+          "credit_detail": [
+            {
+              "dt": "2026-05-06",
+              "amt": 136990,
+              "kind": "note_sale"
+            },
+            {
+              "dt": "2026-05-15",
+              "amt": 7210,
+              "kind": "down_payment",
+              "post_release": true
+            }
+          ]
+        },
+        {
+          "property_id": "939faccf-e817-44f4-821f-53bbda2c7109",
+          "lot_number": "2",
+          "lot_capital": 64249.166666666664,
+          "accrued_return": 10702.326940639268,
+          "credits": 0,
+          "lot_balance": 74951.49360730594,
+          "floor_amount": 77099,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2025-11-11",
+          "credit_detail": []
+        },
+        {
+          "property_id": "7db4715d-1263-4ab0-a628-214dcf51b565",
+          "lot_number": "3",
+          "lot_capital": 64249.166666666664,
+          "accrued_return": 10702.326940639268,
+          "credits": 0,
+          "lot_balance": 74951.49360730594,
+          "floor_amount": 77099,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2025-11-11",
+          "credit_detail": []
+        },
+        {
+          "property_id": "5bc5a541-e582-498e-97b1-fbf5d2ae7949",
+          "lot_number": "4",
+          "lot_capital": 64249.166666666664,
+          "accrued_return": 10702.326940639268,
+          "credits": 0,
+          "lot_balance": 74951.49360730594,
+          "floor_amount": 77099,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2025-11-11",
+          "credit_detail": []
+        },
+        {
+          "property_id": "d786668a-4ea2-4d86-b475-8d0be7b075e0",
+          "lot_number": "5",
+          "lot_capital": 64249.166666666664,
+          "accrued_return": 10702.326940639268,
+          "credits": 0,
+          "lot_balance": 74951.49360730594,
+          "floor_amount": 77099,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2025-11-11",
+          "credit_detail": []
+        },
+        {
+          "property_id": "b6a19a47-d17d-4a1b-baf2-37f8c44e0ede",
+          "lot_number": "6",
+          "lot_capital": 64249.166666666664,
+          "accrued_return": 10702.326940639268,
+          "credits": 5000,
+          "lot_balance": 69951.49360730594,
+          "floor_amount": 77099,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2025-11-11",
+          "credit_detail": [
+            {
+              "dt": "2026-07-15",
+              "amt": 5000,
+              "kind": "down_payment"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "farmId": "1bb26b73-1d06-4439-9abd-50ae0201f1bf",
+      "farmName": "Freestone",
+      "asOf": "2026-09-11",
+      "rows": [
+        {
+          "property_id": "735d842f-2819-4a3f-bfd7-5e0a8f8ac744",
+          "lot_number": "1",
+          "lot_capital": 53360,
+          "accrued_return": 4385.753424657534,
+          "credits": 7210,
+          "lot_balance": 50535.75342465753,
+          "floor_amount": 64032,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-04-14",
+          "credit_detail": [
+            {
+              "dt": "2026-05-31",
+              "amt": 7210,
+              "kind": "down_payment"
+            }
+          ]
+        },
+        {
+          "property_id": "06224df9-02dc-496b-ac4a-6e0046f23cd8",
+          "lot_number": "2",
+          "lot_capital": 53360,
+          "accrued_return": 4385.753424657534,
+          "credits": 7210,
+          "lot_balance": 50535.75342465753,
+          "floor_amount": 64032,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-04-14",
+          "credit_detail": [
+            {
+              "dt": "2026-05-31",
+              "amt": 7210,
+              "kind": "down_payment"
+            }
+          ]
+        },
+        {
+          "property_id": "5b7f3380-4e21-456f-9915-723d3db7295e",
+          "lot_number": "3",
+          "lot_capital": 53360,
+          "accrued_return": 1374.2027397260274,
+          "credits": 54734.202739726024,
+          "lot_balance": 0,
+          "floor_amount": 64032,
+          "released_at": "2026-05-31",
+          "residual": 57165.797260273976,
+          "first_cost_date": "2026-04-14",
+          "credit_detail": [
+            {
+              "dt": "2026-05-31",
+              "amt": 60000,
+              "kind": "down_payment"
+            },
+            {
+              "dt": "2026-07-31",
+              "amt": 51900,
+              "kind": "note_sale",
+              "post_release": true
+            }
+          ]
+        },
+        {
+          "property_id": "07e8a313-a257-49aa-a340-fba578d9127b",
+          "lot_number": "4",
+          "lot_capital": 53360,
+          "accrued_return": 4385.753424657534,
+          "credits": 7210,
+          "lot_balance": 50535.75342465753,
+          "floor_amount": 64032,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-04-14",
+          "credit_detail": [
+            {
+              "dt": "2026-05-31",
+              "amt": 7210,
+              "kind": "down_payment"
+            }
+          ]
+        },
+        {
+          "property_id": "b138189d-e088-4870-92a2-29cbc6f65d56",
+          "lot_number": "5",
+          "lot_capital": 53360,
+          "accrued_return": 3976.4164383561642,
+          "credits": 57336.416438356166,
+          "lot_balance": 0,
+          "floor_amount": 64032,
+          "released_at": "2026-08-28",
+          "residual": 51833.583561643834,
+          "first_cost_date": "2026-04-14",
+          "credit_detail": [
+            {
+              "dt": "2026-05-31",
+              "amt": 7170,
+              "kind": "down_payment"
+            },
+            {
+              "dt": "2026-08-28",
+              "amt": 102000,
+              "kind": "note_sale"
+            }
+          ]
+        },
+        {
+          "property_id": "706a390a-ccea-4181-abd7-3edb2286c471",
+          "lot_number": "6",
+          "lot_capital": 53360,
+          "accrued_return": 4385.753424657534,
+          "credits": 6770.75,
+          "lot_balance": 50975.00342465753,
+          "floor_amount": 64032,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-04-14",
+          "credit_detail": [
+            {
+              "dt": "2026-06-01",
+              "amt": 6770.75,
+              "kind": "down_payment"
+            }
+          ]
+        },
+        {
+          "property_id": "8f76bb71-ddff-4aa4-b9fc-d1ee6492727a",
+          "lot_number": "7",
+          "lot_capital": 53360,
+          "accrued_return": 4385.753424657534,
+          "credits": 7170,
+          "lot_balance": 50575.75342465753,
+          "floor_amount": 64032,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-04-14",
+          "credit_detail": [
+            {
+              "dt": "2026-05-31",
+              "amt": 7170,
+              "kind": "down_payment"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "farmId": "5dbe4a12-147c-4d0a-9f02-708b1388cca5",
+      "farmName": "Avery",
+      "asOf": "2026-09-11",
+      "rows": [
+        {
+          "property_id": "832eb381-71e2-4762-81e3-09e613e0bde7",
+          "lot_number": "1",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "9c20fa06-5243-4aef-8ce2-d5a0aafd82ee",
+          "lot_number": "10",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "b72f7558-f861-45fb-94db-43808f40ada8",
+          "lot_number": "11",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "e1b9abb5-25f1-47ad-944a-753b7acc26a8",
+          "lot_number": "12",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "c09049b9-c570-414e-9a0a-9b7bc2c99721",
+          "lot_number": "13",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "40a5e16b-2788-4266-aa51-6c6cfb838984",
+          "lot_number": "14",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "3cc99e1c-4992-4fdd-91aa-31b9116274f9",
+          "lot_number": "2",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "4e3f11e5-d9ce-425a-998e-372ccb3ea573",
+          "lot_number": "3",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "4223c494-3ba5-40dd-94fa-07c566f523cd",
+          "lot_number": "4",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "10b0312e-4272-4230-8a55-67a89753a093",
+          "lot_number": "5",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "0f7c59e5-7c8e-4956-8af5-eff55b8109ac",
+          "lot_number": "6",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "262558ac-5ae0-4dc2-943e-eb3971afea2d",
+          "lot_number": "7",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "951267a2-e889-4404-b5fa-6e12fd4f5e3a",
+          "lot_number": "8",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        },
+        {
+          "property_id": "8eca8df6-8efa-455e-9270-a6da2c37391f",
+          "lot_number": "9",
+          "lot_capital": 37380.57142857143,
+          "accrued_return": 1781.9779256360077,
+          "credits": 0,
+          "lot_balance": 39162.54935420743,
+          "floor_amount": 44856.68571428571,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-06-16",
+          "credit_detail": []
+        }
+      ]
+    },
+    {
+      "farmId": "f7b7a2b7-be9c-4d02-83d4-21e50887a1ca",
+      "farmName": "Franklin",
+      "asOf": "2026-09-11",
+      "rows": [
+        {
+          "property_id": "f4a0bc51-5402-4b2e-9b32-a65090cf4bf4",
+          "lot_number": "1",
+          "lot_capital": 65143.5,
+          "accrued_return": 1873.991095890411,
+          "credits": 0,
+          "lot_balance": 67017.49109589041,
+          "floor_amount": 81429.375,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-07-31",
+          "credit_detail": []
+        },
+        {
+          "property_id": "1cb848f4-45c4-431c-b599-557dc3124b22",
+          "lot_number": "2",
+          "lot_capital": 65143.5,
+          "accrued_return": 1873.991095890411,
+          "credits": 0,
+          "lot_balance": 67017.49109589041,
+          "floor_amount": 81429.375,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-07-31",
+          "credit_detail": []
+        },
+        {
+          "property_id": "b25fed15-a968-4ef9-8fff-6058fdda5d85",
+          "lot_number": "3",
+          "lot_capital": 65143.5,
+          "accrued_return": 1873.991095890411,
+          "credits": 0,
+          "lot_balance": 67017.49109589041,
+          "floor_amount": 81429.375,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-07-31",
+          "credit_detail": []
+        },
+        {
+          "property_id": "d2077aee-6491-4aeb-b2df-0dd41013659e",
+          "lot_number": "4",
+          "lot_capital": 65143.5,
+          "accrued_return": 1873.991095890411,
+          "credits": 0,
+          "lot_balance": 67017.49109589041,
+          "floor_amount": 81429.375,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-07-31",
+          "credit_detail": []
+        },
+        {
+          "property_id": "1fd612c1-c96e-489e-9ab0-581c0f47a31d",
+          "lot_number": "5",
+          "lot_capital": 65143.5,
+          "accrued_return": 1873.991095890411,
+          "credits": 0,
+          "lot_balance": 67017.49109589041,
+          "floor_amount": 81429.375,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-07-31",
+          "credit_detail": []
+        },
+        {
+          "property_id": "6324c585-d612-4476-99bd-af780fc971da",
+          "lot_number": "6",
+          "lot_capital": 65143.5,
+          "accrued_return": 1873.991095890411,
+          "credits": 0,
+          "lot_balance": 67017.49109589041,
+          "floor_amount": 81429.375,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": "2026-07-31",
+          "credit_detail": []
+        }
+      ]
+    },
+    {
+      "farmId": "18e67a5a-1e4f-4327-968b-9bb30120bcd0",
+      "farmName": "Franklin 2",
+      "asOf": "2026-09-11",
+      "rows": [
+        {
+          "property_id": "5a05e0e3-306b-44f3-a8fd-51fbdb7fc5ea",
+          "lot_number": "10",
+          "lot_capital": 0,
+          "accrued_return": 0,
+          "credits": 0,
+          "lot_balance": 0,
+          "floor_amount": 0,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": null,
+          "credit_detail": []
+        },
+        {
+          "property_id": "216a63b9-0e10-4493-9d2d-7b1ab72a46b9",
+          "lot_number": "11",
+          "lot_capital": 0,
+          "accrued_return": 0,
+          "credits": 0,
+          "lot_balance": 0,
+          "floor_amount": 0,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": null,
+          "credit_detail": []
+        },
+        {
+          "property_id": "6f57641d-89c8-4ea9-b533-e7841004f808",
+          "lot_number": "7",
+          "lot_capital": 0,
+          "accrued_return": 0,
+          "credits": 0,
+          "lot_balance": 0,
+          "floor_amount": 0,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": null,
+          "credit_detail": []
+        },
+        {
+          "property_id": "b84559ff-fa6c-41c5-8727-1d1fbe0560c5",
+          "lot_number": "8",
+          "lot_capital": 0,
+          "accrued_return": 0,
+          "credits": 0,
+          "lot_balance": 0,
+          "floor_amount": 0,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": null,
+          "credit_detail": []
+        },
+        {
+          "property_id": "ab166a83-5b69-4eb1-88b2-11ed94ce38e3",
+          "lot_number": "9",
+          "lot_capital": 0,
+          "accrued_return": 0,
+          "credits": 0,
+          "lot_balance": 0,
+          "floor_amount": 0,
+          "released_at": null,
+          "residual": 0,
+          "first_cost_date": null,
+          "credit_detail": []
+        }
+      ]
     }
   ]
 }

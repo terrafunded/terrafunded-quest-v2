@@ -19,7 +19,7 @@ Order of work, as requested: Phase 1 numbers verified → connection check → d
 verified numbers → **Phase 2: Epic** → **Pipeline layer** → **three visual themes + POLISH loops
 + performance/mobile audit** → **War Plan + Rotation** → **Data Quality for operations** →
 **Reservations first-class** → **The Era** (`ERA_START = 2026-03-01`) → **Snapshot 2026-09-11
-refresh** (all at the end of the file).
+refresh** → **Exodus** (lot ledger port first) (all at the end of the file).
 
 ## Payments connection check (`npm run check`, 2026-09-11 02:52 UTC)
 
@@ -579,3 +579,29 @@ issue (773 days), 109 lots on 9 farms, farm cadence 1.51 / 1.72 months, farm →
 months, note-sale lag 3.17 months, 33 live reservations, 16 stuck on $2,024,531 of sales,
 seasonality still "not enough history" (6 of 12 months). `OPEN_QUESTIONS.md` #50, #52, #59, #69,
 #72, #75 and #79 carry a "refreshed" note; the live site and the fixture now describe the same data.
+
+## Exodus — Step 1: the lot ledger (`src/domain/lotLedger.ts`, parity pinned in `lotLedger.test.ts`)
+
+`computeLotLedger(farmId, source, asOf)` is a pure port of Payments' `compute_lot_ledger(p_farm_id,
+p_as_of)`: rate in PERCENT from `farm_acquisitions.annual_interest_rate`, lots from `properties`,
+cost events from every `property_costs` row (lot-level to the lot, farm-level split equally among
+the lots not yet released that day, skipped when none), credit events from note down payments on
+`start_date`, `note_sales` on `sale_date` and completed cash cases on `closing_date` when the lot
+has no note; costs before credits on the same day; a credit on a released lot is residual; otherwise
+credits grow, `balance = capital + interest to that day − credits`, and `balance ≤ 0` releases the
+lot with credits capped at the balance. `outstandingAt(lot, date)` runs an unreleased lot forward
+(this is the partial-release cost Exodus will use). `computeLotLedgers(source, asOf, dealType)`
+builds one ledger per farm of a deal type (fixed_interest by default).
+
+`scripts/snapshot.ts` now also calls the RPC (read-only) for every fixed-interest farm and stores
+the raw rows under `lotLedgers`; the fixture was regenerated at 19:42 UTC (only Avery Lot 4's stage
+moved since 19:17, no pinned number reads it). **Parity: 49 lots on 6 farms (Eastland 11, Titus 6,
+Freestone 7, Avery 14, Franklin 6, Franklin 2 5) match on capital, accrued interest, credits,
+outstanding, residual, release date and the credit list; worst difference 7e-12.** The RPC's real
+column names are in `payments_schema.md`; what it returns beyond the rule (`floor_amount`, Franklin
+2's zero capital, the any-note rule, the unnumbered Eastland property) is in `OPEN_QUESTIONS.md`
+#80. As of 2026-09-11 the fixed-interest farms hold 49 lots of which **8 are released** (Eastland
+2, 3, 5, 6, 8 · Titus 1 · Freestone 3, 5; none yet on Avery, Franklin or Franklin 2); the 41
+unreleased lots carry **$1,880,453.51** of balance today (Eastland $307,157.38 · Titus $369,757.47 ·
+Freestone $253,158.02 · Avery $548,275.69 · Franklin $402,104.95 · Franklin 2 $0 until 2026-10-15),
+which is what partial releases would have to pay if they all happened today — and it grows daily.

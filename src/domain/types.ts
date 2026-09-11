@@ -147,6 +147,33 @@ export interface ClientRow {
   created_at: string | null;
 }
 
+/**
+ * One row of Payments' `compute_lot_ledger(p_farm_id, p_as_of)` RPC, exactly as returned
+ * (column names observed on 2026-09-11, see `payments_schema.md`). Read-only; stored in the
+ * fixture by `scripts/snapshot.ts` so `domain/lotLedger.ts` can prove parity offline.
+ */
+export interface LotLedgerRpcRow {
+  property_id: string;
+  lot_number: string | null;
+  lot_capital: number;
+  accrued_return: number;
+  credits: number;
+  lot_balance: number;
+  floor_amount: number;
+  released_at: string | null;
+  residual: number;
+  first_cost_date: string | null;
+  credit_detail: { dt: string; amt: number; kind: string }[] | null;
+}
+
+/** The RPC's result for one farm, with the arguments it was called with. */
+export interface LotLedgerRpcResult {
+  farmId: string;
+  farmName: string | null;
+  asOf: string;
+  rows: LotLedgerRpcRow[];
+}
+
 /** Everything the domain layer needs, in one bag. */
 export interface PaymentsSnapshot {
   farmAcquisitions: FarmAcquisitionRow[];

@@ -239,10 +239,37 @@ Quest v2 must show them in a Data Quality panel and apply the price rule from GO
 - Titus Lot 6: file_case $141,802 / $7,090.10 vs note $140,000 / $5,000
 - Lamar Lot 5, 6, 7: file_case $118,506.75 or $133,641 / $5,000 vs note $113,507 or $128,641 / $4,000
 - Eastland Lot 3: file_case $130,515 vs note $125,515 (down payment 5,000 vs 0)
-- Lamar Lot 5: file_case reservation_date is 2026-09-07 but note start_date is 2025-11-05
+- Lamar Lot 5: file_case reservation_date was 2026-09-07 while the note start_date is 2025-11-05 —
+  corrected in Payments to 2025-09-07 (seen in the 2026-09-11 19:17 UTC refresh); no longer an issue
 
 ## Views that exist in Payments (read-only, may be useful)
 
 `v_note_summary`, `v_portfolio_dashboard`, `v_monthly_cash_flow`, `v_file_case_summary`,
 `v_outbound_summary`, `v_tape_export`. Their columns were NOT introspected for this document;
 if you use one, first run `select * from <view> limit 1` and record the columns in OPEN_QUESTIONS.md.
+
+## RPC `compute_lot_ledger(p_farm_id uuid, p_as_of date)`  (read-only; the lot ledger of one farm)
+
+Called by the viewer through `supabase.rpc('compute_lot_ledger', { p_farm_id, p_as_of })` — HTTP 200,
+no grant problem (checked 2026-09-11 19:42 UTC). It only reads. `scripts/snapshot.ts` calls it once per
+farm with `deal_type = 'fixed_interest'` and stores the raw rows in the fixture under `lotLedgers`
+(`{ farmId, farmName, asOf, rows }`). One row per `properties` row of the farm. The **real returned
+columns**, as observed (not guessed):
+
+| column | type | meaning as observed |
+|---|---|---|
+| property_id | uuid | the lot |
+| lot_number | text | nullable (Eastland has one property without a lot number; it still takes its share of farm costs) |
+| lot_capital | numeric | Σ capital entries: lot-level `property_costs` + the lot's equal share of every farm-level cost booked while it was unreleased |
+| accrued_return | numeric | Σ amt × rate/100 × days/365, days from each cost to `min(as_of, released_at)`; `rate` = `farm_acquisitions.annual_interest_rate`, a PERCENT |
+| credits | numeric | down payments + note sales + completed cash closings applied to the lot, capped at the balance on the release day |
+| lot_balance | numeric | `max(0, lot_capital + accrued_return − credits)`; 0 once released |
+| floor_amount | numeric | `lot_capital × (1 + rate/100)` — informational; it does **not** gate the release (Eastland Lot 3 released 2026-06-11 with credits 59,525.53 < floor 61,636.36). NaN on Franklin 2, whose capital is 0 until its 2026-10-15 costs |
+| released_at | date | the credit date on which the balance reached ≤ 0, else null |
+| residual | numeric | credits received beyond the balance (the overshoot on the release day plus every later credit) |
+| first_cost_date | date | earliest capital entry, null when the lot has none |
+| credit_detail | jsonb[] | `[{ dt, amt, kind }]`, `kind` ∈ `down_payment` · `note_sale` · `cash_sale` |
+
+Values come back as unrounded floats. `src/domain/lotLedger.ts` is the TypeScript port;
+`src/domain/__tests__/lotLedger.test.ts` proves parity with these stored rows on all 49 lots of the
+6 fixed-interest farms (worst absolute difference 7e-12; the test tolerates $0.01).

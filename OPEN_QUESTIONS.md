@@ -811,3 +811,33 @@ farm is freed, when the benchmark becomes a measured cycle and grading resumes.
 **Refreshed 2026-09-11 19:17 UTC:** the fixture now reproduces these live figures exactly
 ($10,025.56 / $6,655.89 per day, $468,520 / $46,852, 219.5 days / 7.21 months on Avery, 30 era
 closings, "$3.3M … 7.2 months … 4 of the 7 turns"); see PROGRESS.md "Snapshot 2026-09-11 refresh".
+
+## 80. Exodus, Step 1: the lot ledger port and what the RPC returns beyond the rule
+
+`compute_lot_ledger(p_farm_id, p_as_of)` **is callable by the viewer** (HTTP 200 on all 6
+fixed-interest farms, 2026-09-11 19:42 UTC), so the stop condition of Step 1 did not fire and the
+raw rows are stored in the fixture (`lotLedgers`, 49 lots). `src/domain/lotLedger.ts` matches them
+on every lot — capital, accrued interest, credits, outstanding, residual, release date and the
+credit list itself — with a worst difference of 7e-12. Four things the rule as written does not
+say, recorded here rather than guessed:
+
+1. **`floor_amount`** — the RPC also returns `lot_capital × (1 + rate/100)` (×1.2 on the 20 % farms,
+   ×1.25 on Franklin). It is not part of the release rule and does not gate it: Eastland Lot 3 was
+   released on 2026-06-11 with credits of $59,525.53 against a floor of $61,636.36. The port does
+   not compute it; Exodus never uses it. If Payments ever starts enforcing the floor, the parity
+   test will say so.
+2. **Franklin 2 has zero capital today.** Its only costs are dated 2026-10-15 (funding day, #77), so
+   as of 2026-09-11 every lot shows capital 0, balance 0, `released_at` null, and the RPC's
+   `floor_amount` is NaN. For the ledger this means the lots are *not* released (nothing was paid);
+   their release cost becomes real on 2026-10-15. Exodus treats those lots as fixed-interest lots
+   whose cost appears when the capital lands.
+3. **Any note on a lot blocks the cash-closing credit**, including a test note. Payments' rule (c)
+   says "no note on that property"; the port applies the same, without filtering `is_test`. On the
+   fixture no lot has both a test note and a completed cash case, so parity cannot tell the two
+   readings apart. Recorded so nobody "fixes" it silently.
+4. **A property with no lot number** (Eastland has one) is a lot like any other: it takes its equal
+   share of farm-level costs and accrues interest, so it counts in the release cost of the farm.
+
+Also observed: `credit_detail.kind` uses exactly `down_payment` · `note_sale` · `cash_sale`, which the
+port mirrors; the two 2026-09-11 snapshots (19:17 and 19:42 UTC) differ only in Avery Lot 4's stage
+("Onboarding de RMLO" → "Aprobado por RMLO", 31 % → 35 %), which no pinned number reads.

@@ -5,7 +5,12 @@
  * app uses (src/data/queries), and writes them to src/domain/__fixtures__/payments.json
  * so the domain tests can reproduce the verified numbers offline.
  *
- * It never inserts, updates, deletes, or calls an RPC.
+ * It also calls one read-only RPC, `compute_lot_ledger(p_farm_id, p_as_of)`, for every
+ * farm with `deal_type = 'fixed_interest'` and stores the raw rows under `lotLedgers`,
+ * so `src/domain/lotLedger.ts` (the TypeScript port) can be checked for parity offline.
+ * That function only reads; the RPC's real column names are recorded in payments_schema.md.
+ *
+ * It never inserts, updates or deletes.
  *
  *   npm run snapshot
  */
@@ -14,6 +19,7 @@ import { config as loadDotenv } from "dotenv";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fetchPaymentsSnapshot } from "../src/data/queries";
+import type { LotLedgerRpcResult, LotLedgerRpcRow } from "../src/domain/types";
 
 loadDotenv();
 
@@ -45,9 +51,25 @@ async function main() {
     console.error(`WARN table ${e.table}: ${e.code ?? "?"} ${e.message}`);
   }
 
+  const snapshotAt = new Date();
+  const asOf = snapshotAt.toISOString().slice(0, 10);
+  const lotLedgers: LotLedgerRpcResult[] = [];
+  let rpcErrors = 0;
+  for (const farm of snapshot.farmAcquisitions) {
+    if (farm.deal_type !== "fixed_interest") continue;
+    const { data, error } = await sb.rpc("compute_lot_ledger", { p_farm_id: farm.id, p_as_of: asOf });
+    if (error) {
+      rpcErrors += 1;
+      console.error(`WARN rpc compute_lot_ledger(${farm.farm_name ?? farm.id}, ${asOf}): ${error.code ?? "?"} ${error.message}`);
+      continue;
+    }
+    lotLedgers.push({ farmId: farm.id, farmName: farm.farm_name, asOf, rows: (data ?? []) as LotLedgerRpcRow[] });
+  }
+
   const out = {
-    snapshotAt: new Date().toISOString(),
+    snapshotAt: snapshotAt.toISOString(),
     ...snapshot,
+    lotLedgers,
   };
 
   const dir = path.resolve(process.cwd(), "src/domain/__fixtures__");
@@ -58,9 +80,10 @@ async function main() {
   const counts = Object.entries(snapshot).map(([k, v]) => `${k}=${(v as unknown[]).length}`);
   console.log(`Wrote ${file}`);
   console.log(counts.join("  "));
+  console.log(`lotLedgers=${lotLedgers.length} farms (${lotLedgers.reduce((a, l) => a + l.rows.length, 0)} lots) as of ${asOf}`);
 
   await sb.auth.signOut();
-  process.exit(errors.length ? 2 : 0);
+  process.exit(errors.length || rpcErrors ? 2 : 0);
 }
 
 main().catch((e) => {
