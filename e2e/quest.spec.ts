@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 /** Ledger contract-price total verified in GOAL.md; tolerance documented in PROGRESS.md. */
 const VERIFIED_LEDGER_TOTAL = "$8,986,794.30";
 
-const ROUTES = ["/", "/realm", "/quests", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"] as const;
+const ROUTES = ["/", "/realm", "/quests", "/pipeline", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"] as const;
 
 function collectConsoleErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -161,6 +161,42 @@ test.describe("Page specifics", () => {
     expect(await page.locator("[data-rarity='legendary']").count()).toBeGreaterThan(0);
     await expect(page.getByTestId("streaks")).toBeVisible();
     await expect(page.getByTestId("streak-current")).toContainText(/\d+ weeks?/);
+  });
+});
+
+test.describe("Pipeline layer", () => {
+  test("the stuck-pipeline counter renders on the Throne Room and matches the /pipeline list", async ({ page }) => {
+    await page.goto("/");
+    await waitForRealm(page);
+    const panel = page.getByTestId("pipeline");
+    await expect(panel).toBeVisible();
+    const trapped = page.getByTestId("pipeline-trapped");
+    await expect(trapped).toHaveText(/^\$[\d,]+$/);
+    const stuckCount = Number(await page.getByTestId("pipeline-stuck-count").getAttribute("data-value"));
+    expect(stuckCount).toBeGreaterThanOrEqual(0);
+    // let the counter settle, then read the final value
+    await page.waitForTimeout(2500);
+    const trappedValue = Number(await trapped.getAttribute("data-value"));
+    if (stuckCount === 0) expect(trappedValue).toBe(0);
+    else expect(trappedValue).toBeGreaterThan(0);
+    await expect(panel.getByTestId("pipeline-reservations-per-month")).toHaveText(/^\d+(\.\d+)?$/);
+
+    await page.goto("/pipeline");
+    await waitForRealm(page);
+    await expect(page.getByTestId("pipeline-farm")).toHaveCount(9);
+    const rows = page.getByTestId("stuck-row");
+    await expect(rows).toHaveCount(stuckCount);
+    if (stuckCount > 0) {
+      const days = await rows.evaluateAll((els) => els.map((el) => Number(el.getAttribute("data-days"))));
+      for (let i = 1; i < days.length; i++) expect(days[i - 1]).toBeGreaterThanOrEqual(days[i]!);
+      expect(days.at(-1)).toBeGreaterThanOrEqual(60);
+      const total = (await page.getByTestId("stuck-total-trapped").textContent()) ?? "";
+      expect(Math.round(Number(total.replace(/[^\d.-]/g, "")))).toBe(trappedValue);
+    }
+
+    await page.goto("/quests?filter=stuck");
+    await waitForRealm(page);
+    await expect(page.getByTestId("ledger-row")).toHaveCount(stuckCount);
   });
 });
 
