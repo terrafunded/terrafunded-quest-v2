@@ -12,6 +12,7 @@ import { themeIcon, type IconName } from "@/theme/icons";
 
 const NAV_ITEMS: readonly { to: string; label: string; icon: IconName }[] = [
   { to: "/", label: "Throne Room", icon: "throne" },
+  { to: "/warplan", label: "War Plan", icon: "warplan" },
   { to: "/realm", label: "The Realm", icon: "realm" },
   { to: "/quests", label: "Quests", icon: "quests" },
   { to: "/pipeline", label: "Pipeline", icon: "pipeline" },

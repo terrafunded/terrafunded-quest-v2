@@ -75,6 +75,7 @@ src/
     debt.ts  oxygen.ts  liberation.ts  campaigns.ts  streaks.ts      Phase 2: Epic
     futures.ts  narrative.ts  story.ts  visits.ts
     pipeline.ts           reservations layer (never feeds the goal)
+    warplan.ts            WAR PLAN — inverts runOracle by search (pace, farms, capital, ads)
     realm.ts              buildRealm(snapshot, now) — runs the pipeline in order
     __fixtures__/         payments.json written by scripts/snapshot.ts
     __tests__/            Vitest suites (fixture-based + synthetic builders)
@@ -114,6 +115,7 @@ GOAL.md  payments_schema.md  PROGRESS.md  OPEN_QUESTIONS.md
 | Route | Page |
 |---|---|
 | `/` | **Throne Room** — giant animated net-profit counter, remaining amount, days to deadline, verdict sentence, cash vs. paper, pipeline, capital outstanding; **The Debt** (capital owed to investors, days left, required net profit per day) and the **Oxygen** score (days gained toward the exit); the 5 latest events narrated in prose; the **Pipeline** panel (reservations vs closings per month, conversion, median days to close, and the "profit trapped in reservations" counter) |
+| `/warplan` | **War Plan** — the Oracle in reverse: give it the target and the deadline and it returns what must happen — minimum closings per month, how many farms to buy and the latest month for each, capital to raise split by the investor mix in order (remainder flagged unfunded), minimum ad spend, note sales per month, cumulative capital returned per sponsor; profit-at-closing or cash-in-the-bank mode; three columns (current pace, required plan, plan + one buffer farm) and a month-by-month table with red flags; every input prefilled from real data with the real value beside it; named scenarios saved to localStorage |
 | `/realm` | **The Map** — stylized SVG realm; one territory per farm sized by lots and colored by % closed; borders show the **campaign state** (conquered / under siege / losing ground); lot tiles lit by stage — reserved tiles are hollow rings, stuck reservations dashed amber; hover for economics, click for the farm drawer with the campaign panel and the farm's median days from reservation to closing |
 | `/quests` | **Sales ledger** — every lot as a row with buyer, farm, stage, prices, gross, investor take, net, cash realized, days in pipeline and **Oxygen** (days gained); filters by farm/stage/investor plus a **Stuck reservations** filter (`?filter=stuck`); sortable; totals row |
 | `/pipeline` | **Pipeline** — the reservations layer in full: trapped profit, reservations vs closings per month, conversion, median days to close per farm, and every stuck reservation (60+ days) with buyer, lot, dates, sale price and net profit at stake, sorted by days waiting |

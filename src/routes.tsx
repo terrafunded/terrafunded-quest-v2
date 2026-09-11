@@ -6,6 +6,7 @@ import { LoadingState } from "@/components/realm/PageStates";
 import { ThroneRoom } from "@/pages/ThroneRoom";
 import { Login } from "@/pages/Login";
 
+const WarPlan = lazy(() => import("@/pages/WarPlan"));
 const RealmMap = lazy(() => import("@/pages/RealmMap"));
 const Quests = lazy(() => import("@/pages/Quests"));
 const Pipeline = lazy(() => import("@/pages/Pipeline"));
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { path: "/", element: <ThroneRoom /> },
+          { path: "/warplan", element: wrap(<WarPlan />) },
           { path: "/realm", element: wrap(<RealmMap />) },
           { path: "/quests", element: wrap(<Quests />) },
           { path: "/pipeline", element: wrap(<Pipeline />) },

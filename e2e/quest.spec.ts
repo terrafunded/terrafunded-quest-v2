@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 /** Ledger contract-price total verified in GOAL.md; tolerance documented in PROGRESS.md. */
 const VERIFIED_LEDGER_TOTAL = "$8,986,794.30";
 
-const ROUTES = ["/", "/realm", "/quests", "/pipeline", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"] as const;
+const ROUTES = ["/", "/warplan", "/realm", "/quests", "/pipeline", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"] as const;
 
 function collectConsoleErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -330,7 +330,7 @@ test.describe("Navigation drawer", () => {
 
     await openNavDrawer(page);
     const drawer = page.getByTestId("nav-drawer");
-    for (const label of ["Throne Room", "The Realm", "Quests", "Pipeline", "Sponsors", "Treasury", "Oracle", "Chronicle", "Trophies", "Data Quality"]) {
+    for (const label of ["Throne Room", "War Plan", "The Realm", "Quests", "Pipeline", "Sponsors", "Treasury", "Oracle", "Chronicle", "Trophies", "Data Quality"]) {
       await expect(drawer.getByRole("link", { name: label })).toBeVisible();
     }
     await expect(drawer.getByTestId("theme-menu")).toBeVisible();
