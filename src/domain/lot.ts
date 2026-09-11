@@ -281,10 +281,15 @@ export function computeLots(inputs: LotInputs): Lot[] {
 
     const reservation = parseDate(fileCase?.reservation_date);
     const close = parseDate(fileCase?.closing_date) ?? parseDate(note?.start_date);
+    // Null when unknown, including when the reservation is dated after the close
+    // (a data disagreement the quality panel reports; we do not clamp it to 0).
     let daysInPipeline: number | null = null;
     if (reservation) {
       const end = close ?? (stage === "reserved" ? inputs.asOf : null);
-      daysInPipeline = end ? Math.max(0, daysBetween(reservation, end)) : null;
+      if (end) {
+        const d = daysBetween(reservation, end);
+        daysInPipeline = d >= 0 ? d : null;
+      }
     }
 
     const clientId = fileCase?.client_id ?? note?.client_id ?? null;

@@ -199,6 +199,26 @@ describe("computeLots (rows → lots)", () => {
     expect(l1.noteSalePrice).toBe(150_000);
   });
 
+  it("leaves days-in-pipeline unknown when the reservation is dated after the close", () => {
+    const fcLate = fileCase(p2.id, { reservation_date: "2026-09-07" });
+    const nEarly = note(p2.id, { start_date: "2025-11-05" });
+    const out = computeLots({
+      farms: [f],
+      properties: [p2],
+      fileCases: [fcLate],
+      notes: [nEarly],
+      noteSales: [],
+      propertyCosts: [],
+      clients: [client()],
+      investors: [],
+      interestByFarm,
+      asOf: ASOF,
+    });
+    expect(out[0]?.stage).toBe("closed");
+    expect(out[0]?.closeDate).toBe("2025-11-05");
+    expect(out[0]?.daysInPipeline).toBeNull();
+  });
+
   it("marks buyers that are not in the (non-test) clients list", () => {
     const fcGhost = fileCase(p2.id, { client_id: "ghost" });
     const out = computeLots({
