@@ -82,12 +82,65 @@ test.describe("Throne Room", () => {
     const ledgerSum = dated.reduce((acc, v) => acc + Number(v), 0);
     expect(Number(await page.getByTestId("ledger-total-oxygen").getAttribute("data-value"))).toBe(ledgerSum);
 
+    // Reservations earn provisional days in a separate figure: the ledger's lighter "~+Nd" cells sum to it.
+    const provisional = await cells.evaluateAll((els) => els.map((el) => el.getAttribute("data-provisional")).filter((v): v is string => v !== null));
+    const provisionalSum = provisional.reduce((acc, v) => acc + Number(v), 0);
+
     await page.goto("/");
     await waitForRealm(page);
     const score = page.getByTestId("oxygen-score");
     await expect(score).toBeVisible();
     await expect.poll(async () => Number(await score.getAttribute("data-value")), { timeout: 20_000 }).toBe(ledgerSum);
     expect(ledgerSum).toBeGreaterThanOrEqual(0);
+    const provisionalScore = page.getByTestId("oxygen-provisional");
+    await expect(provisionalScore).toBeVisible();
+    await expect(provisionalScore).toHaveAttribute("data-value", String(provisionalSum));
+    await expect(provisionalScore).toHaveText(/^\+[\d,]+$/);
+    await expect(page.getByTestId("oxygen")).toContainText(/\d+ reservations? provisional at \d+(\.\d+)?% conversion/);
+  });
+
+  test("the Committed counter shows the expected net profit from live reservations, when it lands, both paces and the This month strip", async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto("/");
+    await waitForRealm(page);
+
+    const committed = page.getByTestId("committed");
+    await expect(committed).toBeVisible();
+    const counter = page.getByTestId("committed-counter");
+    await expect(counter).toHaveText(/^\$[\d,]+$|^\$[\d.]+[KM]$/);
+    await expect.poll(async () => Number(await counter.getAttribute("data-value")), { timeout: 20_000 }).toBeGreaterThan(0);
+    const committedValue = Number(await counter.getAttribute("data-value"));
+    // Committed is what is at stake weighted by the conversion: never more than the stake, never the realized figure.
+    const when = page.getByTestId("committed-when");
+    await expect(when).toContainText(/\$[\d,]+ at stake × \d+% conversion/);
+    const atStake = Number(((await when.textContent()) ?? "").match(/\$([\d,]+) at stake/)?.[1]?.replace(/,/g, ""));
+    expect(committedValue).toBeLessThanOrEqual(atStake);
+    await expect(page.getByTestId("committed-lands-by")).toHaveText(/^[A-Z][a-z]{2} \d{4}$/);
+    const netProfit = Number(await page.getByTestId("net-profit-counter").getAttribute("data-value"));
+    expect(committedValue).not.toBe(netProfit);
+
+    // Two pace lines: reserving X/month, closing Y/month, need Z reservations/month.
+    await expect(page.getByTestId("pace-line-reservations")).toHaveText(/^Reserving [\d.]+\/month, closing [\d.]+\/month · trailing \d+ days$/);
+    await expect(page.getByTestId("pace-line-required")).toHaveText(/^Need [\d.]+ reservations\/month · [\d.]+ closings\/month at \d+% conversion$/);
+    const reserving = Number(((await page.getByTestId("pace-line-reservations").textContent()) ?? "").match(/Reserving ([\d.]+)/)?.[1]);
+    const closing = Number(((await page.getByTestId("pace-line-reservations").textContent()) ?? "").match(/closing ([\d.]+)/)?.[1]);
+    const needRes = Number(((await page.getByTestId("pace-line-required").textContent()) ?? "").match(/Need ([\d.]+)/)?.[1]);
+    const needClose = Number(((await page.getByTestId("pace-line-required").textContent()) ?? "").match(/· ([\d.]+) closings/)?.[1]);
+    expect(reserving).toBeGreaterThanOrEqual(closing);
+    expect(needRes).toBeGreaterThanOrEqual(needClose);
+    // The verdict still speaks in closings per month.
+    await expect(page.getByTestId("verdict")).toContainText(/lots\/month/);
+
+    // This month: reservations, closings, and closings expected next month from reservations already made.
+    const strip = page.getByTestId("this-month");
+    await expect(strip).toBeVisible();
+    for (const id of ["this-month-reservations", "this-month-closings", "next-month-expected"]) {
+      const cell = strip.getByTestId(id);
+      await expect(cell).toHaveAttribute("data-value", /^\d+(\.\d+)?$/);
+      expect(Number(await cell.getAttribute("data-value"))).toBeGreaterThanOrEqual(0);
+    }
+    await expect(strip).toContainText(/from \d+ reservations? already made/);
+    expect(errors).toEqual([]);
   });
 });
 
@@ -115,6 +168,40 @@ test.describe("Quests ledger", () => {
     else await page.getByTestId("mobile-sort").selectOption("netProfit");
     const first = await page.getByTestId("ledger-row").first().textContent();
     expect(first).toContain("Lamar");
+  });
+
+  test("every live reservation carries an expected close, and 'Expected this month' keeps only the ones due this month", async ({ page }) => {
+    await page.goto("/quests");
+    await waitForRealm(page);
+    await page.getByLabel("Filter by stage").selectOption("reserved");
+    const rows = page.getByTestId("ledger-row");
+    const reserved = await rows.count();
+    expect(reserved).toBeGreaterThan(0);
+    const expected = page.getByTestId("ledger-expected");
+    await expect(expected).toHaveCount(reserved);
+    const dates = await expected.evaluateAll((els) => els.map((el) => el.getAttribute("data-value") ?? ""));
+    for (const d of dates) expect(d).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    await expect(expected.first()).toContainText(/(in \d+d|\d+d late|today) · (farm|realm) median [\d.]+d/);
+    // Reservations promise provisional oxygen, closings confirm it: a reserved row never carries a confirmed value.
+    const oxygen = page.getByTestId("ledger-oxygen");
+    const confirmed = await oxygen.evaluateAll((els) => els.map((el) => el.getAttribute("data-value")));
+    for (const v of confirmed) expect(v).toBe("");
+
+    const option = page.getByLabel("Filter by stage").locator("option[value='expected']");
+    const due = Number(((await option.textContent()) ?? "").match(/\((\d+)\)/)?.[1]);
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    await page.getByLabel("Filter by stage").selectOption("expected");
+    if (due === 0) {
+      await expect(page.getByText("No quests match")).toBeVisible();
+    } else {
+      await expect(rows).toHaveCount(due);
+      const months = await page.getByTestId("ledger-expected").evaluateAll((els) => els.map((el) => el.getAttribute("data-month")));
+      for (const m of months) expect(m).toBe(thisMonth);
+    }
+
+    await page.goto("/quests?filter=expected");
+    await waitForRealm(page);
+    await expect(page.getByLabel("Filter by stage")).toHaveValue("expected");
   });
 });
 
@@ -180,13 +267,19 @@ test.describe("Page specifics", () => {
     await expect(cards.filter({ hasText: "Profit share" })).toContainText("Townson Family");
   });
 
-  test("trophies renders at least 15 cards with rarity badges and the streaks panel", async ({ page }) => {
+  test("trophies renders at least 15 cards with rarity badges and both streak panels", async ({ page }) => {
     await page.goto("/trophies");
     await waitForRealm(page);
     expect(await page.getByTestId("trophy-card").count()).toBeGreaterThanOrEqual(15);
     expect(await page.locator("[data-rarity='legendary']").count()).toBeGreaterThan(0);
     await expect(page.getByTestId("streaks")).toBeVisible();
     await expect(page.getByTestId("streak-current")).toContainText(/\d+ weeks?/);
+    // Reservation streaks sit beside the closing streaks, with trophies of their own.
+    const pledges = page.getByTestId("reservation-streaks");
+    await expect(pledges).toBeVisible();
+    await expect(pledges.getByTestId("reservation-streak-current")).toContainText(/\d+ weeks?/);
+    await expect(pledges).toContainText(/\d+ reservations?/);
+    await expect(page.getByTestId("trophy-card").filter({ hasText: /Steady Pledges|Pledge After Pledge|The Long Line|Market Day/ }).first()).toBeVisible();
   });
 });
 
@@ -417,11 +510,20 @@ test.describe("Phase 2: Epic", () => {
     const territories = page.getByTestId("territory");
     await expect(territories).toHaveCount(9);
     const states = await territories.evaluateAll((els) => els.map((el) => el.getAttribute("data-campaign")));
-    for (const s of states) expect(["conquered", "under_siege", "losing_ground"]).toContain(s);
+    for (const s of states) expect(["conquered", "under_siege", "closing_pending", "losing_ground"]).toContain(s);
     await territories.first().click();
     const panel = page.getByTestId("campaign");
     await expect(panel).toBeVisible();
     expect(states).toContain(await panel.getAttribute("data-state"));
+    // A farm with reservations waiting is never losing ground: its panel counts them and calls the closing pending.
+    await expect(panel.getByTestId("campaign-reserved")).toHaveAttribute("data-value", /^\d+$/);
+    const state = await panel.getAttribute("data-state");
+    const waiting = Number(await panel.getByTestId("campaign-reserved").getAttribute("data-value"));
+    if (state === "losing_ground") expect(waiting).toBe(0);
+    if (state === "closing_pending") {
+      expect(waiting).toBeGreaterThan(0);
+      await expect(panel).toContainText(new RegExp(`${waiting} reservations? waiting to close`));
+    }
   });
 
   test("sponsors shows hostages with capital-returned bars and a liberated gallery", async ({ page }) => {
@@ -450,15 +552,29 @@ test.describe("Phase 2: Epic", () => {
     }
   });
 
-  test("oracle shows three futures, and the required pace lands on or before the deadline", async ({ page }) => {
+  test("oracle shows four futures — the current pace schedules the live reservations — and the required pace lands on or before the deadline", async ({ page }) => {
     await page.goto("/oracle");
     await waitForRealm(page);
     const futures = page.getByTestId("future");
-    await expect(futures).toHaveCount(3);
-    for (const id of ["current_pace", "required_pace", "one_more_farm"]) {
+    await expect(futures).toHaveCount(4);
+    for (const id of ["current_pace", "required_pace", "one_more_farm", "closings_only"]) {
       await expect(page.locator(`[data-future='${id}']`)).toBeVisible();
     }
     await expect(page.locator("[data-future='required_pace']").getByTestId("future-exit")).toHaveText(/(2026|2027)/);
+    // The current pace carries every live reservation as a scheduled closing; the comparison line carries none.
+    const current = page.locator("[data-future='current_pace']");
+    const scheduled = Number(await current.getAttribute("data-scheduled"));
+    expect(scheduled).toBeGreaterThan(0);
+    await expect(current.getByTestId("future-scheduled")).toHaveText(new RegExp(`^${scheduled} → [\\d.]+ closings$`));
+    await expect(page.locator("[data-future='closings_only']")).toHaveAttribute("data-scheduled", "0");
+    await expect(page.locator("[data-future='closings_only']")).toContainText("If no reservation ever closed");
+    // The sliders start from the reservation-aware future; the toggle drops back to closings only.
+    const toggle = page.getByTestId("oracle-with-reservations");
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await expect(toggle).toHaveText(new RegExp(`With the ${scheduled} live reservations`));
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await expect(toggle).toHaveText("Closings only");
   });
 
   test("war plan: the verdict names a dollar amount and a farm count, and moving the deadline changes it", async ({ page }) => {
@@ -583,6 +699,14 @@ test.describe("Phase 2: Epic", () => {
     expect(await prose.count()).toBeGreaterThan(10);
     await expect(prose.filter({ hasText: /claimed Lot \d+ of/ }).first()).toBeVisible();
     await expect(prose.filter({ hasText: /The realm gained \d+ days?\./ }).first()).toBeVisible();
+    // Reservations are narrated with their expected closing; the closing points back to the reservation.
+    await expect(prose.filter({ hasText: /pledged for Lot \d+ of .+ — the closing (is|was) expected around/ }).first()).toBeVisible();
+    await expect(prose.filter({ hasText: /\d+ days? after (\w+'s|the) reservation\./ }).first()).toBeVisible();
+    // The Cancelled filter exists; whether any cancellation is on file is live data, so only the empty state or cancellation prose may follow.
+    await page.locator("[data-testid='chronicle-filter'][data-kind='cancellation']").click();
+    const cancellations = page.locator("[data-testid='chronicle-event'][data-kind='cancellation']");
+    if ((await cancellations.count()) > 0) await expect(cancellations.first().getByTestId("chronicle-prose")).toContainText(/withdrew the pledge/);
+    else await expect(page.locator("[data-testid='chronicle-event']:not([data-kind='milestone'])")).toHaveCount(0);
   });
 });
 
