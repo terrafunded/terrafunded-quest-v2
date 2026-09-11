@@ -1,7 +1,7 @@
 import { useMemo, useState, type MouseEvent } from "react";
 import { motion } from "framer-motion";
 import { useRealm } from "@/data/useRealm";
-import type { Campaign, CampaignState, FarmEconomics, Lot, LotStage } from "@/domain";
+import type { Campaign, CampaignState, FarmEconomics, FarmPipeline, Lot, LotStage } from "@/domain";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { StageBadge } from "@/components/realm/StageBadge";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
@@ -22,6 +22,9 @@ const CAMPAIGN_META: Record<CampaignState, { label: string; stroke: string; text
   under_siege: { label: "Under siege", stroke: "hsl(var(--gold))", text: "text-gold", badge: "bg-gold/15 text-gold border-gold/40" },
   losing_ground: { label: "Losing ground", stroke: "hsl(0 70% 60%)", text: "text-red-300", badge: "bg-red-500/15 text-red-300 border-red-500/40" },
 };
+
+/** Reserved lots are drawn as a hollow ring so they never read as closed; stuck reservations get a dashed amber ring. */
+const RING_STROKE = { reserved: "hsl(var(--stage-reserved))", stuck: "hsl(38 90% 60%)" } as const;
 
 const STAGE_FILL: Record<LotStage, string> = {
   available: "hsl(var(--stage-available))",
@@ -88,6 +91,7 @@ export default function RealmMap() {
 
   const layout = useMemo(() => (data ? layoutTerritories(data.realm.farms) : null), [data]);
   const campaignByFarm = data?.realm.campaignByFarm;
+  const pipeline = data?.realm.pipeline;
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
@@ -102,10 +106,18 @@ export default function RealmMap() {
         <ul className="flex flex-wrap gap-3 text-xs text-muted-foreground" aria-label="Legend">
           {(Object.keys(STAGE_FILL) as LotStage[]).map((s) => (
             <li key={s} className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ background: STAGE_FILL[s] }} />
+              {s === "reserved" ? (
+                <span className="inline-block h-3 w-3 rounded-sm border-2" style={{ borderColor: RING_STROKE.reserved, background: "hsl(var(--stage-reserved) / 0.2)" }} />
+              ) : (
+                <span className="inline-block h-3 w-3 rounded-sm" style={{ background: STAGE_FILL[s] }} />
+              )}
               {STAGE_LABEL[s]}
             </li>
           ))}
+          <li className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm border-2 border-dashed" style={{ borderColor: RING_STROKE.stuck }} />
+            Stuck 60+ days
+          </li>
           {(Object.keys(CAMPAIGN_META) as CampaignState[]).map((c) => (
             <li key={c} className="inline-flex items-center gap-1.5">
               <span className="inline-block h-3 w-3 rounded-full border-2" style={{ borderColor: CAMPAIGN_META[c].stroke }} />
@@ -174,7 +186,9 @@ export default function RealmMap() {
               <text x={t.x + PAD} y={t.y + 37} className="pointer-events-none fill-[hsl(var(--muted-foreground))]" fontSize={10}>
                 {t.farm.soldLots}/{t.farm.totalLots} closed · {pct(t.farm.pctClosed, 0)} · {DEAL_SHORT[t.farm.dealType ?? ""] ?? t.farm.dealType}
               </text>
-              {t.tiles.map(({ lot, x, y }) => (
+              {t.tiles.map(({ lot, x, y }) => {
+                const ring = lot.stage !== "reserved" ? null : pipeline?.stuckIds.has(lot.propertyId) ? "stuck" : "reserved";
+                return (
                 <rect
                   key={lot.propertyId}
                   x={x}
@@ -183,7 +197,11 @@ export default function RealmMap() {
                   height={TILE}
                   rx={4}
                   fill={STAGE_FILL[lot.stage]}
-                  fillOpacity={lot.stage === "available" ? 0.45 : 0.95}
+                  fillOpacity={lot.stage === "available" ? 0.45 : ring ? 0.2 : 0.95}
+                  stroke={ring ? RING_STROKE[ring] : undefined}
+                  strokeWidth={ring ? 2.5 : undefined}
+                  strokeDasharray={ring === "stuck" ? "4 3" : undefined}
+                  data-ring={ring ?? undefined}
                   filter={lot.stage === "note_sold" ? "url(#glow)" : undefined}
                   className="cursor-pointer transition-transform hover:scale-110"
                   style={{ transformOrigin: `${x + TILE / 2}px ${y + TILE / 2}px`, transformBox: "fill-box" }}
@@ -194,10 +212,11 @@ export default function RealmMap() {
                     e.stopPropagation();
                     setOpenFarm(t.farm);
                   }}
-                  aria-label={`${lot.name}: ${STAGE_LABEL[lot.stage]}`}
+                  aria-label={`${lot.name}: ${STAGE_LABEL[lot.stage]}${ring === "stuck" ? ", stuck reservation" : ""}`}
                   data-testid="lot-tile"
                 />
-              ))}
+                );
+              })}
             </motion.g>
             );
           })}
@@ -217,7 +236,7 @@ export default function RealmMap() {
       <Sheet open={!!openFarm} onOpenChange={(o) => !o && setOpenFarm(null)}>
         {openFarm && (
           <SheetContent title={openFarm.name} description={`${openFarm.county ?? ""} · ${DEAL_LABEL[openFarm.dealType ?? ""] ?? openFarm.dealType} · ${openFarm.investorName ?? "own capital"}`}>
-            <FarmDetail farm={openFarm} campaign={campaignByFarm?.get(openFarm.farmId)} />
+            <FarmDetail farm={openFarm} campaign={campaignByFarm?.get(openFarm.farmId)} pipeline={pipeline?.farmById.get(openFarm.farmId)} realmMedianDaysToClose={pipeline?.medianDaysToClose ?? null} />
           </SheetContent>
         )}
       </Sheet>
@@ -253,7 +272,17 @@ export function LotEconomics({ lot }: { lot: Lot }) {
   );
 }
 
-export function FarmDetail({ farm, campaign }: { farm: FarmEconomics; campaign?: Campaign }) {
+export function FarmDetail({
+  farm,
+  campaign,
+  pipeline,
+  realmMedianDaysToClose = null,
+}: {
+  farm: FarmEconomics;
+  campaign?: Campaign;
+  pipeline?: FarmPipeline;
+  realmMedianDaysToClose?: number | null;
+}) {
   const stat = (label: string, value: string, className?: string) => (
     <div className="rounded-md bg-muted/40 p-3">
       <div className="stat-label">{label}</div>
@@ -275,6 +304,24 @@ export function FarmDetail({ farm, campaign }: { farm: FarmEconomics; campaign?:
         {stat("Funded", date(farm.fundingDate ?? farm.closingDate))}
         {stat("Months since funding", farm.monthsSinceFunding === null ? "not yet" : `${farm.monthsSinceFunding}`)}
       </div>
+      {pipeline && (
+        <div className="rounded-lg border border-amber-800/40 bg-amber-950/10 p-3" data-testid="farm-pipeline">
+          <div className="stat-label">Reservation → closing</div>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="font-heading text-xl tabular" data-testid="farm-median-days" data-value={pipeline.medianDaysToClose ?? ""}>
+              {pipeline.medianDaysToClose === null ? "—" : `${pipeline.medianDaysToClose} days`}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              median over {pipeline.closedWithBothDates} closed lot{pipeline.closedWithBothDates === 1 ? "" : "s"}
+              {realmMedianDaysToClose !== null && ` · realm ${realmMedianDaysToClose}d`}
+            </span>
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {pipeline.reserved} reserved · <span className={cn(pipeline.stuck > 0 && "text-amber-200")}>{pipeline.stuck} stuck</span>
+            {pipeline.stuck > 0 && <> · {money(pipeline.netProfitTrapped)} of profit trapped</>}
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         {(Object.keys(farm.stages) as LotStage[]).map((s) => (
           <StageBadge key={s} stage={s} className="gap-1">

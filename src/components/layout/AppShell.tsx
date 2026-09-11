@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Award, BookOpen, Coins, Crown, Eye, Landmark, LogOut, Map, ScrollText, ShieldAlert, Users } from "lucide-react";
+import { Award, BookOpen, Coins, Crown, Eye, Hourglass, Landmark, LogOut, Map, ScrollText, ShieldAlert, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/data/auth";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ export const NAV = [
   { to: "/", label: "Throne Room", short: "Throne", icon: Crown },
   { to: "/realm", label: "The Realm", short: "Realm", icon: Map },
   { to: "/quests", label: "Quests", short: "Quests", icon: ScrollText },
+  { to: "/pipeline", label: "Pipeline", short: "Pipeline", icon: Hourglass },
   { to: "/sponsors", label: "Sponsors", short: "Sponsors", icon: Users },
   { to: "/treasury", label: "Treasury", short: "Treasury", icon: Coins },
   { to: "/oracle", label: "Oracle", short: "Oracle", icon: Eye },

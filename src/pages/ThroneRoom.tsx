@@ -12,6 +12,7 @@ import { QuestTree, type QuestNode } from "@/components/realm/QuestTree";
 import { CinematicIntro } from "@/components/realm/CinematicIntro";
 import { DebtCountdown } from "@/components/realm/DebtCountdown";
 import { OxygenScore } from "@/components/realm/OxygenScore";
+import { PipelinePanel } from "@/components/realm/PipelinePanel";
 import { Stat } from "@/components/realm/Stat";
 import { EmptyState, ErrorState, LoadingState, TableErrorsBanner } from "@/components/realm/PageStates";
 import { date, money, moneyCompact, number } from "@/lib/format";
@@ -111,10 +112,12 @@ export function ThroneRoom() {
         <OxygenScore oxygen={realm.oxygen} />
       </section>
 
+      <PipelinePanel pipeline={realm.pipeline} />
+
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Key figures">
         <Stat label="Cash realized" value={money(g.cashRealized)} hint="Down payments + note sales, money in the door" valueClassName="text-stage-closed" />
         <Stat label="Profit on paper" value={money(g.profitOnPaper)} hint="Net profit recognized but not yet cash" />
-        <Stat label="Pipeline profit" value={money(g.netProfitInPipeline)} hint={`${g.reservedLots} reserved lots, if they close as priced`} valueClassName="text-stage-reserved" />
+        <Stat label="Pipeline profit" value={money(g.netProfitInPipeline)} hint={`${g.reservedLots} reserved lots, if they close as priced · ${money(realm.pipeline.netProfitTrapped)} of it stuck`} valueClassName="text-stage-reserved" />
         <Stat label="Capital outstanding" value={money(g.capitalOutstanding)} hint="Still owed to sponsors" valueClassName="text-fuchsia-200" />
       </section>
 

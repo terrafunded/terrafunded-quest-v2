@@ -8,6 +8,7 @@ import { Login } from "@/pages/Login";
 
 const RealmMap = lazy(() => import("@/pages/RealmMap"));
 const Quests = lazy(() => import("@/pages/Quests"));
+const Pipeline = lazy(() => import("@/pages/Pipeline"));
 const Sponsors = lazy(() => import("@/pages/Sponsors"));
 const Treasury = lazy(() => import("@/pages/Treasury"));
 const Oracle = lazy(() => import("@/pages/Oracle"));
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
           { path: "/", element: <ThroneRoom /> },
           { path: "/realm", element: wrap(<RealmMap />) },
           { path: "/quests", element: wrap(<Quests />) },
+          { path: "/pipeline", element: wrap(<Pipeline />) },
           { path: "/sponsors", element: wrap(<Sponsors />) },
           { path: "/treasury", element: wrap(<Treasury />) },
           { path: "/oracle", element: wrap(<Oracle />) },

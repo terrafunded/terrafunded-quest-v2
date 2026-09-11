@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { ArrowDown, ArrowUp, ArrowUpDown, Hourglass } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
 import { LOT_STAGES, type Lot, type LotStage } from "@/domain";
 import { Select } from "@/components/ui/select";
@@ -42,8 +43,10 @@ const COLUMNS: { key: SortKey; label: string; numeric?: boolean; className?: str
   { key: "daysGained", label: "Oxygen", numeric: true },
 ];
 
-/** A ledger row: the lot plus its oxygen score (days gained toward the exit). */
-type Row = Lot & { daysGained: number | null };
+/** A ledger row: the lot plus its oxygen score (days gained toward the exit) and whether its reservation is stuck. */
+type Row = Lot & { daysGained: number | null; stuck: boolean };
+
+const STUCK_FILTER = "stuck";
 
 function compare(a: Row, b: Row, key: SortKey): number {
   if (key === "stage") return STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage];
@@ -59,14 +62,24 @@ const sumOf = (lots: Row[], key: keyof Row) => lots.reduce((s, l) => s + ((l[key
 
 export default function Quests() {
   const { data, isLoading, error, refetch } = useRealm();
+  const [params] = useSearchParams();
   const [farm, setFarm] = useState("all");
-  const [stage, setStage] = useState("sold");
+  const [stage, setStage] = useState(params.get("filter") === STUCK_FILTER ? STUCK_FILTER : "sold");
   const [investor, setInvestor] = useState("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "reservationDate", dir: "desc" });
 
   const realmLots = data?.realm.lots;
   const oxygen = data?.realm.oxygen;
-  const lots = useMemo<Row[]>(() => (realmLots ?? []).map((l) => ({ ...l, daysGained: oxygen?.perLot.get(l.propertyId)?.daysGained ?? null })), [realmLots, oxygen]);
+  const pipeline = data?.realm.pipeline;
+  const lots = useMemo<Row[]>(
+    () =>
+      (realmLots ?? []).map((l) => ({
+        ...l,
+        daysGained: oxygen?.perLot.get(l.propertyId)?.daysGained ?? null,
+        stuck: pipeline?.stuckIds.has(l.propertyId) ?? false,
+      })),
+    [realmLots, oxygen, pipeline],
+  );
   const farms = useMemo(() => [...new Set(lots.map((l) => l.farmName))].sort(), [lots]);
   const investors = useMemo(() => [...new Set(lots.map((l) => l.investorName).filter((n): n is string => !!n))].sort(), [lots]);
 
@@ -75,6 +88,7 @@ export default function Quests() {
       if (farm !== "all" && l.farmName !== farm) return false;
       if (investor !== "all" && l.investorName !== investor) return false;
       if (stage === "sold") return l.fileCaseId !== null || l.noteId !== null;
+      if (stage === STUCK_FILTER) return l.stuck;
       if (stage !== "all" && l.stage !== stage) return false;
       return true;
     });
@@ -105,7 +119,7 @@ export default function Quests() {
 
   return (
     <div>
-      <PageHeader title="Quests" subtitle="Every lot sale, straight from file cases and notes. Contract price is the file-case figure; sale price follows the note when one exists. Oxygen is the days each closing moved the exit date.">
+      <PageHeader title="Quests" subtitle="Every lot sale, straight from file cases and notes. Contract price is the file-case figure; sale price follows the note when one exists. Oxygen is the days each closing moved the exit date. Hourglass rows are reservations stuck past 60 days.">
         <Select value={farm} onChange={(e) => setFarm(e.target.value)} aria-label="Filter by farm" className="w-40">
           <option value="all">All farms</option>
           {farms.map((f) => (
@@ -117,6 +131,7 @@ export default function Quests() {
         <Select value={stage} onChange={(e) => setStage(e.target.value)} aria-label="Filter by stage" className="w-40">
           <option value="sold">All sales (with a case)</option>
           <option value="all">All lots</option>
+          <option value={STUCK_FILTER}>Stuck reservations ({data?.realm.pipeline.stuckAfterDays ?? 60}+ days)</option>
           {LOT_STAGES.map((s) => (
             <option key={s} value={s}>
               {STAGE_LABEL[s]}
@@ -154,7 +169,7 @@ export default function Quests() {
             </TableHeader>
             <TableBody>
               {filtered.map((l) => (
-                <TableRow key={l.propertyId} data-testid="ledger-row">
+                <TableRow key={l.propertyId} data-testid="ledger-row" data-stuck={l.stuck || undefined} className={cn(l.stuck && "bg-amber-950/20")}>
                   <TableCell className="whitespace-nowrap">
                     <div className="font-medium">{l.name}</div>
                     <div className="text-xs text-muted-foreground">
@@ -180,7 +195,10 @@ export default function Quests() {
                   <TableCell className="text-right tabular">{moneyExact(l.investorTake)}</TableCell>
                   <TableCell className={cn("text-right tabular font-medium", (l.netProfit ?? 0) < 0 && "text-red-300")}>{moneyExact(l.netProfit)}</TableCell>
                   <TableCell className="text-right tabular text-stage-closed">{moneyExact(l.cashRealized)}</TableCell>
-                  <TableCell className="text-right tabular">{days(l.daysInPipeline)}</TableCell>
+                  <TableCell className={cn("text-right tabular whitespace-nowrap", l.stuck && "text-amber-200")}>
+                    {l.stuck && <Hourglass className="mr-1 inline h-3 w-3" aria-label="Stuck reservation" />}
+                    {days(l.daysInPipeline)}
+                  </TableCell>
                   <TableCell className={cn("text-right tabular", l.daysGained !== null && l.daysGained > 0 && "text-sky-200")} data-testid="ledger-oxygen" data-value={l.daysGained ?? ""}>
                     {l.daysGained === null ? "—" : `${l.daysGained > 0 ? "+" : ""}${l.daysGained}d`}
                   </TableCell>
