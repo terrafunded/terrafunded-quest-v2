@@ -6,6 +6,7 @@ export * from "./lot";
 export * from "./farm";
 export * from "./goal";
 export * from "./quality";
+export * from "./quality_human";
 export * from "./events";
 export * from "./investors";
 export * from "./treasury";

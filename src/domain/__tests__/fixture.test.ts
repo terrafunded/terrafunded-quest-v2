@@ -10,6 +10,7 @@ import type { PaymentsSnapshot } from "../types";
 import { buildRealm } from "../realm";
 import { isSubdividedFarm } from "../lot";
 import { round2, sum } from "../math";
+import { groupIssuesByLot, summarizeQuality } from "../quality_human";
 
 const fixture = raw as unknown as PaymentsSnapshot & { snapshotAt: string };
 const ASOF = new Date("2026-09-11T00:00:00Z");
@@ -174,6 +175,27 @@ describe("fixture: data quality", () => {
 
   it("has no sold note without a sale", () => {
     expect(realm.quality.filter((q) => q.kind === "sold_note_without_sale")).toHaveLength(0);
+  });
+
+  it("groups the 33 issues into 18 lot cards and 3 farm cards, $21,801.50 of profit moved by price mismatches, oldest Ben White's blank capital", () => {
+    const cards = groupIssuesByLot(realm.quality, "es");
+    const summary = summarizeQuality(cards, ASOF.toISOString());
+    expect(realm.quality).toHaveLength(33);
+    expect(summary.issues).toBe(33);
+    expect(summary.lotsWithIssues).toBe(18);
+    expect(summary.farmsWithIssues).toBe(3);
+    expect(cards.filter((c) => c.isFarm).map((c) => c.title).sort()).toEqual(["Ben White", "Red River 1", "Sharps Rd"]);
+    expect(summary.priceMismatches).toBe(5);
+    expect(summary.priceMismatchDollars).toBe(21_801.5);
+    expect(summary.oldest?.card.title).toBe("Ben White");
+    expect(summary.oldest?.issue.kind).toBe("farm_capital_null");
+    expect(summary.oldest?.since).toBe("2024-07-30");
+    expect(summary.oldest?.days).toBe(773);
+    // Two different properties are both named "Red River 1" — two lot cards share a title on purpose.
+    expect(cards.filter((c) => !c.isFarm && c.title === "Red River 1")).toHaveLength(2);
+    // Every issue carries a business date except Eastland Lot 6's completed case without any date.
+    const undated = realm.quality.filter((q) => q.since === null);
+    expect(undated.map((q) => `${q.lotName}:${q.kind}`)).toEqual(["Eastland — Lot 6:completed_without_closing_date"]);
   });
 });
 
