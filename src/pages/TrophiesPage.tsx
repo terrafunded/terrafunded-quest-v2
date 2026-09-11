@@ -23,7 +23,8 @@ export default function TrophiesPage() {
         />
         <TableErrorsBanner errors={data.tableErrors} />
       </div>
-      <StreaksPanel streaks={data.realm.streaks} />
+      <StreaksPanel streaks={data.realm.streaks} kind="closing" />
+      <StreaksPanel streaks={data.realm.reservationStreaks} kind="reservation" />
       <Trophies trophies={data.realm.trophies} />
     </div>
   );

@@ -46,46 +46,80 @@ export default function Oracle() {
   const { data, isLoading, error, refetch } = useRealm();
   const defaults = data?.realm.oracleDefaults;
   const [params, setParams] = useState<OracleParams | null>(null);
+  // Whether the sliders' future starts with the live reservations on their expected dates (the current-pace future does).
+  const [withReservations, setWithReservations] = useState(true);
 
   useEffect(() => {
-    if (defaults && !params) setParams(defaults);
-  }, [defaults, params]);
+    if (defaults && !params) setParams(data?.realm.futures.current.params ?? defaults);
+  }, [data, defaults, params]);
 
   const result = useMemo(() => {
     if (!data || !params) return null;
     const g = data.realm.goal;
-    return runOracle(params, g, g.availableLots + g.reservedLots, data.realm.asOf);
-  }, [data, params]);
+    const current = data.realm.futures.current;
+    const lag = data.realm.expected.medianDaysToClose;
+    return runOracle(params, g, g.availableLots + g.reservedLots, data.realm.asOf, withReservations ? { scheduled: current.scheduled, paceLagDays: lag === null ? 0 : Math.round(lag) } : {});
+  }, [data, params, withReservations]);
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
   if (!data || !params || !result || !defaults) return null;
 
   const g = data.realm.goal;
+  const x = data.realm.expected;
   const series = result.series.filter((p) => p.monthIndex <= Math.max(24, (result.monthsToGoal ?? 0) + 3));
   const deadlineLabel = date(g.deadline);
+  const adopt = (f: Future) => {
+    setParams(f.params);
+    setWithReservations(f.scheduled.length > 0);
+  };
 
   return (
     <div>
-      <PageHeader title="Oracle" subtitle="Three futures from the real 90-day averages, then your own: every slider starts at the trailing average and the exit date recomputes from today's net profit and inventory.">
-        <Button variant="outline" size="sm" onClick={() => setParams(defaults)}>
-          <RotateCcw /> Reset to real averages
+      <PageHeader
+        title="Oracle"
+        subtitle="Four futures from the real 90-day averages, then your own: the current pace lets every live reservation close on its expected date, then keeps reserving at the trailing pace; the last line is the old closings-only extrapolation for comparison."
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setParams(data.realm.futures.current.params);
+            setWithReservations(true);
+          }}
+        >
+          <RotateCcw /> Reset to the current pace
         </Button>
       </PageHeader>
       <TableErrorsBanner errors={data.tableErrors} />
 
-      <section className="mb-8 grid gap-3 lg:grid-cols-3" aria-label="Three futures" data-testid="futures">
+      <section className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Four futures" data-testid="futures">
         {data.realm.futures.all.map((f, i) => (
-          <FutureCard key={f.id} f={f} index={i} onAdopt={() => setParams(f.params)} />
+          <FutureCard key={f.id} f={f} index={i} onAdopt={() => adopt(f)} />
         ))}
       </section>
 
-      <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-gold">Your own future</h2>
-      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">Your own future</h2>
+        <Button
+          variant="outline"
+          size="sm"
+          aria-pressed={withReservations}
+          data-testid="oracle-with-reservations"
+          onClick={() => setWithReservations((v) => !v)}
+          className={cn(withReservations && "border-stage-reserved/50 text-stage-reserved")}
+        >
+          {withReservations ? `With the ${x.liveReservations} live reservations` : "Closings only"}
+        </Button>
+      </div>
+      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-with-reservations={withReservations}>
         <Stat
           label="Goal reached"
           value={result.goalDate ? date(result.goalDate) : "Not within 10 years"}
-          hint={result.goalDate ? (result.hitsDeadline ? `Before the ${deadlineLabel} deadline` : `After the ${deadlineLabel} deadline`) : "Raise pace or margin"}
+          hint={
+            (result.goalDate ? (result.hitsDeadline ? `Before the ${deadlineLabel} deadline` : `After the ${deadlineLabel} deadline`) : "Raise pace or margin") +
+            (withReservations ? ` · ${x.liveReservations} reservations scheduled first` : " · closings only")
+          }
           valueClassName={result.hitsDeadline ? "text-stage-closed" : "text-ember"}
           data-testid="oracle-goal-date"
         />
@@ -150,8 +184,11 @@ export default function Oracle() {
             </ResponsiveContainer>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
-            Starts at {money(g.netProfitToDate)} net and {number(g.availableLots + g.reservedLots)} lots of inventory (available + reserved). Each closed lot books (price − land) × (1 − take); cash lands as{" "}
-            {defaults.downPaymentPct}% down now and {defaults.noteSalePct}% of the balance {params.avgMonthsToSellNote} months later.
+            Starts at {money(g.netProfitToDate)} net and {number(g.availableLots + g.reservedLots)} lots of inventory (available + reserved).{" "}
+            {withReservations
+              ? `The ${x.liveReservations} live reservations close first, each on its expected date at ${x.conversionPct}% conversion and for its own net profit; the pace above only starts after the ${x.medianDaysToClose ?? 0}-day reservation → closing lag. `
+              : "Every closing comes from the pace above, from the first month on. "}
+            Each other closed lot books (price − land) × (1 − take); cash lands as {defaults.downPaymentPct}% down now and {defaults.noteSalePct}% of the balance {params.avgMonthsToSellNote} months later.
           </p>
         </div>
       </div>
@@ -163,9 +200,10 @@ function FutureCard({ f, index, onAdopt }: { f: Future; index: number; onAdopt: 
   const tone = f.hitsDeadline ? "text-stage-closed" : f.exitDate ? "text-ember" : "text-muted-foreground";
   return (
     <article
-      className={cn("parchment-card flex flex-col p-5", f.hitsDeadline && "border-stage-closed/40", index === 0 && "border-gold/30")}
+      className={cn("parchment-card flex flex-col p-5", f.hitsDeadline && "border-stage-closed/40", index === 0 && "border-gold/30", f.id === "closings_only" && "border-dashed opacity-90")}
       data-testid="future"
       data-future={f.id}
+      data-scheduled={f.scheduled.length}
     >
       <div className="stat-label">{f.title}</div>
       <div className={cn("mt-2 font-display text-2xl leading-none sm:text-3xl", tone)} data-testid="future-exit">
@@ -184,7 +222,15 @@ function FutureCard({ f, index, onAdopt }: { f: Future; index: number; onAdopt: 
       </div>
       <p className="mt-3 flex-1 text-sm text-foreground/85">{f.premise}</p>
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">Lots / month</dt>
+        {f.scheduled.length > 0 && (
+          <>
+            <dt className="text-muted-foreground">Reservations scheduled</dt>
+            <dd className="text-right tabular text-stage-reserved" data-testid="future-scheduled">
+              {f.scheduled.length} → {number(Math.round(f.scheduled.reduce((a, s) => a + s.lots, 0) * 10) / 10)} closings
+            </dd>
+          </>
+        )}
+        <dt className="text-muted-foreground">{f.scheduled.length > 0 ? "Then lots / month" : "Lots / month"}</dt>
         <dd className="text-right tabular">{f.params.lotsPerMonth}</dd>
         <dt className="text-muted-foreground">Farm every</dt>
         <dd className="text-right tabular">{f.params.newFarmEveryMonths} mo</dd>

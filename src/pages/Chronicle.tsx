@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const KIND_META: Record<EventKind, { label: string; dot: string }> = {
   farm_acquired: { label: "Farm acquired", dot: "bg-oxygen" },
   reservation: { label: "Reservation", dot: "bg-stage-reserved" },
+  cancellation: { label: "Cancelled", dot: "bg-ember" },
   closing: { label: "Closing", dot: "bg-stage-closed" },
   note_sale: { label: "Note sale", dot: "bg-stage-note_sold" },
   distribution: { label: "Distribution", dot: "bg-sponsor" },
@@ -18,7 +19,7 @@ const KIND_META: Record<EventKind, { label: string; dot: string }> = {
   liberation: { label: "Liberation", dot: "bg-liberty" },
 };
 
-const FILTERS: (EventKind | "all")[] = ["all", "closing", "reservation", "note_sale", "distribution", "liberation", "farm_acquired"];
+const FILTERS: (EventKind | "all")[] = ["all", "closing", "reservation", "cancellation", "note_sale", "distribution", "liberation", "farm_acquired"];
 const PAGE = 60;
 
 export default function Chronicle() {
@@ -41,10 +42,10 @@ export default function Chronicle() {
 
   return (
     <div>
-      <PageHeader title="Chronicle" subtitle="Every real event, newest first, told as the scribes would tell it — each line from the row that produced it — with the running net profit and a celebration each time it crosses another million.">
+      <PageHeader title="Chronicle" subtitle="Every real event, newest first, told as the scribes would tell it — each line from the row that produced it — with the running net profit and a celebration each time it crosses another million. A reservation is narrated with the day its closing is expected; the closing says how long after the reservation it came; a cancellation gives the lot back to the market.">
         <div className="flex flex-wrap gap-1">
           {FILTERS.map((f) => (
-            <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)}>
+            <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)} data-testid="chronicle-filter" data-kind={f}>
               {f === "all" ? "All" : KIND_META[f].label}
             </Button>
           ))}
@@ -57,7 +58,7 @@ export default function Chronicle() {
       ) : (
         <ol className="relative ml-3 border-l border-border/70 pl-6 sm:ml-4 sm:pl-8" data-testid="chronicle">
           {visible.map((e, i) => (
-            <li key={e.id} className="relative pb-6">
+            <li key={e.id} className="relative pb-6" data-testid="chronicle-event" data-kind={e.kind}>
               <span className={cn("absolute -left-[31px] top-1.5 h-3 w-3 rounded-full ring-4 ring-background sm:-left-[39px]", KIND_META[e.kind].dot, e.future && "opacity-40")} />
               {e.kind === "milestone" ? (
                 <MilestoneCelebration amount={e.milestone ?? 0} date={date(e.date)} caption={e.description} />

@@ -16,11 +16,12 @@ import { AmbientParticles } from "@/components/realm/AmbientParticles";
 import { PipelinePanel } from "@/components/realm/PipelinePanel";
 import { Stat } from "@/components/realm/Stat";
 import { EmptyState, ErrorState, LoadingState, TableErrorsBanner } from "@/components/realm/PageStates";
-import { date, money, moneyCompact, number } from "@/lib/format";
+import { date, money, moneyCompact, monthLabel, number, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const EVENT_STYLE: Record<RealmEvent["kind"], { label: string; className: string }> = {
   reservation: { label: "Reserved", className: "text-stage-reserved" },
+  cancellation: { label: "Cancelled", className: "text-ember" },
   closing: { label: "Closed", className: "text-stage-closed" },
   note_sale: { label: "Note sold", className: "text-stage-note_sold" },
   distribution: { label: "Paid out", className: "text-sponsor" },
@@ -48,7 +49,8 @@ export function ThroneRoom() {
 
   const { realm, tableErrors } = data;
   const g = realm.goal;
-  const recent = latestEvents(realm.events, 5, ["reservation", "closing", "note_sale", "distribution", "liberation"]);
+  const x = realm.expected;
+  const recent = latestEvents(realm.events, 5, ["reservation", "cancellation", "closing", "note_sale", "distribution", "liberation"]);
   const rot = realm.rotation;
   const plan = realm.warPlan.rotation;
   const turnsNeeded = plan.turnsNeeded === null ? "—" : Number.isInteger(plan.turnsNeeded) ? String(plan.turnsNeeded) : plan.turnsNeeded.toFixed(1);
@@ -71,16 +73,54 @@ export function ThroneRoom() {
         <AmbientParticles />
         <GrowthBurst trigger={g.netProfitToDate} className="pointer-events-none absolute inset-0 left-1/2 top-1/2" />
         <h1 className="stat-label">Throne Room · Net profit chronicled · as of {date(g.asOf)}</h1>
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="mx-auto mt-3 w-full max-w-full font-display text-[clamp(1.75rem,9vw,4.5rem)] leading-none"
-        >
-          <FitMoney value={g.netProfitToDate} className="gold-shimmer text-center" data-testid="net-profit-counter" />
-        </motion.div>
-        <div className="mt-2 text-sm text-muted-foreground">
-          of <span className="text-foreground">{money(g.goal)}</span> · <span className="text-foreground tabular">{money(g.remaining)}</span> remaining
+        <div className="mt-3 grid items-end gap-5 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <div className="min-w-0">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              className="mx-auto w-full max-w-full font-display text-[clamp(1.75rem,9vw,4.5rem)] leading-none"
+            >
+              <FitMoney value={g.netProfitToDate} className="gold-shimmer text-center" data-testid="net-profit-counter" />
+            </motion.div>
+            <div className="mt-2 text-sm text-muted-foreground">
+              of <span className="text-foreground">{money(g.goal)}</span> · <span className="text-foreground tabular">{money(g.remaining)}</span> remaining · closings only
+            </div>
+          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            className="min-w-0 rounded-xl border border-stage-reserved/30 bg-background/40 px-4 py-3 text-left"
+            data-testid="committed"
+            aria-label="Committed net profit from live reservations"
+          >
+            <div className="stat-label text-stage-reserved">Committed · {x.liveReservations} live {x.liveReservations === 1 ? "reservation" : "reservations"}</div>
+            <div className="mt-1 font-display text-[clamp(1.5rem,6vw,2.5rem)] leading-none text-stage-reserved">
+              <FitMoney value={x.committedNetProfit} data-testid="committed-counter" />
+            </div>
+            <div className="mt-1.5 text-xs text-muted-foreground" data-testid="committed-when">
+              {x.liveReservations === 0 ? (
+                "no reservation is waiting to close"
+              ) : (
+                <>
+                  {money(x.netProfitAtStake)} at stake × {pct(x.conversionPct, 0)} conversion
+                  {x.landsBy && (
+                    <>
+                      {" "}
+                      · expected by <span className="text-foreground" data-testid="committed-lands-by">{monthLabel(x.landsBy)}</span>
+                    </>
+                  )}
+                  {x.overdueCount > 0 && (
+                    <span className="text-ember">
+                      {" "}
+                      · {x.overdueCount} overdue ({moneyCompact(x.overdueNetProfit)})
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          </motion.div>
         </div>
 
         <div className="mt-8 grid items-center gap-6 sm:grid-cols-[auto_1fr] sm:text-left">
@@ -92,14 +132,24 @@ export function ThroneRoom() {
             <p className="font-heading text-lg leading-snug text-foreground sm:text-xl" data-testid="verdict">
               {g.verdict}
             </p>
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p data-testid="pace-line-reservations">
+                Reserving <strong className="text-stage-reserved tabular">{number(x.reservationsPerMonth)}</strong>/month, closing{" "}
+                <strong className="text-stage-closed tabular">{number(x.closingsPerMonth)}</strong>/month
+                <span className="text-xs"> · trailing {x.trailingWindowDays} days</span>
+              </p>
+              <p data-testid="pace-line-required">
+                Need <strong className="text-foreground tabular">{x.requiredReservationsPerMonth === null ? "—" : number(x.requiredReservationsPerMonth)}</strong> reservations/month
+                <span className="text-xs">
+                  {" "}
+                  · {x.requiredClosingsPerMonth === null ? "—" : number(x.requiredClosingsPerMonth)} closings/month at {pct(x.conversionPct, 0)} conversion
+                </span>
+              </p>
+            </div>
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground sm:justify-start">
               <span className="inline-flex items-center gap-1.5">
                 <CalendarClock className="h-4 w-4 text-gold" />
                 <strong className="text-foreground tabular">{number(g.daysToDeadline)}</strong> days to {date(GOAL_DEADLINE)}
-              </span>
-              <span>
-                Pace <strong className="text-foreground tabular">{g.closedLotsPerMonth}</strong> lots/mo · need{" "}
-                <strong className="text-foreground tabular">{g.requiredLotsPerMonthToHitDeadline ?? "—"}</strong>
               </span>
               <span>
                 <strong className="text-foreground tabular">{g.lotsStillNeeded ?? "—"}</strong> lots still needed ·{" "}
@@ -108,6 +158,36 @@ export function ThroneRoom() {
             </div>
           </div>
         </div>
+
+        <dl className="mt-8 grid gap-3 text-left sm:grid-cols-3" aria-label="This month" data-testid="this-month">
+          <div className="rounded-md bg-background/40 p-3">
+            <dt className="stat-label">Reservations this month</dt>
+            <dd className="mt-1 font-heading text-2xl tabular text-stage-reserved" data-testid="this-month-reservations" data-value={x.thisMonth.reservations}>
+              {x.thisMonth.reservations}
+            </dd>
+            <dd className="text-[11px] text-muted-foreground">pledged in {monthLabel(x.thisMonth.month)}</dd>
+          </div>
+          <div className="rounded-md bg-background/40 p-3">
+            <dt className="stat-label">Closings this month</dt>
+            <dd className="mt-1 font-heading text-2xl tabular text-stage-closed" data-testid="this-month-closings" data-value={x.thisMonth.closings}>
+              {x.thisMonth.closings}
+            </dd>
+            <dd className="text-[11px] text-muted-foreground">
+              {x.thisMonth.expectedReservations > 0
+                ? `${x.thisMonth.expectedReservations} more expected to close by month end`
+                : `closed in ${monthLabel(x.thisMonth.month)}`}
+            </dd>
+          </div>
+          <div className="rounded-md bg-background/40 p-3">
+            <dt className="stat-label">Expected next month</dt>
+            <dd className="mt-1 font-heading text-2xl tabular text-foreground" data-testid="next-month-expected" data-value={x.nextMonth.expectedClosings}>
+              {number(x.nextMonth.expectedClosings)}
+            </dd>
+            <dd className="text-[11px] text-muted-foreground">
+              closings in {monthLabel(x.nextMonth.month)} from {x.nextMonth.expectedReservations} {x.nextMonth.expectedReservations === 1 ? "reservation" : "reservations"} already made
+            </dd>
+          </div>
+        </dl>
 
         <QuestTree nodes={questNodes} current={g.netProfitToDate} className="mt-8" />
       </section>
@@ -184,7 +264,12 @@ export function ThroneRoom() {
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Key figures">
         <Stat label="Cash realized" value={money(g.cashRealized)} hint="Down payments + note sales, money in the door" valueClassName="text-stage-closed" />
         <Stat label="Profit on paper" value={money(g.profitOnPaper)} hint="Net profit recognized but not yet cash" />
-        <Stat label="Pipeline profit" value={money(g.netProfitInPipeline)} hint={`${g.reservedLots} reserved lots, if they close as priced · ${money(realm.pipeline.netProfitTrapped)} of it stuck`} valueClassName="text-stage-reserved" />
+        <Stat
+          label="Pipeline profit"
+          value={money(g.netProfitInPipeline)}
+          hint={`${g.reservedLots} reserved lots, if every one closes as priced · ${money(x.committedNetProfit)} committed at ${pct(x.conversionPct, 0)} · ${money(realm.pipeline.netProfitTrapped)} stuck`}
+          valueClassName="text-stage-reserved"
+        />
         <Stat label="Capital outstanding" value={money(g.capitalOutstanding)} hint="Still owed to sponsors" valueClassName="text-sponsor" />
       </section>
 

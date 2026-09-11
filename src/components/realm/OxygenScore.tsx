@@ -34,9 +34,24 @@ export function OxygenScore({ oxygen, className }: { oxygen: Oxygen; className?:
           <AnimatedCounter value={oxygen.totalDaysGained} format={daysFormat} data-testid="oxygen-score" />
           <span className="ml-2 font-heading text-lg text-muted-foreground">days</span>
         </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.2 }}
+          className="font-display text-3xl font-light leading-none text-oxygen/60 sm:text-4xl"
+          title={`Provisional: ${oxygen.provisional.size} live reservations at ${oxygen.conversionPct}% conversion, measured at the pace of their reservation day. Confirmed at closing, forfeited at cancellation.`}
+        >
+          <span className="tabular" data-testid="oxygen-provisional" data-value={oxygen.provisionalDaysGained}>
+            +{daysFormat(oxygen.provisionalDaysGained)}
+          </span>
+          <span className="ml-1.5 font-heading text-sm text-muted-foreground/80">provisional</span>
+        </motion.div>
         <div className="text-xs text-muted-foreground">
           <div>
-            {oxygen.perLot.size} closings · {oxygen.trailingDaysGained} days in the trailing window
+            {oxygen.perLot.size} closings confirmed · {oxygen.trailingDaysGained} days in the trailing window
+          </div>
+          <div>
+            {oxygen.provisional.size} {oxygen.provisional.size === 1 ? "reservation" : "reservations"} provisional at {oxygen.conversionPct}% conversion
           </div>
           {oxygen.netProfitPerDayAtPace !== null && <div>today one day costs {money(oxygen.netProfitPerDayAtPace)} of net profit</div>}
         </div>

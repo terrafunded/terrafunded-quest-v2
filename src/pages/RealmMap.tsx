@@ -20,8 +20,18 @@ const DEAL_SHORT: Record<string, string> = { fixed_interest: "Fixed", profit_sha
 const CAMPAIGN_META: Record<CampaignState, { label: string; stroke: string; text: string; badge: string }> = {
   conquered: { label: "Conquered", stroke: "hsl(var(--stage-closed))", text: "text-stage-closed", badge: "bg-stage-closed/15 text-stage-closed border-stage-closed/40" },
   under_siege: { label: "Under siege", stroke: "hsl(var(--gold))", text: "text-gold", badge: "bg-gold/15 text-gold border-gold/40" },
+  closing_pending: { label: "Closing pending", stroke: "hsl(var(--stage-reserved))", text: "text-stage-reserved", badge: "bg-stage-reserved/15 text-stage-reserved border-stage-reserved/40" },
   losing_ground: { label: "Losing ground", stroke: "hsl(var(--ember))", text: "text-ember", badge: "bg-ember/15 text-ember border-ember/40" },
 };
+
+/** Losing ground is a long dash; closing pending a short one — both mean "no closing for a while", only one means nothing is in the works. */
+const CAMPAIGN_DASH: Partial<Record<CampaignState, string>> = { losing_ground: "6 4", closing_pending: "2 4" };
+
+function campaignTag(c: Campaign): string {
+  if (c.state === "closing_pending") return ` · ${c.reservedLots} pending`;
+  if (c.state !== "conquered" && c.lotsLeftToCover !== null) return ` · ${c.lotsLeftToCover} to cover`;
+  return "";
+}
 
 /** Reserved lots are drawn as a hollow ring so they never read as closed; stuck reservations get a dashed amber ring. */
 const RING_STROKE = { reserved: "hsl(var(--stage-reserved))", stuck: "hsl(var(--siege))" } as const;
@@ -99,7 +109,7 @@ export default function RealmMap() {
 
   return (
     <div>
-      <PageHeader title="The Realm" subtitle="One territory per farm, sized by lots and tinted by how much has closed. Each farm fights its own campaign: sell enough lots to cover its capital and accrued interest. Hover a lot for its economics; click a territory for the farm.">
+      <PageHeader title="The Realm" subtitle="One territory per farm, sized by lots and tinted by how much has closed. Each farm fights its own campaign: sell enough lots to cover its capital and accrued interest. A farm with reservations waiting is never losing ground — its closing is pending. Hover a lot for its economics; click a territory for the farm.">
         <ul className="flex flex-wrap gap-3 text-xs text-muted-foreground" aria-label="Legend">
           {(Object.keys(STAGE_FILL) as LotStage[]).map((s) => (
             <li key={s} className="inline-flex items-center gap-1.5">
@@ -163,8 +173,8 @@ export default function RealmMap() {
                   rx={22}
                   fill={territoryFill(t.farm.pctClosed)}
                   stroke={meta?.stroke ?? "hsl(var(--gold) / 0.35)"}
-                  strokeWidth={campaign?.state === "losing_ground" ? 2 : 1.4}
-                  strokeDasharray={campaign?.state === "losing_ground" ? "6 4" : undefined}
+                  strokeWidth={campaign?.state === "losing_ground" || campaign?.state === "closing_pending" ? 2 : 1.4}
+                  strokeDasharray={campaign ? CAMPAIGN_DASH[campaign.state] : undefined}
                   className="cursor-pointer transition-[stroke-width] hover:[stroke-width:3]"
                   onClick={() => setOpenFarm(t.farm)}
                   role="button"
@@ -175,7 +185,7 @@ export default function RealmMap() {
                 {campaign && meta && (
                   <text x={t.x + PAD} y={t.y + TITLE_H + 6} fontSize={9} fontWeight={600} className="pointer-events-none uppercase" style={{ fill: meta.stroke, letterSpacing: "0.08em" }}>
                     {meta.label}
-                    {campaign.state !== "conquered" && campaign.lotsLeftToCover !== null ? ` · ${campaign.lotsLeftToCover} to cover` : ""}
+                    {campaignTag(campaign)}
                   </text>
                 )}
                 <text x={t.x + PAD} y={t.y + 22} className="pointer-events-none fill-[hsl(var(--map-label))] font-heading" fontSize={14} fontWeight={600}>
@@ -369,6 +379,10 @@ export function CampaignPanel({ c }: { c: Campaign }) {
         <dd className="text-right tabular">
           {c.lotsLeftToCover ?? "—"} of {c.lotsUnsold} unsold
           {c.lotsShort > 0 ? ` (${c.lotsShort} short)` : ""}
+        </dd>
+        <dt className="text-muted-foreground">Reservations waiting</dt>
+        <dd className={cn("text-right tabular", c.reservedLots > 0 && "text-stage-reserved")} data-testid="campaign-reserved" data-value={c.reservedLots}>
+          {c.reservedLots}
         </dd>
         <dt className="text-muted-foreground">Last closing</dt>
         <dd className="text-right tabular">{c.lastClosingDate ? `${date(c.lastClosingDate)} · ${c.daysSinceLastClosing}d ago` : "none yet"}</dd>
