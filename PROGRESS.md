@@ -300,3 +300,35 @@ Ranked by expected impact on reaching **$10,000,000 by 2027-12-31** (today: $2.2
 10. **Weekly war-council brief.** One generated page every Monday from the chronicle, pace, stuck
     list, debt clock and futures — the same numbers, in prose, for the team that has to close the
     lots. Quest already writes the sentences; this just sends them.
+
+## Mobile perfection loop (2026-09-11)
+
+Two consecutive clean passes across the full device×orientation matrix
+(iPhone SE / 15 / 15 Pro Max, Pixel 8, iPad Mini, iPad Pro × portrait + landscape).
+Live: https://terrafunded-quest-v2.vercel.app · log: `MOBILE_LOG.md` · shots: `docs/screenshots/mobile/pass-0{1,2}/`.
+
+### Defects fixed
+
+| Area | Defect | Fix |
+|---|---|---|
+| Forms | `<select>` / inputs at 14px (iOS zoom) | `text-base` + `h-11`; CSS `font-size: 16px !important` |
+| Taps | Default buttons `h-10` (40px) | All button sizes ≥ `h-11` / `min-h-11`; global `min-height/width: 44px !important` |
+| Assertions | Chronicle chips reported 43.98px | Matrix e2e uses `Math.round` ≥ 44 |
+| Drawer | Bounding box mid Framer slide-in | Poll until `x ≥ -1` before viewport assert |
+| Body type | Tailwind `text-sm`/`text-xs` at 14/12px | Theme floor → 15px for both |
+| Sponsors | Farm tables stayed wide on phones | Stacked farm cards below `sm`; table from `sm` up |
+| Throne | Quest tree overflowed SE landscape | Horizontal scroller + 44px nodes |
+| Throne | Hero money could wrap at 360px | `FitMoney` full→compact when overflow |
+| Quests / Pipeline | Long buyer/lot names | `Ellipsize` (tap to expand) |
+| Quests | Sort headers unusable on cards | Mobile sort `<Select>` |
+| Layout | `100vh` / no safe-area | `100dvh` + `env(safe-area-inset-*)` top/bottom |
+| Tables | Wide ledgers on phones | `data-mobile="cards"` + `data-label` stacked cards <640 |
+| Charts | Potential overflow | `ResponsiveContainer` + overflow checks |
+| Tooling | Empty fullPage JPEG on tall `/quests` | Viewport screenshots; empty file = defect |
+| Desktop | Same tap/type floors applied globally | No separate desktop regressions |
+
+### Tooling added
+
+- Playwright projects per matrix device×orientation (`e2e/matrix.ts`, `playwright.config.ts`)
+- `e2e/mobile-matrix.spec.ts` — no H-scroll, 15px body, 16px inputs, 44px taps, drawer in viewport
+- `npm run mobile:audit` / `npm run e2e:matrix` / `scripts/mobile-visual-check.ts`

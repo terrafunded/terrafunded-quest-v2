@@ -30,5 +30,18 @@ Matrix: iPhone SE / 15 / 15 Pro Max, Pixel 8, iPad Mini, iPad Pro × portrait + 
 **Screenshots:** `docs/screenshots/mobile/pass-01/` (before: empty/failed quests shots from earlier
 iteration; after: full matrix viewport JPGs under each device/orientation).
 
-**Deploy:** pending push to `v2` + `verify:live` after this log.
+**Deploy:** pushed `v2` @ `3cc26c5` → https://terrafunded-quest-v2.vercel.app · `verify:live` passed
+(net profit $2,272,304, trapped $1,116,863, themes from drawer).
+
+### Pass 02 — CLEAN (2026-09-11)
+
+**Checks:** `build` · `lint` · `test` (162) · `e2e:matrix` (133) · `mobile:audit --pass 02`
+(120 screenshots, 0 empty, 0 defects) · `mobile-visual-check` (0 defects).
+
+**Defects found:** none. Second consecutive clean pass — loop complete.
+
+**Screenshots:** `docs/screenshots/mobile/pass-02/` (after = identical matrix to pass-01;
+before = pass-01 for diffing).
+
+**Deploy:** pushed with this commit → https://terrafunded-quest-v2.vercel.app · `verify:live` re-run.
 
