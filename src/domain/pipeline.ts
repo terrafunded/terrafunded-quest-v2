@@ -2,6 +2,7 @@ import type { Lot } from "./lot";
 import { isSold } from "./lot";
 import { addDays, daysBetween, parseDate, toIsoDate } from "./dates";
 import { groupBy, median, round2, sum } from "./math";
+import { trailingWindow, type EraStart } from "./era";
 import { DAYS_PER_MONTH, TRAILING_WINDOW_DAYS } from "../config/goal";
 
 /** A reservation with no closing after this many days is "stuck". */
@@ -58,7 +59,14 @@ export interface FarmPipeline {
 
 export interface Pipeline {
   asOf: string;
+  /** Width of the trailing window asked for. */
   trailingWindowDays: number;
+  /** Days the window really covers — fewer than asked when the era start (config ERA_START) cut it short. */
+  trailingDays: number;
+  /** First day the window counts (ISO). */
+  trailingSince: string;
+  /** True when the window was clipped at the era start — the per-month figures then read "since Mar 2026". */
+  trailingEraClipped: boolean;
 
   /**
    * Leading indicator: lots reserved inside the trailing window that are still waiting to close
@@ -99,6 +107,8 @@ export interface PipelineOptions {
   stuckAfterDays?: number;
   maturityDays?: number;
   closedLotsPerMonth?: number;
+  /** Era start (ISO) the trailing window may not reach before; `null` for no era. Default: config ERA_START. */
+  eraStart?: EraStart;
 }
 
 function daysReservationToClose(lot: Lot): number | null {
@@ -190,8 +200,9 @@ export function computePipeline(lots: Lot[], asOf: Date, opts: PipelineOptions =
   const windowDays = opts.trailingWindowDays ?? TRAILING_WINDOW_DAYS;
   const stuckAfterDays = opts.stuckAfterDays ?? STUCK_AFTER_DAYS;
   const maturityDays = opts.maturityDays ?? CONVERSION_MATURITY_DAYS;
-  const from = addDays(asOf, -windowDays);
-  const monthsInWindow = windowDays / DAYS_PER_MONTH;
+  const window = trailingWindow(asOf, windowDays, opts.eraStart);
+  const from = window.from;
+  const monthsInWindow = window.days / DAYS_PER_MONTH;
 
   const reservedLots = lots.filter((l) => l.stage === "reserved");
   const newReservationsTrailing = reservedLots.filter((l) => inWindow(l.reservationDate, from, asOf)).length;
@@ -227,6 +238,9 @@ export function computePipeline(lots: Lot[], asOf: Date, opts: PipelineOptions =
   return {
     asOf: toIsoDate(asOf),
     trailingWindowDays: windowDays,
+    trailingDays: window.days,
+    trailingSince: window.since,
+    trailingEraClipped: window.eraClipped,
     newReservationsTrailing,
     reservationsPerMonth: round2(newReservationsTrailing / monthsInWindow),
     reservationsMadeTrailing,

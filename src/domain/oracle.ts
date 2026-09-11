@@ -4,6 +4,7 @@ import type { Lot } from "./lot";
 import { isSold } from "./lot";
 import { addDays, addMonths, daysBetween, daysInUtcMonth, endOfUtcMonth, monthsBetween, parseDate, toIsoDate } from "./dates";
 import { mean, round2 } from "./math";
+import { resolveEra, type EraStart } from "./era";
 
 /** What the target is measured on: net profit booked at closing, or cash in the bank after paying every sponsor out. */
 export type TargetMode = "profit_at_closing" | "cash_in_bank";
@@ -272,8 +273,57 @@ function shareAfter(mo: OracleMonth, start: Date): number {
   return span > 0 ? daysBetween(start, mo.end) / span : 0;
 }
 
+/** How often the realm buys a farm: the mean gap between consecutive fundings since the era start. */
+export interface FarmCadence {
+  /** Mean months between consecutive farm fundings (`DEFAULT_FARM_CADENCE_MONTHS` when fewer than two farms qualify). */
+  months: number;
+  /** True when the figure was measured from at least two fundings. */
+  measured: boolean;
+  /** Farms behind the figure — funded (else acquired) on or after the era start. */
+  farms: number;
+  /** ISO funding dates behind the figure, oldest first. */
+  fundingDates: string[];
+  /** Farms left out because they were funded before the era start. */
+  excluded: number;
+  /** ISO era start the cadence is measured from, or null when every farm counts. */
+  since: string | null;
+  /** "since Mar 2026", or null when every farm counts. */
+  sinceLabel: string | null;
+}
+
+export const DEFAULT_FARM_CADENCE_MONTHS = 3;
+
+export interface OracleDefaultsOptions {
+  /** Era start (ISO) the cadence is measured from; `null` counts every farm. Default: config ERA_START. */
+  eraStart?: EraStart;
+}
+
+/**
+ * Mean months between consecutive farm fundings, over farms funded on or after the era start
+ * (config ERA_START): the cadence the Oracle's "new farm every N months" slider starts from.
+ */
+export function farmCadence(farms: FarmEconomics[], asOf: Date, eraStart: EraStart = undefined): FarmCadence {
+  const era = resolveEra(asOf, eraStart);
+  const dated = farms.map((f) => parseDate(f.fundingDate) ?? parseDate(f.closingDate)).filter((d): d is Date => d !== null);
+  const fundingDates = dated.filter((d) => !era || d >= era.startDate).sort((a, b) => a.getTime() - b.getTime());
+  const gaps: number[] = [];
+  for (let i = 1; i < fundingDates.length; i++) {
+    gaps.push(monthsBetween(fundingDates[i - 1] as Date, fundingDates[i] as Date));
+  }
+  const measured = mean(gaps);
+  return {
+    months: round2(measured ?? DEFAULT_FARM_CADENCE_MONTHS),
+    measured: measured !== null,
+    farms: fundingDates.length,
+    fundingDates: fundingDates.map(toIsoDate),
+    excluded: dated.length - fundingDates.length,
+    since: era?.start ?? null,
+    sinceLabel: era?.since ?? null,
+  };
+}
+
 /** Real trailing averages the sliders start from. */
-export function deriveOracleDefaults(lots: Lot[], farms: FarmEconomics[], goal: GoalStatus): OracleParams {
+export function deriveOracleDefaults(lots: Lot[], farms: FarmEconomics[], goal: GoalStatus, opts: OracleDefaultsOptions = {}): OracleParams {
   const sold = lots.filter(isSold);
   const avgSalePrice = mean(sold.map((l) => l.salePrice ?? 0).filter((n) => n > 0)) ?? 0;
   const avgLandCost = mean(sold.map((l) => l.landCost)) ?? mean(farms.map((f) => f.landCostPerLot)) ?? 0;
@@ -284,15 +334,9 @@ export function deriveOracleDefaults(lots: Lot[], farms: FarmEconomics[], goal: 
     .filter((m) => m >= 0);
   const avgMonthsToSellNote = mean(noteDelays) ?? 3;
 
-  const fundingDates = farms
-    .map((f) => parseDate(f.fundingDate) ?? parseDate(f.closingDate))
-    .filter((d): d is Date => d !== null)
-    .sort((a, b) => a.getTime() - b.getTime());
-  const gaps: number[] = [];
-  for (let i = 1; i < fundingDates.length; i++) {
-    gaps.push(monthsBetween(fundingDates[i - 1] as Date, fundingDates[i] as Date));
-  }
-  const newFarmEveryMonths = mean(gaps) ?? 3;
+  const asOf = parseDate(goal.asOf);
+  // Without a readable asOf there is no era to resolve: every farm counts.
+  const newFarmEveryMonths = (asOf ? farmCadence(farms, asOf, opts.eraStart) : farmCadence(farms, new Date(0), null)).months;
 
   const financed = sold.filter((l) => l.dealType === "financed" && (l.salePrice ?? 0) > 0);
   const downPaymentPct = mean(financed.map((l) => ((l.downPayment ?? 0) / (l.salePrice as number)) * 100)) ?? 5;
@@ -310,7 +354,7 @@ export function deriveOracleDefaults(lots: Lot[], farms: FarmEconomics[], goal: 
     avgSalePrice: Math.round(avgSalePrice),
     avgLandCost: Math.round(avgLandCost),
     avgMonthsToSellNote: round2(avgMonthsToSellNote),
-    newFarmEveryMonths: round2(newFarmEveryMonths),
+    newFarmEveryMonths,
     avgLotsPerFarm: round2(goal.avgLotsPerFarm ?? mean(farms.map((f) => f.totalLots)) ?? 10),
     investorTakePct: round2(investorTakePct),
     downPaymentPct: round2(downPaymentPct),

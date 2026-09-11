@@ -24,6 +24,7 @@ import {
 } from "./oracle";
 import { addDays, daysBetween, monthsBetween, parseDate, toIsoDate } from "./dates";
 import { mean, median, round2, sum } from "./math";
+import { resolveEra, type Era, type EraStart } from "./era";
 import { DAYS_PER_MONTH } from "../config/goal";
 import {
   WARPLAN_DEFAULT_AD_SPEND_PER_CLOSING,
@@ -72,11 +73,13 @@ export interface WarPlanRealValues {
   lotsPerFarm: number | null;
   /** All-time average land cost per sold lot (the Oracle's figure). */
   landCostPerLot: number;
-  /** Average per-lot cost of the most recent farm purchases (`recentFarms`). */
+  /** Average per-lot cost of the most recent farm purchases (`recentFarms`), since the era start. */
   recentLandCostPerLot: number | null;
   recentFarms: string[];
   /** The per-lot cost the farm-cost input is prefilled from: recent when available, else all-time. */
   defaultLandCostPerLot: number;
+  /** "since Mar 2026" — the era every trend here (land-cost trend, cycle length) is measured from; null without an era. */
+  eraSince: string | null;
   /** Reservation → closing conversion over live and closed reservations only. */
   conversionPct: number | null;
   /** Conversion counting cancelled reservations as failures — what the plan buys ads against. */
@@ -95,6 +98,12 @@ export interface WarPlanRealValues {
   cycleSource: CycleSource | null;
   /** Farms behind the cycle median. */
   cycleFarms: number;
+  /** Freed farms whose real cycle predates the era start and so stays out of the median (e.g. Lamar). */
+  cycleExcludedFarms: string[];
+  /** Whether the realm's month-of-year profile is applied (seasonality.ts); false with too little history. */
+  seasonalityApplied: boolean;
+  /** "not enough history for seasonality" when it is not applied for lack of history. */
+  seasonalityReason: string | null;
 }
 
 export interface WarPlanDefaults {
@@ -128,6 +137,8 @@ export interface WarPlanContext {
   campaigns: Campaign[];
   snapshot: Pick<PaymentsSnapshot, "investorDistributions">;
   seasonality: SeasonalProfile;
+  /** Era start (ISO) the cycle length and land-cost trend are measured from; `null` for none. Default: config ERA_START. */
+  eraStart?: EraStart;
 }
 
 export type WarPlanColumnId = "current_pace" | "required_plan" | "required_plus_buffer";
@@ -182,9 +193,16 @@ export interface RotationBenchmark {
   cycleDays: number | null;
   cycleMonths: number | null;
   source: CycleSource | null;
-  /** The freed farm whose cycle is the median (Lamar today), or the projected one when none is freed. */
+  /** The farm whose cycle is the median — a freed farm funded since the era start, or the projected one when none is freed. */
   benchmark: CapitalCycle | null;
+  /** The cycles behind the median: farms funded on or after the era start only. */
   cycles: CapitalCycle[];
+  /** Real cycles of freed farms funded before the era start — measured, but not representative of today's pace. */
+  excludedCycles: CapitalCycle[];
+  /** ISO era start the cycles are measured from, or null when every farm counts. */
+  since: string | null;
+  /** "since Mar 2026", or null when every farm counts. */
+  sinceLabel: string | null;
   /** Cumulative % of capital returned by day since funding on the benchmark farm (step curve). */
   curve: { day: number; pct: number; date: string }[];
   grades: FarmGrade[];
@@ -340,21 +358,36 @@ export function farmToFirstCloseMonths(farms: FarmEconomics[]): { months: number
   return { months: med === null ? null : round2(med), farms: values.length };
 }
 
-/** Farms bought on or before asOf, most recent first (funding_date, else closing_date). */
-function purchasedFarms(farms: FarmEconomics[], asOf: Date): { farm: FarmEconomics; date: Date }[] {
+/** Farms bought on or before asOf (and, with an era, on or after its start), most recent first (funding_date, else closing_date). */
+function purchasedFarms(farms: FarmEconomics[], asOf: Date, era: Era | null = null): { farm: FarmEconomics; date: Date }[] {
   return farms
     .map((farm) => ({ farm, date: parseDate(farm.fundingDate) ?? parseDate(farm.closingDate) }))
-    .filter((x): x is { farm: FarmEconomics; date: Date } => x.date !== null && x.date <= asOf)
+    .filter((x): x is { farm: FarmEconomics; date: Date } => x.date !== null && x.date <= asOf && (!era || x.date >= era.startDate))
     .sort((a, b) => b.date.getTime() - a.date.getTime());
 }
 
-/** Average per-lot land cost of the `count` most recent farm purchases with a capital basis. */
-export function recentLandCostPerLot(farms: FarmEconomics[], asOf: Date, count = 3): { perLot: number | null; farms: string[] } {
-  const recent = purchasedFarms(farms, asOf)
+export interface RecentLandCost {
+  perLot: number | null;
+  farms: string[];
+  /** ISO era start the purchases are taken from, or null when every purchase counts. */
+  since: string | null;
+  /** "since Mar 2026", or null when every purchase counts. */
+  sinceLabel: string | null;
+}
+
+/** Average per-lot land cost of the `count` most recent farm purchases with a capital basis, since the era start (config ERA_START). */
+export function recentLandCostPerLot(farms: FarmEconomics[], asOf: Date, count = 3, eraStart: EraStart = undefined): RecentLandCost {
+  const era = resolveEra(asOf, eraStart);
+  const recent = purchasedFarms(farms, asOf, era)
     .filter(({ farm }) => farm.capitalBasisSource !== "none" && farm.landCostPerLot > 0)
     .slice(0, count);
   const perLot = mean(recent.map(({ farm }) => farm.landCostPerLot));
-  return { perLot: perLot === null ? null : Math.round(perLot), farms: recent.map(({ farm }) => farm.name) };
+  return {
+    perLot: perLot === null ? null : Math.round(perLot),
+    farms: recent.map(({ farm }) => farm.name),
+    since: era?.start ?? null,
+    sinceLabel: era?.since ?? null,
+  };
 }
 
 const pctOf = (part: number, whole: number) => (whole <= 0 ? 0 : round2(Math.min(100, (part / whole) * 100)));
@@ -398,12 +431,16 @@ function curveDaysTo(curve: RotationBenchmark["curve"], pct: number): number | n
 /**
  * The capital cycle the rotation engine turns on. Real when a farm has been freed (funding_date →
  * the day cumulative capital_return reached 100 %, liberation.ts); projected from each captive
- * farm's campaign shortfall at the current pace when none has. Never a constant.
+ * farm's campaign shortfall at the current pace when none has. Never a constant. Only farms funded
+ * on or after the era start (config ERA_START) go into the median: an earlier turn is real, but
+ * not representative of today's pace, and is reported in `excludedCycles`.
  */
 export function computeRotationBenchmark(
-  ctx: Pick<WarPlanContext, "asOf" | "farms" | "goal" | "liberation" | "campaigns" | "snapshot">,
+  ctx: Pick<WarPlanContext, "asOf" | "farms" | "goal" | "liberation" | "campaigns" | "snapshot" | "eraStart">,
 ): RotationBenchmark {
   const { asOf, liberation } = ctx;
+  const era = resolveEra(asOf, ctx.eraStart);
+  const inEra = (d: Date) => !era || d >= era.startDate;
   const farmById = new Map(ctx.farms.map((f) => [f.farmId, f]));
   const campaignByFarm = new Map(ctx.campaigns.map((c) => [c.farmId, c]));
   const fundedOn = (h: Hostage): Date | null => {
@@ -435,13 +472,14 @@ export function computeRotationBenchmark(
   };
 
   const realCycles: CapitalCycle[] = [];
+  const excludedCycles: CapitalCycle[] = [];
   for (const h of liberation.freedHostages) {
     const funded = fundedOn(h);
     const freed = parseDate(h.freedAt);
     if (!funded || !freed || !h.freedAt) continue;
     const days = daysBetween(funded, freed);
     if (days < 0) continue;
-    realCycles.push({
+    (inEra(funded) ? realCycles : excludedCycles).push({
       farmId: h.farmId,
       farmName: h.farmName,
       investorName: h.investorName,
@@ -455,8 +493,9 @@ export function computeRotationBenchmark(
   const projectedCycles: CapitalCycle[] = [];
   for (const h of liberation.captiveHostages) {
     const funded = fundedOn(h);
+    if (!funded || !inEra(funded)) continue;
     const { days } = projectedDaysToGo(h);
-    if (!funded || days === null) continue;
+    if (days === null) continue;
     const total = daysBetween(funded, addDays(asOf, days));
     if (total <= 0) continue;
     projectedCycles.push({
@@ -528,6 +567,9 @@ export function computeRotationBenchmark(
     source,
     benchmark,
     cycles,
+    excludedCycles,
+    since: era?.start ?? null,
+    sinceLabel: era?.since ?? null,
     curve,
     grades,
     turnsCompleted: liberation.freedHostages.length,
@@ -588,11 +630,12 @@ export function prefillInvestorMix(investors: InvestorSummary[]): InvestorMixEnt
 export function deriveWarPlanDefaults(ctx: WarPlanContext): WarPlanDefaults {
   const first = farmToFirstCloseMonths(ctx.farms);
   const landCostPerLot = ctx.oracleDefaults.avgLandCost;
-  const recent = recentLandCostPerLot(ctx.farms, ctx.asOf);
+  const recent = recentLandCostPerLot(ctx.farms, ctx.asOf, 3, ctx.eraStart);
   const defaultLandCostPerLot = recent.perLot ?? landCostPerLot;
   const lotsPerFarm = WARPLAN_DEFAULT_LOTS_PER_FARM;
   const conversion = ctx.pipeline.conversion;
   const benchmark = computeRotationBenchmark(ctx);
+  const era = resolveEra(ctx.asOf, ctx.eraStart);
   return {
     inputs: {
       target: ctx.goal.goal,
@@ -606,7 +649,8 @@ export function deriveWarPlanDefaults(ctx: WarPlanContext): WarPlanDefaults {
       noteSaleLagMonths: ctx.oracleDefaults.avgMonthsToSellNote,
       investorMix: prefillInvestorMix(ctx.investors),
       cycleMonths: benchmark.cycleMonths,
-      seasonal: true,
+      // A profile that is not applied (too little history since the era start) leaves nothing to switch on.
+      seasonal: ctx.seasonality.applied,
     },
     real: {
       target: ctx.goal.goal,
@@ -616,6 +660,7 @@ export function deriveWarPlanDefaults(ctx: WarPlanContext): WarPlanDefaults {
       recentLandCostPerLot: recent.perLot,
       recentFarms: recent.farms,
       defaultLandCostPerLot,
+      eraSince: era?.since ?? null,
       conversionPct: conversion.pct,
       conversionWithCancellationsPct: conversion.pctWithCancellations,
       cancellationRatePct: conversion.cancellationRatePct,
@@ -630,6 +675,9 @@ export function deriveWarPlanDefaults(ctx: WarPlanContext): WarPlanDefaults {
       cycleMonths: benchmark.cycleMonths,
       cycleSource: benchmark.source,
       cycleFarms: benchmark.cycles.length,
+      cycleExcludedFarms: benchmark.excludedCycles.map((c) => c.farmName),
+      seasonalityApplied: ctx.seasonality.applied,
+      seasonalityReason: ctx.seasonality.reason,
     },
   };
 }
@@ -837,10 +885,12 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
   // that can still do that before the deadline, and the plan stops closing lots after that month.
   const lastUsefulMonth = cashMode ? Math.max(0, k - noteLag) : k;
   const pauseClosings: [number, number] | undefined = cashMode && lastUsefulMonth < k ? [lastUsefulMonth + 1, k] : undefined;
-  // The month-of-year shape of the realm's closings, rescaled so the flat pace stays the plan's average.
-  const seasonality = inputs.seasonal
-    ? normalizeSeasonality(ctx.seasonality.factors, grid.months, Math.max(1, lastUsefulMonth))
-    : ctx.seasonality.factors.map(() => 1);
+  // The month-of-year shape of the realm's closings, rescaled so the flat pace stays the plan's
+  // average. A profile that is not applied (too little history since the era start) stays flat.
+  const seasonality =
+    inputs.seasonal && ctx.seasonality.applied
+      ? normalizeSeasonality(ctx.seasonality.factors, grid.months, Math.max(1, lastUsefulMonth))
+      : ctx.seasonality.factors.map(() => 1);
   const cum = cumulativeFractions(grid, seasonality);
   const planParams: OracleParams = { ...base, seasonality, ...(pauseClosings ? { pauseClosings } : {}) };
   const simulate = (pace: number, schedule: number[]): OracleResult =>
@@ -952,6 +1002,7 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
   const lastClosingDate = pauseClosings && lastUsefulMonth > 0 ? (grid.months[lastUsefulMonth - 1]?.end.toISOString().slice(0, 10) ?? null) : null;
   const pauseClause = lastClosingDate ? ` until ${warPlanMonthLabel(lastClosingDate)}, then only note sales` : "";
 
+  const era = resolveEra(asOf, ctx.eraStart);
   const current = build(
     "current_pace",
     "At the current pace",
@@ -959,7 +1010,7 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
     cadenceSchedule(ctx.oracleDefaults.newFarmEveryMonths),
     base,
     (c) =>
-      `${c.closingsPerMonth} lots/month and a farm every ${ctx.oracleDefaults.newFarmEveryMonths} months — the trailing averages, farms funded from your mix in order.`,
+      `${c.closingsPerMonth} lots/month and a farm every ${ctx.oracleDefaults.newFarmEveryMonths} months${era ? ` (${era.since})` : ""} — the trailing averages, farms funded from your mix in order.`,
   );
   const required = build(
     "required_plan",

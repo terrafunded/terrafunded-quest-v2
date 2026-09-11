@@ -1,5 +1,6 @@
 import { addDays, parseDate, startOfUtcDay, toIsoDate } from "./dates";
 import { round2 } from "./math";
+import { resolveEra, type EraStart } from "./era";
 
 /**
  * STREAKS (Phase 2 §5) — consecutive ISO weeks with at least one closing, from real closing dates.
@@ -29,8 +30,17 @@ export interface Streaks {
   closedThisWeek: boolean;
   /** Days left in the current ISO week to keep the streak alive (0 when already closed this week). */
   daysToKeepStreak: number;
+  /** The week with the most closings since the era start (config ERA_START); ties go to the higher net profit. */
   bestWeek: WeekTally | null;
+  /** The month with the most closings since the era start. */
   bestMonth: MonthTally | null;
+  /** ISO date the best week and month are measured from, or null when every closing counts. */
+  bestSince: string | null;
+  /** "since Mar 2026", or null when every closing counts. */
+  bestSinceLabel: string | null;
+  /** Closings left out of the best week and month because they predate the era start. */
+  bestExcluded: number;
+  /** Every week with a closing, whole history — the streak runs are measured on these. */
   weeks: WeekTally[];
   months: MonthTally[];
   currentMonths: number;
@@ -92,13 +102,10 @@ const prevWeek = (d: Date) => addDays(d, -7);
 const nextMonth = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
 const prevMonth = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1));
 
-export function computeStreaks(closings: Closing[], asOf: Date): Streaks {
-  const today = startOfUtcDay(asOf);
-  const past = closings.map((c) => ({ ...c, d: parseDate(c.date) })).filter((c): c is Closing & { d: Date } => !!c.d && c.d <= today);
-
+function tally(closings: (Closing & { d: Date })[]): { weeks: WeekTally[]; months: MonthTally[] } {
   const weekMap = new Map<string, WeekTally>();
   const monthMap = new Map<string, MonthTally>();
-  for (const c of past) {
+  for (const c of closings) {
     const ws = isoWeekStart(c.d);
     const wk = isoWeekKey(c.d);
     const w = weekMap.get(wk) ?? { week: wk, weekStart: toIsoDate(ws), count: 0, netProfit: 0 };
@@ -112,9 +119,24 @@ export function computeStreaks(closings: Closing[], asOf: Date): Streaks {
     m.netProfit = round2(m.netProfit + c.netProfit);
     monthMap.set(mk, m);
   }
+  return {
+    weeks: [...weekMap.values()].sort((a, b) => a.weekStart.localeCompare(b.weekStart)),
+    months: [...monthMap.values()].sort((a, b) => a.month.localeCompare(b.month)),
+  };
+}
 
-  const weeks = [...weekMap.values()].sort((a, b) => a.weekStart.localeCompare(b.weekStart));
-  const months = [...monthMap.values()].sort((a, b) => a.month.localeCompare(b.month));
+/**
+ * The streak runs (current and longest) read the whole history; the best week and best month
+ * are records of pace, so they only count closings on or after the era start.
+ */
+export function computeStreaks(closings: Closing[], asOf: Date, eraStart: EraStart = undefined): Streaks {
+  const today = startOfUtcDay(asOf);
+  const past = closings.map((c) => ({ ...c, d: parseDate(c.date) })).filter((c): c is Closing & { d: Date } => !!c.d && c.d <= today);
+  const era = resolveEra(today, eraStart);
+  const inEra = era ? past.filter((c) => c.d >= era.startDate) : past;
+
+  const { weeks, months } = tally(past);
+  const best = era ? tally(inEra) : { weeks, months };
   const weekStarts = weeks.map((w) => parseDate(w.weekStart) as Date);
   const monthStarts = months.map((m) => parseDate(`${m.month}-01`) as Date);
 
@@ -139,8 +161,11 @@ export function computeStreaks(closings: Closing[], asOf: Date): Streaks {
     bestWeeksEndedOn: bestW.endedOn ? toIsoDate(addDays(bestW.endedOn, 6)) : null,
     closedThisWeek,
     daysToKeepStreak: closedThisWeek ? 0 : Math.max(0, Math.round((sundayEnd.getTime() - today.getTime()) / 86_400_000)),
-    bestWeek: [...weeks].sort(byCount)[0] ?? null,
-    bestMonth: [...months].sort(byCount)[0] ?? null,
+    bestWeek: [...best.weeks].sort(byCount)[0] ?? null,
+    bestMonth: [...best.months].sort(byCount)[0] ?? null,
+    bestSince: era?.start ?? null,
+    bestSinceLabel: era?.since ?? null,
+    bestExcluded: past.length - inEra.length,
     weeks,
     months,
     currentMonths,

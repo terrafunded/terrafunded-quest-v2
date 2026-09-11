@@ -7,7 +7,8 @@ import raw from "../__fixtures__/payments.json";
 import type { PaymentsSnapshot } from "../types";
 import { buildRealm } from "../realm";
 import { round2 } from "../math";
-import { solveWarPlan } from "../warplan";
+import { recentLandCostPerLot, solveWarPlan } from "../warplan";
+import { computeSeasonality } from "../seasonality";
 
 const fixture = raw as unknown as PaymentsSnapshot & { snapshotAt: string };
 const ASOF = new Date("2026-09-11T00:00:00Z");
@@ -26,8 +27,40 @@ describe("fixture: THE DEBT", () => {
     expect(realm.debt.daysLeft).toBe(476);
     expect(realm.debt.requiredNetProfitPerDay).toBe(16_234.65);
     expect(realm.debt.requiredNetProfitPerDay).toBe(round2(realm.goal.remaining / 476));
-    expect(realm.debt.actualNetProfitPerDay).toBe(6_762.81);
     expect(realm.debt.interestPerDay).toBe(1_253);
+  });
+
+  it("has actually earned $10,026.04 per day since Mar 2026 ($1,945,051.41 over 194 days) — the all-time $6,762.81 since 2025-10-10 stays on record", () => {
+    expect(realm.era).toMatchObject({ start: "2026-03-01", label: "Mar 2026", since: "since Mar 2026", monthsOfHistory: 6 });
+    expect(realm.debt).toMatchObject({
+      actualNetProfitPerDay: 10_026.04,
+      actualSince: "2026-03-01",
+      actualSinceLabel: "since Mar 2026",
+      actualEraClipped: true,
+      actualDays: 194,
+      actualNetProfit: 1_945_051.41,
+      actualNetProfitPerDayAllTime: 6_762.81,
+      firstCloseDate: "2025-10-10",
+    });
+    expect(realm.debt.actualNetProfitPerDay).toBe(round2(1_945_051.41 / 194));
+    // the eight dated closings of Oct 2025 – Jan 2026 ($297,718.66) and the undated Eastland Lot 6 ($29,534.25) are real money in the total, not in the pace
+    expect(realm.goal.netProfitToDate).toBe(2_272_304.32);
+    expect(round2(realm.goal.netProfitToDate - realm.debt.actualNetProfit)).toBe(327_252.91);
+    const undated = realm.lots.find((l) => l.name === "Eastland — Lot 6");
+    expect(undated?.closeDate).toBeNull();
+    expect(undated?.netProfit).toBe(29_534.25);
+    // the per-day figure with ERA_START is higher than without it
+    const allTime = buildRealm(fixture, ASOF, { eraStart: null });
+    expect(allTime.era).toBeNull();
+    expect(allTime.debt.actualNetProfitPerDay).toBe(6_762.81);
+    expect(allTime.debt).toMatchObject({ actualSince: "2025-10-10", actualDays: 336, actualEraClipped: false, actualSinceLabel: null });
+    expect(realm.debt.actualNetProfitPerDay as number).toBeGreaterThan(allTime.debt.actualNetProfitPerDay as number);
+    // totals are untouched by the era
+    expect(allTime.goal.netProfitToDate).toBe(realm.goal.netProfitToDate);
+    expect(allTime.goal.cashRealized).toBe(realm.goal.cashRealized);
+    expect(allTime.debt.capitalOwed).toBe(realm.debt.capitalOwed);
+    expect(allTime.liberation.freedHostages.map((h) => h.farmName)).toEqual(realm.liberation.freedHostages.map((h) => h.farmName));
+    expect(allTime.rotation.turnsCompleted).toBe(realm.rotation.turnsCompleted);
   });
 });
 
@@ -135,11 +168,22 @@ describe("fixture: STREAKS", () => {
     expect(realm.streaks.weeks).toHaveLength(15);
   });
 
-  it("best week is W22 2026 with 7 closings; best month May 2026 with 13", () => {
+  it("best week is W22 2026 with 7 closings; best month May 2026 with 13 — measured since Mar 2026, with the 8 earlier closings left out and the runs untouched", () => {
     expect(realm.streaks.bestWeek).toEqual({ week: "2026-W22", weekStart: "2026-05-25", count: 7, netProfit: 553_411.03 });
     expect(realm.streaks.bestMonth).toEqual({ month: "2026-05", count: 13, netProfit: 1_006_874.4 });
+    expect(realm.streaks).toMatchObject({ bestSince: "2026-03-01", bestSinceLabel: "since Mar 2026", bestExcluded: 8 });
+    // the runs read the whole history: 15 weeks with a closing, the first in Oct 2025
+    expect(realm.streaks.weeks[0]?.weekStart).toBe("2025-10-06");
+    expect(realm.streaks.months.map((m) => m.month)).toEqual(["2025-10", "2025-11", "2026-01", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08"]);
     expect(realm.streaks.bestMonths).toBe(5);
     expect(realm.streaks.currentMonths).toBe(5);
+    // the record week and month fall inside the era, so the whole history agrees
+    const allTime = buildRealm(fixture, ASOF, { eraStart: null });
+    expect(allTime.streaks.bestWeek).toEqual(realm.streaks.bestWeek);
+    expect(allTime.streaks.bestMonth).toEqual(realm.streaks.bestMonth);
+    expect(allTime.streaks).toMatchObject({ bestSince: null, bestSinceLabel: null, bestExcluded: 0 });
+    // reservation pledges: every pledge since Mar 2026, 8 earlier ones left out of the record
+    expect(realm.reservationStreaks).toMatchObject({ bestSinceLabel: "since Mar 2026", bestExcluded: 8 });
   });
 });
 
@@ -200,8 +244,30 @@ describe("fixture: ORACLE futures", () => {
     const committedFirstMonth = realm.expected.lots.filter((l) => (l.expectedCloseDate ?? "") <= "2026-10-11").reduce((a, l) => a + l.expectedNetProfit, 0);
     expect(s[0]?.cumulativeNetProfit).toBe(round2(realm.goal.netProfitToDate + committedFirstMonth));
     expect(realm.futures.current.premise).toBe(
-      "33 live reservations close on their expected dates at 74.47% conversion (16 already overdue, counted in the first month); after the 63-day lag, new reservations at 7.44/month keep closing at that rate — 5.54 lots/month — with a new farm every 1.72 months.",
+      "33 live reservations close on their expected dates at 74.47% conversion (16 already overdue, counted in the first month); after the 63-day lag, new reservations at 7.44/month keep closing at that rate — 5.54 lots/month — with a new farm every 1.51 months (since Mar 2026).",
     );
+    expect(realm.futures.closingsOnly.premise).toBe("4.4 closings/month and a new farm every 1.51 months (since Mar 2026) — the trailing closing pace alone, blind to the 33 live reservations.");
+  });
+
+  it("farm cadence since Mar 2026: a farm every 1.51 months over the five fundings from Freestone (2026-04-14) to Franklin 2 (2026-10-15); the four 2025 farms are left out (1.72 months over all nine)", () => {
+    expect(realm.farmCadence).toEqual({
+      months: 1.51,
+      measured: true,
+      farms: 5,
+      fundingDates: ["2026-04-14", "2026-04-15", "2026-06-16", "2026-07-31", "2026-10-15"],
+      excluded: 4,
+      since: "2026-03-01",
+      sinceLabel: "since Mar 2026",
+    });
+    expect(realm.oracleDefaults.newFarmEveryMonths).toBe(1.51);
+    expect(realm.futures.all.filter((f) => f.id !== "required_pace").every((f) => f.params.newFarmEveryMonths === 1.51)).toBe(true);
+    // the required pace buys a farm as often as inventory needs it, never less often than the realm does
+    expect(realm.futures.required.params.newFarmEveryMonths).toBe(1.4);
+    const allTime = buildRealm(fixture, ASOF, { eraStart: null });
+    expect(allTime.farmCadence).toMatchObject({ months: 1.72, farms: 9, excluded: 0, since: null, sinceLabel: null });
+    expect(allTime.oracleDefaults.newFarmEveryMonths).toBe(1.72);
+    // more inventory arrives sooner, but no future exits on a different day: land was never the constraint
+    expect(allTime.futures.all.map((f) => f.exitDate)).toEqual(realm.futures.all.map((f) => f.exitDate));
   });
 });
 
@@ -293,8 +359,9 @@ describe("fixture: PIPELINE (reservations layer)", () => {
 describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
   const d = realm.warPlanDefaults;
   const profit = solveWarPlan(d.inputs, realm);
+  const allTime = buildRealm(fixture, ASOF, { eraStart: null });
 
-  it("prefills every input from the realm: 10-lot farms at $460,080 (recent land), 74.47 % conversion, 2.63 months to first close, an 8.9-month cycle, five sponsors", () => {
+  it("prefills every input from the realm: 10-lot farms at $460,080 (recent land), 74.47 % conversion, 2.63 months to first close, a 7.46-month cycle projected since Mar 2026, flat pace, five sponsors", () => {
     expect(d.inputs).toMatchObject({
       target: 10_000_000,
       deadline: "2027-12-31",
@@ -305,7 +372,8 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
       conversionPct: 74.47,
       farmToFirstCloseMonths: 2.63,
       noteSaleLagMonths: 3.17,
-      cycleMonths: 8.9,
+      cycleMonths: 7.46,
+      seasonal: false,
     });
     expect(d.real).toMatchObject({
       lotsPerFarm: 12.11,
@@ -313,6 +381,7 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
       recentLandCostPerLot: 46_008,
       recentFarms: ["Franklin", "Avery", "Wichita"],
       defaultLandCostPerLot: 46_008,
+      eraSince: "since Mar 2026",
       conversionPct: 74.47,
       conversionWithCancellationsPct: 74.47,
       cancellationRatePct: 0,
@@ -323,10 +392,13 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
       noteSaleLagMonths: 3.17,
       closingsPerMonth: 4.4,
       inventory: 71,
-      cycleDays: 271,
-      cycleMonths: 8.9,
-      cycleSource: "freed_farms",
-      cycleFarms: 1,
+      cycleDays: 227,
+      cycleMonths: 7.46,
+      cycleSource: "projected",
+      cycleFarms: 4,
+      cycleExcludedFarms: ["Lamar"],
+      seasonalityApplied: false,
+      seasonalityReason: "not enough history for seasonality",
     });
     expect(d.inputs.investorMix.map((e) => [e.name, e.dealType, e.ratePct, e.capital])).toEqual([
       ["Kevin Concua", "fixed_interest", 20, 1_398_628],
@@ -339,13 +411,19 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     expect(round2(d.inputs.investorMix.reduce((a, e) => a + e.capital, 0))).toBe(realm.liberation.totalCapital);
   });
 
-  it("land cost trend: the three most recent purchases (Franklin, Avery, Wichita) average $46,008 per lot against $48,232 all-time", () => {
+  it("land cost trend since Mar 2026: the three most recent purchases (Franklin, Avery, Wichita) average $46,008 per lot against $48,232 all-time", () => {
     const recent = realm.farms.filter((f) => ["Franklin", "Avery", "Wichita"].includes(f.name));
     expect(recent.map((f) => f.fundingDate).sort()).toEqual(["2026-04-15", "2026-06-16", "2026-07-31"]);
     expect(Math.round(recent.reduce((a, f) => a + f.landCostPerLot, 0) / 3)).toBe(46_008);
     // Franklin 2 closes on 2026-10-15, after asOf, so it is not a purchase yet.
     expect(d.real.recentFarms).not.toContain("Franklin 2");
     expect(d.inputs.farmCost).toBe(46_008 * 10);
+    // all three era purchases are the three most recent purchases anyway: the era changes nothing here today
+    expect(recentLandCostPerLot(realm.farms, ASOF)).toEqual({ perLot: 46_008, farms: ["Franklin", "Avery", "Wichita"], since: "2026-03-01", sinceLabel: "since Mar 2026" });
+    expect(recentLandCostPerLot(realm.farms, ASOF, 3, null)).toEqual({ perLot: 46_008, farms: ["Franklin", "Avery", "Wichita"], since: null, sinceLabel: null });
+    // asked for more than the era holds, the trend stops at the era: four purchases since Mar 2026, never Titus (Nov 2025)
+    expect(recentLandCostPerLot(realm.farms, ASOF, 5).farms).toEqual(["Franklin", "Avery", "Wichita", "Freestone"]);
+    expect(recentLandCostPerLot(realm.farms, ASOF, 5, null).farms).toEqual(["Franklin", "Avery", "Wichita", "Freestone", "Titus"]);
   });
 
   it("owes sponsors $4,235,797.47 today ($3,579,399.48 of capital + $656,397.99 of unpaid take) and has kept $1,362,503.84 of cash", () => {
@@ -360,7 +438,7 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     expect(r.closingsPerMonth).toBeCloseTo(8.3, 0);
     expect(r.closingsPerMonth).toBe(8.2);
     expect(r.lotsNeeded).toBeCloseTo(130, -1);
-    expect(r.lotsNeeded).toBe(128.18);
+    expect(r.lotsNeeded).toBe(128.19);
     expect(r.farmsToBuy).toBe(6);
     expect(r.lastPurchaseDate).toBe("2027-07-31");
     expect(r.capitalToRaise).toBe(6 * 460_080);
@@ -378,8 +456,9 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     expect(r.hitsDeadline).toBe(true);
     expect(r.targetAtDeadline).toBeGreaterThanOrEqual(10_000_000);
     expect(r.rows).toHaveLength(16);
-    expect(r.rows[0]).toMatchObject({ date: "2026-09-30", lotsClosed: 3.54, flatLotsClosed: 5.19, seasonalFactor: 0.681, farmsBought: 0 });
-    expect(r.rows.at(-1)).toMatchObject({ date: "2027-12-31", lotsClosed: 2.8, flatLotsClosed: 8.2, notesSold: 5.58, cumulativeNet: 10_000_072.98, inventory: 2.81 });
+    // flat: with under 12 months of history since Mar 2026 no seasonal shape is applied, so every month asks the same 8.2 (the first prorated)
+    expect(r.rows[0]).toMatchObject({ date: "2026-09-30", lotsClosed: 5.19, flatLotsClosed: 5.19, seasonalFactor: 1, farmsBought: 0 });
+    expect(r.rows.at(-1)).toMatchObject({ date: "2027-12-31", lotsClosed: 8.2, flatLotsClosed: 8.2, seasonalFactor: 1, notesSold: 8.2, cumulativeNet: 10_000_598.31, inventory: 2.81 });
     expect(r.rows.at(-1)?.capitalReturned).toEqual([1_398_628, 1_232_722.88, 0, 0, 0]);
     expect(profit.verdict).toBe(
       "Buy 6 farms, the last one no later than Jul 2027, raise $2.8M (Kevin Concua $1.4M, Townson Family $1.4M), close 8.2 lots/month, sell 8.2 notes/month and spend at least $28K/month on ads.",
@@ -388,26 +467,55 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     expect(profit.verdict).toMatch(/\b\d+ farms?\b/);
   });
 
-  it("seasonality: 37 dated closings peak in May and vanish in winter; the required plan asks each month for its own share, the flat 8.2 alongside", () => {
-    expect(realm.seasonality.closings).toBe(37);
-    expect(realm.seasonality.counts).toEqual([1, 0, 0, 1, 13, 2, 9, 4, 0, 4, 3, 0]);
-    expect(realm.seasonality.factors).toEqual([0.25, 0.25, 0.25, 1.172, 2.266, 2.031, 1.875, 1.328, 0.625, 0.859, 0.781, 0.313]);
-    expect(round2(realm.seasonality.factors.reduce((a, b) => a + b, 0))).toBe(12);
-    expect(realm.seasonality.peakMonth).toBe(4);
-    expect(realm.seasonality.troughMonth).toBe(0);
-    expect(Math.min(...realm.seasonality.factors)).toBe(0.25);
-    // rescaled over the plan's 16 months so the flat pace stays the average
-    expect(profit.seasonality).toEqual([0.272, 0.272, 0.272, 1.277, 2.469, 2.213, 2.043, 1.447, 0.681, 0.936, 0.851, 0.341]);
-    const rows = profit.required.rows;
-    expect(rows.map((r) => r.flatLotsClosed).slice(1).every((f) => f === 8.2)).toBe(true);
-    expect(rows.find((r) => r.date === "2027-05-31")).toMatchObject({ lotsClosed: 20.24, seasonalFactor: 2.469 });
-    expect(rows.find((r) => r.date === "2027-01-31")).toMatchObject({ lotsClosed: 2.23, seasonalFactor: 0.272 });
-    // the seasonal months still add up to the flat plan's lots
-    const seasonalTotal = rows.reduce((a, r) => a + r.lotsClosed, 0);
-    const flatTotal = rows.reduce((a, r) => a + r.flatLotsClosed, 0);
-    expect(Math.abs(seasonalTotal - flatTotal)).toBeLessThan(0.1);
-    // the current-pace column keeps the flat trailing average
+  it("seasonality: only 6 months of history since Mar 2026 (29 of the 37 dated closings), so no seasonal profile is applied — 'not enough history for seasonality' — and the plan is flat even when asked to be seasonal", () => {
+    const s = realm.seasonality;
+    expect(s).toMatchObject({
+      applied: false,
+      reason: "not enough history for seasonality",
+      monthsOfHistory: 6,
+      monthsRequired: 12,
+      closings: 29,
+      excluded: 8,
+      since: "2026-03-01",
+      sinceLabel: "since Mar 2026",
+      peakMonth: null,
+      troughMonth: null,
+    });
+    // the eight closings of Oct 2025 – Jan 2026 are out of the counts; Apr–Aug 2026 remain
+    expect(s.counts).toEqual([0, 0, 0, 1, 13, 2, 9, 4, 0, 0, 0, 0]);
+    expect(s.factors).toEqual(Array.from({ length: 12 }, () => 1));
+    expect(round2(s.shares.reduce((a, b) => a + b, 0))).toBe(1);
+    // the War Plan starts flat and stays flat when the toggle is forced on
+    expect(d.inputs.seasonal).toBe(false);
+    expect(profit.seasonality).toEqual(Array.from({ length: 12 }, () => 1));
+    expect(profit.required.rows.every((r) => r.seasonalFactor === 1 && r.lotsClosed === r.flatLotsClosed)).toBe(true);
+    expect(solveWarPlan({ ...d.inputs, seasonal: true }, realm).seasonality).toEqual(Array.from({ length: 12 }, () => 1));
     expect(profit.current.rows.every((r) => r.seasonalFactor === 1)).toBe(true);
+    // without the era there are 11 months of history (first closing 2025-10-10): still not enough
+    expect(allTime.seasonality).toMatchObject({ applied: false, monthsOfHistory: 11, closings: 37, reason: "not enough history for seasonality", since: null });
+    expect(allTime.seasonality.counts).toEqual([1, 0, 0, 1, 13, 2, 9, 4, 0, 4, 3, 0]);
+  });
+
+  it("seasonality: the profile becomes available on 2027-03-01 (12 whole months since Mar 2026), not a day earlier; forced today it would peak in May at ×2.65", () => {
+    const eve = computeSeasonality(realm.lots, new Date("2027-02-28T00:00:00Z"));
+    expect(eve).toMatchObject({ applied: false, monthsOfHistory: 11, reason: "not enough history for seasonality" });
+    const anniversary = computeSeasonality(realm.lots, new Date("2027-03-01T00:00:00Z"));
+    expect(anniversary).toMatchObject({ applied: true, monthsOfHistory: 12, reason: null, closings: 29, peakMonth: 4 });
+    // the shape the era closings would give: May ×2.65, Sep–Mar at the 25 % floor
+    const forced = computeSeasonality(realm.lots, ASOF, { minMonths: 0 });
+    expect(forced.applied).toBe(true);
+    expect(forced.factors).toEqual([0.25, 0.25, 0.25, 1.37, 2.648, 2.374, 2.191, 1.552, 0.365, 0.25, 0.25, 0.25]);
+    expect(round2(forced.factors.reduce((a, b) => a + b, 0))).toBe(12);
+    expect(forced).toMatchObject({ peakMonth: 4, troughMonth: 0 });
+    // fed to the War Plan it shapes the required plan month by month while the flat average stays the plan's average
+    const shaped = solveWarPlan({ ...d.inputs, seasonal: true }, { ...realm, seasonality: forced });
+    expect(shaped.seasonality).toEqual([0.301, 0.301, 0.301, 1.65, 3.189, 2.859, 2.639, 1.869, 0.44, 0.301, 0.301, 0.301]);
+    expect(shaped.required.closingsPerMonth).toBe(8.19);
+    expect(shaped.required.rows.find((r) => r.date === "2027-05-31")).toMatchObject({ lotsClosed: 26.12, flatLotsClosed: 8.19, seasonalFactor: 3.189 });
+    expect(shaped.required.rows.find((r) => r.date === "2027-01-31")).toMatchObject({ lotsClosed: 2.47, flatLotsClosed: 8.19, seasonalFactor: 0.301 });
+    const seasonalTotal = shaped.required.rows.reduce((a, r) => a + r.lotsClosed, 0);
+    const flatTotal = shaped.required.rows.reduce((a, r) => a + r.flatLotsClosed, 0);
+    expect(Math.abs(seasonalTotal - flatTotal)).toBeLessThan(0.1);
   });
 
   it("cancellations: no file case in the snapshot is cancelled, so the rate is 0 % and conversion with cancellations equals conversion", () => {
@@ -417,11 +525,53 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     expect(realm.lots.every((l) => l.cancelledFileCases === 0)).toBe(true);
   });
 
-  it("rotation: Lamar's real cycle is 271 days (2025-08-21 → 2026-05-19, 8.9 months) and every other sponsor farm is behind it", () => {
+  it("rotation since Mar 2026: Lamar's real 271-day turn predates the era, so the cycle is projected from the four captive era farms — 227 days (7.46 months), Avery the benchmark — and no farm can be graded against a real curve", () => {
     const b = realm.rotation;
+    expect(b.source).toBe("projected");
+    expect(b.cycleDays).toBe(227);
+    expect(b.cycleMonths).toBe(7.46);
+    expect(b.since).toBe("2026-03-01");
+    expect(b.sinceLabel).toBe("since Mar 2026");
+    expect(b.cycles.map((c) => [c.farmName, c.fundingDate, c.liberationDate, c.days, c.projected])).toEqual([
+      ["Wichita", "2026-04-15", "2026-11-05", 204, true],
+      ["Freestone", "2026-04-14", "2026-09-11", 150, true],
+      ["Avery", "2026-06-16", "2027-02-21", 250, true],
+      ["Franklin", "2026-07-31", "2027-07-12", 346, true],
+    ]);
+    expect(b.cycleDays).toBe((204 + 250) / 2);
+    expect(b.benchmark).toMatchObject({ farmName: "Avery", investorName: "Kevin Concua", fundingDate: "2026-06-16", liberationDate: "2027-02-21", days: 250, months: 8.21, projected: true });
+    // the real turn is still on record, just not in the median
+    expect(b.excludedCycles).toHaveLength(1);
+    expect(b.excludedCycles[0]).toMatchObject({ farmName: "Lamar", fundingDate: "2025-08-21", liberationDate: "2026-05-19", days: 271, months: 8.9, projected: false });
+    expect(b.excludedCycles[0]?.days).toBe(realm.liberation.freedHostages[0]?.daysHeld);
+    // liberation keeps the full history: one turn completed
+    expect(b.turnsCompleted).toBe(1);
+    expect(b.capitalOutstanding).toBe(3_579_399.48);
+    // a projected benchmark has no distribution curve, so nothing is graded
+    expect(b.curve).toEqual([]);
+    expect(b.grades.map((g) => [g.farmName, g.verdict, g.daysElapsed, g.pctReturned, g.daysToGo])).toEqual([
+      ["Lamar", "unrated", 271, 100, 0],
+      ["Eastland", "unrated", 382, 0, 0],
+      ["Titus", "unrated", 304, 0, 228],
+      ["Freestone", "unrated", 150, 0, 0],
+      ["Wichita", "unrated", 149, 11.97, 55],
+      ["Avery", "benchmark", 87, 0, 163],
+      ["Franklin", "unrated", 42, 0, 304],
+      ["Franklin 2", "unrated", -34, 0, null],
+    ]);
+    expect(b.grades.find((g) => g.farmName === "Wichita")).toMatchObject({ benchmarkPctAtSameDay: null, projectedLiberationDate: "2026-11-05" });
+    // Eastland's sales already cover its capital; the payout has not been distributed
+    expect(b.nextLiberation?.farmName).toBe("Eastland");
+    expect(b.nextLiberation?.daysToGo).toBe(0);
+  });
+
+  it("rotation over the whole history: Lamar's real cycle is 271 days (2025-08-21 → 2026-05-19, 8.9 months) and every other sponsor farm is behind it", () => {
+    const b = allTime.rotation;
     expect(b.source).toBe("freed_farms");
     expect(b.cycleDays).toBe(271);
     expect(b.cycleMonths).toBe(8.9);
+    expect(b.since).toBeNull();
+    expect(b.excludedCycles).toEqual([]);
     expect(b.benchmark).toEqual({
       farmId: b.benchmark?.farmId,
       farmName: "Lamar",
@@ -432,7 +582,7 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
       months: 8.9,
       projected: false,
     });
-    expect(b.benchmark?.days).toBe(realm.liberation.freedHostages[0]?.daysHeld);
+    expect(b.benchmark?.days).toBe(allTime.liberation.freedHostages[0]?.daysHeld);
     expect(b.turnsCompleted).toBe(1);
     expect(b.capitalOutstanding).toBe(3_579_399.48);
     // Lamar's curve: 21.9 % after 57 days, 90.2 % after 112, 100 % on day 271
@@ -460,80 +610,90 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     ]);
     // Wichita returned 11.97 % in 149 days; Lamar had that much after 57
     expect(b.grades.find((g) => g.farmName === "Wichita")).toMatchObject({ benchmarkDaysToSamePct: 57, daysVsBenchmark: -92, projectedLiberationDate: "2026-11-05" });
-    // Eastland's sales already cover its capital; the payout has not been distributed
-    expect(b.nextLiberation?.farmName).toBe("Eastland");
-    expect(b.nextLiberation?.daysToGo).toBe(0);
+    expect(b.grades.map((g) => [g.farmName, g.verdict])).toEqual([
+      ["Lamar", "benchmark"],
+      ["Eastland", "behind"],
+      ["Titus", "behind"],
+      ["Freestone", "behind"],
+      ["Wichita", "behind"],
+      ["Avery", "behind"],
+      ["Franklin", "on_pace"],
+      ["Franklin 2", "unrated"],
+    ]);
+    expect(allTime.warPlanDefaults.inputs.cycleMonths).toBe(8.9);
+    expect(allTime.warPlan.rotation.headline).toBe(
+      "With $2.8M of land capital rotating every 8.9 months you reach $10.0M by the deadline; you need 1 turn; the first turn must start by Mar 2027. 5 of the 6 turns cannot complete before the deadline.",
+    );
   });
 
-  it("rotation: the required plan turns $2.8M once — every farm is bought Mar–Jul 2027 and only the first is back before the deadline", () => {
+  it("rotation: the required plan turns $2.8M once — every farm is bought Mar–Jul 2027 and the first three are back before the deadline on the 7.5-month cycle", () => {
     const rot = profit.rotation;
     expect(rot).toMatchObject({
-      cycleMonths: 8.9,
+      cycleMonths: 7.46,
       totalDeployed: 2_760_480,
       peakOutstanding: 2_760_480,
       newMoney: 2_760_480,
       recycled: 0,
       turnsNeeded: 1,
       turnsCompleted: 1,
-      turnsIncomplete: 5,
+      turnsIncomplete: 3,
       farms: 6,
       firstTurnStartBy: "2027-03-31",
-      lastTurnCompletes: "2028-04-30",
+      lastTurnCompletes: "2028-02-29",
     });
     expect(rot.perInvestor.map((i) => [i.name, i.deployed, i.fresh, i.peakOutstanding, i.turns])).toEqual([
       ["Kevin Concua", 1_398_628, 1_398_628, 1_398_628, 1],
       ["Townson Family", 1_361_852, 1_361_852, 1_361_852, 1],
     ]);
     expect(rot.headline).toBe(
-      "With $2.8M of land capital rotating every 8.9 months you reach $10.0M by the deadline; you need 1 turn; the first turn must start by Mar 2027. 5 of the 6 turns cannot complete before the deadline.",
+      "With $2.8M of land capital rotating every 7.5 months you reach $10.0M by the deadline; you need 1 turn; the first turn must start by Mar 2027. 3 of the 6 turns cannot complete before the deadline.",
     );
     expect(rot.headline).toMatch(/\b\d+(\.\d)? turns?\b/);
     expect(profit.required.schedule.map((f) => [f.purchaseMonth, f.turnCompletesMonth, f.turnComplete])).toEqual([
-      [7, 16, true],
-      [8, 17, false],
-      [8, 17, false],
-      [9, 18, false],
-      [11, 20, false],
-      [11, 20, false],
+      [7, 14, true],
+      [8, 15, true],
+      [9, 16, true],
+      [10, 17, false],
+      [11, 18, false],
+      [11, 18, false],
     ]);
-    expect(profit.required.rows.filter((r) => r.flags.includes("turn_incomplete")).map((r) => r.monthIndex)).toEqual([8, 9, 11]);
-    expect(profit.required.flaggedMonths).toBe(3);
+    expect(profit.required.rows.filter((r) => r.flags.includes("turn_incomplete")).map((r) => r.monthIndex)).toEqual([10, 11]);
+    expect(profit.required.flaggedMonths).toBe(2);
     // no turn completes before a later purchase, so the peak is the whole deployment
     expect(rot.peakOutstanding).toBe(rot.totalDeployed);
   });
 
-  it("rotation: with a 2028-12-31 deadline the first turn completes before the last farm is bought, so the peak ($2.3M) is below the total deployed ($2.76M): 1.2 turns", () => {
+  it("rotation: with a 2028-12-31 deadline the first turn completes before the last farm is bought, so the peak ($1.8M) is below the total deployed ($2.3M): 1.25 turns", () => {
     const later = solveWarPlan({ ...d.inputs, deadline: "2028-12-31" }, realm);
     const rot = later.rotation;
-    expect(rot).toMatchObject({ totalDeployed: 2_760_480, peakOutstanding: 2_300_400, newMoney: 2_300_400, recycled: 460_080, turnsNeeded: 1.2, turnsIncomplete: 3, farms: 6, firstTurnStartBy: "2027-10-31" });
+    expect(rot).toMatchObject({ totalDeployed: 2_300_400, peakOutstanding: 1_840_320, newMoney: 1_840_320, recycled: 460_080, turnsNeeded: 1.25, turnsIncomplete: 1, farms: 5, firstTurnStartBy: "2027-10-31" });
     expect(rot.peakOutstanding).toBeLessThan(rot.totalDeployed);
-    expect(later.required.capitalToRaise).toBe(2_300_400);
+    expect(later.required.capitalToRaise).toBe(1_840_320);
     expect(later.required.schedule.map((f) => [f.purchaseMonth, f.turnCompletesMonth, f.recycled])).toEqual([
-      [14, 23, 0],
-      [18, 27, 0],
-      [19, 28, 0],
-      [20, 29, 0],
-      [21, 30, 0],
-      [23, 32, 460_080],
+      [14, 21, 0],
+      [17, 24, 0],
+      [19, 26, 0],
+      [21, 28, 460_080],
+      [23, 30, 0],
     ]);
-    // Kevin's dollars from the October 2027 farm buy the July 2028 farm: 1.33 turns for him
+    // Kevin's dollars from the October 2027 farm buy the May 2028 farm: 1.33 turns for him
     expect(rot.perInvestor.map((i) => [i.name, i.deployed, i.fresh, i.turns])).toEqual([
       ["Kevin Concua", 1_858_708, 1_398_628, 1.33],
-      ["Townson Family", 901_772, 901_772, 1],
+      ["Townson Family", 441_692, 441_692, 1],
     ]);
     expect(rot.headline).toBe(
-      "With $2.3M of land capital rotating every 8.9 months you reach $10.0M by the deadline; you need 1.2 turns; the first turn must start by Oct 2027. 3 of the 6 turns cannot complete before the deadline.",
+      "With $1.8M of land capital rotating every 7.5 months you reach $10.0M by the deadline; you need 1.3 turns; the first turn must start by Oct 2027. 1 of the 5 turns cannot complete before the deadline.",
     );
   });
 
-  it("with the blended 24.41 % take on new lots the answer is 8.17 lots/month and 127.74 lots; Townson's 50 % share on the second farm costs the extra 0.03", () => {
+  it("with the blended 24.41 % take on new lots the answer is 8.17 lots/month and 127.72 lots; Townson's 50 % share on the second farm costs the extra 0.03", () => {
     const blended = solveWarPlan(
       { ...d.inputs, investorMix: [{ investorId: null, name: "Blended", dealType: "profit_share", ratePct: realm.oracleDefaults.investorTakePct, capital: 1e9 }] },
       realm,
     );
     expect(realm.oracleDefaults.investorTakePct).toBe(24.41);
     expect(blended.required.closingsPerMonth).toBe(8.17);
-    expect(blended.required.lotsNeeded).toBe(127.74);
+    expect(blended.required.lotsNeeded).toBe(127.72);
     expect(blended.required.farmsToBuy).toBe(6);
     expect(blended.required.closingsPerMonth).toBeLessThan(profit.required.closingsPerMonth);
   });
@@ -553,41 +713,44 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     ]);
   });
 
-  it("the current pace (4.4/month, a farm every 1.72 months) lands at $6.4M on the deadline and exits 2029-03-26; Kevin's capital turns twice", () => {
+  it("the current pace (4.4/month, a farm every 1.51 months since Mar 2026) lands at $6.4M on the deadline and exits 2029-02-28; Kevin's capital turns twice", () => {
     const c = profit.current;
     expect(c.closingsPerMonth).toBe(4.4);
     expect(c.hitsDeadline).toBe(false);
-    expect(c.exitDate).toBe("2029-03-26");
+    expect(c.exitDate).toBe("2029-02-28");
     expect(c.targetAtDeadline).toBe(6_385_331.52);
-    expect(c.farmsToBuy).toBe(9);
-    expect(c.totalDeployed).toBe(9 * 460_080);
-    // three of the nine farms are bought with capital back from the first ones
-    expect(c.capitalToRaise).toBe(6 * 460_080);
-    expect(c.peakOutstanding).toBe(6 * 460_080);
+    expect(c.premise).toBe("4.4 lots/month and a farm every 1.51 months (since Mar 2026) — the trailing averages, farms funded from your mix in order.");
+    expect(c.farmsToBuy).toBe(10);
+    expect(c.totalDeployed).toBe(10 * 460_080);
+    // five of the ten farms are bought with capital back from the first ones
+    expect(c.capitalToRaise).toBe(5 * 460_080);
+    expect(c.peakOutstanding).toBe(5 * 460_080);
     expect(c.unfunded).toBe(0);
     expect(c.funding.map((f) => [f.name, f.amount, f.deployed])).toEqual([
-      ["Kevin Concua", 1_398_628, 2_778_868],
-      ["Townson Family", 1_361_852, 1_361_852],
+      ["Kevin Concua", 1_398_628, 2_797_256],
+      ["Townson Family", 901_772, 1_803_544],
     ]);
     expect(c.rows.filter((r) => r.flags.includes("too_late")).map((r) => r.monthIndex)).toEqual([14, 15]);
-    expect(c.rows.filter((r) => r.flags.includes("turn_incomplete")).map((r) => r.monthIndex)).toEqual([9, 10, 12, 14, 15]);
-    expect(c.flaggedMonths).toBe(5);
-    expect(profit.required.daysEarlierThanCurrent).toBe(451);
+    expect(c.rows.filter((r) => r.flags.includes("turn_incomplete")).map((r) => r.monthIndex)).toEqual([11, 12, 14, 15]);
+    expect(c.flaggedMonths).toBe(4);
+    expect(profit.required.daysEarlierThanCurrent).toBe(425);
+    // the all-time cadence (1.72 months) bought nine farms and exited a month later, on the same $6.4M at the deadline
+    expect(allTime.warPlan.current).toMatchObject({ exitDate: "2029-03-26", targetAtDeadline: 6_385_331.52, farmsToBuy: 9 });
   });
 
-  it("cash mode needs materially more lots (248 vs 128): every note sells at 80 % and every sponsor is paid out first", () => {
+  it("cash mode needs materially more lots (247 vs 128): every note sells at 80 % and every sponsor is paid out first", () => {
     const cash = solveWarPlan({ ...d.inputs, targetMode: "cash_in_bank" }, realm);
     expect(cash.feasible).toBe(true);
     expect(cash.maxPurchaseMonth).toBe(8);
     expect(cash.lastClosingDate).toBe("2027-09-30");
     const r = cash.required;
-    expect(r.lotsNeeded).toBe(248.36);
+    expect(r.lotsNeeded).toBe(246.98);
     expect(r.lotsNeeded).toBeGreaterThan(profit.required.lotsNeeded * 1.5);
-    expect(r.closingsPerMonth).toBe(19.66);
+    expect(r.closingsPerMonth).toBe(19.55);
     expect(r.farmsToBuy).toBe(18);
     expect(r.lastPurchaseDate).toBe("2027-04-30");
-    expect(r.capitalToRaise).toBe(18 * 460_080);
-    expect(r.unfunded).toBe(4_083_792);
+    expect(r.capitalToRaise).toBe(7_821_360);
+    expect(r.unfunded).toBe(3_623_712);
     expect(r.funding).toHaveLength(5);
     expect(r.hitsDeadline).toBe(true);
     expect(r.targetAtDeadline).toBeGreaterThanOrEqual(10_000_000);
@@ -595,8 +758,9 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     // October to December 2027 only harvest notes
     expect(r.rows.slice(13).map((row) => row.lotsClosed)).toEqual([0, 0, 0]);
     expect(cash.verdict).toContain("until Sep 2027 (then only note sales)");
-    expect(cash.verdict).toContain("unfunded $4.1M");
-    expect(cash.rotation).toMatchObject({ totalDeployed: 18 * 460_080, peakOutstanding: 18 * 460_080, turnsNeeded: 1, turnsIncomplete: 7, firstTurnStartBy: "2027-01-31" });
+    expect(cash.verdict).toContain("unfunded $3.6M");
+    // the first farm is bought this month and its 7-month turn is back before the last purchase, so one farm rides on recycled capital
+    expect(cash.rotation).toMatchObject({ totalDeployed: 18 * 460_080, peakOutstanding: 7_821_360, turnsNeeded: 1.06, turnsIncomplete: 0, firstTurnStartBy: "2026-09-30" });
     // the buffer farm's unsold lots are land, not cash: the cushion costs its price at the deadline
     expect(cash.buffer.targetAtDeadline).toBe(round2(r.targetAtDeadline - 460_080));
   });
@@ -609,12 +773,12 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     expect(big.required.closingsPerMonth).toBeCloseTo(profit.required.closingsPerMonth, 1);
   });
 
-  it("changing the deadline changes the verdict: by 2028-12-31 it is 4.64 lots/month with the last farm in Jul 2028", () => {
+  it("changing the deadline changes the verdict: by 2028-12-31 it is 4.33 lots/month with 5 farms, the last in Jul 2028", () => {
     const later = solveWarPlan({ ...d.inputs, deadline: "2028-12-31" }, realm);
     expect(later.verdict).not.toBe(profit.verdict);
     expect(later.deadlineMonthIndex).toBe(28);
-    expect(later.required.closingsPerMonth).toBe(4.64);
-    expect(later.required.farmsToBuy).toBe(6);
+    expect(later.required.closingsPerMonth).toBe(4.33);
+    expect(later.required.farmsToBuy).toBe(5);
     expect(later.required.lastPurchaseDate).toBe("2028-07-31");
     expect(later.verdict).toContain("Jul 2028");
   });
@@ -623,7 +787,7 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     const soon = solveWarPlan({ ...d.inputs, targetMode: "cash_in_bank", deadline: "2027-03-31" }, realm);
     expect(soon.feasible).toBe(false);
     expect(soon.verdict).toBe(
-      "No pace reaches $10.0M by 2027-03-31: even 6.7 lots/month with 0 farms and $0 raised lands at -$797K. Push the deadline or lower the target.",
+      "No pace reaches $10.0M by 2027-03-31: even 13.3 lots/month with 0 farms and $0 raised lands at $1.2M. Push the deadline or lower the target.",
     );
     expect(soon.rotation.headline).toContain("no capital turn helps");
   });

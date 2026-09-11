@@ -91,16 +91,37 @@ describe("THE DEBT", () => {
   it("counts the days left and the net profit required per day, and recomputes daily", () => {
     expect(realm.debt.daysLeft).toBe(476);
     expect(realm.debt.requiredNetProfitPerDay).toBeCloseTo(realm.goal.remaining / 476, 2);
-    const tomorrow = computeDebt(realm.farms, { ...realm.goal, daysToDeadline: 475, asOf: "2026-09-12" }, "2025-08-04");
+    const tomorrow = computeDebt(realm.farms, { ...realm.goal, daysToDeadline: 475, asOf: "2026-09-12" }, realm.lots);
     expect(tomorrow.daysLeft).toBe(475);
     expect(tomorrow.requiredNetProfitPerDay).toBeGreaterThan(realm.debt.requiredNetProfitPerDay ?? 0);
   });
 
-  it("is null once the deadline has passed", () => {
-    const late = computeDebt(realm.farms, { ...realm.goal, daysToDeadline: -3 }, null);
+  it("is null once the deadline has passed, and null without a closing to measure from", () => {
+    const late = computeDebt(realm.farms, { ...realm.goal, daysToDeadline: -3 }, []);
     expect(late.daysLeft).toBe(0);
     expect(late.requiredNetProfitPerDay).toBeNull();
     expect(late.actualNetProfitPerDay).toBeNull();
+    expect(late.actualSince).toBeNull();
+  });
+
+  it("measures the actual net profit per day since the era start (Mar 2026), keeping the all-time figure for the record", () => {
+    // Northfield's four closings (Aug 2025) are real money but predate the era; only Southmoor's two closings count.
+    const d = realm.debt;
+    expect(d.firstCloseDate).toBe("2025-08-04");
+    expect(d.actualSince).toBe("2026-03-01");
+    expect(d.actualEraClipped).toBe(true);
+    expect(d.actualSinceLabel).toBe("since Mar 2026");
+    expect(d.actualDays).toBe(194);
+    const southmoor = realm.lots.filter((l) => l.farmName === "Southmoor" && l.closeDate).reduce((s, l) => s + (l.netProfit ?? 0), 0);
+    expect(d.actualNetProfit).toBeCloseTo(southmoor, 2);
+    expect(d.actualNetProfitPerDay).toBeCloseTo(southmoor / 194, 2);
+    expect(d.actualNetProfitPerDayAllTime).toBeCloseTo(realm.goal.netProfitToDate / 403, 2);
+    // without an era the per-day figure runs from the first closing
+    const allTime = computeDebt(realm.farms, realm.goal, realm.lots, { eraStart: null });
+    expect(allTime).toMatchObject({ actualSince: "2025-08-04", actualEraClipped: false, actualSinceLabel: null, actualDays: 403 });
+    expect(allTime.actualNetProfitPerDay).toBe(d.actualNetProfitPerDayAllTime);
+    // an era that has not begun by asOf does not apply
+    expect(computeDebt(realm.farms, realm.goal, realm.lots, { eraStart: "2027-01-01" }).actualSince).toBe("2025-08-04");
   });
 
   it("accrues interest per day only on outstanding fixed-interest capital", () => {

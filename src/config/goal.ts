@@ -9,6 +9,15 @@ export const GOAL_DEADLINE = "2027-12-31";
 /** Trailing window used for "current pace" (closed lots per month). */
 export const TRAILING_WINDOW_DAYS = 90;
 
+/**
+ * ISO date (UTC). Sales operations started in earnest in March 2026; earlier closings are real
+ * money but not representative of pace. Every rate, average and trend (net profit per day, farm
+ * cadence, reservations and closings per month, seasonality, best week and month, the War Plan's
+ * cycle length and land-cost trend) is measured from this day on. Totals — net profit, cash
+ * realized, capital returned, liberation — keep the full history.
+ */
+export const ERA_START = "2026-03-01";
+
 /** Every time cumulative net profit crosses a multiple of this, the chronicle celebrates. */
 export const MILESTONE_STEP = 1_000_000;
 

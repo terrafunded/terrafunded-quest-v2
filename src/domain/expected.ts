@@ -6,6 +6,7 @@ import { trailingClosedLots } from "./goal";
 import { netProfitAtStake } from "./pipeline";
 import { addDays, daysBetween, monthKey, parseDate, toIsoDate } from "./dates";
 import { round2, sum } from "./math";
+import { trailingWindow, type EraStart } from "./era";
 import { DAYS_PER_MONTH, TRAILING_WINDOW_DAYS } from "../config/goal";
 
 /**
@@ -86,7 +87,14 @@ export type ConversionSource = "with_cancellations" | "without_cancellations" | 
 
 export interface Expected {
   asOf: string;
+  /** Width of the trailing window asked for. */
   trailingWindowDays: number;
+  /** Days the window really covers — fewer than asked when the era start (config ERA_START) cut it short. */
+  trailingDays: number;
+  /** First day the window counts (ISO). */
+  trailingSince: string;
+  /** True when the window was clipped at the era start — the per-month paces then read "since Mar 2026". */
+  trailingEraClipped: boolean;
   /** Conversion in percent: closed ÷ (matured cohort + cancellations). Falls back to the plain conversion, then to 100. */
   conversionPct: number;
   conversionSource: ConversionSource;
@@ -128,6 +136,8 @@ export interface Expected {
 
 export interface ExpectedOptions {
   trailingWindowDays?: number;
+  /** Era start (ISO) the trailing window may not reach before; `null` for no era. Default: config ERA_START. */
+  eraStart?: EraStart;
 }
 
 /** Every reservation ever made, from the lots: live and closed ones through their file case, failed ones through the cancelled cases. */
@@ -153,7 +163,8 @@ export function computeExpected(lots: Lot[], pipeline: Pipeline, goal: GoalStatu
   const windowDays = opts.trailingWindowDays ?? TRAILING_WINDOW_DAYS;
   const asOfIso = toIsoDate(asOf);
   const thisMonth = monthKey(asOf);
-  const monthsInWindow = windowDays / DAYS_PER_MONTH;
+  const window = trailingWindow(asOf, windowDays, opts.eraStart);
+  const monthsInWindow = window.days / DAYS_PER_MONTH;
 
   const conv = pipeline.conversion;
   let conversionPct: number;
@@ -232,12 +243,12 @@ export function computeExpected(lots: Lot[], pipeline: Pipeline, goal: GoalStatu
   const peak = [...upcoming].sort((a, b) => b.expectedNetProfit - a.expectedNetProfit || a.month.localeCompare(b.month))[0] ?? null;
 
   const made = reservationsMade(lots);
-  const from = addDays(asOf, -windowDays);
+  const from = window.from;
   const reservationsTrailing = made.filter((r) => {
     const d = parseDate(r.date);
     return !!d && d > from && d <= asOf;
   }).length;
-  const closingsTrailing = trailingClosedLots(lots, asOf, windowDays).length;
+  const closingsTrailing = trailingClosedLots(lots, asOf, windowDays, opts.eraStart).length;
   const requiredClosings = goal.requiredLotsPerMonthToHitDeadline;
 
   const activity = (month: string): MonthActivity => {
@@ -255,6 +266,9 @@ export function computeExpected(lots: Lot[], pipeline: Pipeline, goal: GoalStatu
   return {
     asOf: asOfIso,
     trailingWindowDays: windowDays,
+    trailingDays: window.days,
+    trailingSince: window.since,
+    trailingEraClipped: window.eraClipped,
     conversionPct,
     conversionSource,
     medianDaysToClose: pipeline.medianDaysToClose,

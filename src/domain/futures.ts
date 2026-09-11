@@ -43,12 +43,26 @@ export function scheduledClosings(expected: Expected): ScheduledClosing[] {
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
+export interface FuturesOptions {
+  /** "since Mar 2026" when the farm cadence is measured from the era start (oracle.ts farmCadence); tagged in the premises. */
+  cadenceSince?: string | null;
+}
+
 /**
  * @param activeFarms farms that were selling during the trailing window (funded, with unsold
  *   lots) — the current pace is spread across them to size what one more farm adds.
  * @param expected the reservations layer; without it the current pace is the closings-only line.
  */
-export function computeFutures(defaults: OracleParams, goal: GoalStatus, startInventory: number, asOf: Date, activeFarms: number, expected?: Expected): Futures {
+export function computeFutures(
+  defaults: OracleParams,
+  goal: GoalStatus,
+  startInventory: number,
+  asOf: Date,
+  activeFarms: number,
+  expected?: Expected,
+  opts: FuturesOptions = {},
+): Futures {
+  const cadence = `a new farm every ${defaults.newFarmEveryMonths} months${opts.cadenceSince ? ` (${opts.cadenceSince})` : ""}`;
   const build = (id: FutureId, title: string, premise: string, params: OracleParams, inventory: number, opts: OracleRunOptions = {}): Future => {
     const result = runOracle(params, goal, inventory, asOf, opts);
     return {
@@ -68,7 +82,7 @@ export function computeFutures(defaults: OracleParams, goal: GoalStatus, startIn
   const closingsOnly = build(
     "closings_only",
     "If no reservation ever closed",
-    `${defaults.lotsPerMonth} closings/month and a new farm every ${defaults.newFarmEveryMonths} months — the trailing closing pace alone, blind to the ${expected?.liveReservations ?? 0} live ${plural(expected?.liveReservations ?? 0, "reservation", "reservations")}.`,
+    `${defaults.lotsPerMonth} closings/month and ${cadence} — the trailing closing pace alone, blind to the ${expected?.liveReservations ?? 0} live ${plural(expected?.liveReservations ?? 0, "reservation", "reservations")}.`,
     defaults,
     startInventory,
   );
@@ -84,8 +98,8 @@ export function computeFutures(defaults: OracleParams, goal: GoalStatus, startIn
   const currentParams: OracleParams = { ...defaults, lotsPerMonth: steadyPace };
   const currentPremise = expected
     ? `${expected.liveReservations} live ${plural(expected.liveReservations, "reservation", "reservations")} close on their expected dates at ${expected.conversionPct}% conversion` +
-      `${expected.overdueCount > 0 ? ` (${expected.overdueCount} already overdue, counted in the first month)` : ""}; after the ${lagDays}-day lag, new reservations at ${expected.reservationsPerMonth}/month keep closing at that rate — ${steadyPace} lots/month — with a new farm every ${defaults.newFarmEveryMonths} months.`
-    : `${defaults.lotsPerMonth} lots/month and a new farm every ${defaults.newFarmEveryMonths} months — exactly the trailing averages.`;
+      `${expected.overdueCount > 0 ? ` (${expected.overdueCount} already overdue, counted in the first month)` : ""}; after the ${lagDays}-day lag, new reservations at ${expected.reservationsPerMonth}/month keep closing at that rate — ${steadyPace} lots/month — with ${cadence}.`
+    : `${defaults.lotsPerMonth} lots/month and ${cadence} — exactly the trailing averages.`;
   const current = build("current_pace", "At the current pace", currentPremise, currentParams, startInventory, currentOpts);
 
   // Required pace in the Oracle's own economics (its net profit per lot), so this future lands

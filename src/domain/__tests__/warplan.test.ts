@@ -313,21 +313,23 @@ describe("solveWarPlan on a synthetic realm", () => {
       deadline: "2027-12-31",
       targetMode: "profit_at_closing",
       lotsPerFarm: 10,
-      farmCost: 466_670,
+      // the land-cost trend since Mar 2026: Gamma ($40,000/lot) and Beta ($50,000/lot); Alpha (Jan 2026) predates the era
+      farmCost: 450_000,
       adSpendPerClosing: 2_500,
       conversionPct: 100,
       farmToFirstCloseMonths: 5.11,
       noteSaleLagMonths: realm.oracleDefaults.avgMonthsToSellNote,
-      cycleMonths: 9.69,
-      seasonal: true,
+      cycleMonths: 9.3,
+      // six months since Mar 2026: no seasonal profile is applied, so the toggle starts off
+      seasonal: false,
     });
     expect(d.real).toMatchObject({
       lotsPerFarm: 13.33,
       landCostPerLot: 50_000,
-      // Gamma ($40,000/lot), Beta and Alpha ($50,000/lot) are the three most recent purchases
-      recentLandCostPerLot: 46_667,
-      recentFarms: ["Gamma", "Beta", "Alpha"],
-      defaultLandCostPerLot: 46_667,
+      recentLandCostPerLot: 45_000,
+      recentFarms: ["Gamma", "Beta"],
+      defaultLandCostPerLot: 45_000,
+      eraSince: "since Mar 2026",
       conversionPct: 100,
       conversionWithCancellationsPct: 100,
       cancellationRatePct: 0,
@@ -336,12 +338,19 @@ describe("solveWarPlan on a synthetic realm", () => {
       medianDaysToClose: 87.5,
       closingsPerMonth: 3.38,
       inventory: 30,
-      // nobody is freed yet, so the cycle is projected from the campaigns at the current pace
-      cycleDays: 295,
-      cycleMonths: 9.69,
+      // nobody is freed yet, so the cycle is projected from the campaigns at the current pace — Beta and Gamma only
+      cycleDays: 283,
+      cycleMonths: 9.3,
       cycleSource: "projected",
-      cycleFarms: 3,
+      cycleFarms: 2,
+      cycleExcludedFarms: [],
+      seasonalityApplied: false,
+      seasonalityReason: "not enough history for seasonality",
     });
+    // Over the whole history Alpha joins the land-cost trend and the projected cycle.
+    const allTime = buildRealm(realm.snapshot, ASOF, { eraStart: null }).warPlanDefaults;
+    expect(allTime.inputs).toMatchObject({ farmCost: 466_670, cycleMonths: 9.69, seasonal: false });
+    expect(allTime.real).toMatchObject({ recentLandCostPerLot: 46_667, recentFarms: ["Gamma", "Beta", "Alpha"], eraSince: null, cycleDays: 295, cycleFarms: 3 });
     expect(d.inputs.investorMix.map((e) => [e.name, e.dealType, e.ratePct, e.capital])).toEqual([
       ["Kevin Concua", "fixed_interest", 20, 1_000_000],
       ["Townson Family", "profit_share", 50, 500_000],
@@ -422,11 +431,21 @@ describe("solveWarPlan on a synthetic realm", () => {
   it("the current-pace column runs the trailing averages with the real farm cadence and flags farms bought too late", () => {
     const c = plan.current;
     expect(c.closingsPerMonth).toBe(realm.oracleDefaults.lotsPerMonth);
+    // the cadence since Mar 2026: Beta (Mar 1) to Gamma (Apr 1), one gap of 31 days; Alpha's January funding is out
+    expect(realm.farmCadence).toMatchObject({ months: 1.02, farms: 2, excluded: 1, fundingDates: ["2026-03-01", "2026-04-01"], sinceLabel: "since Mar 2026" });
+    expect(realm.oracleDefaults.newFarmEveryMonths).toBe(1.02);
     expect(c.params.farmsToBuy).toEqual(cadenceSchedule(realm.oracleDefaults.newFarmEveryMonths));
+    expect(c.premise).toContain("a farm every 1.02 months (since Mar 2026)");
     expect(c.rows).toHaveLength(16);
     expect(c.daysEarlierThanCurrent).toBe(0);
-    expect(c.rows.filter((r) => r.flags.includes("too_late")).map((r) => r.monthIndex)).toEqual([12, 13, 15, 16]);
-    expect(c.flaggedMonths).toBe(4);
+    expect(c.rows.filter((r) => r.flags.includes("too_late")).map((r) => r.monthIndex)).toEqual([12, 13, 14, 15, 16]);
+    expect(c.flaggedMonths).toBe(5);
+    // over the whole history the January funding stretches the cadence to 1.48 months and one flagged month drops out
+    const allTime = buildRealm(realm.snapshot, ASOF, { eraStart: null });
+    expect(allTime.farmCadence).toMatchObject({ months: 1.48, farms: 3, excluded: 0, sinceLabel: null });
+    const allTimeCurrent = solveWarPlan({ ...inputs, cycleMonths: null }, allTime).current;
+    expect(allTimeCurrent.premise).toContain("a farm every 1.48 months —");
+    expect(allTimeCurrent.rows.filter((r) => r.flags.includes("too_late")).map((r) => r.monthIndex)).toEqual([12, 13, 15, 16]);
   });
 
   it("rows run month by month from today to the deadline with cumulative figures in the chosen mode", () => {
@@ -562,10 +581,9 @@ describe("rotation engine: the capital cycle", () => {
     distribution(delta.id, { investor_id: kevin.id, distribution_date: "2026-06-30", amount: 15_000, kind: "interest" }),
     distribution(echo.id, { investor_id: townson.id, distribution_date: "2026-08-01", amount: 200_000 }),
   ];
-  const realm = buildRealm(
-    snapshot({ farmAcquisitions: [delta, echo, foxtrot], properties, fileCases, investorDistributions: distributions, investors: [kevin, townson] }),
-    ASOF,
-  );
+  const snap = snapshot({ farmAcquisitions: [delta, echo, foxtrot], properties, fileCases, investorDistributions: distributions, investors: [kevin, townson] });
+  // The engine's mechanics, measured over the whole history (Delta was funded before the era; see "the era" below).
+  const realm = buildRealm(snap, ASOF, { eraStart: null });
   const b = realm.rotation;
 
   it("derives the cycle from funding_date to the day cumulative capital_return reached 100 % on the freed farm — never a constant", () => {
@@ -575,10 +593,48 @@ describe("rotation engine: the capital cycle", () => {
     expect(b.cycleMonths).toBe(5.91);
     expect(b.benchmark).toMatchObject({ farmName: "Delta", investorName: "Kevin Concua", fundingDate: "2026-01-01", liberationDate: "2026-06-30", days: 180, months: 5.91, projected: false });
     expect(b.cycles).toHaveLength(1);
+    expect(b.excludedCycles).toEqual([]);
+    expect(b.since).toBeNull();
     expect(b.turnsCompleted).toBe(1);
     expect(b.capitalOutstanding).toBe(400_000 + 400_000);
     expect(realm.warPlanDefaults.inputs.cycleMonths).toBe(5.91);
-    expect(realm.warPlanDefaults.real).toMatchObject({ cycleDays: 180, cycleMonths: 5.91, cycleSource: "freed_farms", cycleFarms: 1 });
+    expect(realm.warPlanDefaults.real).toMatchObject({ cycleDays: 180, cycleMonths: 5.91, cycleSource: "freed_farms", cycleFarms: 1, cycleExcludedFarms: [], eraSince: null });
+  });
+
+  it("the era: a freed farm funded before ERA_START keeps its turn on record but out of the median; the cycle is projected from the captive era farms and nothing is graded", () => {
+    const era = buildRealm(snap, ASOF);
+    const e = era.rotation;
+    expect(era.era?.since).toBe("since Mar 2026");
+    expect(e.since).toBe("2026-03-01");
+    expect(e.sinceLabel).toBe("since Mar 2026");
+    expect(e.excludedCycles.map((c) => [c.farmName, c.days, c.projected])).toEqual([["Delta", 180, false]]);
+    expect(e.source).toBe("projected");
+    expect(e.cycles.every((c) => c.projected)).toBe(true);
+    expect(e.cycles.map((c) => c.farmName).sort()).toEqual(["Echo", "Foxtrot"]);
+    expect(e.cycleDays).not.toBeNull();
+    expect(e.curve).toEqual([]);
+    expect(e.grades.filter((g) => g.verdict !== "benchmark").every((g) => g.verdict === "unrated")).toBe(true);
+    // liberation keeps the full history
+    expect(e.turnsCompleted).toBe(1);
+    expect(era.liberation.freedHostages.map((h) => h.farmName)).toEqual(["Delta"]);
+    expect(era.warPlanDefaults.inputs.cycleMonths).toBe(e.cycleMonths);
+    expect(era.warPlanDefaults.real).toMatchObject({ cycleSource: "projected", cycleFarms: 2, cycleExcludedFarms: ["Delta"], eraSince: "since Mar 2026" });
+    // an era funded farm that is freed is the benchmark again
+    const echoFreed = buildRealm(
+      snapshot({
+        farmAcquisitions: [delta, echo, foxtrot],
+        properties,
+        fileCases,
+        investorDistributions: [...distributions, distribution(echo.id, { investor_id: townson.id, distribution_date: "2026-09-01", amount: 400_000 })],
+        investors: [kevin, townson],
+      }),
+      ASOF,
+    );
+    expect(echoFreed.rotation).toMatchObject({ source: "freed_farms", cycleDays: 184, since: "2026-03-01" });
+    expect(echoFreed.rotation.benchmark?.farmName).toBe("Echo");
+    expect(echoFreed.rotation.excludedCycles.map((c) => c.farmName)).toEqual(["Delta"]);
+    expect(echoFreed.rotation.curve.length).toBeGreaterThan(0);
+    expect(echoFreed.rotation.turnsCompleted).toBe(2);
   });
 
   it("draws the benchmark curve from the capital_return distributions, interest excluded", () => {
@@ -688,13 +744,25 @@ describe("rotation engine: the capital cycle", () => {
 
   it("defaults the farm cost to the per-lot cost of the three most recent purchases", () => {
     // Foxtrot $50,000/lot (Aug), Echo $50,000/lot (Mar), Delta $50,000/lot (Jan)
-    expect(recentLandCostPerLot(realm.farms, ASOF)).toEqual({ perLot: 50_000, farms: ["Foxtrot", "Echo", "Delta"] });
-    expect(recentLandCostPerLot(realm.farms, ASOF, 1)).toEqual({ perLot: 50_000, farms: ["Foxtrot"] });
+    expect(recentLandCostPerLot(realm.farms, ASOF, 3, null)).toEqual({ perLot: 50_000, farms: ["Foxtrot", "Echo", "Delta"], since: null, sinceLabel: null });
+    expect(recentLandCostPerLot(realm.farms, ASOF, 1, null)).toEqual({ perLot: 50_000, farms: ["Foxtrot"], since: null, sinceLabel: null });
     // a farm dated after asOf is not a purchase yet
     const future = { ...(realm.farms[0] as NonNullable<(typeof realm.farms)[0]>), name: "Later", fundingDate: "2026-12-01", closingDate: "2026-12-01", landCostPerLot: 90_000 };
-    expect(recentLandCostPerLot([...realm.farms, future], ASOF).farms).not.toContain("Later");
-    expect(recentLandCostPerLot([], ASOF)).toEqual({ perLot: null, farms: [] });
+    expect(recentLandCostPerLot([...realm.farms, future], ASOF, 3, null).farms).not.toContain("Later");
+    expect(recentLandCostPerLot([], ASOF)).toEqual({ perLot: null, farms: [], since: "2026-03-01", sinceLabel: "since Mar 2026" });
     expect(realm.warPlanDefaults.inputs.farmCost).toBe(500_000);
+  });
+
+  it("the era: the land-cost trend only looks at purchases since ERA_START, so Delta (Jan 2026) drops out and a dearer era purchase moves the default", () => {
+    expect(recentLandCostPerLot(realm.farms, ASOF)).toEqual({ perLot: 50_000, farms: ["Foxtrot", "Echo"], since: "2026-03-01", sinceLabel: "since Mar 2026" });
+    const dear = { ...(realm.farms[0] as NonNullable<(typeof realm.farms)[0]>), name: "Golf", fundingDate: "2026-06-01", closingDate: "2026-06-01", landCostPerLot: 80_000 };
+    const cheapOld = { ...dear, name: "Hotel", fundingDate: "2025-12-01", closingDate: "2025-12-01", landCostPerLot: 20_000 };
+    expect(recentLandCostPerLot([...realm.farms, dear, cheapOld], ASOF)).toMatchObject({ perLot: 60_000, farms: ["Foxtrot", "Golf", "Echo"] });
+    expect(recentLandCostPerLot([...realm.farms, dear, cheapOld], ASOF, 3, null)).toMatchObject({ perLot: 60_000, farms: ["Foxtrot", "Golf", "Echo"] });
+    expect(recentLandCostPerLot([...realm.farms, dear, cheapOld], ASOF, 5, null)).toMatchObject({ perLot: 50_000, farms: ["Foxtrot", "Golf", "Echo", "Delta", "Hotel"] });
+    expect(recentLandCostPerLot([...realm.farms, dear, cheapOld], ASOF, 5)).toMatchObject({ perLot: 60_000, farms: ["Foxtrot", "Golf", "Echo"] });
+    // an era that has not begun by asOf does not apply
+    expect(recentLandCostPerLot(realm.farms, ASOF, 3, "2027-01-01")).toMatchObject({ farms: ["Foxtrot", "Echo", "Delta"], since: null });
   });
 });
 
@@ -754,7 +822,8 @@ describe("seasonality: the month-of-year shape of closings", () => {
   });
 
   it("smooths a single busy month over its neighbours, floors the rest at 25 % and keeps the average at 1", () => {
-    const s = computeSeasonality(sold(["2026-05-01", "2026-05-10", "2026-05-20", "2026-05-30"]));
+    const s = computeSeasonality(sold(["2026-05-01", "2026-05-10", "2026-05-20", "2026-05-30"]), undefined, { minMonths: 0 });
+    expect(s.applied).toBe(true);
     expect(s.closings).toBe(4);
     expect(s.counts[4]).toBe(4);
     expect(s.peakMonth).toBe(4);
@@ -765,7 +834,7 @@ describe("seasonality: the month-of-year shape of closings", () => {
     expect(round2(s.factors.reduce((a, b) => a + b, 0) / 12)).toBe(1);
     expect(round2(s.shares.reduce((a, b) => a + b, 0))).toBe(1);
     // December wraps to January
-    const dec = computeSeasonality(sold(["2026-12-05", "2026-12-15"]));
+    const dec = computeSeasonality(sold(["2026-12-05", "2026-12-15"]), undefined, { minMonths: 0 });
     expect(dec.factors[0]).toBe(dec.factors[10]);
     expect(dec.factors[0]).toBeGreaterThan(0.25);
   });
@@ -776,14 +845,43 @@ describe("seasonality: the month-of-year shape of closings", () => {
       { stage: "reserved", closeDate: null, propertyId: "r" },
       { stage: "closed", closeDate: "2026-10-01", propertyId: "future" },
     ] as unknown as Parameters<typeof computeSeasonality>[0];
-    const s = computeSeasonality(lots, ASOF);
+    const s = computeSeasonality(lots, ASOF, { minMonths: 0 });
     expect(s.closings).toBe(2);
     expect(s.counts[9]).toBe(0);
   });
 
+  it("the era: closings before ERA_START are left out, and with fewer than 12 months of history since then no profile is applied at all", () => {
+    const lots = sold(["2025-08-01", "2025-08-10", "2026-05-01", "2026-06-01"]);
+    const s = computeSeasonality(lots, ASOF);
+    expect(s.excluded).toBe(2);
+    expect(s.closings).toBe(2);
+    expect(s.counts[7]).toBe(0);
+    expect(s.since).toBe("2026-03-01");
+    expect(s.sinceLabel).toBe("since Mar 2026");
+    expect(s.monthsOfHistory).toBe(6);
+    expect(s.monthsRequired).toBe(12);
+    expect(s.applied).toBe(false);
+    expect(s.reason).toBe("not enough history for seasonality");
+    expect(s.factors).toEqual(Array.from({ length: 12 }, () => 1));
+    expect(s.peakMonth).toBeNull();
+    // twelve whole months on: applied, from the first day of the anniversary month
+    const later = computeSeasonality(lots, new Date("2027-03-01T00:00:00Z"));
+    expect(later.monthsOfHistory).toBe(12);
+    expect(later.applied).toBe(true);
+    expect(later.reason).toBeNull();
+    expect(computeSeasonality(lots, new Date("2027-02-28T00:00:00Z")).applied).toBe(false);
+    // without an era every closing counts and the history runs from the first closing
+    const all = computeSeasonality(lots, ASOF, { eraStart: null });
+    expect(all.excluded).toBe(0);
+    expect(all.closings).toBe(4);
+    expect(all.since).toBeNull();
+    expect(all.monthsOfHistory).toBe(13);
+    expect(all.applied).toBe(true);
+  });
+
   it("normalises the factors over the plan window so the flat pace stays the average", () => {
     const grid = buildMonthGrid(ASOF, new Date("2027-12-31T00:00:00Z"), true);
-    const factors = computeSeasonality(sold(["2026-05-01", "2026-05-10", "2026-07-01"])).factors;
+    const factors = computeSeasonality(sold(["2026-05-01", "2026-05-10", "2026-07-01"]), undefined, { minMonths: 0 }).factors;
     const scaled = normalizeSeasonality(factors, grid.months, grid.deadlineIndex);
     let weight = 0;
     let weighted = 0;
@@ -804,8 +902,20 @@ describe("seasonality: the month-of-year shape of closings", () => {
     const fileCases = summer.map((d, i) => fileCase((properties[i] as NonNullable<(typeof properties)[0]>).id, { status: "completed", reservation_date: "2026-04-01", closing_date: d }));
     const realm = buildRealm(snapshot({ farmAcquisitions: [f], properties, fileCases, investors: [sponsor] }), ASOF);
     const d = realm.warPlanDefaults.inputs;
-    const seasonal = solveWarPlan({ ...d, target: 2_000_000 }, realm);
-    const flat = solveWarPlan({ ...d, target: 2_000_000, seasonal: false }, realm);
+    // Six months since ERA_START: the realm's profile is not applied, the default is off and the plan is flat even when asked to shape.
+    expect(realm.seasonality.applied).toBe(false);
+    expect(realm.seasonality.reason).toBe("not enough history for seasonality");
+    expect(d.seasonal).toBe(false);
+    expect(realm.warPlanDefaults.real.seasonalityApplied).toBe(false);
+    expect(realm.warPlanDefaults.real.seasonalityReason).toBe("not enough history for seasonality");
+    const tooShort = solveWarPlan({ ...d, target: 2_000_000, seasonal: true }, realm);
+    expect(tooShort.seasonality).toEqual(Array.from({ length: 12 }, () => 1));
+    expect(tooShort.required.rows.every((r) => r.seasonalFactor === 1)).toBe(true);
+    // With enough history the same closings shape the plan.
+    const ctx = { ...realm, seasonality: computeSeasonality(realm.lots, ASOF, { minMonths: 0 }) };
+    expect(ctx.seasonality.applied).toBe(true);
+    const seasonal = solveWarPlan({ ...d, target: 2_000_000, seasonal: true }, ctx);
+    const flat = solveWarPlan({ ...d, target: 2_000_000, seasonal: false }, ctx);
     expect(seasonal.seasonality).toHaveLength(12);
     expect(flat.seasonality).toEqual(Array.from({ length: 12 }, () => 1));
     const rows = seasonal.required.rows;

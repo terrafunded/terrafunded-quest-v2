@@ -8,7 +8,8 @@ import { computeEvents, withLiberationEvents, type RealmEvent } from "./events";
 import { computeInvestors, type InvestorSummary } from "./investors";
 import { computeTreasury, type Treasury } from "./treasury";
 import { computeTrophies, type Trophy } from "./trophies";
-import { deriveOracleDefaults, type OracleParams } from "./oracle";
+import { deriveOracleDefaults, farmCadence, type FarmCadence, type OracleParams } from "./oracle";
+import { resolveEra, type Era, type EraStart } from "./era";
 import { computeDebt, type Debt } from "./debt";
 import { computeOxygen, type Oxygen } from "./oxygen";
 import { computeLiberation, type Liberation } from "./liberation";
@@ -60,13 +61,29 @@ export interface Realm {
   warPlan: WarPlan;
   /** The realm's capital cycle: the benchmark farm and every sponsor farm graded against it. */
   rotation: RotationBenchmark;
-  /** Month-of-year shape of the realm's closings. */
+  /** Month-of-year shape of the realm's closings since the era start (not applied with under 12 months of history). */
   seasonality: SeasonalProfile;
+  /**
+   * THE ERA (config ERA_START): every rate, average and trend is measured from its start; totals
+   * keep the full history. Null when no era applies (disabled, or not begun by asOf).
+   */
+  era: Era | null;
+  /** The era start the realm was built with, so re-solving the War Plan on the realm measures the same era. */
+  eraStart: EraStart;
+  /** How often a farm is bought — the Oracle's "new farm every N months", with the farms behind it. */
+  farmCadence: FarmCadence;
   snapshot: PaymentsSnapshot;
 }
 
-export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): Realm {
+export interface RealmOptions {
+  /** Era start (ISO) for every rate and trend; `null` measures over the whole history. Default: config ERA_START. */
+  eraStart?: EraStart;
+}
+
+export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), opts: RealmOptions = {}): Realm {
   const asOf = startOfUtcDay(now);
+  const eraStart = opts.eraStart;
+  const era = resolveEra(asOf, eraStart);
   const interestByFarm = new Map<string, InterestLedger>();
   for (const farm of snapshot.farmAcquisitions) {
     interestByFarm.set(farm.id, buildInterestLedger(farm, snapshot.investorDistributions, asOf));
@@ -86,10 +103,10 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
   });
 
   const farms = computeFarms(snapshot.farmAcquisitions, lots, snapshot.propertyCosts, snapshot.investors, interestByFarm, asOf);
-  const goal = withVerdict(computeGoal(lots, farms, asOf));
+  const goal = withVerdict(computeGoal(lots, farms, asOf, { eraStart }));
   // The reservations layer reads the same lots the goal reads and never feeds back into it.
-  const pipeline = computePipeline(lots, asOf, { closedLotsPerMonth: goal.closedLotsPerMonth });
-  const expected = computeExpected(lots, pipeline, goal, asOf);
+  const pipeline = computePipeline(lots, asOf, { closedLotsPerMonth: goal.closedLotsPerMonth, eraStart });
+  const expected = computeExpected(lots, pipeline, goal, asOf, { eraStart });
   const quality = computeQualityIssues({
     farms: snapshot.farmAcquisitions,
     properties: snapshot.properties,
@@ -100,7 +117,8 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
   });
   const investors = computeInvestors(snapshot.investors, farms, snapshot.investorDistributions);
   const treasury = computeTreasury(lots, snapshot.investorDistributions, snapshot.noteSales);
-  const oracleDefaults = deriveOracleDefaults(lots, farms, goal);
+  const oracleDefaults = deriveOracleDefaults(lots, farms, goal, { eraStart });
+  const cadence = farmCadence(farms, asOf, eraStart);
 
   // Phase 2
   const liberation = computeLiberation(farms, investors, snapshot.investorDistributions);
@@ -109,21 +127,22 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
     liberation.moments,
     asOf,
   );
-  const firstClose = lots.filter(isSold).map((l) => l.closeDate).filter((d): d is string => !!d).sort()[0] ?? null;
-  const debt = computeDebt(farms, goal, firstClose);
-  const oxygen = computeOxygen(lots, farms, asOf, { conversionPct: expected.conversionPct });
+  const debt = computeDebt(farms, goal, lots, { eraStart });
+  const oxygen = computeOxygen(lots, farms, asOf, { conversionPct: expected.conversionPct, eraStart });
   const campaigns = computeCampaigns(farms, lots, asOf);
   const streaks = computeStreaks(
     lots.filter((l) => isSold(l) && l.closeDate).map((l) => ({ date: l.closeDate as string, netProfit: l.netProfit ?? 0 })),
     asOf,
+    eraStart,
   );
   // Reservation streaks count every pledge made — live, closed since, or cancelled — by its reservation date.
   const reservationStreaks = computeStreaks(
     reservationsMade(lots).map((r) => ({ date: r.date, netProfit: r.netProfitAtStake })),
     asOf,
+    eraStart,
   );
   const activeFarms = farms.filter((f) => f.monthsSinceFunding !== null && f.soldLots < f.totalLots).length;
-  const futures = computeFutures(oracleDefaults, goal, goal.availableLots + goal.reservedLots, asOf, activeFarms, expected);
+  const futures = computeFutures(oracleDefaults, goal, goal.availableLots + goal.reservedLots, asOf, activeFarms, expected, { cadenceSince: cadence.sinceLabel });
   const trophies = computeTrophies({ lots, farms, goal, events, treasury, investors, streaks, reservationStreaks, liberation });
   const narrative = narrateAll(events, {
     lotsById: new Map(lots.map((l) => [l.propertyId, l])),
@@ -135,7 +154,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
     asOf: toIsoDate(asOf),
   });
   const story = buildStory(goal, farms, debt, oxygen, liberation);
-  const seasonality = computeSeasonality(lots, asOf);
+  const seasonality = computeSeasonality(lots, asOf, { eraStart });
   const warPlanContext = {
     asOf,
     lots,
@@ -148,6 +167,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
     campaigns,
     snapshot,
     seasonality,
+    eraStart,
   };
   const warPlanDefaults = deriveWarPlanDefaults(warPlanContext);
   const warPlan = solveWarPlan(warPlanDefaults.inputs, warPlanContext);
@@ -180,6 +200,9 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
     warPlan,
     rotation: warPlan.benchmark,
     seasonality,
+    era,
+    eraStart,
+    farmCadence: cadence,
     snapshot,
   };
 }

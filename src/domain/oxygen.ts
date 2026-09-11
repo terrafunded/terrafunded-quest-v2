@@ -101,11 +101,13 @@ export function computeOxygen(lots: Lot[], farms: FarmEconomics[], asOf: Date, o
   const asOfIso = toIsoDate(asOf);
   const perLot = new Map<string, LotOxygen>();
 
-  // The ledger as it stood on a given day: closings dated after it had not happened yet.
+  // The ledger as it stood on a given day: closings dated after it had not happened yet. The pace
+  // of that day is its own full trailing window — never clipped at the era start, or a closing in
+  // the era's first weeks would be measured against a window a few days wide.
   const goalOn = (measuredOn: string): GoalStatus => {
     if (measuredOn === asOfIso) return today;
     const ledger = lots.filter((l) => !isSold(l) || !l.closeDate || l.closeDate <= measuredOn);
-    return computeGoal(ledger, farms, parseDate(measuredOn) ?? asOf, goalOpts);
+    return computeGoal(ledger, farms, parseDate(measuredOn) ?? asOf, { ...goalOpts, eraStart: null });
   };
 
   for (const lot of lots) {

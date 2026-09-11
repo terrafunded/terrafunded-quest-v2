@@ -1,8 +1,9 @@
 import type { FarmEconomics } from "./farm";
 import type { Lot } from "./lot";
 import { isSold } from "./lot";
-import { addDays, addMonths, daysBetween, monthsBetween, parseDate, toIsoDate } from "./dates";
+import { addMonths, daysBetween, monthsBetween, parseDate, toIsoDate } from "./dates";
 import { mean, round2, sum } from "./math";
+import { trailingWindow, type EraStart } from "./era";
 import { DAYS_PER_MONTH, GOAL_DEADLINE, GOAL_NET_PROFIT, TRAILING_WINDOW_DAYS } from "../config/goal";
 
 export interface GoalStatus {
@@ -28,7 +29,15 @@ export interface GoalStatus {
   noteSoldLots: number;
   /** Lots that closed inside the trailing window. */
   closedLotsTrailing: number;
+  /** Width of the trailing window asked for. */
   trailingWindowDays: number;
+  /** Days the window really covers: `trailingWindowDays`, or fewer when the era start (config ERA_START) cut it short. */
+  trailingDays: number;
+  /** First day the window counts (ISO). */
+  trailingSince: string;
+  /** True when the window was clipped at the era start — the pace then reads "since Mar 2026". */
+  trailingEraClipped: boolean;
+  /** closedLotsTrailing per month over `trailingDays`. */
   closedLotsPerMonth: number;
   avgNetProfitPerClosedLot: number | null;
   /** null when there is no profit history to extrapolate from. */
@@ -48,10 +57,13 @@ export interface GoalOptions {
   goal?: number;
   deadline?: string;
   trailingWindowDays?: number;
+  /** Era start (ISO) the trailing window may not reach before; `null` for no era. Default: config ERA_START. */
+  eraStart?: EraStart;
 }
 
-export function trailingClosedLots(lots: Lot[], asOf: Date, windowDays: number): Lot[] {
-  const from = addDays(asOf, -windowDays);
+/** Sold lots that closed inside the trailing window — never before the era start (era.ts). */
+export function trailingClosedLots(lots: Lot[], asOf: Date, windowDays: number, eraStart: EraStart = undefined): Lot[] {
+  const { from } = trailingWindow(asOf, windowDays, eraStart);
   return lots.filter((l) => {
     if (!isSold(l) || !l.closeDate) return false;
     const d = parseDate(l.closeDate);
@@ -63,6 +75,7 @@ export function computeGoal(lots: Lot[], farms: FarmEconomics[], asOf: Date, opt
   const goal = opts.goal ?? GOAL_NET_PROFIT;
   const deadlineIso = opts.deadline ?? GOAL_DEADLINE;
   const windowDays = opts.trailingWindowDays ?? TRAILING_WINDOW_DAYS;
+  const window = trailingWindow(asOf, windowDays, opts.eraStart);
   const deadline = parseDate(deadlineIso) ?? asOf;
 
   const sold = lots.filter(isSold);
@@ -77,8 +90,8 @@ export function computeGoal(lots: Lot[], farms: FarmEconomics[], asOf: Date, opt
   const daysToDeadline = daysBetween(asOf, deadline);
   const monthsToDeadline = monthsBetween(asOf, deadline);
 
-  const trailing = trailingClosedLots(lots, asOf, windowDays);
-  const closedLotsPerMonth = round2(trailing.length / (windowDays / DAYS_PER_MONTH));
+  const trailing = trailingClosedLots(lots, asOf, windowDays, opts.eraStart);
+  const closedLotsPerMonth = round2(trailing.length / (window.days / DAYS_PER_MONTH));
   const avgNetProfitPerClosedLot = sold.length > 0 ? round2(netProfitToDate / sold.length) : null;
 
   const lotsStillNeeded =
@@ -119,6 +132,9 @@ export function computeGoal(lots: Lot[], farms: FarmEconomics[], asOf: Date, opt
     noteSoldLots: lots.filter((l) => l.stage === "note_sold").length,
     closedLotsTrailing: trailing.length,
     trailingWindowDays: windowDays,
+    trailingDays: window.days,
+    trailingSince: window.since,
+    trailingEraClipped: window.eraClipped,
     closedLotsPerMonth,
     avgNetProfitPerClosedLot,
     lotsStillNeeded,
@@ -138,7 +154,8 @@ export function buildVerdict(g: GoalStatus, fmtDate: (iso: string) => string = (
   if (g.remaining === 0) return "The goal is met. The realm is yours.";
   if (g.lotsStillNeeded === null) return "No closed lots yet — the chronicle has no pace to measure.";
   if (g.closedLotsPerMonth <= 0) {
-    return `You need ${g.requiredLotsPerMonthToHitDeadline ?? "?"} lots/month; you closed none in the last ${g.trailingWindowDays} days.`;
+    const window = g.trailingEraClipped ? `since ${fmtDate(g.trailingSince)}` : `in the last ${g.trailingWindowDays} days`;
+    return `You need ${g.requiredLotsPerMonthToHitDeadline ?? "?"} lots/month; you closed none ${window}.`;
   }
   if (g.onTrack && g.projectedDate) {
     return `At the current pace of ${g.closedLotsPerMonth} lots/month you reach the goal on ${fmtDate(g.projectedDate)}.`;
