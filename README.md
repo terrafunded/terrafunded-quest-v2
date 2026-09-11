@@ -50,6 +50,7 @@ of a login form.
 | `npm run test:watch` | Same, in watch mode |
 | `npm run e2e` | Playwright, headless. Builds, serves, logs in with the env credentials and runs the suite on a 1280×800 desktop and a 390×844 phone viewport |
 | `npm run snapshot` | **Read-only.** Signs in as the viewer, runs exactly the app's `select` queries and writes `src/domain/__fixtures__/payments.json`. Re-run it whenever you want the fixture tests to reflect current data |
+| `npm run check` | Connection check: signs in, prints `count(*)` for every table Quest reads against the expected counts, then proves the login is read-only by attempting one dummy insert into `property_costs` and asserting RLS rejects it (exit 3 and a loud warning if it does not) |
 
 ## 4. Project layout
 
@@ -163,7 +164,7 @@ described in `src/domain/quality.ts`.
 
 | Constraint | Enforcement |
 |---|---|
-| Read-only | only `.select()` calls exist, all in `src/data/queries/index.ts`; the snapshot script reuses them |
+| Read-only | only `.select()` calls exist in `src/`, all in `src/data/queries/index.ts`; the snapshot script reuses them. The single deliberate write probe in `scripts/check-connection.ts` exists to prove RLS rejects writes (OPEN_QUESTIONS #22) |
 | Explicit columns, never `select("*")` | `src/data/queries/columns.ts`; verified by grep in the DoD audit |
 | Never select `clients.ssn_itin_encrypted` | not present in `CLIENT_COLUMNS` |
 | Exclude test data | `.eq("is_test", false)` on `notes` and `clients` |

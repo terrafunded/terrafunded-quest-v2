@@ -3,6 +3,29 @@
 Branch `v2`. Snapshot of live Payments taken **2026-09-11 02:07 UTC** (`npm run snapshot`).
 Last full verification (build · lint · 96 unit tests · 35 Playwright tests): **2026-09-11**.
 
+## Payments connection check (`npm run check`, 2026-09-11 02:52 UTC)
+
+`scripts/check-connection.ts` signed in as the viewer against `rruscfrrukagpgymifhq.supabase.co`
+and ran `select count(*)` (HEAD request) on every table Quest reads:
+
+| Table | Count | Expected | |
+|---|---|---|---|
+| `file_cases` | 71 | — | matches the 71 file cases on subdivided farms (OPEN_QUESTIONS #14) |
+| `notes` | 56 | — | 56 with `is_test = false` (no test notes visible) |
+| `properties` | 129 | — | 109 on subdivided farms + 20 on legacy/one-off farms |
+| `farm_acquisitions` | 13 | 13 | ✓ |
+| `investors` | 7 | 7 | ✓ |
+| `investor_distributions` | 32 | 32 | ✓ |
+| `property_costs` | 13 | 13 | ✓ |
+| `note_sales` | 15 | 15 | ✓ |
+| `clients` | 105 | — | 102 with `is_test = false` (3 test clients) |
+
+**Read-only confirmed.** One dummy insert into `property_costs` (a real `farm_acquisition_id`,
+amount 0.01, description `QUEST_CONNECTION_CHECK_DUMMY_ROW`) was **rejected** with Postgres
+`42501 — new row violates row-level security policy for table "property_costs"`. Nothing was
+written; no clean-up was needed; no red warning is required. This probe is the only write
+attempt in the repository and lives in `scripts/`, never in `src/` (OPEN_QUESTIONS #22).
+
 ## Live vs. verified numbers (2026-09-10 spec)
 
 | Metric | Spec | Live snapshot | Status |

@@ -157,3 +157,13 @@ stores the session in `playwright/.auth/`, git-ignored) and then runs the deskto
 projects against the production build on port 4173. If the viewer's RLS scope changes, the
 counts asserted in `e2e/quest.spec.ts` (109 tiles, $8,986,794.30) and in the fixture tests
 will need to be regenerated with `npm run snapshot`.
+
+## 22. The one deliberate write attempt (`scripts/check-connection.ts`)
+
+GOAL.md forbids any write to Payments. At Rodrigo's explicit request the connection check
+script attempts a single dummy `insert` into `property_costs` **in order to prove the viewer
+login cannot write**, and deletes the row immediately if the insert were ever to succeed. On
+2026-09-11 the insert was rejected by RLS (`42501`), so nothing was written. The probe lives
+in `scripts/`, not `src/`, and is not part of `build`, `test` or `e2e`. **Action:** if the
+viewer's RLS policies are ever loosened, `npm run check` exits with code 3 and prints a
+warning; treat that as a production incident, not a Quest bug.
