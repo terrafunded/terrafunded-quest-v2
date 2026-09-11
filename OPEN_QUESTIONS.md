@@ -123,3 +123,37 @@ None of `v_note_summary`, `v_portfolio_dashboard`, `v_monthly_cash_flow`,
 `v_file_case_summary`, `v_outbound_summary`, `v_tape_export` were used; their columns were
 not introspected. Proposed replacements for the heaviest computations are in
 `sql/proposed_views.sql` (not applied).
+
+## 18. Ledger totals row: contract price vs. rule-based price
+
+GOAL.md says the ledger totals row "must equal the verified numbers", i.e. Σ
+`file_cases.sale_price` = $8,986,794.30. But the lot-economics `salePrice` rule prefers
+`notes.original_amount`, and on the five `price_mismatch` lots (Titus 6, Lamar 5/6/7,
+Eastland 3) the note is lower — the rule-based total is $8,964,992.80, i.e. **−$21,801.50**.
+Chosen: the ledger has a **Contract price** column (file case) whose total is the verified
+$8,986,794.30, and a **Sale price** column (rule-based) used for gross/net profit. Both totals
+are shown. **Action:** decide which one Rodrigo wants as "revenue".
+
+## 19. Days in pipeline when the reservation is dated after the close
+
+`daysInPipeline = closeDate − reservation_date`. Lamar Lot 5's reservation is dated after
+its note start, which would give a negative (or clamped 0-day) pipeline and wrongly earn the
+"Swift Sword" (fastest close) trophy. Chosen: negative values become `null` ("unknown"); the
+lot still appears in the ledger and the quality panel flags `reservation_after_note_start`.
+
+## 20. Trophies
+
+GOAL.md names four trophies and asks for "at least 15". Twenty are implemented in
+`src/domain/trophies.ts`; the thresholds (e.g. "Swift Sword" = a lot closed within 30 days of
+reservation, "Treasury month" = $100k cash in one month, "Best month" = 5 closings in one
+calendar month, "Streak" = 3 consecutive months with a closing) are ours, editable in one
+file, and covered by tests. Unearned trophies show the progress toward the threshold when it
+can be expressed as a number.
+
+## 21. Playwright uses the viewer login
+
+`npm run e2e` signs in with `QUEST_TEST_EMAIL` / `QUEST_TEST_PASSWORD` once (a setup project
+stores the session in `playwright/.auth/`, git-ignored) and then runs the desktop and mobile
+projects against the production build on port 4173. If the viewer's RLS scope changes, the
+counts asserted in `e2e/quest.spec.ts` (109 tiles, $8,986,794.30) and in the fixture tests
+will need to be regenerated with `npm run snapshot`.
