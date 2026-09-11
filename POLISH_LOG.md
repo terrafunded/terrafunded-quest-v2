@@ -67,3 +67,28 @@ Nothing worth fixing across the 22 shots; overflow audit clean on all 30 route �
 ### Pass 5 — confirmation (to `/tmp`)
 
 Nothing worth fixing. Two consecutive clean passes → loop closed after 5 passes.
+
+## Loop 3 · Neon Kingdom
+
+### Pass 1 — baseline `docs/screenshots/neon-kingdom/pass-01/` → after `pass-02/`
+
+Weaknesses found (route · element):
+
+1. `/` at 1280 · `DebtCountdown` cell labels — "Net profit required per day" broke onto three lines and "Days left" onto two; Neon's `.stat-label` tracking (0.22 em) in Inter is much wider than Crimson Pro. Fixed: Neon `.stat-label` tracking 0.16 em (labels now two lines at most and consistent across the three cells).
+2. `/`, `/pipeline`, Debt/Oxygen cards · `rounded-2xl` containers — 1 rem corners contradicted "sharp geometry". Fixed for all themes by making `rounded-2xl`/`rounded-xl` follow the theme radius token (`calc(var(--radius) * 2.5)` / `* 1.75`): Iron ≈ 0.94 rem, Gilded 1.25 rem, Neon 0.31 rem.
+3. `/sponsors`, `/trophies`, `/pipeline` at 1280 · small `font-heading` headings ("Hostages of the realm · 7", "Earned · 17", farm names) — Rajdhani is condensed with a low x-height, so 14 px headings read as 11 px. Fixed: Neon-only bump of `.font-heading.text-sm` → 0.95 rem and `.text-base` → 1.1 rem.
+4. `/pipeline` at 1280 · stuck table `th` "Days waiting" / "Net profit at stake" wrapped onto two lines. Tried `whitespace-nowrap` on every `th`; that pushed the table past its scroller and clipped the "Net profit at stake" column (`pass-02/reverted-th-nowrap-pipeline-1280.jpg`). **Reverted** per the rule; two-line headers stay.
+
+Verification after the revert: build, lint, 162 unit tests, 61 e2e green; overflow audit clean.
+
+### Pass 2 — `pass-02/`
+
+Debt labels settle at two lines, hero and panels have HUD-tight corners, small headings legible. Remaining candidates (stacked filter selects at 390 on `/quests`, two-line table headers) are judged not worth changing.
+
+### Pass 3 — confirmation (to `/tmp`)
+
+Nothing worth fixing (Oracle, Realm, Throne, Quests, Sponsors inspected at both widths).
+
+### Pass 4 — confirmation (to `/tmp`)
+
+Nothing worth fixing. Two consecutive clean passes → loop closed after 4 passes.
