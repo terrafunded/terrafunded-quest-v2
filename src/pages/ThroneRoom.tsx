@@ -10,6 +10,8 @@ import { ProgressRing } from "@/components/realm/ProgressRing";
 import { GrowthBurst } from "@/components/realm/GrowthBurst";
 import { QuestTree, type QuestNode } from "@/components/realm/QuestTree";
 import { CinematicIntro } from "@/components/realm/CinematicIntro";
+import { DebtCountdown } from "@/components/realm/DebtCountdown";
+import { OxygenScore } from "@/components/realm/OxygenScore";
 import { Stat } from "@/components/realm/Stat";
 import { EmptyState, ErrorState, LoadingState, TableErrorsBanner } from "@/components/realm/PageStates";
 import { date, money, moneyCompact, number } from "@/lib/format";
@@ -22,6 +24,7 @@ const EVENT_STYLE: Record<RealmEvent["kind"], { label: string; className: string
   distribution: { label: "Paid out", className: "text-fuchsia-300" },
   farm_acquired: { label: "Farm", className: "text-sky-300" },
   milestone: { label: "Milestone", className: "text-gold" },
+  liberation: { label: "Freed", className: "text-emerald-300" },
 };
 
 export function ThroneRoom() {
@@ -43,7 +46,7 @@ export function ThroneRoom() {
 
   const { realm, tableErrors } = data;
   const g = realm.goal;
-  const recent = latestEvents(realm.events, 5, ["reservation", "closing", "note_sale", "distribution"]);
+  const recent = latestEvents(realm.events, 5, ["reservation", "closing", "note_sale", "distribution", "liberation"]);
 
   if (realm.lots.length === 0) {
     return (
@@ -56,7 +59,7 @@ export function ThroneRoom() {
 
   return (
     <div className="space-y-8">
-      <CinematicIntro />
+      <CinematicIntro story={realm.story} />
       <TableErrorsBanner errors={tableErrors} />
 
       <section className="relative overflow-hidden rounded-2xl border border-gold/20 bg-gradient-to-b from-card/90 to-background/40 px-5 py-10 text-center shadow-[0_0_120px_-40px_hsl(var(--gold)/0.6)] sm:px-10 sm:py-14">
@@ -103,6 +106,11 @@ export function ThroneRoom() {
         <QuestTree nodes={questNodes} current={g.netProfitToDate} className="mt-8" />
       </section>
 
+      <section className="grid gap-4 lg:grid-cols-[1.35fr_1fr]" aria-label="The Debt and Oxygen">
+        <DebtCountdown debt={realm.debt} />
+        <OxygenScore oxygen={realm.oxygen} />
+      </section>
+
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Key figures">
         <Stat label="Cash realized" value={money(g.cashRealized)} hint="Down payments + note sales, money in the door" valueClassName="text-stage-closed" />
         <Stat label="Profit on paper" value={money(g.profitOnPaper)} hint="Net profit recognized but not yet cash" />
@@ -130,11 +138,13 @@ export function ThroneRoom() {
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.07 }}
-                    className="flex items-center gap-3 py-2.5 text-sm"
+                    className="flex items-start gap-3 py-2.5 text-sm"
                   >
                     <span className={cn("w-20 shrink-0 text-[10px] uppercase tracking-wider", style.className)}>{style.label}</span>
-                    <span className="min-w-0 flex-1 truncate">{e.title}</span>
-                    <span className="hidden text-xs text-muted-foreground sm:inline">{date(e.date)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{e.title}</span>
+                      <span className="block truncate text-xs text-muted-foreground">{realm.narrative.get(e.id)}</span>
+                    </span>
                     <span className="w-24 shrink-0 text-right tabular text-foreground">{e.amount !== null ? moneyCompact(e.amount) : "—"}</span>
                   </motion.li>
                 );

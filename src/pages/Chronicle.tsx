@@ -15,6 +15,7 @@ const KIND_META: Record<EventKind, { label: string; dot: string }> = {
   note_sale: { label: "Note sale", dot: "bg-stage-note_sold" },
   distribution: { label: "Distribution", dot: "bg-fuchsia-400" },
   milestone: { label: "Milestone", dot: "bg-gold" },
+  liberation: { label: "Liberation", dot: "bg-emerald-300" },
 };
 
 const FILTERS: (EventKind | "all")[] = ["all", "closing", "reservation", "note_sale", "distribution", "farm_acquired"];

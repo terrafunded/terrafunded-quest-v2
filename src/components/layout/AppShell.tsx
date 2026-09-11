@@ -3,6 +3,7 @@ import { Award, BookOpen, Coins, Crown, Eye, Landmark, LogOut, Map, ScrollText, 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/data/auth";
 import { Button } from "@/components/ui/button";
+import { SinceLastVisit } from "@/components/realm/SinceLastVisit";
 
 export const NAV = [
   { to: "/", label: "Throne Room", short: "Throne", icon: Crown },
@@ -97,6 +98,7 @@ export function AppShell() {
           ))}
         </nav>
       </div>
+      <SinceLastVisit />
     </div>
   );
 }
