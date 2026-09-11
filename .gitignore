@@ -4,7 +4,6 @@ dist-ssr
 *.local
 .env
 .env.*
-!.env.example
 coverage
 playwright-report
 test-results
@@ -14,3 +13,6 @@ playwright/.cache
 *.log
 playwright/.auth
 *.tsbuildinfo
+.vercel
+.env*
+!.env.example
