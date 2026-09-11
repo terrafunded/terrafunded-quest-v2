@@ -4,7 +4,7 @@ import { isSold } from "./lot";
 import { addDays, daysBetween, parseDate, toIsoDate } from "./dates";
 import { mean, round2 } from "./math";
 
-export type CampaignState = "conquered" | "under_siege" | "losing_ground";
+export type CampaignState = "conquered" | "under_siege" | "closing_pending" | "losing_ground";
 
 /**
  * FARM CAMPAIGNS (Phase 2 §4). Each territory fights its own war: sell enough lots to cover the
@@ -36,6 +36,8 @@ export interface Campaign {
   accruedInterest: number;
   capitalOutstanding: number;
   soldLots: number;
+  /** Live reservations on this farm — a farm with any is never "losing ground". */
+  reservedLots: number;
   totalLots: number;
   reason: string;
 }
@@ -68,6 +70,7 @@ export function computeCampaigns(farms: FarmEconomics[], lots: Lot[], asOf: Date
 
     const funded = parseDate(f.fundingDate) ?? parseDate(f.closingDate);
     const interestAccruing = f.dealType === "fixed_interest" && f.capitalOutstanding > 0 && !!funded && funded <= asOf;
+    const reservedLots = f.lots.filter((l) => l.stage === "reserved").length;
 
     let state: CampaignState;
     let reason: string;
@@ -75,11 +78,17 @@ export function computeCampaigns(farms: FarmEconomics[], lots: Lot[], asOf: Date
       state = "conquered";
       reason = shortfall === 0 ? "sales already cover capital and interest" : "every lot is sold";
     } else if (interestAccruing && (lastClosingDate === null || lastClosingDate < staleBefore)) {
-      state = "losing_ground";
-      reason =
-        lastClosingDate === null
-          ? `interest accruing at ${f.annualRatePct}% with no closing yet`
-          : `interest accruing at ${f.annualRatePct}% and no closing in ${daysSinceLastClosing} days`;
+      if (reservedLots > 0) {
+        // Reservations are waiting to close: the ground is held, not lost.
+        state = "closing_pending";
+        reason = `${reservedLots} ${reservedLots === 1 ? "reservation" : "reservations"} waiting to close${lastClosingDate === null ? ", no closing yet" : `, none in ${daysSinceLastClosing} days`}`;
+      } else {
+        state = "losing_ground";
+        reason =
+          lastClosingDate === null
+            ? `interest accruing at ${f.annualRatePct}% with no closing yet`
+            : `interest accruing at ${f.annualRatePct}% and no closing in ${daysSinceLastClosing} days`;
+      }
     } else {
       state = "under_siege";
       reason = lotsLeftToCover !== null ? `${lotsLeftToCover} more ${lotsLeftToCover === 1 ? "lot" : "lots"} to cover the capital` : "no sale price to measure against";
@@ -104,6 +113,7 @@ export function computeCampaigns(farms: FarmEconomics[], lots: Lot[], asOf: Date
       accruedInterest: round2(accrued),
       capitalOutstanding: f.capitalOutstanding,
       soldLots: sold.length,
+      reservedLots,
       totalLots: f.totalLots,
       reason,
     };

@@ -44,6 +44,8 @@ export interface TrophyInputs {
   treasury: Treasury;
   investors: InvestorSummary[];
   streaks?: Streaks;
+  /** Streaks of reservations made (realm.reservationStreaks). */
+  reservationStreaks?: Streaks;
   liberation?: Liberation;
 }
 
@@ -310,6 +312,50 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       earnedAt: (s.bestWeek?.count ?? 0) >= 3 ? s.bestWeek?.weekStart ?? null : null,
       progress: pct(s.bestWeek?.count ?? 0, 3),
       detail: s.bestWeek ? `${s.bestWeek.count} in week ${s.bestWeek.week}` : "no closings yet",
+    });
+  }
+
+  if (i.reservationStreaks) {
+    const r = i.reservationStreaks;
+    trophies.push({
+      id: "pledge_streak_3",
+      title: "Steady Pledges",
+      description: "Take at least one reservation in three consecutive months.",
+      tier: "bronze",
+      earned: r.bestMonths >= 3,
+      earnedAt: null,
+      progress: pct(r.bestMonths, 3),
+      detail: `best ${r.bestMonths} consecutive month${r.bestMonths === 1 ? "" : "s"} · current ${r.currentMonths}`,
+    });
+    trophies.push({
+      id: "pledge_streak_weeks_3",
+      title: "Pledge After Pledge",
+      description: "Take at least one reservation in three consecutive weeks.",
+      tier: "silver",
+      earned: r.bestWeeks >= 3,
+      earnedAt: r.bestWeeks >= 3 ? r.bestWeeksEndedOn : null,
+      progress: pct(r.bestWeeks, 3),
+      detail: `best ${r.bestWeeks} week${r.bestWeeks === 1 ? "" : "s"} · current ${r.currentWeeks}`,
+    });
+    trophies.push({
+      id: "pledge_streak_weeks_6",
+      title: "The Long Line",
+      description: "Six consecutive weeks with a reservation.",
+      tier: "gold",
+      earned: r.bestWeeks >= 6,
+      earnedAt: r.bestWeeks >= 6 ? r.bestWeeksEndedOn : null,
+      progress: pct(r.bestWeeks, 6),
+      detail: `best ${r.bestWeeks} weeks`,
+    });
+    trophies.push({
+      id: "busy_pledge_week_3",
+      title: "Market Day",
+      description: "Three reservations inside a single week.",
+      tier: "silver",
+      earned: (r.bestWeek?.count ?? 0) >= 3,
+      earnedAt: (r.bestWeek?.count ?? 0) >= 3 ? r.bestWeek?.weekStart ?? null : null,
+      progress: pct(r.bestWeek?.count ?? 0, 3),
+      detail: r.bestWeek ? `${r.bestWeek.count} in week ${r.bestWeek.week}` : "no reservations yet",
     });
   }
 

@@ -2,10 +2,10 @@ import type { FarmAcquisitionRow, InvestorDistributionRow, InvestorRow } from ".
 import type { Lot } from "./lot";
 import { isSold } from "./lot";
 import { indexBy, round2 } from "./math";
-import { toIsoDate } from "./dates";
+import { daysBetween, parseDate, toIsoDate } from "./dates";
 import { MILESTONE_STEP } from "../config/goal";
 
-export type EventKind = "farm_acquired" | "reservation" | "closing" | "note_sale" | "distribution" | "milestone" | "liberation";
+export type EventKind = "farm_acquired" | "reservation" | "cancellation" | "closing" | "note_sale" | "distribution" | "milestone" | "liberation";
 
 export interface RealmEvent {
   id: string;
@@ -29,12 +29,34 @@ export interface RealmEvent {
 const KIND_ORDER: Record<EventKind, number> = {
   farm_acquired: 0,
   reservation: 1,
-  closing: 2,
-  milestone: 3,
-  note_sale: 4,
-  distribution: 5,
-  liberation: 6,
+  cancellation: 2,
+  closing: 3,
+  milestone: 4,
+  note_sale: 5,
+  distribution: 6,
+  liberation: 7,
 };
+
+/** Id of the reservation event behind a cancelled file case (the live case keeps the plain `reservation:<property>` id). */
+export function cancelledPledgeEventId(propertyId: string, fileCaseId: string): string {
+  return `reservation:${propertyId}:${fileCaseId}`;
+}
+
+export function cancellationEventId(fileCaseId: string): string {
+  return `cancellation:${fileCaseId}`;
+}
+
+/** True for the reservation event of a file case that was later cancelled. */
+export function isCancelledPledge(e: Pick<RealmEvent, "kind" | "id">): boolean {
+  return e.kind === "reservation" && e.id.split(":").length === 3;
+}
+
+/** The cancelled file case a `reservation` or `cancellation` event refers to, when any. */
+export function cancelledFileCaseId(e: Pick<RealmEvent, "kind" | "id">): string | null {
+  if (e.kind === "cancellation") return e.id.slice("cancellation:".length) || null;
+  if (isCancelledPledge(e)) return e.id.split(":")[2] ?? null;
+  return null;
+}
 
 /**
  * Every real event derived from the tables, oldest → newest, with cumulative
@@ -82,6 +104,36 @@ export function computeEvents(
         lotName: lot.name,
         propertyId: lot.propertyId,
       });
+    }
+    for (const c of lot.cancellations) {
+      const who = c.buyerName ?? (c.buyerIsTestClient ? "buyer withheld" : null);
+      if (c.reservationDate) {
+        raw.push({
+          id: cancelledPledgeEventId(lot.propertyId, c.fileCaseId),
+          date: c.reservationDate,
+          kind: "reservation",
+          title: `${lot.name} reserved`,
+          description: `${who ? `by ${who}` : "buyer unknown"} · later cancelled`,
+          amount: c.salePrice,
+          farmName: lot.farmName,
+          lotName: lot.name,
+          propertyId: lot.propertyId,
+        });
+      }
+      if (c.cancelledOn) {
+        const held = c.reservationDate ? daysBetween(parseDate(c.reservationDate) as Date, parseDate(c.cancelledOn) as Date) : null;
+        raw.push({
+          id: cancellationEventId(c.fileCaseId),
+          date: c.cancelledOn,
+          kind: "cancellation",
+          title: `${lot.name} reservation cancelled`,
+          description: `${who ? `${who} withdrew` : "the buyer withdrew"}${held !== null && held >= 0 ? ` after ${held} ${held === 1 ? "day" : "days"}` : ""}`,
+          amount: c.salePrice,
+          farmName: lot.farmName,
+          lotName: lot.name,
+          propertyId: lot.propertyId,
+        });
+      }
     }
     if (isSold(lot) && lot.closeDate) {
       raw.push({

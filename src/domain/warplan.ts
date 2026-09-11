@@ -915,6 +915,7 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
       params,
       startInventory,
       result,
+      scheduled: opts.scheduled ?? [],
       exitDate: result.goalDate,
       hitsDeadline: result.hitsDeadline,
       daysEarlierThanCurrent: null,

@@ -218,11 +218,26 @@ describe("FARM CAMPAIGNS", () => {
     expect(c?.daysSinceLastClosing).toBe(17);
   });
 
-  it("flags losing ground when interest accrues and nothing closed in 60 days", () => {
-    const stale = computeCampaigns(realm.farms, realm.lots, new Date("2026-11-15T00:00:00Z"));
+  it("flags losing ground when interest accrues, nothing closed in 60 days and no reservation is waiting", () => {
+    // Without Southmoor's live reservation the farm is losing ground by mid-November.
+    const noPledges = buildRealm({ ...snap, fileCases: snap.fileCases.filter((c) => c.status !== "active") }, ASOF);
+    const stale = computeCampaigns(noPledges.farms, noPledges.lots, new Date("2026-11-15T00:00:00Z"));
     const c = stale.find((x) => x.farmId === south.id);
     expect(c?.state).toBe("losing_ground");
+    expect(c?.reservedLots).toBe(0);
     expect(c?.reason).toMatch(/no closing in 82 days/);
+  });
+
+  it("a farm with a live reservation is never losing ground: it is closing pending, with the count", () => {
+    const stale = computeCampaigns(realm.farms, realm.lots, new Date("2026-11-15T00:00:00Z"));
+    const c = stale.find((x) => x.farmId === south.id);
+    expect(c?.state).toBe("closing_pending");
+    expect(c?.reservedLots).toBe(1);
+    expect(c?.reason).toBe("1 reservation waiting to close, none in 82 days");
+    expect(c?.interestAccruing).toBe(true);
+    // today it still has a closing inside 60 days, so it stays under siege
+    expect(byId.get(south.id)?.state).toBe("under_siege");
+    expect(byId.get(south.id)?.reservedLots).toBe(1);
   });
 
   it("never calls an own-capital farm losing ground (no interest accrues)", () => {
@@ -284,16 +299,40 @@ describe("ORACLE futures", () => {
   const { snap } = realmFixture();
   const realm = buildRealm(snap, ASOF);
 
-  it("produces three futures, all seeded from the real averages", () => {
+  it("produces four futures; the closings-only line is the old current pace, seeded from the real averages", () => {
     const f = realm.futures;
-    expect(f.all.map((x) => x.id)).toEqual(["current_pace", "required_pace", "one_more_farm"]);
-    expect(f.current.params).toEqual(realm.oracleDefaults);
-    expect(f.required.params.lotsPerMonth).toBeGreaterThan(f.current.params.lotsPerMonth);
+    expect(f.all.map((x) => x.id)).toEqual(["current_pace", "required_pace", "one_more_farm", "closings_only"]);
+    expect(f.closingsOnly.params).toEqual(realm.oracleDefaults);
+    expect(f.closingsOnly.scheduled).toEqual([]);
+    expect(f.closingsOnly.title).toBe("If no reservation ever closed");
+    expect(f.required.params.lotsPerMonth).toBeGreaterThan(f.closingsOnly.params.lotsPerMonth);
     expect(f.oneMoreFarm.startInventory).toBe(f.current.startInventory + realm.oracleDefaults.avgLotsPerFarm);
     expect(f.oneMoreFarm.params.lotsPerMonth).toBeGreaterThan(f.current.params.lotsPerMonth);
     // 2 lots in 90 days never reaches $10M inside the 10-year horizon: no exit, no comparison.
     expect(f.current.exitDate).toBeNull();
     expect(f.current.daysEarlierThanCurrent).toBeNull();
+  });
+
+  it("the current pace schedules every live reservation on its expected date, then continues at reservations × conversion", () => {
+    const f = realm.futures;
+    const e = realm.expected;
+    expect(f.current.scheduled).toHaveLength(e.liveReservations);
+    expect(f.current.scheduled[0]).toEqual({ date: e.lots[0]?.expectedCloseDate, lots: e.conversionPct / 100, netProfit: e.lots[0]?.expectedNetProfit });
+    expect(f.current.params.lotsPerMonth).toBe(Math.round(e.reservationsPerMonth * (e.conversionPct / 100) * 100) / 100);
+    expect(f.oneMoreFarm.scheduled).toEqual(f.current.scheduled);
+    // Southmoor Lot 3, reserved 2026-09-01, closes one Southmoor median (49.5 days) later, in the second simulated month.
+    const series = f.current.result.series;
+    expect(e.lots[0]?.expectedCloseDate).toBe("2026-10-21");
+    expect(series[0]?.scheduledLotsClosed).toBe(0);
+    expect(series[1]?.scheduledLotsClosed).toBe(1);
+    // the steady pace only starts after the realm's median lag (43.5 → 44 days: 2026-10-25, inside month 2, 17 of its 31 days)
+    expect(realm.pipeline.medianDaysToClose).toBe(43.5);
+    expect(series[0]?.flatLotsClosed).toBe(0);
+    expect(series[1]?.flatLotsClosed).toBeCloseTo((0.68 * 17) / 31, 2);
+    expect(series[1]?.lotsClosed).toBeCloseTo(1 + (0.68 * 17) / 31, 2);
+    expect(series[2]?.flatLotsClosed).toBe(f.current.params.lotsPerMonth);
+    expect(f.current.premise).toContain("1 live reservation");
+    expect(f.current.premise).toContain(`${f.current.params.lotsPerMonth} lots/month`);
   });
 
   it("the required-pace future reaches the goal by the deadline (to the month)", () => {
@@ -303,6 +342,9 @@ describe("ORACLE futures", () => {
     const deadline = new Date("2027-12-31T00:00:00Z").getTime();
     expect(Math.abs(exit - deadline) / 86_400_000).toBeLessThan(45);
     expect(f.required.daysEarlierThanCurrent).toBeNull();
+    // without the reservations layer the current pace is the closings-only line
+    expect(f.current.params).toEqual(realm.oracleDefaults);
+    expect(f.current.result.goalDate).toBe(f.closingsOnly.result.goalDate);
   });
 });
 
@@ -317,11 +359,22 @@ describe("NARRATED CHRONICLE", () => {
     expect(proseMoney(null)).toBe("an undisclosed sum");
   });
 
-  it("narrates a closing with buyer, lot, farm, price and days gained", () => {
+  it("narrates a closing with buyer, lot, farm, price, the days since the reservation and the days gained", () => {
     const lot = realm.lots.find((l) => l.name === "Southmoor — Lot 2")!;
     const line = realm.narrative.get(`closing:${lot.propertyId}`);
     const days = realm.oxygen.perLot.get(lot.propertyId)?.daysGained ?? 0;
-    expect(line).toBe(`On August 25, Buyer One claimed Lot 2 of Southmoor for $180,000. The realm gained ${days} days.`);
+    expect(line).toBe(`On August 25, Buyer One claimed Lot 2 of Southmoor for $180,000, 55 days after Buyer's reservation. The realm gained ${days} days.`);
+  });
+
+  it("narrates a live reservation with its expected close and provisional days", () => {
+    const lot = realm.lots.find((l) => l.name === "Southmoor — Lot 3")!;
+    const line = realm.narrative.get(`reservation:${lot.propertyId}`);
+    const p = realm.oxygen.provisional.get(lot.propertyId)!;
+    expect(p.provisionalDays).toBeGreaterThan(0);
+    expect(line).toBe(`On September 1, Buyer One pledged for Lot 3 of Southmoor at $180,000 — the closing is expected around October 21, ${p.provisionalDays} provisional days gained.`);
+    // the reservation of a lot that has since closed carries no expectation
+    const closed = realm.lots.find((l) => l.name === "Southmoor — Lot 2")!;
+    expect(realm.narrative.get(`reservation:${closed.propertyId}`)).toBe("On July 1, Buyer One pledged for Lot 2 of Southmoor at $180,000.");
   });
 
   it("has one line for every event and templates for every kind", () => {

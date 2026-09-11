@@ -102,8 +102,8 @@ describe("fixture: FARM CAMPAIGNS", () => {
       Titus: "under_siege",
       Wichita: "under_siege",
       "Franklin 2": "under_siege",
-      Avery: "losing_ground",
-      Franklin: "losing_ground",
+      Avery: "closing_pending",
+      Franklin: "closing_pending",
     });
   });
 
@@ -114,8 +114,15 @@ describe("fixture: FARM CAMPAIGNS", () => {
     expect(byName["Avery"]?.lotsLeftToCover).toBe(5);
     expect(byName["Avery"]?.avgSalePriceSource).toBe("realm");
     expect(byName["Avery"]?.target).toBe(538_322.81);
-    expect(byName["Franklin"]?.reason).toBe("interest accruing at 25% with no closing yet");
     expect(byName["Eastland"]?.recovered).toBe(1_097_950.8);
+  });
+
+  it("Avery (12 reservations) and Franklin (5) accrue interest with no closing yet, but are closing pending, not losing ground", () => {
+    expect(byName["Avery"]).toMatchObject({ state: "closing_pending", reservedLots: 12, interestAccruing: true, lastClosingDate: null, reason: "12 reservations waiting to close, no closing yet" });
+    expect(byName["Franklin"]).toMatchObject({ state: "closing_pending", reservedLots: 5, reason: "5 reservations waiting to close, no closing yet" });
+    expect(realm.campaigns.some((c) => c.state === "losing_ground")).toBe(false);
+    expect(byName["Wichita"]?.reservedLots).toBe(8);
+    expect(byName["Lamar"]?.reservedLots).toBe(1);
   });
 });
 
@@ -137,9 +144,9 @@ describe("fixture: STREAKS", () => {
 });
 
 describe("fixture: trophies with rarity", () => {
-  it("has 25 trophies, 17 earned, every one with a rarity", () => {
-    expect(realm.trophies).toHaveLength(25);
-    expect(realm.trophies.filter((t) => t.earned)).toHaveLength(17);
+  it("has 29 trophies, 21 earned, every one with a rarity", () => {
+    expect(realm.trophies).toHaveLength(29);
+    expect(realm.trophies.filter((t) => t.earned)).toHaveLength(21);
     expect(realm.trophies.every((t) => ["common", "rare", "epic", "legendary"].includes(t.rarity))).toBe(true);
     const byId = Object.fromEntries(realm.trophies.map((t) => [t.id, t]));
     expect(byId["streak_weeks_3"]?.earned).toBe(true);
@@ -149,19 +156,52 @@ describe("fixture: trophies with rarity", () => {
     expect(byId["streak_weeks_6"]?.earned).toBe(false);
     expect(byId["all_free"]?.earned).toBe(false);
   });
+
+  it("the four reservation trophies are all earned: 6 consecutive weeks of pledges ending 2026-06-21, 7 pledges in W22, 8 consecutive months", () => {
+    const byId = Object.fromEntries(realm.trophies.map((t) => [t.id, t]));
+    expect(byId["pledge_streak_3"]).toMatchObject({ earned: true, detail: "best 8 consecutive months · current 8" });
+    expect(byId["pledge_streak_weeks_3"]).toMatchObject({ earned: true, earnedAt: "2026-06-21", detail: "best 6 weeks · current 3" });
+    expect(byId["pledge_streak_weeks_6"]).toMatchObject({ earned: true, earnedAt: "2026-06-21" });
+    expect(byId["busy_pledge_week_3"]).toMatchObject({ earned: true, earnedAt: "2026-05-25", detail: "7 in week 2026-W22" });
+  });
 });
 
 describe("fixture: ORACLE futures", () => {
-  it("three futures with exit dates, the required pace landing on the deadline month", () => {
+  it("four futures: reservations close first (2028-06-11), the required pace lands on the deadline month, closings-only is the old 2029-03-11 line", () => {
     const f = realm.futures;
-    expect(f.current.exitDate).toBe("2029-03-11");
+    expect(f.all.map((x) => x.id)).toEqual(["current_pace", "required_pace", "one_more_farm", "closings_only"]);
+    expect(f.current.exitDate).toBe("2028-06-11");
     expect(f.current.hitsDeadline).toBe(false);
+    expect(f.current.params.lotsPerMonth).toBe(5.54);
+    expect(f.current.params.lotsPerMonth).toBe(round2(realm.expected.reservationsPerMonth * (realm.expected.conversionPct / 100)));
+    expect(f.current.scheduled).toHaveLength(33);
     expect(f.required.exitDate).toBe("2027-12-11");
     expect(f.required.hitsDeadline).toBe(true);
-    expect(f.oneMoreFarm.exitDate).toBe("2028-11-11");
-    expect(f.oneMoreFarm.daysEarlierThanCurrent).toBe(120);
-    expect(f.oneMoreFarm.params.lotsPerMonth).toBe(5.03);
+    expect(f.required.daysEarlierThanCurrent).toBe(183);
+    expect(f.oneMoreFarm.exitDate).toBe("2028-04-11");
+    expect(f.oneMoreFarm.daysEarlierThanCurrent).toBe(61);
+    expect(f.oneMoreFarm.params.lotsPerMonth).toBe(6.33);
     expect(f.oneMoreFarm.startInventory).toBe(round2(71 + realm.oracleDefaults.avgLotsPerFarm));
+    expect(f.closingsOnly.exitDate).toBe("2029-03-11");
+    expect(f.closingsOnly.daysEarlierThanCurrent).toBe(-273);
+    expect(f.closingsOnly.params).toEqual(realm.oracleDefaults);
+    expect(f.closingsOnly.params.lotsPerMonth).toBe(4.4);
+  });
+
+  it("the current pace books 21 of the 33 reservations in the first month (16 overdue + 5 expected by Oct 11), 8 in the second, 4 in the third; the steady pace starts after the 63-day lag", () => {
+    const s = realm.futures.current.result.series;
+    expect(s[0]).toMatchObject({ date: "2026-10-11", scheduledLotsClosed: 15.64, flatLotsClosed: 0, lotsClosed: 15.64 });
+    expect(s[0]?.scheduledLotsClosed).toBe(round2(21 * 0.7447));
+    expect(s[1]).toMatchObject({ date: "2026-11-11", scheduledLotsClosed: 5.96, flatLotsClosed: 0 });
+    expect(s[2]).toMatchObject({ date: "2026-12-11", scheduledLotsClosed: 2.98, flatLotsClosed: 5.17 });
+    expect(s[3]).toMatchObject({ date: "2027-01-11", scheduledLotsClosed: 0, flatLotsClosed: 5.54, lotsClosed: 5.54 });
+    expect(round2((s[0]?.scheduledLotsClosed ?? 0) + (s[1]?.scheduledLotsClosed ?? 0) + (s[2]?.scheduledLotsClosed ?? 0))).toBe(round2(33 * 0.7447));
+    // the first month books the committed net profit of those 21 reservations, not the average per lot
+    const committedFirstMonth = realm.expected.lots.filter((l) => (l.expectedCloseDate ?? "") <= "2026-10-11").reduce((a, l) => a + l.expectedNetProfit, 0);
+    expect(s[0]?.cumulativeNetProfit).toBe(round2(realm.goal.netProfitToDate + committedFirstMonth));
+    expect(realm.futures.current.premise).toBe(
+      "33 live reservations close on their expected dates at 74.47% conversion (16 already overdue, counted in the first month); after the 63-day lag, new reservations at 7.44/month keep closing at that rate — 5.54 lots/month — with a new farm every 1.72 months.",
+    );
   });
 });
 
@@ -170,8 +210,9 @@ describe("fixture: NARRATED CHRONICLE and STORY", () => {
     expect(realm.narrative.size).toBe(realm.events.length);
     const latest = realm.oxygen.latest as NonNullable<typeof realm.oxygen.latest>;
     expect(realm.narrative.get(`closing:${latest.propertyId}`)).toBe(
-      "On August 19, Daniel Carrasquillo claimed Lot 3 of Promised Valley for $116,500. The realm gained 5 days.",
+      "On August 19, Daniel Carrasquillo claimed Lot 3 of Promised Valley for $116,500, 90 days after Daniel's reservation. The realm gained 5 days.",
     );
+    expect(realm.narrative.get(`reservation:${latest.propertyId}`)).toBe("On May 21, Daniel Carrasquillo pledged for Lot 3 of Promised Valley at $116,500.");
     expect(realm.narrative.get("liberation:" + realm.liberation.moments[0]?.hostage.farmId)).toBe(
       "On May 19, Townson Family was freed: every coin of Lamar repaid ($475,000).",
     );
@@ -588,8 +629,123 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
   });
 
   it("changes nothing in the Oracle's futures", () => {
-    expect(realm.futures.current.exitDate).toBe("2029-03-11");
+    expect(realm.futures.closingsOnly.exitDate).toBe("2029-03-11");
+    expect(realm.futures.current.exitDate).toBe("2028-06-11");
     expect(realm.futures.required.exitDate).toBe("2027-12-11");
-    expect(realm.futures.oneMoreFarm.exitDate).toBe("2028-11-11");
+    expect(realm.futures.oneMoreFarm.exitDate).toBe("2028-04-11");
+  });
+});
+
+describe("fixture: EXPECTED (reservations first-class)", () => {
+  const e = realm.expected;
+
+  it("8 reservations were made in September 2026 (7 still live, Lamar Lot 5 already closed), none closed this month", () => {
+    expect(e.thisMonth).toEqual({ month: "2026-09", reservations: 8, closings: 0, expectedReservations: 3, expectedClosings: 2.23, expectedNetProfit: 205_868.67 });
+    expect(realm.lots.filter((l) => l.reservationDate?.startsWith("2026-09"))).toHaveLength(8);
+    expect(realm.lots.filter((l) => l.reservationDate?.startsWith("2026-09") && l.stage === "reserved")).toHaveLength(7);
+  });
+
+  it("8 reservations are expected to close in November 2026 — 5.96 closings at 74.47 %, $319,008.02 of expected net profit", () => {
+    const nov = e.expectedByMonth.find((m) => m.month === "2026-11");
+    expect(nov).toMatchObject({ count: 8, expectedClosings: 5.96, expectedNetProfit: 319_008.02, netProfitAtStake: 428_371.17, past: false });
+    expect(nov?.expectedClosings).toBe(round2(8 * 0.7447));
+    const names = (nov?.propertyIds ?? []).map((id) => realm.lots.find((l) => l.propertyId === id)?.name).sort();
+    expect(names).toEqual(["Franklin 2 — Lot 11", "Promised Valley — Lot 19", "Titus — Lot 4", "Titus — Lot 5", "Wichita — Lot 12", "Wichita — Lot 13", "Wichita — Lot 26", "Wichita — Lot 30"]);
+    // next month (October) from the Throne Room's strip
+    expect(e.nextMonth).toEqual({ month: "2026-10", reservations: 0, closings: 0, expectedReservations: 6, expectedClosings: 4.47, expectedNetProfit: 310_418.76 });
+    expect(e.expectedByMonth.map((m) => [m.month, m.count, m.past])).toEqual([
+      ["2026-07", 6, true],
+      ["2026-08", 9, true],
+      ["2026-09", 3, false],
+      ["2026-10", 6, false],
+      ["2026-11", 8, false],
+      ["2026-12", 1, false],
+    ]);
+  });
+
+  it("the deadline demands 8.31 closings/month, i.e. 11.16 reservations/month at 74.47 % conversion; the realm reserves 7.44 and closes 4.4", () => {
+    expect(e.requiredClosingsPerMonth).toBe(8.31);
+    expect(e.requiredClosingsPerMonth).toBe(realm.goal.requiredLotsPerMonthToHitDeadline);
+    expect(e.requiredReservationsPerMonth).toBe(11.16);
+    expect(e.requiredReservationsPerMonth).toBe(round2(8.31 / 0.7447));
+    expect(e.reservationsTrailing).toBe(22);
+    expect(e.reservationsPerMonth).toBe(7.44);
+    expect(e.reservationsPerMonth).toBe(realm.pipeline.reservationsMadePerMonth);
+    expect(e.closingsTrailing).toBe(13);
+    expect(e.closingsPerMonth).toBe(4.4);
+    expect(e.closingsPerMonth).toBe(realm.goal.closedLotsPerMonth);
+    expect(e.conversionPct).toBe(74.47);
+    expect(e.conversionSource).toBe("with_cancellations");
+  });
+
+  it("every live reservation has an expected close: reservation + the farm's median (Titus 73, Lamar 41.5, Promised Valley 90), else the realm's 63", () => {
+    expect(e.lots).toHaveLength(33);
+    expect(e.undatedCount).toBe(0);
+    const by = new Map(e.lots.map((l) => [l.lotName, l]));
+    expect(by.get("Titus — Lot 2")).toMatchObject({ reservationDate: "2026-05-02", medianDaysToClose: 73, medianSource: "farm", expectedCloseDate: "2026-07-14", expectedMonth: "2026-07", overdue: true, daysWaiting: 132, daysToExpectedClose: -59, netProfitAtStake: 61_723.32, expectedNetProfit: 45_965.36 });
+    expect(by.get("Avery — Lot 12")).toMatchObject({ medianDaysToClose: 63, medianSource: "realm", expectedCloseDate: "2026-10-02", overdue: false });
+    expect(by.get("Lamar — Lot 1")).toMatchObject({ reservationDate: "2026-08-26", medianDaysToClose: 41.5, expectedCloseDate: "2026-10-07" });
+    expect(by.get("Promised Valley — Lot 14")).toMatchObject({ reservationDate: "2026-09-08", medianDaysToClose: 90, expectedCloseDate: "2026-12-07", expectedMonth: "2026-12" });
+    expect(by.get("Titus — Lot 2")?.expectedNetProfit).toBe(round2(61_723.32 * 0.7447));
+    // soonest expected close first
+    for (let i = 1; i < e.lots.length; i++) expect((e.lots[i - 1]?.expectedCloseDate ?? "") <= (e.lots[i]?.expectedCloseDate ?? "")).toBe(true);
+  });
+
+  it("Committed: $1,654,864.13 expected from the 33 reservations ($2,222,188.97 at stake), landing by December 2026, most of it in November; 16 are overdue ($831,727.63)", () => {
+    expect(e.committedNetProfit).toBe(1_654_864.13);
+    expect(e.netProfitAtStake).toBe(2_222_188.97);
+    expect(e.netProfitAtStake).toBe(realm.pipeline.pipelineNetProfit);
+    expect(Math.abs(e.committedNetProfit - round2(e.netProfitAtStake * 0.7447))).toBeLessThan(0.2);
+    expect(e.liveReservations).toBe(33);
+    expect(e.landsBy).toBe("2026-12");
+    expect(e.peakMonth).toBe("2026-11");
+    expect(e.overdueCount).toBe(16);
+    expect(e.overdueNetProfit).toBe(831_727.63);
+    // the overdue reservations are exactly the stuck ones
+    expect(new Set(e.lots.filter((l) => l.overdue).map((l) => l.propertyId))).toEqual(realm.pipeline.stuckIds);
+  });
+
+  it("OXYGEN: 342 provisional days from the 33 reservations, shown apart from the 547 confirmed; the closings-only score is untouched", () => {
+    expect(realm.oxygen.totalDaysGained).toBe(547);
+    expect(realm.oxygen.provisionalDaysGained).toBe(342);
+    expect(realm.oxygen.provisional.size).toBe(33);
+    expect(realm.oxygen.conversionPct).toBe(74.47);
+    const w26 = realm.lots.find((l) => l.name === "Wichita — Lot 26")!;
+    expect(realm.oxygen.provisional.get(w26.propertyId)).toMatchObject({ reservationDate: "2026-09-03", measuredOn: "2026-09-03", netProfitAtStake: 40_096.87, daysIfClosed: 5, provisionalDays: 4, paceThatDay: 8_644.24 });
+    // a reservation made when the realm was slow (May 2, pace $403/day) is worth many provisional days — the same rule closings follow
+    expect(realm.oxygen.provisionalRanked[0]).toMatchObject({ lotName: "Titus — Lot 2", daysIfClosed: 153, provisionalDays: 114, paceThatDay: 403.1 });
+    expect(realm.oxygen.provisionalRanked[0]?.provisionalDays).toBe(Math.round(153 * 0.7447));
+  });
+
+  it("reservation streaks: 6 consecutive weeks of pledges ending 2026-06-21, 7 pledges in W22, 17 in May 2026, 8 consecutive months and counting", () => {
+    const r = realm.reservationStreaks;
+    expect(r).toMatchObject({ currentWeeks: 3, bestWeeks: 6, bestWeeksEndedOn: "2026-06-21", closedThisWeek: true, bestMonths: 8, currentMonths: 8 });
+    expect(r.bestWeek).toEqual({ week: "2026-W22", weekStart: "2026-05-25", count: 7, netProfit: 355_624.87 });
+    expect(r.bestMonth).toEqual({ month: "2026-05", count: 17, netProfit: 915_709.18 });
+    expect(r.weeks).toHaveLength(28);
+    expect(r.months).toHaveLength(11);
+    // closing streaks are unchanged
+    expect(realm.streaks.bestWeeks).toBe(3);
+    expect(realm.streaks.weeks).toHaveLength(15);
+  });
+
+  it("the chronicle narrates live reservations with their expected close and provisional days; no cancellation exists in the snapshot", () => {
+    const w26 = realm.lots.find((l) => l.name === "Wichita — Lot 26")!;
+    expect(realm.narrative.get(`reservation:${w26.propertyId}`)).toBe(
+      "On September 3, Julia Rodriguez pledged for Lot 26 of Wichita at $117,600 — the closing is expected around November 5, 4 provisional days gained.",
+    );
+    const t2 = realm.lots.find((l) => l.name === "Titus — Lot 2")!;
+    expect(realm.narrative.get(`reservation:${t2.propertyId}`)).toBe(
+      "On May 2, Crystal Thompson pledged for Lot 2 of Titus at $135,412 — the closing was expected around July 14 and is 59 days late, 114 provisional days gained.",
+    );
+    expect(realm.events.filter((ev) => ev.kind === "cancellation")).toHaveLength(0);
+    expect(realm.events.filter((ev) => ev.kind === "reservation")).toHaveLength(69);
+  });
+
+  it("changes nothing in the goal, pace, oxygen score or debt", () => {
+    expect(realm.goal.netProfitToDate).toBe(2_272_304.32);
+    expect(realm.goal.closedLotsPerMonth).toBe(4.4);
+    expect(realm.oxygen.totalDaysGained).toBe(547);
+    expect(realm.debt.requiredNetProfitPerDay).toBe(16_234.65);
   });
 });

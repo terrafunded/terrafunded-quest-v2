@@ -18,9 +18,10 @@ import { computeFutures, type Futures } from "./futures";
 import { narrateAll } from "./narrative";
 import { buildStory, type Story } from "./story";
 import { computePipeline, type Pipeline } from "./pipeline";
+import { computeExpected, reservationsMade, type Expected } from "./expected";
 import { deriveWarPlanDefaults, solveWarPlan, type RotationBenchmark, type WarPlan, type WarPlanDefaults } from "./warplan";
 import { computeSeasonality, type SeasonalProfile } from "./seasonality";
-import { startOfUtcDay } from "./dates";
+import { startOfUtcDay, toIsoDate } from "./dates";
 
 /** Everything the pages render. Built once from a snapshot; pages never compute money. */
 export interface Realm {
@@ -41,13 +42,18 @@ export interface Realm {
   liberation: Liberation;
   campaigns: Campaign[];
   campaignByFarm: Map<string, Campaign>;
+  /** Consecutive weeks / months with a closing. */
   streaks: Streaks;
+  /** Consecutive weeks / months with a reservation made (its netProfit is the net profit at stake). */
+  reservationStreaks: Streaks;
   futures: Futures;
   /** One line of chronicle prose per event id. */
   narrative: Map<string, string>;
   story: Story;
   /** Reservations layer — read-only view of the pipeline; never feeds the goal, pace or oxygen. */
   pipeline: Pipeline;
+  /** Every live reservation with its expected close date and expected net profit; the reservation and closing paces. */
+  expected: Expected;
   /** WAR PLAN — the inputs /warplan starts from, each next to the real figure it came from. */
   warPlanDefaults: WarPlanDefaults;
   /** The War Plan solved on the real defaults (the Throne Room's rotation strip reads it). */
@@ -81,6 +87,9 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
 
   const farms = computeFarms(snapshot.farmAcquisitions, lots, snapshot.propertyCosts, snapshot.investors, interestByFarm, asOf);
   const goal = withVerdict(computeGoal(lots, farms, asOf));
+  // The reservations layer reads the same lots the goal reads and never feeds back into it.
+  const pipeline = computePipeline(lots, asOf, { closedLotsPerMonth: goal.closedLotsPerMonth });
+  const expected = computeExpected(lots, pipeline, goal, asOf);
   const quality = computeQualityIssues({
     farms: snapshot.farmAcquisitions,
     properties: snapshot.properties,
@@ -102,23 +111,30 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
   );
   const firstClose = lots.filter(isSold).map((l) => l.closeDate).filter((d): d is string => !!d).sort()[0] ?? null;
   const debt = computeDebt(farms, goal, firstClose);
-  const oxygen = computeOxygen(lots, farms, asOf);
+  const oxygen = computeOxygen(lots, farms, asOf, { conversionPct: expected.conversionPct });
   const campaigns = computeCampaigns(farms, lots, asOf);
   const streaks = computeStreaks(
     lots.filter((l) => isSold(l) && l.closeDate).map((l) => ({ date: l.closeDate as string, netProfit: l.netProfit ?? 0 })),
     asOf,
   );
+  // Reservation streaks count every pledge made — live, closed since, or cancelled — by its reservation date.
+  const reservationStreaks = computeStreaks(
+    reservationsMade(lots).map((r) => ({ date: r.date, netProfit: r.netProfitAtStake })),
+    asOf,
+  );
   const activeFarms = farms.filter((f) => f.monthsSinceFunding !== null && f.soldLots < f.totalLots).length;
-  const futures = computeFutures(oracleDefaults, goal, goal.availableLots + goal.reservedLots, asOf, activeFarms);
-  const trophies = computeTrophies({ lots, farms, goal, events, treasury, investors, streaks, liberation });
+  const futures = computeFutures(oracleDefaults, goal, goal.availableLots + goal.reservedLots, asOf, activeFarms, expected);
+  const trophies = computeTrophies({ lots, farms, goal, events, treasury, investors, streaks, reservationStreaks, liberation });
   const narrative = narrateAll(events, {
     lotsById: new Map(lots.map((l) => [l.propertyId, l])),
     oxygenByLot: oxygen.perLot,
+    provisionalByLot: oxygen.provisional,
+    expectedByLot: expected.byId,
     farmDealTypeByName: new Map(snapshot.farmAcquisitions.map((f) => [f.farm_name ?? "", f.deal_type])),
     currentYear: asOf.getUTCFullYear(),
+    asOf: toIsoDate(asOf),
   });
   const story = buildStory(goal, farms, debt, oxygen, liberation);
-  const pipeline = computePipeline(lots, asOf, { closedLotsPerMonth: goal.closedLotsPerMonth });
   const seasonality = computeSeasonality(lots, asOf);
   const warPlanContext = {
     asOf,
@@ -154,10 +170,12 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
     campaigns,
     campaignByFarm: new Map(campaigns.map((c) => [c.farmId, c])),
     streaks,
+    reservationStreaks,
     futures,
     narrative,
     story,
     pipeline,
+    expected,
     warPlanDefaults,
     warPlan,
     rotation: warPlan.benchmark,

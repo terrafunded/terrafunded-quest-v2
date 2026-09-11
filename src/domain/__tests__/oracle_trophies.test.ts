@@ -100,8 +100,11 @@ describe("computeTrophies", () => {
       treasury: realm.treasury,
       investors: realm.investors,
       streaks: realm.streaks,
+      reservationStreaks: realm.reservationStreaks,
       liberation: realm.liberation,
     });
     expect(trophies).toEqual(realm.trophies);
+    // reservation trophies exist alongside the closing ones
+    expect(realm.trophies.map((t) => t.id)).toEqual(expect.arrayContaining(["streak_weeks_3", "pledge_streak_weeks_3", "pledge_streak_3", "busy_pledge_week_3", "pledge_streak_weeks_6"]));
   });
 });

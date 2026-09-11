@@ -3,6 +3,7 @@ import type { GoalStatus } from "./goal";
 import type { Lot } from "./lot";
 import { computeGoal, type GoalOptions } from "./goal";
 import { isSold } from "./lot";
+import { netProfitAtStake } from "./pipeline";
 import { addDays, parseDate, toIsoDate } from "./dates";
 import { round2 } from "./math";
 
@@ -38,8 +39,30 @@ export interface LotOxygen {
   projectedAfter: string | null;
 }
 
+/**
+ * A live reservation's provisional score: the days its closing would gain, measured at the pace
+ * of the reservation day and weighted by the conversion. The closing turns it into a confirmed
+ * `LotOxygen`; a cancellation simply removes it (the lot is no longer reserved).
+ */
+export interface ProvisionalOxygen {
+  propertyId: string;
+  lotName: string;
+  farmName: string;
+  reservationDate: string;
+  /** Date the score was measured on (the reservation date, or asOf when it is dated later). */
+  measuredOn: string;
+  /** grossProfit − investorTake: what the closing would book. */
+  netProfitAtStake: number;
+  /** Days the closing would gain at that day's pace, before the conversion. */
+  daysIfClosed: number;
+  /** daysIfClosed × conversion, rounded — the provisional days this reservation earns. */
+  provisionalDays: number;
+  paceThatDay: number | null;
+  conversionPct: number;
+}
+
 export interface Oxygen {
-  /** Sum of daysGained over every closed lot — the primary score of the game. */
+  /** Sum of daysGained over every closed lot — the primary score of the game. Confirmed days only. */
   totalDaysGained: number;
   perLot: Map<string, LotOxygen>;
   ranked: LotOxygen[];
@@ -49,6 +72,17 @@ export interface Oxygen {
   latest: LotOxygen | null;
   /** Days gained by closings inside the trailing window (the "recent breath"). */
   trailingDaysGained: number;
+  /** Sum of provisionalDays over every live reservation — shown next to the score, never added to it. */
+  provisionalDaysGained: number;
+  provisional: Map<string, ProvisionalOxygen>;
+  provisionalRanked: ProvisionalOxygen[];
+  /** Conversion the provisional days were weighted with, in percent. */
+  conversionPct: number;
+}
+
+export interface OxygenOptions extends GoalOptions {
+  /** Reservation → closing conversion in percent (pipeline.ts, cancellations included). Default 100. */
+  conversionPct?: number;
 }
 
 const DAYS_PER_YEAR = 365.25;
@@ -60,18 +94,24 @@ export function netProfitPerDayAtPace(goal: GoalStatus): number | null {
   return perDay > 0 ? perDay : null;
 }
 
-export function computeOxygen(lots: Lot[], farms: FarmEconomics[], asOf: Date, opts: GoalOptions = {}): Oxygen {
-  const today = computeGoal(lots, farms, asOf, opts);
+export function computeOxygen(lots: Lot[], farms: FarmEconomics[], asOf: Date, opts: OxygenOptions = {}): Oxygen {
+  const { conversionPct: conversionOpt, ...goalOpts } = opts;
+  const conversionPct = conversionOpt ?? 100;
+  const today = computeGoal(lots, farms, asOf, goalOpts);
   const asOfIso = toIsoDate(asOf);
   const perLot = new Map<string, LotOxygen>();
+
+  // The ledger as it stood on a given day: closings dated after it had not happened yet.
+  const goalOn = (measuredOn: string): GoalStatus => {
+    if (measuredOn === asOfIso) return today;
+    const ledger = lots.filter((l) => !isSold(l) || !l.closeDate || l.closeDate <= measuredOn);
+    return computeGoal(ledger, farms, parseDate(measuredOn) ?? asOf, goalOpts);
+  };
 
   for (const lot of lots) {
     if (!isSold(lot)) continue;
     const measuredOn = lot.closeDate && lot.closeDate <= asOfIso ? lot.closeDate : asOfIso;
-    const day = parseDate(measuredOn) ?? asOf;
-    // The ledger as it stood on that day: closings dated after it had not happened yet.
-    const ledger = lots.filter((l) => !isSold(l) || !l.closeDate || l.closeDate <= measuredOn);
-    const thatDay = measuredOn === asOfIso ? today : computeGoal(ledger, farms, day, opts);
+    const thatDay = goalOn(measuredOn);
     const pace = netProfitPerDayAtPace(thatDay);
     const net = lot.netProfit ?? 0;
     const daysGained = pace ? Math.round(net / pace) : 0;
@@ -97,6 +137,30 @@ export function computeOxygen(lots: Lot[], farms: FarmEconomics[], asOf: Date, o
   const windowStart = toIsoDate(addDays(asOf, -today.trailingWindowDays));
   const pace = netProfitPerDayAtPace(today);
 
+  // Provisional days: every live reservation, measured at the pace of its reservation day. A
+  // reservation older than the first closing has no pace to measure against and uses today's.
+  const provisional = new Map<string, ProvisionalOxygen>();
+  for (const lot of lots) {
+    if (lot.stage !== "reserved" || !lot.reservationDate) continue;
+    const measuredOn = lot.reservationDate <= asOfIso ? lot.reservationDate : asOfIso;
+    const paceThatDay = netProfitPerDayAtPace(goalOn(measuredOn)) ?? pace;
+    const atStake = netProfitAtStake(lot);
+    const daysIfClosed = paceThatDay ? Math.round(atStake / paceThatDay) : 0;
+    provisional.set(lot.propertyId, {
+      propertyId: lot.propertyId,
+      lotName: lot.name,
+      farmName: lot.farmName,
+      reservationDate: lot.reservationDate,
+      measuredOn,
+      netProfitAtStake: atStake,
+      daysIfClosed,
+      provisionalDays: Math.round((daysIfClosed * conversionPct) / 100),
+      paceThatDay: paceThatDay === null ? null : round2(paceThatDay),
+      conversionPct,
+    });
+  }
+  const provisionalRanked = [...provisional.values()].sort((a, b) => b.provisionalDays - a.provisionalDays || b.reservationDate.localeCompare(a.reservationDate));
+
   return {
     totalDaysGained: ranked.reduce((s, o) => s + o.daysGained, 0),
     perLot,
@@ -105,5 +169,9 @@ export function computeOxygen(lots: Lot[], farms: FarmEconomics[], asOf: Date, o
     best: ranked[0] ?? null,
     latest: dated[0] ?? null,
     trailingDaysGained: dated.filter((o) => (o.closeDate as string) > windowStart).reduce((s, o) => s + o.daysGained, 0),
+    provisionalDaysGained: provisionalRanked.reduce((s, o) => s + o.provisionalDays, 0),
+    provisional,
+    provisionalRanked,
+    conversionPct,
   };
 }

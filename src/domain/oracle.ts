@@ -70,8 +70,30 @@ export interface OracleParams {
   capitalCycleMonths?: number;
 }
 
+/** A closing already committed by a live reservation (expected.ts): when it should land and what it books. */
+export interface ScheduledClosing {
+  /** Expected close date (ISO). Dates on or before `asOf` land in the first simulated month. */
+  date: string;
+  /** Closings this entry produces — one reservation weighted by its conversion, e.g. 0.74. */
+  lots: number;
+  /** Net profit it books (the reservation's expected net profit). */
+  netProfit: number;
+}
+
 /** Realm-level context the Oracle sliders do not carry. */
 export interface OracleRunOptions {
+  /**
+   * Closings the live reservations have already committed. Each lands in the month containing its
+   * date, comes out of today's inventory first and books its own net profit; `params.lotsPerMonth`
+   * then only has to cover reservations made from `asOf` on.
+   */
+  scheduled?: ScheduledClosing[];
+  /**
+   * Days after `asOf` before `params.lotsPerMonth` starts producing closings — the reservation →
+   * closing lag, so a pace expressed in new reservations does not close them the day they are made.
+   * Prorated inside the month the lag ends in. Default 0.
+   */
+  paceLagDays?: number;
   /**
    * Anchor months to the calendar: month 1 runs from `asOf` to its month-end (pace prorated by the
    * days left), every later month is a full calendar month, and the goal date is interpolated
@@ -123,6 +145,8 @@ export interface OraclePoint {
   lotsClosed: number;
   /** Closings the flat pace alone would ask for this month (before the seasonal shape). */
   flatLotsClosed: number;
+  /** Closings that came from live reservations scheduled in this month (`OracleRunOptions.scheduled`). */
+  scheduledLotsClosed: number;
   /** Seasonal multiplier applied this month (1 without a profile). */
   seasonalFactor: number;
   inventory: number;
@@ -232,6 +256,20 @@ export function buildMonthGrid(asOf: Date, deadline: Date, calendar: boolean, ho
     if (deadlineIndex === 0) monthsToDeadline = calendar ? cum : monthsBetween(asOf, deadline);
   }
   return { months, deadlineIndex, deadlineFraction, monthsToDeadline, calendar };
+}
+
+/** Index of the simulated month containing `date` (1 when the date has already passed); null beyond the horizon. */
+export function monthIndexFor(date: Date, grid: OracleMonthGrid): number | null {
+  for (const mo of grid.months) if (date <= mo.end) return mo.index;
+  return null;
+}
+
+/** Share of month `mo` that lies after `start`: 0 before it, prorated in the month containing it, 1 after. */
+function shareAfter(mo: OracleMonth, start: Date): number {
+  if (start <= mo.open) return 1;
+  if (start >= mo.end) return 0;
+  const span = daysBetween(mo.open, mo.end);
+  return span > 0 ? daysBetween(start, mo.end) / span : 0;
 }
 
 /** Real trailing averages the sliders start from. */
@@ -394,6 +432,20 @@ export function runOracle(params: OracleParams, goal: GoalStatus, startInventory
   const seasonality = calendar && params.seasonality && params.seasonality.length === 12 ? params.seasonality : null;
   const fundedOf = (f: OracleFarm) => f.funding.filter((s) => s.dealType !== "own_capital").reduce((a, s) => a + s.amount, 0);
 
+  // Committed closings by month: reservations whose expected date has passed land in month 1.
+  const scheduledByMonth = new Map<number, { lots: number; profit: number }>();
+  for (const s of opts.scheduled ?? []) {
+    const d = parseDate(s.date);
+    if (!d || s.lots <= 0) continue;
+    const idx = d <= asOf ? 1 : monthIndexFor(d, grid);
+    if (idx === null) continue;
+    const cur = scheduledByMonth.get(idx) ?? { lots: 0, profit: 0 };
+    cur.lots += s.lots;
+    cur.profit += s.netProfit;
+    scheduledByMonth.set(idx, cur);
+  }
+  const paceStart = addDays(asOf, Math.max(0, opts.paceLagDays ?? 0));
+
   const series: OraclePoint[] = [];
   let poolInventory = startInventory;
   const farmBatches: FarmBatch[] = [];
@@ -451,16 +503,20 @@ export function runOracle(params: OracleParams, goal: GoalStatus, startInventory
     outlays += capitalNow;
 
     const paused = params.pauseClosings !== undefined && m >= params.pauseClosings[0] && m <= params.pauseClosings[1];
-    const flatPace = paused ? 0 : Math.max(0, params.lotsPerMonth) * (calendar ? month.fraction : 1);
+    const flatPace = paused ? 0 : Math.max(0, params.lotsPerMonth) * (calendar ? month.fraction : 1) * shareAfter(month, paceStart);
     const seasonalFactor = seasonality ? Math.max(0, seasonality[month.end.getUTCMonth()] ?? 1) : 1;
-    const pace = flatPace * seasonalFactor;
+    const sched = scheduledByMonth.get(m) ?? { lots: 0, profit: 0 };
+    const pace = flatPace * seasonalFactor + sched.lots;
     const farmInventory = farmBatches.reduce((a, b) => a + b.lots, 0);
     const closed = Math.min(pace, poolInventory + farmInventory);
 
-    // Existing inventory first — the original arithmetic, untouched.
+    // Existing inventory first — the original arithmetic, untouched. The committed closings are
+    // reserved lots of that inventory; each books its own expected net profit instead of the average.
     const fromPool = Math.min(closed, poolInventory);
+    const schedClosed = Math.min(sched.lots, fromPool);
+    const schedProfit = sched.lots > 0 ? sched.profit * (schedClosed / sched.lots) : 0;
     poolInventory -= fromPool;
-    profit += fromPool * netProfitPerLot;
+    profit += schedProfit + (fromPool - schedClosed) * netProfitPerLot;
     cash += fromPool * downPerLot;
     pendingNoteCash[m + noteLag] = (pendingNoteCash[m + noteLag] ?? 0) + fromPool * noteCashPerLot;
     takePaid += fromPool * poolTakePerLot;
@@ -507,6 +563,7 @@ export function runOracle(params: OracleParams, goal: GoalStatus, startInventory
       date,
       lotsClosed: round2(closed),
       flatLotsClosed: round2(flatPace),
+      scheduledLotsClosed: round2(schedClosed),
       seasonalFactor: Math.round(seasonalFactor * 1000) / 1000,
       inventory: round2(poolInventory + farmBatches.reduce((a, b) => a + b.lots, 0)),
       cumulativeNetProfit: round2(profit),

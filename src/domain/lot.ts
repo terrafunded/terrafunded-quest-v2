@@ -18,6 +18,21 @@ export const LOT_STAGES: readonly LotStage[] = ["available", "reserved", "closed
 
 export type PriceSource = "note" | "file_case" | null;
 
+/** A file case on this lot that was cancelled: a reservation that failed. */
+export interface LotCancellation {
+  fileCaseId: string;
+  reservationDate: string | null;
+  /**
+   * Day the case was cancelled, approximated by the row's last update (Payments keeps no
+   * cancellation date); falls back to created_at, then to the reservation date.
+   */
+  cancelledOn: string | null;
+  clientId: string | null;
+  buyerName: string | null;
+  buyerIsTestClient: boolean;
+  salePrice: number | null;
+}
+
 export interface Lot {
   propertyId: string;
   farmId: string;
@@ -57,6 +72,8 @@ export interface Lot {
   reservationDate: string | null;
   /** Cancelled file cases on this property (a reservation that failed). */
   cancelledFileCases: number;
+  /** Every cancelled case, oldest reservation first. */
+  cancellations: LotCancellation[];
   /** Reservation date of the latest cancelled file case, when the lot has no live case. */
   cancelledReservationDate: string | null;
   /** Effective closing date: file_cases.closing_date ?? notes.start_date. */
@@ -334,6 +351,22 @@ export function computeLots(inputs: LotInputs): Lot[] {
       buyerIsTestClient,
       reservationDate: reservation ? toIsoDate(reservation) : null,
       cancelledFileCases: cancelled.length,
+      cancellations: cancelled
+        .map((c): LotCancellation => {
+          const cClient = c.client_id ? clientById.get(c.client_id) : undefined;
+          const reservationDate = parseDate(c.reservation_date);
+          const cancelledOn = parseDate(c.updated_at) ?? parseDate(c.created_at) ?? reservationDate;
+          return {
+            fileCaseId: c.id,
+            reservationDate: reservationDate ? toIsoDate(reservationDate) : null,
+            cancelledOn: cancelledOn ? toIsoDate(cancelledOn) : null,
+            clientId: c.client_id,
+            buyerName: cClient?.full_name ?? null,
+            buyerIsTestClient: !!c.client_id && !cClient,
+            salePrice: c.sale_price,
+          };
+        })
+        .sort((a, b) => (a.reservationDate ?? "").localeCompare(b.reservationDate ?? "") || a.fileCaseId.localeCompare(b.fileCaseId)),
       cancelledReservationDate:
         fileCase || note
           ? null

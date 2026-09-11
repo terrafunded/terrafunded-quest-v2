@@ -36,6 +36,7 @@ function lot(over: Partial<Lot>): Lot {
     buyerIsTestClient: false,
     reservationDate: null,
     cancelledFileCases: 0,
+    cancellations: [],
     cancelledReservationDate: null,
     closeDate: null,
     estimatedClosingDate: null,

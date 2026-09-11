@@ -15,6 +15,7 @@ export * from "./trophies";
 export * from "./debt";
 export * from "./oxygen";
 export * from "./pipeline";
+export * from "./expected";
 export * from "./liberation";
 export * from "./campaigns";
 export * from "./streaks";
