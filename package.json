@@ -15,6 +15,15 @@
     "check": "tsx scripts/check-connection.ts"
   },
   "dependencies": {
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/cinzel-decorative": "^5.3.0",
+    "@fontsource/cormorant-garamond": "^5.3.0",
+    "@fontsource/crimson-pro": "^5.3.0",
+    "@fontsource/eb-garamond": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/orbitron": "^5.3.0",
+    "@fontsource/rajdhani": "^5.3.0",
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-slider": "^1.2.2",
     "@radix-ui/react-slot": "^1.1.1",
