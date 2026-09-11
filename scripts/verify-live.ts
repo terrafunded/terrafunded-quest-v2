@@ -60,8 +60,10 @@ async function main() {
   console.log(`✓ deep link /pipeline → ${deep.status()} (redirected to ${new URL(page.url()).pathname})`);
 
   // 2. The Payments-staff gate, on the live bundle: footer text, and a staged non-admin refused.
+  //    Its own browser context: the staged session must not reach the main tab through shared storage.
   {
-    const gate = await ctx.newPage();
+    const gateCtx = await browser.newContext({ ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+    const gate = await gateCtx.newPage();
     await gate.route("**/auth/v1/token**", async (route) => {
       const response = await route.fetch();
       const body = (await response.json()) as { user?: { email?: string } };
@@ -89,20 +91,23 @@ async function main() {
       keys = await sessionKeys(gate);
     }
     if (keys.length) fail(`refused user still has a session in localStorage (${keys.join(", ")})`);
-    await gate.close();
+    await gateCtx.close();
     console.log(`✓ access gate: footer names the TerraFunded team; a viewer that is not the allowed test e-mail is refused with "${text}" and signed out`);
   }
 
-  // 3. Sign in as the allowed test account.
+  // 3. Sign in as the allowed test account. Where it lands depends on the deep link it came from
+  //    (step 1's /pipeline when the browser kept that history state), so only "not /login" is asserted here.
   await page.goto(`${base}/login`);
   await page.getByLabel("Email").fill(email!);
   await page.getByLabel("Password").fill(password!);
   await page.getByRole("button", { name: "Enter" }).click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 60_000 });
   await waitForRealm(page);
-  console.log("✓ signed in");
+  console.log(`✓ signed in (landed on ${new URL(page.url()).pathname})`);
 
   // 4. Real numbers on the Throne Room.
+  await page.goto(`${base}/`);
+  await waitForRealm(page);
   const counter = page.getByTestId("net-profit-counter");
   await counter.waitFor({ timeout: 60_000 });
   const target = Number(await counter.getAttribute("data-target"));
