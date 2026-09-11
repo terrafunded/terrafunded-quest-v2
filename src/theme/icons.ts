@@ -1,0 +1,84 @@
+import {
+  Award,
+  BookOpen,
+  BookMarked,
+  Castle,
+  Coins,
+  Crown,
+  Eye,
+  Feather,
+  Flame,
+  Gem,
+  Hexagon,
+  Hourglass,
+  Landmark,
+  Map,
+  Medal,
+  Radar,
+  Scroll,
+  ScrollText,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Swords,
+  Timer,
+  Trophy,
+  Users,
+  Vault,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+import type { ThemeId } from "./themes";
+
+export type IconName = "brand" | "throne" | "realm" | "quests" | "pipeline" | "sponsors" | "treasury" | "oracle" | "chronicle" | "trophies" | "quality";
+
+/**
+ * Iconography per theme. Iron Crown speaks in war and stone, Gilded Realm in scribes and heraldry,
+ * Neon Kingdom in HUD sensors. Same glyph library, three dialects.
+ */
+const ICONS: Record<ThemeId, Record<IconName, LucideIcon>> = {
+  "iron-crown": {
+    brand: Castle,
+    throne: Crown,
+    realm: Map,
+    quests: Swords,
+    pipeline: Hourglass,
+    sponsors: Shield,
+    treasury: Coins,
+    oracle: Eye,
+    chronicle: BookOpen,
+    trophies: Medal,
+    quality: ShieldAlert,
+  },
+  "gilded-realm": {
+    brand: Landmark,
+    throne: Crown,
+    realm: Map,
+    quests: ScrollText,
+    pipeline: Hourglass,
+    sponsors: Users,
+    treasury: Gem,
+    oracle: Sparkles,
+    chronicle: Feather,
+    trophies: Award,
+    quality: ShieldCheck,
+  },
+  "neon-kingdom": {
+    brand: Hexagon,
+    throne: Zap,
+    realm: Radar,
+    quests: Scroll,
+    pipeline: Timer,
+    sponsors: Users,
+    treasury: Vault,
+    oracle: Eye,
+    chronicle: BookMarked,
+    trophies: Trophy,
+    quality: Flame,
+  },
+};
+
+export function themeIcon(theme: ThemeId, name: IconName): LucideIcon {
+  return ICONS[theme][name];
+}

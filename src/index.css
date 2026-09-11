@@ -1,53 +1,21 @@
+@import "./theme/fonts.css";
+@import "./theme/tokens.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 252 28% 5%;
-    --foreground: 40 30% 92%;
-    --card: 250 22% 9%;
-    --card-foreground: 40 30% 92%;
-    --popover: 250 22% 9%;
-    --popover-foreground: 40 30% 92%;
-    --primary: 43 70% 55%;
-    --primary-foreground: 252 28% 8%;
-    --secondary: 250 18% 15%;
-    --secondary-foreground: 40 30% 92%;
-    --muted: 250 16% 14%;
-    --muted-foreground: 40 12% 62%;
-    --accent: 268 45% 30%;
-    --accent-foreground: 40 30% 95%;
-    --destructive: 0 62% 45%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 250 16% 18%;
-    --input: 250 16% 18%;
-    --ring: 43 70% 55%;
-    --radius: 0.75rem;
-
-    --gold: 43 70% 55%;
-    --gold-dim: 43 45% 38%;
-
-    --stage-available: 225 12% 42%;
-    --stage-reserved: 33 85% 55%;
-    --stage-closed: 152 55% 45%;
-    --stage-note-sold: 43 80% 58%;
-  }
-
   * {
     @apply border-border;
   }
 
   html {
-    color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
   }
 
   body {
     @apply bg-background text-foreground font-body antialiased;
-    background-image:
-      radial-gradient(ellipse at top, hsl(268 45% 14% / 0.55), transparent 55%),
-      radial-gradient(ellipse at bottom right, hsl(43 70% 25% / 0.18), transparent 50%);
     background-attachment: fixed;
     min-height: 100dvh;
   }
@@ -62,23 +30,8 @@
 
 @layer components {
   .parchment-card {
-    @apply rounded-lg border border-border/70 bg-card/80 shadow-[0_0_0_1px_hsl(var(--gold)/0.06),0_18px_50px_-30px_hsl(var(--gold)/0.35)] backdrop-blur-sm;
-  }
-
-  .gold-text {
-    background: linear-gradient(120deg, hsl(43 80% 72%), hsl(43 70% 52%) 45%, hsl(36 60% 40%));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
-  .gold-shimmer {
-    background: linear-gradient(110deg, hsl(43 70% 52%) 20%, hsl(43 90% 78%) 50%, hsl(43 70% 52%) 80%);
-    background-size: 200% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: shimmer 5s linear infinite;
+    @apply rounded-lg border border-border/70 shadow-[0_0_0_1px_hsl(var(--gold)/0.06),0_18px_50px_-30px_hsl(var(--gold)/0.35)] backdrop-blur-sm;
+    background-color: hsl(var(--card) / var(--card-bg-alpha));
   }
 
   .stat-label {

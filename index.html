@@ -4,15 +4,28 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/crown.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b0a12" />
+    <meta name="theme-color" content="#14161a" />
     <meta name="description" content="Terrafunded Quest v2 — the founder's war room for $10M net profit by 2027-12-31." />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=Inter:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
     <title>Quest — Exodus</title>
+    <script>
+      // Apply the persisted theme before the first paint so there is no flash of the default skin.
+      (function () {
+        var themes = { "iron-crown": "#14161a", "gilded-realm": "#efe6d2", "neon-kingdom": "#07070d" };
+        var id = "iron-crown";
+        try {
+          var stored = localStorage.getItem("quest.theme");
+          if (stored && themes[stored]) id = stored;
+        } catch (e) {}
+        var root = document.documentElement;
+        root.setAttribute("data-theme", id);
+        var light = id === "gilded-realm";
+        root.classList.toggle("dark", !light);
+        root.classList.toggle("light", light);
+        root.style.colorScheme = light ? "light" : "dark";
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", themes[id]);
+      })();
+    </script>
   </head>
   <body class="bg-background text-foreground">
     <div id="root"></div>

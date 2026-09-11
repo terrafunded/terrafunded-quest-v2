@@ -1,13 +1,18 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { Landmark, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/data/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ThemeMenu } from "@/theme/ThemeMenu";
+import { useTheme } from "@/theme/ThemeProvider";
+import { themeIcon } from "@/theme/icons";
 
 export function Login() {
   const { session, ready, configured, signIn } = useAuth();
+  const { themeId, theme } = useTheme();
+  const Brand = themeIcon(themeId, "brand");
   const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,7 +40,7 @@ export function Login() {
         className="parchment-card w-full max-w-sm p-7"
       >
         <div className="mb-6 text-center">
-          <Landmark className="mx-auto h-8 w-8 text-gold" />
+          <Brand className="mx-auto h-8 w-8 text-gold" />
           <h1 className="mt-3 font-display text-2xl uppercase tracking-[0.2em] text-gold">Exodus</h1>
           <p className="mt-1 text-xs uppercase tracking-[0.3em] text-muted-foreground">Enter the war room</p>
         </div>
@@ -68,7 +73,7 @@ export function Login() {
               />
             </div>
             {error && (
-              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-red-300" role="alert">
+              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-ember" role="alert">
                 {error}
               </p>
             )}
@@ -79,6 +84,14 @@ export function Login() {
             <p className="text-center text-xs text-muted-foreground">Read-only. Any Payments user may view; nothing here can write.</p>
           </form>
         )}
+
+        <div className="mt-6 border-t border-border/60 pt-4">
+          <div className="mb-2 flex items-baseline justify-between">
+            <span className="stat-label">Choose your realm's skin</span>
+            <span className="text-[11px] text-muted-foreground">{theme.name}</span>
+          </div>
+          <ThemeMenu />
+        </div>
       </motion.div>
     </div>
   );
