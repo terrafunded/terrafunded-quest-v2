@@ -647,6 +647,89 @@ test.describe("Phase 2: Epic", () => {
     await expect(page.getByLabel("Saved scenarios").locator("option")).toHaveCount(1);
   });
 
+  test("exodus: the verdict names a dollar amount; moving the slider from 30 to 0 changes it and the discount saved reads $0", async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto("/exodus");
+    await waitForRealm(page);
+
+    const verdict = page.getByTestId("exodus-verdict");
+    await expect(verdict).toBeVisible();
+    await expect(verdict).toHaveAttribute("data-notes-pct", "30");
+    const before = (await verdict.textContent()) ?? "";
+    expect(before).toMatch(/\$[\d.,]+[KM]?/);
+    expect(before).toMatch(/30%/);
+    // With notes in the package the discount saved is a positive dollar amount.
+    const discount = page.getByTestId("exodus-discount-saved");
+    await expect(discount).toHaveText(/^\$[\d,]+$/);
+    expect(Number(await discount.getAttribute("data-value"))).toBeGreaterThan(0);
+    // The max mark sits on the track and names a percent within the slider's range.
+    const max = Number(await page.getByTestId("exodus-max-mark").getAttribute("data-max"));
+    expect(max).toBeGreaterThanOrEqual(0);
+    expect(max).toBeLessThanOrEqual(60);
+    await expect(verdict).toHaveAttribute("data-max-notes-pct", String(max));
+
+    // 0 %: everything in cash — the sentence changes and nothing is saved on discounts.
+    const slider = page.getByTestId("exodus-notes-pct");
+    await expect(slider).toHaveValue("30");
+    await slider.fill("0");
+    await expect(slider).toHaveValue("0");
+    await expect(verdict).toHaveAttribute("data-notes-pct", "0");
+    await expect(verdict).not.toHaveText(before);
+    const after = (await verdict.textContent()) ?? "";
+    expect(after).toMatch(/\$[\d.,]+[KM]?/);
+    expect(after).toMatch(/0%/);
+    await expect(discount).toHaveText("$0");
+    await expect(discount).toHaveAttribute("data-value", "0");
+    await expect(page.getByTestId("exodus-package")).toContainText(/nothing is delivered|no se entrega nada/i);
+
+    // Reset brings 30 % back, and the original verdict with it.
+    await page.getByTestId("exodus-reset").click();
+    await expect(slider).toHaveValue("30");
+    await expect(verdict).toHaveText(before);
+    expect(errors).toEqual([]);
+  });
+
+  test("exodus: the month table runs to the deadline, today's inventory is listed by status, and a scenario survives a reload", async ({ page }) => {
+    await page.goto("/exodus");
+    await waitForRealm(page);
+
+    // One row per month from now to the deadline; the last one is December 2027 and carries the cumulative total.
+    const months = page.getByTestId("exodus-month");
+    await expect(months.first()).toBeVisible();
+    await expect(months.last()).toContainText(/(Dec|dic) 2027/);
+    expect(await months.count()).toBeGreaterThanOrEqual(12);
+
+    // Today's notes, one row per note, with a chip per status.
+    const chips = page.getByTestId("exodus-inventory-chip");
+    await expect(chips).toHaveCount(5);
+    for (const status of ["free", "needs_release", "profit_share", "excluded", "no_farm"]) {
+      await expect(page.locator(`[data-testid='exodus-inventory-chip'][data-status='${status}']`)).toBeVisible();
+    }
+    const notes = page.getByTestId("exodus-note");
+    expect(await notes.count()).toBeGreaterThan(10);
+    await expect(page.locator("[data-testid='exodus-note'][data-status='free']").first()).toBeVisible();
+    await expect(page.locator("[data-testid='exodus-note'][data-status='profit_share']").first()).toBeVisible();
+    // The default exclusion is on the list as excluded.
+    await expect(page.locator("[data-testid='exodus-note'][data-code='EAS-L04']")).toHaveAttribute("data-status", "excluded");
+    // The delivered package reports a UPB-weighted rate and term.
+    await expect(page.getByTestId("exodus-package-rate")).toHaveText(/\d+(\.\d+)?%/);
+    await expect(page.getByTestId("exodus-package-term")).toHaveText(/\d+/);
+
+    // Save a 45 % scenario, reload, load it back, delete it.
+    await page.getByTestId("exodus-notes-pct").fill("45");
+    await expect(page.getByTestId("exodus-notes-pct-value")).toHaveText("45%");
+    await page.locator("#ex-scenario-name").fill("Forty-five");
+    await page.getByTestId("exodus-save").click();
+    await page.reload();
+    await waitForRealm(page);
+    await expect(page.getByTestId("exodus-notes-pct")).toHaveValue("30");
+    await page.locator("#ex-scenario-load").selectOption("Forty-five");
+    await expect(page.getByTestId("exodus-notes-pct")).toHaveValue("45");
+    await expect(page.getByTestId("exodus-verdict")).toHaveAttribute("data-notes-pct", "45");
+    await page.getByTestId("exodus-delete").click();
+    await expect(page.locator("#ex-scenario-load option")).toHaveCount(1);
+  });
+
   test("war plan: the rotation headline renders with a turn count, the benchmark cycle and graded farms", async ({ page }) => {
     const errors = collectConsoleErrors(page);
     await page.goto("/warplan");

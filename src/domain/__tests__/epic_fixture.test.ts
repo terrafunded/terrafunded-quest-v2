@@ -5,13 +5,16 @@
  */
 import { describe, expect, it } from "vitest";
 import raw from "../__fixtures__/payments.json";
-import type { PaymentsSnapshot } from "../types";
+import type { LotLedgerRpcResult, PaymentsSnapshot } from "../types";
 import { buildRealm } from "../realm";
 import { round2 } from "../math";
 import { recentLandCostPerLot, solveWarPlan } from "../warplan";
 import { computeSeasonality } from "../seasonality";
+import { computeLotLedger } from "../lotLedger";
+import { deriveExodusDefaults, exodusVerdict, prepareExodus, runExodus, scanNotesPct, solveExodus } from "../exodus";
+import { LP_CAPITAL_TO_RETURN } from "../../config/goal";
 
-const fixture = raw as unknown as PaymentsSnapshot & { snapshotAt: string };
+const fixture = raw as unknown as PaymentsSnapshot & { snapshotAt: string; lotLedgers: LotLedgerRpcResult[] };
 const ASOF = new Date("2026-09-11T00:00:00Z");
 const realm = buildRealm(fixture, ASOF);
 
@@ -926,5 +929,211 @@ describe("fixture: EXPECTED (reservations first-class)", () => {
     expect(realm.goal.closedLotsPerMonth).toBe(4.73);
     expect(realm.oxygen.totalDaysGained).toBe(534);
     expect(realm.debt.requiredNetProfitPerDay).toBe(16_310.13);
+  });
+});
+
+describe("fixture: EXODUS ($10M back to the Alpha LPs in note fractions and cash)", () => {
+  const defaults = deriveExodusDefaults(realm, realm.warPlanDefaults.inputs);
+  const base = prepareExodus(defaults.inputs, realm);
+  const scan = scanNotesPct(base, defaults.inputs);
+  const plan = solveExodus(defaults.inputs, realm, { base, scan });
+  const warPlanCash = solveWarPlan({ ...realm.warPlanDefaults.inputs, target: LP_CAPITAL_TO_RETURN, deadline: "2027-12-31", targetMode: "cash_in_bank" }, realm);
+
+  it("prefills every input from the real data: $10M, 30 %, 2027-12-31, the real 80.92 % note-sale ratio (combined basis) and EAS-L04 excluded", () => {
+    expect(LP_CAPITAL_TO_RETURN).toBe(10_000_000);
+    expect(defaults.inputs).toMatchObject({ lpCapital: 10_000_000, notesPct: 30, deadline: "2027-12-31", noteSaleRatio: 0.8092, excludedNoteCodes: ["EAS-L04"], startingCash: 0 });
+    // discount_from_upb is a PERCENT in Payments (6 of the 15 sales carry one): the combined basis uses price ÷ implied UPB
+    // when it is recorded and price ÷ financed amount otherwise; the brief's literal price ÷ (price + discount) gives 99.98 % and is not used
+    expect(defaults.real.noteSaleRatio).toEqual({
+      used: 0.8092,
+      basis: "combined",
+      combined: 0.8092,
+      discountBased: 0.8275,
+      financedBased: 0.8045,
+      literal: 0.9998,
+      sales: 15,
+      salesWithDiscount: 6,
+      salesWithFinanced: 15,
+      discountIsPercent: true,
+    });
+    expect(defaults.real.cashKeptToday).toBe(1_362_503.84);
+    // $4,311,591.96 until Lakeview (+$495,000) and Franklin 2 (−$5,400) changed on 2026-09-11 21:15Z
+    expect(defaults.real.owedToday).toBe(4_801_191.96);
+    // every projected note is given the means of the 39 farm notes: $117,504.74 of face value at 9.46 % over 140 months
+    expect(defaults.real.futureNote).toEqual({ faceValue: 117_504.74, annualRate: 0.0946, termMonths: 140, monthlyPayment: 1_388.87, notes: 39, avgSalePrice: 127_335, downPaymentPct: 7.72 });
+  });
+
+  it("free own-capital inventory at the snapshot: 9 notes, $671,227.84 of UPB — Promised Valley 3, Olney 3, Red River 1 3 — as queried on 2026-09-11", () => {
+    const inv = plan.inventory;
+    expect(inv.free).toEqual({ notes: 9, upb: 671_227.84, farms: ["Olney", "Promised Valley", "Red River 1"] });
+    const byFarm = new Map<string, number>();
+    for (const r of inv.rows.filter((x) => x.status === "free")) byFarm.set(r.farmName ?? "—", (byFarm.get(r.farmName ?? "—") ?? 0) + 1);
+    expect(Object.fromEntries(byFarm)).toEqual({ Olney: 3, "Promised Valley": 3, "Red River 1": 3 });
+    // the rest of today's active, unsold notes
+    expect(inv.needsRelease).toEqual({ notes: 9, upb: 1_220_481.78, costToday: 488_922.41 });
+    expect(inv.profitShare).toEqual({ notes: 6, upb: 741_730.12 });
+    expect(inv.excluded).toEqual({ notes: 1, upb: 42_050.43 });
+    // 13 notes on lots that belong to no farm in Payments, every one `not_sellable`: neither delivered nor sold (OPEN_QUESTIONS)
+    expect(inv.noFarm).toEqual({ notes: 13, upb: 1_031_429.19 });
+    expect(inv.rows.filter((r) => r.status === "no_farm").every((r) => r.commercialStatus === "not_sellable")).toBe(true);
+    expect(inv.sold).toBe(15);
+    expect(inv.inactive).toBe(3);
+    // the best release today: EAS-L01 settles $4.10 per dollar (4.05 by the end of September, as the claim grows)
+    expect(inv.rows.find((r) => r.status === "needs_release")).toMatchObject({ code: "EAS-L01", farmName: "Eastland", upb: 208_750.31, settlementPerDollar: 4.1 });
+  });
+
+  it("lot ledger parity with the RPC for every lot of every fixed_interest farm (Step 1): 49 lots within $0.01", () => {
+    let compared = 0;
+    for (const rpc of fixture.lotLedgers) {
+      const ledger = computeLotLedger(rpc.farmId, fixture, new Date(`${rpc.asOf}T00:00:00Z`))!;
+      for (const row of rpc.rows) {
+        const lot = ledger.lots.find((l) => l.propertyId === row.property_id)!;
+        expect(Math.abs(lot.capital - row.lot_capital), `${rpc.farmName} lot ${row.lot_number} capital`).toBeLessThanOrEqual(0.01);
+        expect(Math.abs(lot.accruedInterest - row.accrued_return), `${rpc.farmName} lot ${row.lot_number} accrued`).toBeLessThanOrEqual(0.01);
+        expect(Math.abs(lot.credits - row.credits), `${rpc.farmName} lot ${row.lot_number} credits`).toBeLessThanOrEqual(0.01);
+        expect(Math.abs(lot.outstanding - row.lot_balance), `${rpc.farmName} lot ${row.lot_number} outstanding`).toBeLessThanOrEqual(0.01);
+        expect(lot.released, `${rpc.farmName} lot ${row.lot_number} released`).toBe(row.released_at);
+        compared += 1;
+      }
+    }
+    expect(compared).toBe(49);
+    expect(fixture.farmAcquisitions.filter((f) => f.deal_type === "fixed_interest")).toHaveLength(fixture.lotLedgers.length);
+  });
+
+  it("30 % in notes: $3.0M delivered — 9 free notes today, 2 released today (EAS-L01, FRE-L01), 14 free future notes, 2.89 released future lots — through 4.89 partial releases costing $203,192.36, no cash farm, 255.47 notes sold and $9,998,755.77 paid in cash; the capital is back 2027-10-05", () => {
+    // Until 2026-09-11 21:15Z: $197,378.52 of releases, 250.67 notes sold, $10,263,747.45 in cash, back 2027-09-26. Lakeview's 12 lots and
+    // $495,000 of Townson capital make the cash-mode War Plan close 259.36 lots (254.56) over 18 farms (19) and pay $489,600 more to
+    // sponsors before Portafolio keeps anything; Franklin 2's release ratio moved with its 25 % rate and $329,400 of capital.
+    const s = plan.scenario;
+    expect(s.notesPct).toBe(30);
+    expect(s.noteTarget).toBe(3_000_000);
+    expect(s.notesDelivered).toBe(3_000_000);
+    expect(s.cashPaidToLPs).toBe(9_998_755.77);
+    expect(s.totalReturned).toBe(12_998_755.77);
+    expect(s.feasible).toBe(true);
+    expect(s.notesCovered).toBe(true);
+    expect(s.hitDate).toBe("2027-10-05");
+    expect(s.lotsNeeded).toBe(259.36);
+    expect(s.partialReleases.count).toBe(4.89);
+    expect(s.partialReleases.cost).toBe(203_192.36);
+    expect(s.flows.partialReleaseCost).toBe(203_192.36);
+    // the last 0.11 of a projected Avery lot is released in October, once September's cash is spent
+    expect(s.partialReleases.list.map((r) => [r.label, r.monthIndex, r.ratio])).toEqual([
+      ["EAS-L01", 1, 4.05],
+      ["Avery · Sep 2026", 1, 3.95],
+      ["FRE-L01", 1, 2.64],
+      ["Eastland · Sep 2026", 1, 2.22],
+      ["Franklin 2 · Sep 2026", 1, 2.1],
+      ["Avery · Oct 2026", 2, 3.87],
+    ]);
+    expect(round2(s.partialReleases.list.reduce((a, r) => a + r.units, 0))).toBe(4.89);
+    expect(s.cashFarms).toMatchObject({ count: 0, cost: 0, purchases: [], lastPurchaseDate: null });
+    expect(s.notesSold).toEqual({ count: 255.47, proceeds: 24_087_607.72 });
+    expect(s.adSpend).toBe(864_541.07);
+    expect(s.package).toEqual({
+      totalUpb: 3_000_000,
+      notes: 27.89,
+      avgRatePct: 9.31,
+      avgTermMonths: 138.49,
+      avgRemainingMonths: 136.21,
+      existingFree: { notes: 9, upb: 671_227.84 },
+      existingReleased: { notes: 2, upb: 343_717.3 },
+      projectedFree: { notes: 14, upb: 1_645_066.36 },
+      projectedReleased: { notes: 2.89, upb: 339_988.5 },
+      cashFarm: { notes: 0, upb: 0 },
+    });
+    // the note target is met in January 2027 (December before Lakeview); from then on every note is sold (Option A)
+    expect(s.rows.findIndex((r) => r.cumulativeNotes >= 3_000_000 - 0.005)).toBe(4);
+    expect(s.rows.slice(5).every((r) => r.notesDelivered === 0)).toBe(true);
+    expect(s.rows).toHaveLength(16);
+    // September's Portafolio cash all goes to releases now ($6,453.31 reached the LPs before): 4.78 releases, the 0.11 left for October
+    expect(s.rows[0]).toMatchObject({ date: "2026-09-30", lotsClosed: 13, freeNotesAvailable: 11.19, notesDelivered: 15.98, partialReleases: 4.78, partialReleaseCost: 199_851.63, notesSold: 5, adSpend: 43_341.11, cashPaidToLPs: 0, cashCarried: 0 });
+    expect(s.rows[1]).toMatchObject({ date: "2026-10-31", partialReleases: 0.11, partialReleaseCost: round2(203_192.36 - 199_851.63) });
+    expect(s.rows[2]).toMatchObject({ cashPaidToLPs: 0, cashCarried: -34_392.2 });
+    expect(s.rows[15]).toMatchObject({ date: "2027-12-31", cumulativeNotes: 3_000_000, cumulativeCash: 9_998_755.77, cumulativeReturned: 12_998_755.77 });
+    // 3.64 fixed-interest lots never close in the plan and carry the only partner balance left at the deadline (6.44 lots / $341,957.13 before Lakeview)
+    expect(plan.unsoldLotsAtDeadline).toEqual({ lots: 3.64, partnerBalance: 193_280.12 });
+    expect(s.partnerBalanceAtDeadline).toBe(193_280.12);
+    expect(plan.latestViablePurchaseMonth).toBe(11);
+    expect(plan.latestViablePurchaseDate).toBe("2027-07-31");
+    expect(plan.verdict).toBe("With 30% in notes ($3.0M delivered): free $684K through 5 partial releases costing $203K, buy no cash farm, sell 255 notes and pay $10.0M to LPs in cash.");
+    expect(exodusVerdict(plan, "es")).toBe(
+      "Con 30% en pagarés ($3.0M entregados): liberar $684K mediante 5 liberaciones parciales por $203K, no comprar fincas con efectivo propio, vender 255 pagarés y pagar $10.0M a los LP en efectivo.",
+    );
+  });
+
+  it("versus 100 % cash: $572,400 of discount saved, no lot spared, 18 days (0.59 months) earlier; maxNotesPct is 60, the top of the slider", () => {
+    // before Lakeview: $12,667,312.84 in cash, back 2027-10-13, 254.56 lots; the 30 % plan spared 3.25 lots by landing in September.
+    // Now both plans land in October 2027, after the War Plan's last closing (Sep 2027), so every one of the 259.36 lots is sold either way.
+    expect(plan.baseline).toMatchObject({ notesPct: 0, notesDelivered: 0, cashPaidToLPs: 12_401_779.56, hitDate: "2027-10-23", lotsNeeded: 259.36 });
+    expect(plan.baseline.notesSold).toEqual({ count: 283.36, proceeds: 26_496_001.89 });
+    expect(plan.versusCash).toEqual({ discountSaved: 572_400, lotsNotNeeded: 0, monthsEarlier: 0.59, daysEarlier: 18, baselineHitDate: "2027-10-23", scenarioHitDate: "2027-10-05" });
+    // discount saved = delivered UPB × (1 − sale ratio)
+    expect(plan.versusCash.discountSaved).toBe(round2(3_000_000 * (1 - 0.8092)));
+    expect(plan.maxNotesPct).toBe(60);
+    expect(plan.coverage).toHaveLength(61);
+    expect(plan.coverage.every((c) => c.notesCovered && c.feasible)).toBe(true);
+    // 60 %: 30.75 releases costing $1,136,230.49 free $3.7M of future lots; the capital is back 2027-09-18 with $7,569,060.67 in cash
+    const top = runExodus(base, { ...defaults.inputs, notesPct: 60 });
+    expect(top).toMatchObject({ notesDelivered: 6_000_000, cashPaidToLPs: 7_569_060.67, hitDate: "2027-09-18" });
+    expect(top.partialReleases).toMatchObject({ count: 30.75, cost: 1_136_230.49 });
+    expect(top.cashFarms.count).toBe(0);
+    expect(top.package).toMatchObject({ avgRatePct: 9.37, avgTermMonths: 139.71, projectedReleased: { notes: 29.75, upb: 3_479_250.46 } });
+  });
+
+  it("notesPct = 0 is the War Plan's cash-mode plan: the same 259.36 lots, 18 farms and $864,541.07 of ads month by month; the cash differs by a bridge that closes to $0", () => {
+    const r = plan.reconciliation;
+    expect(r.production).toEqual({ lotsClosed: 259.36, warPlanLotsClosed: 259.36, farmsBought: 18, warPlanFarmsBought: 18, adSpend: 864_541.07, warPlanAdSpend: 864_541.07, closingsMatch: true });
+    expect(warPlanCash.required.lotsNeeded).toBe(259.36);
+    expect(warPlanCash.required.farmsToBuy).toBe(18);
+    expect(base.closingsByMonth.slice(1).map((x) => round2(x))).toEqual(warPlanCash.required.rows.map((row) => row.lotsClosed));
+    // the Oracle's own arithmetic replayed on the same consumption lands on the War Plan's metric within $250 (16 rows of rounded cents on $27M of receipts)
+    expect(r.warPlanCash).toEqual({ start: -3_438_688.12, receipts: 26_994_399.49, outlays: 8_433_360, takePaid: 5_116_413.98, atDeadline: 10_005_937.39, warPlanTargetAtDeadline: 10_006_139.81 });
+    expect(Math.abs(r.warPlanCash.atDeadline - warPlanCash.required.targetAtDeadline)).toBeLessThan(250);
+    // the Exodus pays $12,401,779.56 in cash at 0 %: it starts from $0 instead of cash kept − owed, sells today's notes, pays partners lot by lot and pays the ads
+    expect(r.baselineCashPaid).toBe(12_401_779.56);
+    expect(r.bridge).toEqual({
+      replayDrift: -202.42,
+      startingPosition: 3_438_688.12,
+      receipts: -77_147.76,
+      existingNotes: 1_034_918.91,
+      partnerPayments: -1_136_076.03,
+      settlementSpend: 0,
+      adSpend: -864_541.07,
+      unpaidCarry: 0,
+      residual: 0,
+    });
+    const b = r.bridge;
+    expect(round2(r.warPlanCash.warPlanTargetAtDeadline + b.replayDrift + b.startingPosition + b.receipts + b.existingNotes + b.partnerPayments + b.settlementSpend + b.adSpend + b.unpaidCarry + b.residual)).toBe(r.baselineCashPaid);
+    expect(plan.baseline.flows).toEqual({
+      startingCash: 0,
+      projectedReceipts: 26_917_251.73,
+      existingReceipts: 2_128_326.92,
+      projectedPartnerPaid: 14_685_850.01,
+      existingPartnerPaid: 1_093_408.01,
+      partialReleaseCost: 0,
+      cashFarmCost: 0,
+      adSpend: 864_541.07,
+      cashCarriedAtDeadline: 0,
+    });
+  });
+
+  it("for every percent from 0 to maxNotesPct, raising the percent never increases the cash paid to LPs and never increases the lots that must be sold", () => {
+    expect(plan.coverage.map((c) => c.pct)).toEqual(Array.from({ length: 61 }, (_, i) => i));
+    for (let i = 1; i <= plan.maxNotesPct; i++) {
+      const prev = plan.coverage[i - 1]!;
+      const cur = plan.coverage[i]!;
+      expect(cur.cashPaidToLPs, `pct ${i} cash`).toBeLessThanOrEqual(prev.cashPaidToLPs + 0.005);
+      expect(cur.lotsNeeded, `pct ${i} lots`).toBeLessThanOrEqual(prev.lotsNeeded + 0.005);
+      expect(cur.notesDelivered, `pct ${i} delivered`).toBe(round2((LP_CAPITAL_TO_RETURN * i) / 100));
+    }
+    // and the settlement spend never falls when the percent rises
+    for (let i = 1; i <= plan.maxNotesPct; i++) expect(plan.coverage[i]!.partialReleaseCost).toBeGreaterThanOrEqual(plan.coverage[i - 1]!.partialReleaseCost - 0.005);
+  });
+
+  it("changes nothing in the War Plan, the Oracle or the goal", () => {
+    expect(realm.warPlanDefaults.inputs.target).toBe(10_000_000);
+    expect(realm.futures.required.exitDate).toBe("2027-12-11");
+    expect(realm.goal.netProfitToDate).toBe(2_236_378.34);
   });
 });

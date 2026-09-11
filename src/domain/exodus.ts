@@ -368,6 +368,8 @@ interface TownsonPool {
 interface NoteSource {
   key: string;
   farmName: string;
+  /** wp_farm: who the War Plan has funding it ("Kevin Concua + unfunded"); "" for a pool. */
+  fundingLabel: string;
   kind: "pool" | "wp_farm";
   wpFarm: OracleFarm | null;
   deliverability: Deliverability;
@@ -652,6 +654,7 @@ export function prepareExodus(inputs: Pick<ExodusInputs, "lpCapital" | "deadline
     sources.push({
       key: `pool:${f.farmId}`,
       farmName: f.name,
+      fundingLabel: "",
       kind: "pool",
       wpFarm: null,
       deliverability: dealType === "profit_share" ? "never" : dealType === "fixed_interest" ? "release" : "free",
@@ -678,6 +681,7 @@ export function prepareExodus(inputs: Pick<ExodusInputs, "lpCapital" | "deadline
     sources.push({
       key: `wp:${f.index}`,
       farmName: `Farm ${f.index + 1} (${label})`,
+      fundingLabel: label,
       kind: "wp_farm",
       wpFarm: f,
       deliverability: c.deliverability,
@@ -827,6 +831,26 @@ export interface PartialRelease {
   source: "existing" | "projected";
 }
 
+/** How a delivered note reached the LPs. */
+export type DeliveredVia = "existingFree" | "existingReleased" | "projectedFree" | "projectedReleased" | "cashFarm";
+
+/** One delivery to the LPs: a note (or fraction) at its UPB of the delivery month. */
+export interface DeliveredNote {
+  /** Note code for today's notes; "<farm> · <closing month>" for a projected batch. */
+  label: string;
+  farmName: string;
+  source: "existing" | "projected";
+  via: DeliveredVia;
+  monthIndex: number;
+  date: string;
+  /** Whole notes or the fraction of the last one. */
+  units: number;
+  /** UPB per unit in the delivery month. */
+  upbPerUnit: number;
+  /** units × upbPerUnit. */
+  value: number;
+}
+
 export interface DeliveredPackage {
   totalUpb: number;
   notes: number;
@@ -866,6 +890,8 @@ export interface ExodusScenario {
   /** Notes freed and delivered at no cost. */
   freeNotesDelivered: number;
   rows: ExodusMonthRow[];
+  /** Every delivery in order, month by month. */
+  deliveries: DeliveredNote[];
   package: DeliveredPackage;
   /** Partner balances no lot proceeds pay in this model: unsold fixed-interest lots, sold notes that fell short, sponsor capital not yet returned. */
   partnerBalanceAtDeadline: number;
@@ -927,12 +953,25 @@ interface MutableTownson {
   capital: number;
 }
 
-type PackageBucket = "existingFree" | "existingReleased" | "projectedFree" | "projectedReleased" | "cashFarm";
+type PackageBucket = DeliveredVia;
 
 /** One way to spend Portafolio cash on settlement this month, ranked by settlement per dollar. */
 type AllocationOption =
   | { kind: "release"; tr: Tranche; ratio: number; cost: number; upb: number; sortDate: string; label: string }
   | { kind: "farm"; source: NoteSource; ratio: number; cost: number; value: number; sortDate: string; label: string };
+
+/** What the allocation ranks: settlement per dollar, and the earliest date on a tie. */
+export interface RankedOption {
+  ratio: number;
+  /** ISO date used to break ties: the note's start date or the batch's closing month end. */
+  sortDate: string;
+  label: string;
+}
+
+/** Highest settlement per dollar first; equal ratios go to the earliest date, then the label. */
+export function compareAllocationOptions(a: RankedOption, b: RankedOption): number {
+  return b.ratio - a.ratio || a.sortDate.localeCompare(b.sortDate) || a.label.localeCompare(b.label);
+}
 
 const EPS = 1e-9;
 
@@ -959,12 +998,14 @@ export function runExodus(base: ExodusBase, inputs: Pick<ExodusInputs, "lpCapita
   const rows: ExodusMonthRow[] = [];
   const releases: PartialRelease[] = [];
   const purchases: CashFarmPurchase[] = [];
+  const deliveries: DeliveredNote[] = [];
   const pkg = { upb: 0, notes: 0, rate: 0, term: 0, remaining: 0, existingFree: { notes: 0, upb: 0 }, existingReleased: { notes: 0, upb: 0 }, projectedFree: { notes: 0, upb: 0 }, projectedReleased: { notes: 0, upb: 0 }, cashFarm: { notes: 0, upb: 0 } };
   let soldCount = 0;
   let soldProceeds = 0;
   let adTotal = 0;
   let freeDelivered = 0;
   const flows = { projectedReceipts: 0, existingReceipts: 0, projectedPartnerPaid: 0, existingPartnerPaid: 0, releases: 0, farms: 0 };
+  let releaseUnits = 0;
 
   const tranches: Tranche[] = base.existing.map((e) => ({
     id: `note:${e.row.noteId}`,
@@ -992,6 +1033,9 @@ export function runExodus(base: ExodusBase, inputs: Pick<ExodusInputs, "lpCapita
   }));
 
   const isFree = (s: NoteSource) => s.deliverability === "free" || swapped.has(s.key);
+  /** A War Plan farm Portafolio buys with its own cash instead of the plan's funding. */
+  const cashFarmName = (s: NoteSource) => `Farm ${(s.wpFarm?.index ?? 0) + 1} (own cash instead of ${s.fundingLabel})`;
+  const sourceName = (s: NoteSource) => (s.kind === "wp_farm" && swapped.has(s.key) ? cashFarmName(s) : s.farmName);
   const projectedUpb = (closeMonth: number) => (t: number) => futureSchedule[Math.max(0, Math.min(futureSchedule.length - 1, t - closeMonth))] ?? 0;
   const baseCostFor = (s: NoteSource): ((t: number) => number) => {
     if (s.waterfall !== "fixed") return () => 0;
@@ -1049,6 +1093,7 @@ export function runExodus(base: ExodusBase, inputs: Pick<ExodusInputs, "lpCapita
     const value = units * upb;
     delivered += value;
     tr.unitsHeld -= units;
+    deliveries.push({ label: tr.label, farmName: tr.farmName, source: tr.source, via, monthIndex: t, date: monthEndIso(grid, t), units: round2(units), upbPerUnit: round2(upb), value: round2(value) });
     pkg.upb += value;
     pkg.notes += units;
     pkg.rate += value * tr.ratePct;
@@ -1089,8 +1134,8 @@ export function runExodus(base: ExodusBase, inputs: Pick<ExodusInputs, "lpCapita
       const free = isFree(s);
       const tr: Tranche = {
         id: `${s.key}:${t}`,
-        label: `${s.farmName} · ${warPlanMonthLabel(monthEndIso(grid, t))}`,
-        farmName: s.farmName,
+        label: `${sourceName(s)} · ${warPlanMonthLabel(monthEndIso(grid, t))}`,
+        farmName: sourceName(s),
         source: "projected",
         sourceKey: s.key,
         deliverability: free ? "free" : s.deliverability,
@@ -1122,8 +1167,8 @@ export function runExodus(base: ExodusBase, inputs: Pick<ExodusInputs, "lpCapita
     const candidates = tranches
       .filter((tr) => tr.unitsHeld > EPS && tr.closeMonth <= t && tr.deliverability === "release")
       .map((tr) => ({ tr, claim: claimOf(tr, t), upb: tr.upbAt(t) }))
-      .map((c) => ({ ...c, ratio: c.claim > EPS ? c.upb / c.claim : Number.POSITIVE_INFINITY }))
-      .sort((a, b) => b.ratio - a.ratio || a.tr.sortDate.localeCompare(b.tr.sortDate) || a.tr.label.localeCompare(b.tr.label));
+      .map((c) => ({ ...c, ratio: c.claim > EPS ? c.upb / c.claim : Number.POSITIVE_INFINITY, sortDate: c.tr.sortDate, label: c.tr.label }))
+      .sort(compareAllocationOptions);
     let covered = 0;
     for (const c of candidates) {
       c.tr.reserved = !targetMet() && covered < need - EPS;
@@ -1172,7 +1217,7 @@ export function runExodus(base: ExodusBase, inputs: Pick<ExodusInputs, "lpCapita
         if (value <= EPS || s.wpFarm.cost <= 0) continue;
         options.push({ kind: "farm", source: s, ratio: value / s.wpFarm.cost, cost: s.wpFarm.cost, value, sortDate: monthEndIso(grid, t), label: s.farmName });
       }
-      options.sort((a, b) => b.ratio - a.ratio || a.sortDate.localeCompare(b.sortDate) || a.label.localeCompare(b.label));
+      options.sort(compareAllocationOptions);
       for (const o of options) {
         if (targetMet() || cash <= EPS) break;
         // Paying LPs in cash settles $1 per $1: nothing below that ratio is worth buying.
@@ -1186,7 +1231,7 @@ export function runExodus(base: ExodusBase, inputs: Pick<ExodusInputs, "lpCapita
           swapped.add(o.source.key);
           month.farms += 1;
           month.farmCost += o.cost;
-          purchases.push({ wpFarmIndex: o.source.wpFarm?.index ?? -1, label: o.source.farmName, monthIndex: t, date: monthEndIso(grid, t), cost: round2(o.cost), freeNoteValue: round2(o.value), ratio: round2(o.ratio) });
+          purchases.push({ wpFarmIndex: o.source.wpFarm?.index ?? -1, label: cashFarmName(o.source), monthIndex: t, date: monthEndIso(grid, t), cost: round2(o.cost), freeNoteValue: round2(o.value), ratio: round2(o.ratio) });
           continue;
         }
         const tr = o.tr;
@@ -1194,6 +1239,7 @@ export function runExodus(base: ExodusBase, inputs: Pick<ExodusInputs, "lpCapita
           if (cash + EPS < o.cost) continue;
           cash -= o.cost;
           flows.releases += o.cost;
+          releaseUnits += 1;
           tr.partnerPaidPerUnit += o.cost;
           tr.released = true;
           month.releases += 1;
@@ -1209,6 +1255,7 @@ export function runExodus(base: ExodusBase, inputs: Pick<ExodusInputs, "lpCapita
           if (units <= EPS) continue;
           cash -= units * o.cost;
           flows.releases += units * o.cost;
+          releaseUnits += units;
           month.releases += units;
           month.releaseCost += units * o.cost;
           // The released units leave the tranche settled: their claim is paid and their notes delivered;
@@ -1322,12 +1369,13 @@ export function runExodus(base: ExodusBase, inputs: Pick<ExodusInputs, "lpCapita
     hitDate,
     lotsNeeded: round2(hitMonthIndex === null ? lotsClosedTotal : lotsNeeded),
     lotsClosedTotal: round2(lotsClosedTotal),
-    partialReleases: { count: round2(sum(releases.map((r) => r.units))), cost: round2(sum(releases.map((r) => r.cost))), list: releases },
+    partialReleases: { count: round2(releaseUnits), cost: round2(flows.releases), list: releases },
     cashFarms: { count: purchases.length, cost: round2(sum(purchases.map((p) => p.cost))), purchases, lastPurchaseDate: purchases.length > 0 ? (purchases[purchases.length - 1]?.date ?? null) : null },
     notesSold: { count: round2(soldCount), proceeds: round2(soldProceeds) },
     adSpend: round2(adTotal),
     freeNotesDelivered: round2(freeDelivered),
     rows,
+    deliveries,
     package: {
       totalUpb: round2(pkg.upb),
       notes: round2(pkg.notes),
@@ -1448,7 +1496,7 @@ export function reconcileWithWarPlan(base: ExodusBase, baseline: ExodusScenario)
     residual: 0,
   };
   const explained = cash.warPlanTargetAtDeadline + bridge.replayDrift + bridge.startingPosition + bridge.receipts + bridge.existingNotes + bridge.partnerPayments + bridge.settlementSpend + bridge.adSpend + bridge.unpaidCarry;
-  bridge.residual = round2(baseline.cashPaidToLPs - explained);
+  bridge.residual = round2(baseline.cashPaidToLPs - explained) || 0;
   return {
     production: {
       lotsClosed: round2(baseline.lotsClosedTotal),
