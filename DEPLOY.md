@@ -67,11 +67,15 @@ Add one secret in Cursor → Cloud Agents → Secrets for this repo:
 | `VERCEL_TOKEN` | https://vercel.com/account/tokens → Create → scope: the team that will own the project |
 
 Optionally also `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` (from `.vercel/project.json` after a
-`vercel link` on any machine) to skip project creation. Then ask the agent to "deploy v2"; it will
-run, with no prompts:
+`vercel link` on any machine) to skip project creation.
+
+Secrets are injected only into VMs **started after** the secret was saved: a running agent does not
+see a token added mid-conversation (checked on 2026-09-11 — `VERCEL_TOKEN` was saved but absent
+from every process environment on the live VM). Start a **new** Cloud Agent on `v2` and ask it to
+"deploy v2 following Option B in DEPLOY.md"; it will run, with no prompts:
 
 ```bash
-npx -y vercel@latest pull --yes --environment=production --token "$VERCEL_TOKEN"
+npx -y vercel@latest link --yes --project terrafunded-quest-v2 --token "$VERCEL_TOKEN"
 printf '%s' "$VITE_SUPABASE_URL"      | npx -y vercel@latest env add VITE_SUPABASE_URL      production --token "$VERCEL_TOKEN"
 printf '%s' "$VITE_SUPABASE_ANON_KEY" | npx -y vercel@latest env add VITE_SUPABASE_ANON_KEY production --token "$VERCEL_TOKEN"
 npx -y vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
