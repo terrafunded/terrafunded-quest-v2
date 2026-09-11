@@ -11,12 +11,12 @@
 | **Check** | `npm run verify:live -- <url>` (`scripts/verify-live.ts`): deep link `/pipeline` is not a 404, signs in as the viewer, asserts the Throne Room net-profit counter is a real dollar amount > 0 and reads the trapped-profit counter and the verdict, then picks each of the three themes on `/login`, asserts `html[data-theme]` + `localStorage` and that the choice survives a reload, and saves `docs/live-<theme>.jpg`. Run against the local production build (`http://localhost:4173`) it reports net profit **$2,272,304**, trapped **$1,116,863**, "You need 8.31 lots/month; you are doing 4.4." and all three skins switching — the same run is the acceptance test for the live URL. |
 
 Branch `v2`. Snapshot of live Payments taken **2026-09-11 02:07 UTC** (`npm run snapshot`).
-Last full verification (build · lint · 265 unit tests · 227 Playwright tests): **2026-09-11**.
+Last full verification (build · lint · 297 unit tests · 231 Playwright tests): **2026-09-11**.
 
 Order of work, as requested: Phase 1 numbers verified → connection check → domain reproduces the
 verified numbers → **Phase 2: Epic** → **Pipeline layer** → **three visual themes + POLISH loops
-+ performance/mobile audit** → **War Plan + Rotation** → **Data Quality for operations** (all at
-the end of the file).
++ performance/mobile audit** → **War Plan + Rotation** → **Data Quality for operations** →
+**Reservations first-class** (all at the end of the file).
 
 ## Payments connection check (`npm run check`, 2026-09-11 02:52 UTC)
 
@@ -409,3 +409,43 @@ and the WhatsApp text stays Spanish. Full run: 227 Playwright tests green.
 **Open questions** #59–#64 in `OPEN_QUESTIONS.md` (live drift, the `since` date, English Payments
 paths in both languages, review keys, WhatsApp always Spanish, price-only dollars and the two
 "Red River 1" properties).
+
+## Reservations first-class — status (2026-09-11, fixture numbers pinned in `epic_fixture.test.ts` and `expected.test.ts`)
+
+Reservations now exist everywhere a closing does, with one rule kept intact: **closings stay the
+only source of realized net profit**. Nothing in `src/domain/expected.ts` feeds the goal, the
+verdict, the oxygen score or the ledger totals; it adds an *expected* layer beside them.
+
+| Piece | Where | Fixture figure |
+|---|---|---|
+| Expected close per reservation | `computeExpected`: `expectedCloseDate = reservation_date + round(medianDaysToClose)` — the farm's own median (`pipeline.farmById`) when it has closed lots with both dates, else the realm's; `expectedNetProfit = netProfitAtStake × conversion`, conversion = `pctWithCancellations ?? pct ?? 100` | realm median **63 d** (Titus 73, Lamar 41.5, Promised Valley 90, Freestone 70, Eastland 63, Wichita 63; Avery/Franklin/Franklin 2 fall back to the realm); conversion **74.47 %** (with cancellations = without: the data has none, #57) |
+| Committed | Σ expectedNetProfit over live reservations, with the month the last one lands (`landsBy`) and the largest month (`peakMonth`) | **33 live reservations · $1,654,864.13 committed of $2,222,188.97 at stake · lands by Dec 2026 · peak Nov 2026**; **16 overdue** ($831,727.63) — exactly the stuck set |
+| `expectedByMonth` | count, count × conversion, Σ expected, Σ at stake, `past` flag per month | Jul 6 and Aug 9 (past), **Sep 3, Oct 6, Nov 8 → 5.96 closings / $319,008.02**, Dec 1 |
+| Two paces | trailing 90 days: `reservationsPerMonth` = every reservation made in the window (live, closed since or cancelled), `closingsPerMonth` = closings; `requiredReservationsPerMonth = requiredClosingsPerMonth ÷ conversion` | **22 reservations → 7.44/month; 13 closings → 4.4/month; need 8.31 closings → 11.16 reservations/month** |
+| This month / next month | reservations and closings dated in the month, plus expected closings from reservations already made | **Sep 2026: 8 reservations, 0 closings, 3 expected (2.23 closings, $205,868.67); Oct: 6 expected (4.47 closings, $310,418.76)** |
+| Oracle · four futures | `futures.ts`: the **current pace** schedules every live reservation to close on its expected date (overdue ones in the first month) for its own expected net profit, then continues at `reservationsPerMonth × conversion` once the median lag has passed; the **required** and **one more farm** futures build on it; the old closings-only projection stays as the fourth line **"If no reservation ever closed"**. `oracle.ts` gained `scheduled` closings and `paceLagDays`; the page runs the sliders with the same schedule (toggle "With the 33 live reservations" / "Closings only") | current **2028-06-11** (5.54 lots/month after the lag) · required **2027-12-11** (183 d earlier, 8.67) · one more farm **2028-04-11** (61 d earlier) · closings only **2029-03-11** (273 d later, 4.4 — the previous "current pace"); first month 15.64 scheduled closings (21 × 74.47 %) |
+| Oxygen · provisional | `oxygen.ts`: each live reservation earns `daysIfClosed × conversion` provisional days, measured at the pace of its reservation day; a closing converts them to confirmed (the existing per-lot figure), a cancellation removes them. The Throne Room score shows both; `oxygen-score` and the ledger `data-value` stay confirmed-only | **547 confirmed / +342 provisional** (Wichita Lot 26: 5 days if closed → 4 provisional at $8,644/day; Titus Lot 2: 153 → 114 at $403/day, #67) |
+| Throne Room | Committed counter beside the net-profit counter with "at stake × conversion · expected by <month> · N overdue"; two pace lines *"Reserving 7.44/month, closing 4.4/month"* and *"Need 11.16 reservations/month · 8.31 closings/month at 74 % conversion"*; "This month" strip (reservations, closings, closings expected next month from reservations already made) | — |
+| Streaks + trophies | `realm.reservationStreaks` reuses `computeStreaks` over `reservationsMade` (net at stake as the money); Trophies page shows both panels; four pledge trophies (`Steady Pledges` 3 months, `Pledge After Pledge` 3 weeks, `The Long Line` 6 weeks, `Market Day` 3 in a week) | reservation streak **3 weeks now, best 6 (ended 2026-06-21), best week 2026-W22 with 7, best month May 2026 with 17 ($915,709 at stake), 8 consecutive months**; **29 trophies, 21 earned** |
+| Chronicle | a reservation reads *"… pledged for Lot 26 of Wichita at $117,600 — the closing is expected around November 5, 4 provisional days gained"* (or *"was expected around July 14 and is 59 days late"*); a closing reads *"… claimed Lot 3 of Promised Valley for $116,500, 90 days after Daniel's reservation"*; cancelled cases produce a `reservation` event ("later cancelled") and a `cancellation` event ("withdrew the pledge … after N days; the lot returned to the market and the days it promised went with it"); filter "Cancelled" | 69 reservation, 37 closing, **0 cancellation** events (#65) |
+| Campaigns | `campaigns.ts`: a farm that would be "losing ground" but has live reservations is **`closing_pending`** with the count ("12 reservations waiting to close, no closing yet"); dotted ring on the map, "Reservations waiting" row in the panel | Avery and Franklin: closing pending (they were "losing ground") |
+| Quests ledger | "Expected close" column (date, *in N d / N d late*, which median), sortable; filter **"Expected this month (n)"** (`?filter=expected`); reserved rows show `~+Nd` provisional oxygen in a lighter style, outside the confirmed totals | 3 expected in Sep 2026 |
+
+**Tests.** 297 unit tests: `expected.test.ts` (17) builds a synthetic realm with a farm median vs
+the realm fallback, an overdue reservation, a cancelled-then-re-reserved lot and a farm without
+closings — conversion 66.67 % with the cancellation, expected dates, months, both paces
+(5 reservations → 1.69/month, 12.66 required closings → 18.99 reservations), this/next month,
+provisional oxygen with no pace, `closing_pending`, cancellation events and prose, reservation
+streak months, and `runOracle` with scheduled closings and a pace lag; `epic_fixture.test.ts`
+pins the fixture: **8 reservations in September 2026**, **November: 8 expected → 5.96 closings /
+$319,008.02**, **11.16 required reservations per month**, the committed amount, the four futures
+and their series, 547/342 oxygen, the pledge trophies and the narrated lines. e2e (desktop +
+mobile): the Committed counter with its landing month, both pace lines and the This-month strip;
+the provisional oxygen figure equals the ledger's `~+Nd` cells; four Oracle futures with the
+reservations toggle; the Expected-close column and filter; closing-pending campaigns; both streak
+panels; reservation/closing/cancellation prose. Full run: 231 Playwright tests green.
+
+**Open questions** #65–#71 in `OPEN_QUESTIONS.md` (no cancellation date in Payments, overdue
+reservations in the first Oracle month, provisional days at slow paces, what counts as a
+reservation made, September's eighth reservation, the pace lag, expected months on the fixture
+vs live).

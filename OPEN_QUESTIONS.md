@@ -598,3 +598,84 @@ disagree on the down payment ($1,000 on each Lamar lot, $5,000 on Eastland 3, $2
 left out of the headline dollar. A blank farm capital or a missing closing date has no dollar to
 add. Two different properties in Payments are both named "Red River 1", so
 two lot cards share that title (they are keyed by property id, not by name).
+
+## 65. Reservations: Payments records no cancellation date, and the data holds no cancellation
+
+A cancelled file case keeps its `reservation_date` but nothing says *when* the buyer withdrew.
+`Lot.cancellations` therefore dates the cancellation by the case's `updated_at`, falling back to
+`created_at` and then to the reservation date itself; the Chronicle's "withdrew the pledge …
+after N days" and the day a provisional oxygen figure disappears both rest on that
+approximation. Every `created_at` in the snapshot is the import time (#60), so on the fixture the
+approximation would be wrong by months — but the fixture and the live database hold **zero**
+cancelled cases (#57), so no cancellation event, prose line or forfeited provisional day is
+rendered anywhere from real data. The behaviour lives in the synthetic tests only
+(`expected.test.ts`: two cancelled cases, one lot re-reserved after its cancellation). If Payments
+ever adds a cancellation timestamp, `computeLots` is the one place to read it.
+
+## 66. Expected: 16 of the 33 live reservations are already past their expected date
+
+The realm's median reservation → closing lag is 63 days (per farm where the farm has closings:
+Titus 73, Lamar 41.5, Promised Valley 90, Freestone 70, Eastland 63, Wichita 63; Avery, Franklin
+and Franklin 2 have none and use 63). Sixteen live reservations — exactly the "stuck 60+ days"
+set — are past that date, with $831,727.63 of expected net profit between them. The model does
+not decay them: each is still worth `netProfitAtStake × 74.47 %`, and the Oracle's current pace
+books all sixteen in its **first** month (21 reservations × 74.47 % = 15.64 closings scheduled
+there: the sixteen overdue plus the five due by 11 October). That is the optimistic reading of the brief
+("schedules every live reservation to close on its expected date"); a per-lot decay with age
+would move the current-pace exit later than 2028-06-11 and is not in the data — the cohort
+conversion already includes reservations that waited this long and closed.
+
+## 67. Oxygen: provisional days are measured at the pace of the reservation day
+
+Confirmed oxygen values a closing at the realm's pace on the closing day; provisional oxygen does
+the same on the reservation day, so a reservation made when the realm was closing slowly is worth
+many more days than one made now. Titus Lot 2 (reserved 2026-05-02, $61,723 at stake) is worth
+**153 days if closed → 114 provisional** at that day's $403/day, while Wichita Lot 26 (reserved
+2026-09-03, $40,097) is worth **5 → 4** at today's $8,644/day. The +342 provisional total is
+therefore dominated by the May reservations, the same way the 547 confirmed days are dominated by
+early closings. Measuring every reservation at today's pace would give a flatter figure
+(≈ 2,222,189 ÷ 8,644 × 74.47 % ≈ 191 days) but would break the symmetry "the closing converts the
+same days it was promised". A reservation older than the first closing has no pace to measure and
+uses today's.
+
+## 68. Paces: a "reservation made" counts whatever became of it
+
+`reservationsPerMonth` counts every reservation dated inside the trailing 90 days — still live,
+closed since, or cancelled — because the question it answers is "how fast are we signing", and a
+reservation that closed within the window is a success, not a non-event. Fixture: **22 → 7.44 per
+month**, identical to `pipeline.reservationsMadePerMonth`; the 21 still-waiting reservations in
+the same window would give 7.10. `closingsPerMonth` (13 → 4.4) is the goal's own trailing pace,
+so the two lines on the Throne Room and the verdict never disagree. The required line divides the
+goal's required closings by the conversion (8.31 ÷ 0.7447 = **11.16 reservations per month**),
+and the Oracle's steady pace after the lag is the reverse product (7.44 × 0.7447 = 5.54).
+
+## 69. September 2026 has eight reservations, one of them on a lot sold in 2025
+
+The "Reservations this month" figure is 8: seven live reservations (Wichita 26, 12, 13, Titus 4,
+5, Franklin 2 Lot 11, Promised Valley 14) plus **Lamar Lot 5**, whose file case is dated
+2026-09-07 although its note was sold on 2025-11-05 — the `reservation_after_note_start` issue
+already on `/quality`. The count follows the data as recorded rather than guessing which date is
+wrong; live Payments has since closed that case (#59), so the deployed site shows **7** for
+September. Nothing else moves: the lot is `note_sold`, so it carries no expected close, no
+provisional oxygen and no committed dollar.
+
+## 70. Oracle: the steady pace waits out the median lag
+
+In the reservation-aware current pace, a reservation signed today cannot close before the median
+lag has passed, so the flat `reservationsPerMonth × conversion` pace starts only after
+`asOf + 63 days` (prorated inside the month it starts: December 2026 books 2.98 scheduled + 5.17
+flat = 8.15). Until then only the scheduled reservations close. On the fixture every month still
+beats the "if no reservation ever closed" line (15.64, 5.96, 8.15, then 5.54 against a flat 4.4)
+because of the backlog; a realm with few live reservations would show *fewer* closings than the
+closings-only line during the lag, which is the honest reading — nothing signed today closes
+tomorrow. The War Plan keeps its own closings-only solver (#46) and is untouched.
+
+## 71. Expected months move with the live data; the e2e checks shape, not counts
+
+`expectedByMonth`, "Expected this month (n)", "closings expected next month" and the landing
+month all depend on today's date and on which reservations are live in Payments. The fixture
+says 3 due in September and 6 in October 2026; the live database drifts daily (#50, #59), and on
+2026-10-01 the whole strip shifts a month. The unit tests pin the fixture at `ASOF = 2026-09-11`;
+the e2e asserts every reservation carries an ISO expected date, that the filter keeps only rows
+whose `data-month` is the browser's current month, and that the counters are non-negative numbers
+— never the fixture values.
