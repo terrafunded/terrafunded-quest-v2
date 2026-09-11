@@ -1,0 +1,21 @@
+import { expect, test as setup } from "@playwright/test";
+import { mkdirSync } from "node:fs";
+
+const authFile = "playwright/.auth/user.json";
+
+/** Logs in once with the env credentials and stores the session for every project. */
+setup("authenticate", async ({ page }) => {
+  const email = process.env.QUEST_TEST_EMAIL;
+  const password = process.env.QUEST_TEST_PASSWORD;
+  if (!email || !password) throw new Error("QUEST_TEST_EMAIL and QUEST_TEST_PASSWORD must be set (see .env.example)");
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Enter" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByTestId("net-profit-counter")).toBeVisible();
+
+  mkdirSync("playwright/.auth", { recursive: true });
+  await page.context().storageState({ path: authFile });
+});
