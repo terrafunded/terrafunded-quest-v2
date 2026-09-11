@@ -841,3 +841,167 @@ say, recorded here rather than guessed:
 Also observed: `credit_detail.kind` uses exactly `down_payment` · `note_sale` · `cash_sale`, which the
 port mirrors; the two 2026-09-11 snapshots (19:17 and 19:42 UTC) differ only in Avery Lot 4's stage
 ("Onboarding de RMLO" → "Aprobado por RMLO", 31 % → 35 %), which no pinned number reads.
+
+## 81. Exodus: which note-sale ratio is the "real" one
+
+The brief asked for `sale_price ÷ (sale_price + discount_from_upb)` when `discount_from_upb` is
+populated, else `sale_price ÷ notes.financed_amount`. On the 6 sales that carry it,
+`discount_from_upb` equals `100 × (1 − sale_price ÷ current_upb)` within 0.01 on every row — it is a
+**percent, not dollars** — so the literal formula gives **99.98 %** and says nothing about the
+discount. `noteSaleRatioReal()` computes all of them and the page shows each with its basis: the
+**combined 80.92 %** that is used (per sale, the unpaid balance the recorded percent implies when it
+is there, else the financed amount), the discount-only **82.75 %** (6 sales), the financed-only
+**80.45 %** (15 sales) and the literal 99.98 %. The Oracle's `noteSalePct` stays the fallback if
+`note_sales` were ever empty. The input is editable, so a different reading costs one keystroke; the
+discount saved and the sale proceeds move with it (at 30 %, $572,400 = $3,000,000 × (1 − 0.8092)).
+
+## 82. Exodus: Portafolio starts the loop with $0
+
+Payments records no bank balance. The War Plan's cash mode starts from *cash kept − owed today*
+($1,362,503.84 − $4,801,191.96 = **−$3,438,688.12**), which is a position toward sponsors, not money in
+an account, and the Exodus must not pay LPs out of it. `startingCash` defaults to 0 and both real
+figures are shown beside the input; the "sources" bridge on the page carries the $3,438,688.12 as its
+first line so the War Plan's cash-at-deadline and the Exodus cash paid to LPs reconcile (#83). Anyone
+who knows the real balance types it in.
+
+## 83. Exodus: production is the War Plan's cash-mode plan, and the two are reconciled to the cent
+
+Exodus does not invent its own pace: `prepareExodus` solves the War Plan for the LP capital in
+`cash_in_bank` mode with the same deadline and replays its inventory consumption month by month
+(today's 83 lots first, then each farm's lots as they land). `reconcileWithWarPlan` checks that the
+replay closes the same 259.36 lots, buys the same 18 farms and spends the same $864,541.07 of ads,
+rebuilds the Oracle's cash metric from the replay (**$10,005,937.39 vs the plan's $10,006,139.81**,
+drift −$202.42, #94) and explains the gap to the 0 % baseline's $12,401,779.56 cash to LPs line by
+line: starting position +$3,438,688.12 (#82) · receipts −$77,147.76 (Exodus sells each projected note
+three months after closing at 80.92 % of its amortized balance; the Oracle books `noteSalePct` of
+face) · existing notes +$1,034,918.91 (today's 24 live notes, which the Oracle never counted, all
+sold at 0 % net of their partners' share) · partner
+payments −$1,136,076.03 (#87) · settlement spend $0 · ads −$864,541.07 · unpaid carry $0 · replay
+drift −$202.42 · **residual $0.00**. The test `notesPct = 0 equals War Plan cash-mode result` pins
+all of it.
+
+## 84. Exodus: capital that is committed before Payments books it
+
+Two farms have partner capital that the ledger does not yet see as a cost: **Franklin 2** (closing
+2026-10-02 since the 21:17 UTC correction; its only `property_costs` rows are dated 2026-10-15, #80)
+and **Lakeview** (Townson, $495,000, `funding_date` null, no cost rows at all). Exodus treats both as
+owed from day one: `lotClaimAt` counts every capital entry the ledger knows regardless of its date
+(interest still accrues only from each entry's own date, so Franklin 2 accrues at 25 % from
+2026-10-15), and Lakeview's $495,000 is the capital its lot proceeds must return before Townson's
+50 % split applies. The alternative — pretending the lots are free until the cost row lands — would let
+the September plan deliver Franklin 2 notes at no cost, which is not what a partial release means.
+
+## 85. Exodus: notes with no farm and the excluded note produce no cash
+
+Thirteen active, unsold notes ($1,031,429.19 of UPB) sit on properties that are not on any
+`farm_acquisitions` row (houses and other lines); one more, **EAS-L04** ($42,050.43), is excluded by
+default (`EXODUS_DEFAULT_EXCLUDED_NOTE_CODES`, "in dispute"). The model neither delivers nor sells
+them: their proceeds would be real cash, but nothing in Payments says whose farm economics they
+follow, so counting them would invent a waterfall. They are listed on the page under "No farm" and
+"Excluded" so the omission is visible. Removing EAS-L04 from the input puts it back in play as a
+fixed-interest note on Eastland.
+
+## 86. Exodus: what kind of farm a War Plan farm is
+
+The War Plan funds each new farm from the investor mix in order, so a farm can straddle two sponsors
+(Farm 3: Kevin Concua $151,288 + Townson Family $317,232; Farm 8: Townson $4,688 + Julio Arriola
+$463,832) or be partly or wholly **unfunded** (Farms 11–18, $3,669,756 in total). Exodus classifies
+each farm by its **largest slice**: own capital → notes free; profit share → never delivered; fixed
+interest → deliverable after a release at the slice-weighted rate, with unfunded capital counted as
+fixed interest at the mix's first fixed rate (Kevin's 20 %). On this data that is 13 releasable farms,
+5 Townson farms and none on own capital. A farm-level rule was chosen over a per-dollar split because
+a note is either delivered or sold; the bridge (#83) absorbs whatever the rule costs.
+
+## 87. Exodus: the profit-share waterfall returns capital first
+
+On a profit-share farm (Wichita, Lamar, Lakeview, Farms 3–7) Exodus routes each lot's proceeds to
+**return Townson's capital on that farm first**, then splits the rest at the farm's share (50 %). The
+Oracle and the War Plan book Townson's take as gross × 50 % from the first dollar. Neither reading is
+in Payments' schema; the liberation board measures Townson by capital returned, which is the reading
+Exodus follows. The two differ by $1,136,076.03 on the 0 % baseline ("partner payments" in the
+bridge, #83) — this is the largest single judgment call in the page's cash figure.
+
+## 88. Exodus: unsold fixed-interest lots still carry a partner balance at the deadline
+
+At 30 %, 3.64 fixed-interest lots are never sold by 2027-12-31 and carry **$193,280.12** of partner
+balance (`unsoldLotsAtDeadline`); at 0 % the same. Exodus reports it in the sources block and does
+not pay it — the War Plan does not either, and paying it would be a choice about what happens after
+the LPs are settled, which the model leaves alone.
+
+## 89. Exodus: ads come out of Portafolio cash
+
+The War Plan's `adSpendPerClosing × closings` ($43,341 in September 2026, $68,433 in a full month,
+$864,541.07 in total) is paid every month before any dollar reaches the LPs (step 3 of the loop). The
+War Plan's cash mode deducts the same amount, so the bridge carries it as a named line rather than a
+difference.
+
+## 90. Exodus: what a future note looks like and when an undelivered note is sold
+
+Every projected note — pipeline closings, required-pace closings, new farms — gets the realm's real
+averages: face **$117,504.74** (avg sale price $127,335 − 7.72 % down), **9.46 %** (mean
+`interest_rate` of the 39 non-test farm notes), **140 months**, level payment **$1,388.87**; its UPB
+amortizes monthly from its closing month. Today's 24 live notes use their own `current_upb`,
+`interest_rate` (a fraction) and `monthly_payment`, and their remaining term is `term_months` minus
+the months since `start_date`. A note that is not reserved for delivery is sold `noteSaleLagMonths`
+(3) after its closing; for today's notes that is `start_date + 3 months`, or the first month of the
+loop when that is already past (most of them). The 6 Townson notes (CLA-*) are sold in months 2–3.
+
+## 91. Exodus: buying a farm with own cash never wins on this data
+
+An own-cash farm is one of the War Plan's farms bought with Portafolio cash instead of the plan's
+funding, so that every note it produces is free; it is only viable when its purchase month is at or
+before `deadline − land lag (3) − close lag (2)`, i.e. **Jul 2027** (shown in the verdict footer). It
+competes in the same ranking as partial releases — settlement per dollar, ties to the earliest date —
+and a 10-lot farm at $468,520 would settle ≈ 2.5× (10 × $117,505 of free notes), which would beat the
+cheaper releases. It never happens on this data because a farm is bought whole, in its own purchase
+month, and Portafolio never holds $468,520 then: at 30 % the cash in is $243,193 in Sep 2026 (all
+spent on releases), $127,799 in Oct (Farms 1–2's month), $34,041 in Nov, $160,613 in Dec, and the
+note target is met in Jan 2027, after which nothing is bought; at 60 % Sep–Nov even run a small
+deficit on ads and the target is met in Feb 2027. `cashFarms` is therefore empty at every percent
+from 0 to 60. The engine and the "Farm N (own cash instead of …)" label are exercised by
+`exodus.test.ts`; the fixture simply never needs them.
+
+## 92. Exodus: `maxNotesPct` is the slider's ceiling
+
+`scanNotesPct` runs every percent from 0 to `EXODUS_NOTES_PCT_MAX` (60) and keeps the highest one
+whose notes and cash cover the LP capital by the deadline. On this data all 61 points are feasible, so
+`maxNotesPct` = **60** and the mark sits at the right end of the track. It is a real search — shorten
+the deadline or raise the ratio input and it moves — not a constant.
+
+## 93. Exodus: "lots not needed" is 0 at 30 % and 8.28 at 60 %
+
+`lotsNotNeeded` compares the lots closed until the capital is back under 100 % cash with the lots
+closed until it is back with notes. Both the 30 % plan (2027-10-05) and the baseline (2027-10-23)
+finish after the War Plan's last closing month (Sep 2027), so all 259.36 lots are closed either way
+and the saving shows up only as "0.59 months earlier". At 60 % the capital is back on 2027-09-18,
+inside the closing months, and 8.28 lots are spared. The measure is month-granular by construction.
+
+## 94. Exodus: the replay drifts $202.42 from the Oracle's own metric
+
+Rebuilding the War Plan's cash-at-deadline from the replayed consumption gives $10,005,937.39 against
+the plan's $10,006,139.81 — a **−$202.42** drift on $27M of receipts, from the plan's rows being
+rounded to cents and its farms landing on month boundaries. It grew from $144.82 with 7 farms to
+$202.42 with 18; the test tolerance is $250 and the bridge pins the exact figure so any change is
+visible. It is not a bug to fix silently: the Oracle's rounding is what the War Plan page shows.
+
+## 95. Exodus: today's notes are released whole
+
+The brief allows fractions of notes; the model delivers a fraction of a *projected batch* freely, and a
+fraction of the **last existing note** when the target needs less than a whole one — but a lot is
+released whole or not at all (`indivisible`), because a partial release in Payments pays a lot's
+outstanding balance, not a share of it. The undelivered remainder of that last note is sold the same
+month. Inherited from #80 without change: any note on a lot (test notes included) blocks the
+cash-closing credit, and Eastland's unnumbered property is a lot like any other.
+
+## 96. Exodus on live data: Payments moved twice on 2026-09-11
+
+The fixture was refreshed at 19:17 UTC (Step 0), re-fetched at 19:42 UTC with the RPC ledgers
+(Step 1), and refreshed again at 21:31 UTC after Payments changed at 21:15–21:17 UTC (Lakeview,
+Franklin 2 → Julio Arriola, Titus Lot 6 re-priced — PROGRESS.md "Second refresh the same day"). The
+deployed page read at 22:11 UTC reproduces the 21:31 fixture **to the dollar**: verdict *"Con 30% en
+pagarés ($3.0M entregados): liberar $684K mediante 5 liberaciones parciales por $203K, no comprar
+fincas con efectivo propio, vender 255 pagarés y pagar $10.0M a los LP en efectivo."*, discount
+saved $572,400, capital back Oct 5, 2027 vs Oct 23, 2027, `maxNotesPct` 60. The live page computes
+with today's date, so the release costs grow a few dollars a day (EAS-L01 $50,963 today,
+$51,498 at the end of September) and the same snapshot will read differently tomorrow; the e2e asserts
+shape (a dollar amount, 30 → 0 changes the verdict, $0 discount saved), never these figures.
