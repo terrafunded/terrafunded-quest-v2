@@ -437,6 +437,10 @@ now accepts either the freed cards or the gallery's explicit empty state; nothin
 changed. The fixture was **not** refreshed, so every pinned number in `epic_fixture.test.ts`
 keeps reproducing the verified 2026-09-10 spec; a new `npm run snapshot` would re-pin ~20 of them.
 
+**Refreshed 2026-09-11 19:17 UTC** (Exodus, step 0): the fixture was regenerated and 60 tests
+re-pinned — the full list of moved numbers with reasons is PROGRESS.md "Snapshot 2026-09-11
+refresh". The fixture and the live site now describe the same data.
+
 ## 51. Rotation: Lamar's cycle is 271 days, not the brief's 261
 
 The brief defines the cycle as "days from `farm_acquisitions.funding_date` to the date cumulative
@@ -465,6 +469,11 @@ note); the first real liberation switches it to a measured cycle with no code ch
 campaign already covers their capital but whose payout has not been booked (Eastland, Freestone
 on the fixture; Lamar live) project to "today" with 0 days to go and are shown as "covered,
 awaiting payout" rather than pretending a future date.
+
+**Refreshed 2026-09-11 19:17 UTC:** the fixture now says the same as live — Lamar 98.14 %, no farm
+freed, all-time cycle projected on Franklin (325 days / 10.68 months over 7 captive farms, nothing
+graded), era cycle 219.5 days / 7.21 months on Avery; `epic_fixture.test.ts` pins these. Lamar is
+the next liberation ($9,000 covered by its sales, payout not booked).
 
 ## 53. Rotation: peak capital outstanding equals total deployed on the fixture's own plan
 
@@ -548,6 +557,10 @@ pins the mismatches, the dollars and the oldest issue, and checks the lot count 
 (and against the number of cards); the exact 18 / 33 live in `fixture.test.ts`. Regenerating the
 fixture (`npm run snapshot`) would move dozens of pinned numbers elsewhere and is left for a
 deliberate refresh.
+
+**Refreshed 2026-09-11 19:17 UTC:** done. `fixture.test.ts` now pins **26 issues on 15 lots and 3
+farms**, the seven cleared issues by name, no undated issue, and Lamar Lot 5's corrected
+reservation date (2025-09-07).
 
 ## 60. Data Quality: "since" is the latest business date on the records, not `created_at`
 
@@ -659,6 +672,10 @@ wrong; live Payments has since closed that case (#59), so the deployed site show
 September. Nothing else moves: the lot is `note_sold`, so it carries no expected close, no
 provisional oxygen and no committed dollar.
 
+**Refreshed 2026-09-11 19:17 UTC:** Payments corrected the date to **2025-09-07**; the fixture now
+counts **7** September 2026 reservations, Lamar Lot 5 joins the conversion cohort (48 / 36 = 75 %)
+and the median (59 days), and leaves the trailing 90-day pledge count (21, 7.1/month).
+
 ## 70. Oracle: the steady pace waits out the median lag
 
 In the reservation-aware current pace, a reservation signed today cannot close before the median
@@ -696,6 +713,13 @@ because the required plan does not depend on the cycle length. The shorter cycle
 reading of today's farms, but it is a projection of a projection (#52) until Wichita or Freestone
 is freed.
 
+**Refreshed 2026-09-11 19:17 UTC:** Lamar's turn is no longer on record at all — with
+`investor_capital` at $484,000 its $475,000 returned is 98.14 %, not a liberation — so
+`excludedCycles` is empty in both eras, the all-time cycle is projected too (Franklin, 325 days /
+10.68 months) and the era cycle is **219.5 days / 7.21 months** (Wichita 200, Freestone 150, Avery
+239 = benchmark, Franklin 325). The verdict moved with the data (7 farms, $3.3M, 8.43 lots/month),
+not with the cycle.
+
 ## 73. The Era: Freestone's "150-day cycle" is the day it is fully sold, not the day its capital is back
 
 Freestone (funded 2026-04-14) has sold every lot, so `campaigns.ts` has nothing left to cover and
@@ -730,6 +754,11 @@ closing date at all (`missing_closing_date` on `/quality`): a lot with no date c
 either side of the era, so it counts in the total and in the all-time per-day (which divides the
 whole total) but not in the era rate. If Payments gets its date, it joins whichever side it
 belongs to automatically.
+
+**Refreshed 2026-09-11 19:17 UTC:** it did — Eastland Lot 6 closed on **2026-07-09**, inside the
+era, so it now counts in the era pace ($10,025.56/day = $1,944,957.82 / 194) and in the trailing
+90-day closings (14, 4.73/month); the pre-era gap is exactly the 8 dated 2025–Jan 2026 closings
+($291,420.52). Nothing is undated any more.
 
 ## 76. The Era: the 90-day windows are inside it, so today's paces did not move
 
@@ -778,3 +807,7 @@ turns cannot complete"*; best week 7 closings and best month May 2026 (13) "sinc
 earlier closings left out". The e2e checks the labels and the disabled state, not the figures. Two
 dates matter: **2027-03-01**, when seasonality switches on by itself, and the day the first era
 farm is freed, when the benchmark becomes a measured cycle and grading resumes.
+
+**Refreshed 2026-09-11 19:17 UTC:** the fixture now reproduces these live figures exactly
+($10,025.56 / $6,655.89 per day, $468,520 / $46,852, 219.5 days / 7.21 months on Avery, 30 era
+closings, "$3.3M … 7.2 months … 4 of the 7 turns"); see PROGRESS.md "Snapshot 2026-09-11 refresh".

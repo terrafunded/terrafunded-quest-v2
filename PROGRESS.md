@@ -10,13 +10,16 @@
 | **Env** | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` on Vercel (production + preview). Nothing else; the anon key is public by design and RLS keeps the app read-only. |
 | **Check** | `npm run verify:live -- <url>` (`scripts/verify-live.ts`): deep link `/pipeline` is not a 404, signs in as the viewer, asserts the Throne Room net-profit counter is a real dollar amount > 0 and reads the trapped-profit counter and the verdict, then picks each of the three themes on `/login`, asserts `html[data-theme]` + `localStorage` and that the choice survives a reload, and saves `docs/live-<theme>.jpg`. Run against the local production build (`http://localhost:4173`) it reports net profit **$2,272,304**, trapped **$1,116,863**, "You need 8.31 lots/month; you are doing 4.4." and all three skins switching — the same run is the acceptance test for the live URL. |
 
-Branch `v2`. Snapshot of live Payments taken **2026-09-11 02:07 UTC** (`npm run snapshot`).
+Branch `v2`. Snapshot of live Payments taken **2026-09-11 02:07 UTC** and **refreshed 2026-09-11
+19:17 UTC** (`npm run snapshot`; every pinned number re-pinned — see **"Snapshot 2026-09-11
+refresh"** at the end of the file; the sections in between quote the 02:07 figures).
 Last full verification (build · lint · 310 unit tests · 233 Playwright tests): **2026-09-11**.
 
 Order of work, as requested: Phase 1 numbers verified → connection check → domain reproduces the
 verified numbers → **Phase 2: Epic** → **Pipeline layer** → **three visual themes + POLISH loops
 + performance/mobile audit** → **War Plan + Rotation** → **Data Quality for operations** →
-**Reservations first-class** → **The Era** (`ERA_START = 2026-03-01`; all at the end of the file).
+**Reservations first-class** → **The Era** (`ERA_START = 2026-03-01`) → **Snapshot 2026-09-11
+refresh** (all at the end of the file).
 
 ## Payments connection check (`npm run check`, 2026-09-11 02:52 UTC)
 
@@ -31,7 +34,7 @@ and ran `select count(*)` (HEAD request) on every table Quest reads:
 | `farm_acquisitions` | 13 | 13 | ✓ |
 | `investors` | 7 | 7 | ✓ |
 | `investor_distributions` | 32 | 32 | ✓ |
-| `property_costs` | 13 | 13 | ✓ |
+| `property_costs` | 13 | 13 | ✓ (24 since the 19:17 UTC refresh — 11 `survey` rows) |
 | `note_sales` | 15 | 15 | ✓ |
 | `clients` | 105 | — | 102 with `is_test = false` (3 test clients) |
 
@@ -48,11 +51,11 @@ attempt in the repository and lives in `scripts/`, never in `src/` (OPEN_QUESTIO
 | Lots on subdivided farms | 101 (per-farm list sums to 109) | **109** across 9 farms, per-farm counts identical | see OPEN_QUESTIONS #2 |
 | File cases on those lots | 71 | **71** | ✓ |
 | Σ `file_cases.sale_price` | $8,986,794.30 | **$8,986,794.30** | ✓ |
-| Completed / active | 32 / 39 | **32 / 39** | ✓ |
+| Completed / active | 32 / 39 | **32 / 39** (37 / 34 since the 19:17 UTC refresh: Lamar 5, 6, 7 and Eastland 4, 8 completed) | ✓ |
 | Cash / financed | 7 / 64 | **7 / 64** | ✓ |
 | Notes sold / Σ `note_sales.sale_price` | 15 / $1,356,405.86 | **15 / $1,356,405.86** | ✓ |
 | Investor distributions | 32 / $793,990.46 | **32 / $793,990.46** | ✓ |
-| `property_costs` | 13 / $5,797,147.50 | **13 / $5,797,147.50** | ✓ |
+| `property_costs` | 13 / $5,797,147.50 | **13 / $5,797,147.50** (24 / $5,901,906 since the 19:17 UTC refresh: 11 surveys added) | ✓ |
 | Profit-share investor | Townson Family (Wichita, Lamar) | **Townson Family (Wichita, Lamar)** | ✓ |
 | Quality panel | Titus 6, Lamar 5/6/7, Eastland 3 | all five listed as `price_mismatch` (+ Lamar 5 date, Eastland 3 test client) | ✓ |
 
@@ -501,3 +504,78 @@ test walks the labels across the Throne Room, Oracle, War Plan and Trophies and 
 Seasonal button is disabled. Full run: 233 Playwright tests green (desktop + mobile + the device matrix).
 
 **Open questions** #72–#79 in `OPEN_QUESTIONS.md`.
+
+## Snapshot 2026-09-11 refresh (`npm run snapshot`, 19:17 UTC — first step of Exodus)
+
+Payments changed during 2026-09-11 (OPEN_QUESTIONS #50, #52, #59). The fixture
+`src/domain/__fixtures__/payments.json` was regenerated (read-only, the same script) and **every
+pinned expectation was re-pinned to the new snapshot; no old number was kept**. 60 tests broke
+(7 in `fixture.test.ts`, 53 in `epic_fixture.test.ts`) and all 310 pass again. The numbers in the sections above are the 02:07 UTC snapshot's; the table
+below is the delta and its reason. Four raw changes explain all of it:
+
+| Raw change in Payments | Detail |
+|---|---|
+| **11 `property_costs` rows, `category = 'survey'`, $104,758.50** | 13 rows / $5,797,147.50 (all `purchase`) → **24 rows / $5,901,906** (13 purchases + 11 surveys). |
+| **`farm_acquisitions.investor_capital` = purchase + survey on 10 farms** | Lamar 475,000 → **484,000**; Eastland 550,000 → **565,000**; Promised Valley 790,000 → **800,000**; Titus 379,000 → **385,495**; Freestone 364,520 → **373,520**; Wichita 1,197,000 → **1,217,000**; Avery 513,828 → **523,328**; Franklin 383,500 → **390,861**; plus Olney **392,083.50** and Red River 1 **410,618.50** (legacy farms, not in the realm). Quest's land-cost basis is `investor_capital` (`farmCapitalBasis`), so **every lot on those farms now carries its share of the survey** and every derived cost, interest and profit figure moves. |
+| **6 file cases → `completed` with closing dates** | Lamar 5 (2025-11-05), Lamar 6 (2025-10-10), Lamar 7 (2025-10-28), Eastland 4 (2025-10-31), Eastland 6 (**2026-07-09**, previously completed without a date), Eastland 8 (2026-05-15). Completed / active on the 71 cases: 32 / 39 → **37 / 34**. |
+| **Lamar Lot 5 `reservation_date` corrected** | 2026-09-07 → **2025-09-07** (59 days before its 2025-11-05 closing). |
+
+**Lamar is no longer liberated — a data fact, not worked around.** Townson Family's Lamar
+position is $484,000 of capital against $475,000 returned: **98.14 %, $9,000 outstanding**,
+`freed: false`. Consequences, all pinned: 0 freed hostages, 0 liberation moments/events, the
+story loses its liberation card (5 cards), the `first_liberation` trophy is unearned ("Lamar at
+98.14%": 20 of 29 earned), open sponsor positions 7 → **8**, and the rotation benchmark has no
+measured turn anywhere — the all-time cycle is now **projected** too (Franklin, 325 days / 10.68
+months, the median of 7 captive farms; nothing graded; `excludedCycles` empty in both eras).
+Lamar's sales already cover its capital, so it is the **next liberation** ("covered, awaiting
+payout", 0 days to go) — the $9,000 is a payout Payments has not booked, and the narrative
+"Townson Family was freed … ($475,000)" is gone.
+
+| Pinned number | 02:07 snapshot | 19:17 snapshot | Reason |
+|---|---|---|---|
+| Net profit to date | $2,272,304.32 | **$2,236,378.34** | survey in the land cost of every closed lot: Eastland −$14,841.63, Freestone −$9,739.66, Lamar −$4,000, Promised Valley −$2,631.55, Titus −$2,525.64, Wichita −$2,187.50 |
+| Remaining · required per day · required lots/month | $7,727,695.68 · $16,234.65 · 8.31 | **$7,763,621.66 · $16,310.13 · 8.44** | lower net profit to date |
+| Closings per month (trailing 90 d) | 4.4 (13) | **4.73 (14)** | Eastland Lot 6's closing is now dated 2026-07-09, inside the window |
+| Per day since Mar 2026 · all-time · pre-era gap | $10,026.04 ($1,945,051.41) · $6,762.81 · $327,252.91 | **$10,025.56 ($1,944,957.82) · $6,655.89 · $291,420.52** | Eastland Lot 6 (+$27,885.18) joins the era pace while surveys lower every era closing; the gap is now only the 8 dated pre-era closings |
+| Interest per day · Eastland accrued (382 d) | $1,253 · $115,123.29 | **$1,279.96 · $118,263.01** | fixed-interest sponsors accrue on the survey too (Eastland base $565,000) |
+| Capital owed · own capital · Σ sponsor capital · % returned | $3,579,399.48 · $790,000 · $4,197,648 · 14.73 % | **$3,655,755.48 · $800,000 · $4,274,004 · 14.47 %** | +$76,356 sponsor survey capital, +$10,000 on Promised Valley |
+| Wichita · Townson % returned | 11.97 % · 36.98 % | **11.77 % · 36.35 %** | larger denominators (Wichita $1,217,000; Townson $1,701,000) |
+| Oxygen: days gained · pace at today's rate · latest pace · best (Lamar Lot 6) | 547 · $8,644.24 · $14,616.62 · 91 d | **534 · $9,145.63 · $15,042.92 · 90 d** | replayed on lower per-lot profits and the faster trailing pace; Eastland Lot 6 measured on 2026-07-09 (2 days) instead of asOf (3) |
+| Provisional oxygen · Wichita 26 · Titus 2 | 342 · 4 d · 153/114 d | **340 · 3 d · 150/113 d** | 75 % conversion and the lower stakes |
+| Avery campaign target | $538,322.81 | **$548,275.69** | Avery capital $523,328 + interest on it |
+| Best week W22 · best month May 2026 (closings) | $553,411.03 · $1,006,874.40 | **$543,413.68 · $987,368.88** | same weeks, lower per-lot profit |
+| Best pledge week · month · pledges left out of the record · weeks with a pledge | $355,624.87 · $915,709.18 · 8 · 28 | **$350,588.51 · $904,432 · 9 · 29** | lower stakes; Lamar Lot 5's pledge moved to Sep 2025 (before the era, a new week) |
+| Pipeline net profit · trapped · Avery · Franklin · Wichita · Titus 2 | $2,222,188.97 · $1,116,862.67 · $616,838.59 · $314,478.15 · $123,822.61 · $61,723.32 | **$2,197,857.18 · $1,103,375.31 · $611,862.15 · $308,167.55 · $122,885.11 · $60,460.50** | survey share on every reserved lot |
+| Reservations made (90 d) · per month | 22 · 7.44 | **21 · 7.1** | Lamar Lot 5's pledge left the window |
+| Conversion cohort (≤ 2026-06-13) | 47 / 35 = 74.47 % | **48 / 36 = 75 %** | Lamar Lot 5 (pledged 2025-09-07, closed 2025-11-05) joined the cohort |
+| Median days to close · closed with both dates · Lamar median | 63 · 35 · 41.5 | **61.5 · 36 · 42** | Lamar Lot 5's 59-day interval |
+| September 2026 reservations · expected closings · expected net | 8 · 2.23 · $205,868.67 | **7 · 2.25 · $205,734.27** | Lamar Lot 5 no longer a September 2026 pledge (#69 resolved); 75 % |
+| November expected · October expected | 5.96 / $319,008.02 (at stake $428,371.17) · 4.47 / $310,418.76 | **6 / $318,051.94 ($424,069.22) · 4.5 / $309,182.27** | 75 % conversion, lower stakes |
+| Committed · overdue $ · required reservations/month | $1,654,864.13 · $831,727.63 · 11.16 | **$1,648,392.95 · $827,531.50 · 11.25** | 75 % of the lower stakes; 8.44 / 0.75 |
+| Avery Lot 12 expected close | 2026-10-02 | **2026-10-01** | realm median 61.5 instead of 63 |
+| Oracle futures: current · required · one more farm · closings only | 2028-06-11 (5.54/mo) · 2027-12-11 (183 d earlier) · 2028-04-11 (6.33) · 2029-03-11 (−273 d) | **2028-07-11 (5.32 = 7.1 × 75 %) · 2027-12-11 (213 d) · 2028-05-11 (6.08) · 2029-01-11 (−184 d)** | fewer reservations/month but a faster closings-only pace; the required cadence 1.4 → **1.38** months; lag 63 → 62 days |
+| Oracle defaults: land cost/lot · investor take | $48,232 · 24.41 % | **$49,244 · 24.64 %** | survey in the cost basis |
+| Seasonality (era) closings · counts · forced May peak | 29 · Jul 9 · ×2.648 | **30 · Jul 10 · ×2.559** | Eastland Lot 6 dated in July; all-time 37 → 38 |
+| War Plan farm cost (recent land) · all-time land/lot | $460,080 ($46,008/lot) · $48,232 | **$468,520 ($46,852/lot) · $49,244** | Franklin $63,916.67 → $65,143.50, Avery $36,702 → $37,380.57, Wichita $37,406.25 → $38,031.25 per lot |
+| War Plan conversion · median lag | 74.47 % · 63 d | **75 % · 61.5 d** | as above |
+| War Plan cycle (era) · benchmark | 227 d / 7.46 mo (Wichita 204, Freestone 150, Avery 250, Franklin 346); Lamar on record | **219.5 d / 7.21 mo (Wichita 200, Freestone 150, Avery 239 = benchmark 7.85 mo, Franklin 325); nothing excluded** | faster pace shortens every projection; Lamar has no real turn to keep on record |
+| War Plan cycle (all-time) | 271 d / 8.9 mo measured on Lamar, curve, 6 farms graded | **325 d / 10.68 mo projected (Franklin), no curve, nothing graded** | no freed farm anywhere (#72 updated) |
+| Investor mix | Kevin 1,398,628 · Townson 1,672,000 · Julio 383,500 · Rony 364,520 · Motta 379,000 | **1,423,128 · 1,701,000 · 390,861 · 373,520 · 385,495** | each sponsor's capital carries its surveys |
+| Ledger: owed today · unpaid take | $4,235,797.47 · $656,397.99 | **$4,311,591.96 · $655,836.48** | capital owed up, take on sold lots slightly down (Townson's 50 % of a smaller profit) |
+| Required plan | 8.2 lots/mo · 128.19 lots · 6 farms · $2.8M (Kevin + Townson $1.36M) · ads $27,527.86 · 11.01 res/mo · final inventory 2.81 | **8.43 · 131.79 · 7 farms · $3.3M (Kevin $1,423,128 + Townson $1,701,000 + Julio $155,512) · $28,100 · 11.24 · 9.21** | more profit to earn, a dearer farm, lower net per lot; the seventh farm is the sixth's overflow |
+| Rotation on the required plan | 1 turn · 3 of 6 incomplete · first turn by Mar 2027 | **1 turn · 4 of 7 incomplete · first turn by Feb 2027** | one more farm, shorter cycle |
+| Buffer column | 7 farms · inventory 12.81 · Kevin + Townson + Julio $149,932 | **8 farms · 19.21 · Kevin + Townson + Julio $390,861 + Rony $233,171** | one farm on top of seven |
+| Current pace column · all-time cadence column | 4.4/mo · exit 2029-02-28 · $6,385,331.52 at deadline · 425 d later than required · all-time exit 2029-03-26 | **4.73 · 2029-01-09 · $6,619,557.99 · 375 d · 2029-02-14** | faster trailing pace |
+| 2028-12-31 deadline | 4.33 lots/mo · rotation 1.25 turns · peak $1,840,320 · recycled $460,080 · Kevin 1.33 + Townson | **4.35 · 1.67 turns · $1,405,560 · $937,040 · Kevin alone 1.67 turns** | with the 7.21-month cycle two farms come back in time to fund the last two |
+| Blended take | 24.41 % · 8.17 lots/mo · 127.72 lots | **24.64 % · 8.33 · 130.23 (6 farms)** | as above |
+| Cash mode | 246.98 lots · 19.55/mo · 18 farms · raise $7,821,360 · unfunded $3,623,712 | **254.56 · 20.15 · 19 farms · $8,433,360 · $4,159,356** | more capital to pay out first, lower net per lot |
+| 12.1-lot farm cost · farms | $556,697 · 5 | **$566,909 · 6** | $46,852 × 12.1 |
+| Cash by 2027-03-31 (infeasible) | "even 13.3 lots/month … lands at $1.2M" | **"even 12.9 lots/month … lands at $1.0M"** | inventory-bound ceiling on the dearer, lower-margin lots |
+| Data quality | 33 issues · 18 lot cards · 1 undated issue · undated cash-in $90,000 | **26 · 15 · 0 · $0** | gone: `active_file_case_with_note` on Lamar 5/6/7 and Eastland 4/8, `completed_without_closing_date` on Eastland 6, `reservation_after_note_start` on Lamar 5; the remaining `active_file_case_with_note` is Promised Valley Lot 3 and the remaining `completed_without_closing_date` is Eastland Lot 2 (since 2026-05-15) |
+
+Unchanged and re-asserted: 71 file cases / $8,986,794.30, 15 note sales / $1,356,405.86, 32
+distributions / $793,990.46, the five price mismatches and $21,801.50, Ben White as the oldest
+issue (773 days), 109 lots on 9 farms, farm cadence 1.51 / 1.72 months, farm → first close 2.63
+months, note-sale lag 3.17 months, 33 live reservations, 16 stuck on $2,024,531 of sales,
+seasonality still "not enough history" (6 of 12 months). `OPEN_QUESTIONS.md` #50, #52, #59, #69,
+#72, #75 and #79 carry a "refreshed" note; the live site and the fixture now describe the same data.

@@ -183,13 +183,19 @@ Verified: **32 distributions · $793,990.46 paid out.**
 | property_id | uuid | FK → properties.id (nullable) |
 | cost_date | date | |
 | amount | numeric | |
-| category | text | observed: `purchase` |
+| category | text | observed: `purchase`, `survey` (surveys added 2026-09-11) |
 | cost_class | text | observed: `mandatory` |
 | description | text | |
 | created_by | uuid | |
 | created_at | timestamptz | |
 
-Verified: 13 rows · $5,797,147.50 total (purchase cost of the 13 farms).
+Verified (snapshot 2026-09-11 02:07 UTC): 13 rows · $5,797,147.50 total (purchase cost of the 13 farms).
+Refreshed 2026-09-11 19:17 UTC: **24 rows · $5,901,906** — the 13 purchases plus **11 `survey` rows
+totalling $104,758.50** (Avery 9,500 · Eastland 15,000 · Franklin 7,361 · Freestone 9,000 · Lamar
+9,000 · Olney 8,443.50 · Promised Valley 10,000 · Red River 1 3,897 + 6,062 · Titus 6,495 · Wichita
+20,000), each dated on its farm's funding day (Red River 1's two on 2026-09-02), all with
+`property_id` null (farm-level, so the lot ledger splits them equally across the unreleased lots).
+`farm_acquisitions.investor_capital` was set to purchase + survey on the same 10 farms.
 
 ## investors
 

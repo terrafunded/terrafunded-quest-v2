@@ -62,9 +62,9 @@ describe("fixture: file cases on subdivided lots", () => {
     expect(money(sum(onLots.map((c) => c.sale_price)))).toBe(8_986_794.3);
   });
 
-  it("splits 32 completed / 39 active and 7 cash / 64 financed", () => {
-    expect(onLots.filter((c) => c.status === "completed")).toHaveLength(32);
-    expect(onLots.filter((c) => c.status === "active")).toHaveLength(39);
+  it("splits 37 completed / 34 active and 7 cash / 64 financed (Lamar 5, 6, 7 and Eastland 4, 8 completed on 2026-09-11)", () => {
+    expect(onLots.filter((c) => c.status === "completed")).toHaveLength(37);
+    expect(onLots.filter((c) => c.status === "active")).toHaveLength(34);
     expect(onLots.filter((c) => c.deal_type === "cash")).toHaveLength(7);
     expect(onLots.filter((c) => c.deal_type === "financed")).toHaveLength(64);
   });
@@ -103,9 +103,16 @@ describe("fixture: notes, note sales, distributions, costs", () => {
     expect(realm.treasury.totalCashOut).toBe(793_990.46);
   });
 
-  it("has 13 property_costs totalling $5,797,147.50", () => {
-    expect(fixture.propertyCosts).toHaveLength(13);
-    expect(money(sum(fixture.propertyCosts.map((c) => c.amount)))).toBe(5_797_147.5);
+  it("has 24 property_costs totalling $5,901,906: 13 purchases ($5,797,147.50) and 11 surveys ($104,758.50)", () => {
+    expect(fixture.propertyCosts).toHaveLength(24);
+    expect(money(sum(fixture.propertyCosts.map((c) => c.amount)))).toBe(5_901_906);
+    const purchases = fixture.propertyCosts.filter((c) => c.category === "purchase");
+    const surveys = fixture.propertyCosts.filter((c) => c.category === "survey");
+    expect(purchases).toHaveLength(13);
+    expect(money(sum(purchases.map((c) => c.amount)))).toBe(5_797_147.5);
+    expect(surveys).toHaveLength(11);
+    expect(money(sum(surveys.map((c) => c.amount)))).toBe(104_758.5);
+    expect(purchases.length + surveys.length).toBe(fixture.propertyCosts.length);
   });
 
   it("contains no test notes (filtered at the query boundary)", () => {
@@ -129,12 +136,15 @@ describe("fixture: investors", () => {
     expect(townson?.distributions).toHaveLength(32);
   });
 
-  it("Lamar capital ($475,000) is fully returned; Wichita is not", () => {
+  it("Lamar's capital is $484,000 (purchase + survey) and $475,000 has been returned: $9,000 still outstanding, so it is no longer fully returned; Wichita is not either", () => {
     const lamar = realm.farms.find((f) => f.name === "Lamar");
     const wichita = realm.farms.find((f) => f.name === "Wichita");
+    // 2026-09-11: Payments set investor_capital to purchase + survey ($475,000 + $9,000). The $475,000 returned no longer covers it — a data fact, not a bug.
+    expect(lamar?.capitalDeployed).toBe(484_000);
     expect(lamar?.capitalReturned).toBe(475_000);
-    expect(lamar?.capitalOutstanding).toBe(0);
-    expect(wichita?.capitalOutstanding).toBe(round2(1_197_000 - (wichita?.capitalReturned ?? 0)));
+    expect(lamar?.capitalOutstanding).toBe(9_000);
+    expect(wichita?.capitalDeployed).toBe(1_217_000);
+    expect(wichita?.capitalOutstanding).toBe(round2(1_217_000 - (wichita?.capitalReturned ?? 0)));
     expect(wichita && wichita.capitalOutstanding > 0).toBe(true);
   });
 
@@ -144,9 +154,11 @@ describe("fixture: investors", () => {
       expect(f.interest.paidToDate).toBe(0);
     }
     const eastland = realm.farms.find((f) => f.name === "Eastland");
-    // 550,000 × 20% / 365 × 382 days (2025-08-25 → 2026-09-11)
+    // 565,000 (purchase $550,000 + survey $15,000) × 20% / 365 × 382 days (2025-08-25 → 2026-09-11)
+    expect(eastland?.capitalDeployed).toBe(565_000);
     expect(eastland?.interest.daysAccruing).toBe(382);
-    expect(eastland?.interest.accruedToDate).toBe(round2((550_000 * 0.2 * 382) / 365));
+    expect(eastland?.interest.accruedToDate).toBe(round2((565_000 * 0.2 * 382) / 365));
+    expect(eastland?.interest.accruedToDate).toBe(118_263.01);
   });
 });
 
@@ -157,8 +169,11 @@ describe("fixture: data quality", () => {
     expect(lotNames("price_mismatch").sort()).toEqual(["Eastland — Lot 3", "Lamar — Lot 5", "Lamar — Lot 6", "Lamar — Lot 7", "Titus — Lot 6"]);
   });
 
-  it("flags Lamar Lot 5's reservation after its note start", () => {
-    expect(lotNames("reservation_after_note_start")).toEqual(["Lamar — Lot 5"]);
+  it("no reservation follows its note start any more: Lamar Lot 5's reservation_date was corrected to 2025-09-07 on 2026-09-11", () => {
+    expect(lotNames("reservation_after_note_start")).toEqual([]);
+    const lamar5 = realm.lots.find((l) => l.name === "Lamar — Lot 5");
+    expect(lamar5?.reservationDate).toBe("2025-09-07");
+    expect(lamar5?.closeDate).toBe("2025-11-05");
   });
 
   it("flags farms with NULL investor_capital and the Red River 1 legacy oddity", () => {
@@ -177,13 +192,17 @@ describe("fixture: data quality", () => {
     expect(realm.quality.filter((q) => q.kind === "sold_note_without_sale")).toHaveLength(0);
   });
 
-  it("groups the 33 issues into 18 lot cards and 3 farm cards, $21,801.50 of profit moved by price mismatches, oldest Ben White's blank capital", () => {
+  it("groups the 26 issues into 15 lot cards and 3 farm cards, $21,801.50 of profit moved by price mismatches, oldest Ben White's blank capital", () => {
     const cards = groupIssuesByLot(realm.quality, "es");
     const summary = summarizeQuality(cards, ASOF.toISOString());
-    expect(realm.quality).toHaveLength(33);
-    expect(summary.issues).toBe(33);
-    expect(summary.lotsWithIssues).toBe(18);
+    // 33 before 2026-09-11: the six file cases that moved to completed with closing dates cleared five active_file_case_with_note
+    // (Lamar 5, 6, 7; Eastland 4, 8) and Eastland Lot 6's completed_without_closing_date; Lamar Lot 5's corrected reservation cleared reservation_after_note_start
+    expect(realm.quality).toHaveLength(26);
+    expect(summary.issues).toBe(26);
+    expect(summary.lotsWithIssues).toBe(15);
     expect(summary.farmsWithIssues).toBe(3);
+    expect(lotNames("active_file_case_with_note")).toEqual(["Promised Valley — Lot 3"]);
+    expect(lotNames("completed_without_closing_date")).toEqual(["Eastland — Lot 2"]);
     expect(cards.filter((c) => c.isFarm).map((c) => c.title).sort()).toEqual(["Ben White", "Red River 1", "Sharps Rd"]);
     expect(summary.priceMismatches).toBe(5);
     expect(summary.priceMismatchDollars).toBe(21_801.5);
@@ -193,9 +212,9 @@ describe("fixture: data quality", () => {
     expect(summary.oldest?.days).toBe(773);
     // Two different properties are both named "Red River 1" — two lot cards share a title on purpose.
     expect(cards.filter((c) => !c.isFarm && c.title === "Red River 1")).toHaveLength(2);
-    // Every issue carries a business date except Eastland Lot 6's completed case without any date.
+    // Every issue carries a business date now that Eastland Lot 6 has its closing date (2026-07-09).
     const undated = realm.quality.filter((q) => q.since === null);
-    expect(undated.map((q) => `${q.lotName}:${q.kind}`)).toEqual(["Eastland — Lot 6:completed_without_closing_date"]);
+    expect(undated.map((q) => `${q.lotName}:${q.kind}`)).toEqual([]);
   });
 });
 
@@ -214,10 +233,11 @@ describe("fixture: goal and rollups reconcile", () => {
     expect(realm.goal.remaining).toBe(round2(10_000_000 - realm.goal.netProfitToDate));
   });
 
-  it("cash realized equals the treasury's farm-level cash in (including undated closings)", () => {
+  it("cash realized equals the treasury's farm-level cash in; no closing is undated any more", () => {
     expect(realm.goal.cashRealized).toBe(round2(realm.treasury.totalDownPayments + realm.treasury.totalNoteSales));
-    // Eastland Lot 6: completed cash deal with no closing_date → surfaced as undated, not dropped
-    expect(realm.treasury.undatedCashIn).toBe(90_000);
+    // Eastland Lot 6's $90,000 cash deal carried no closing_date until 2026-09-11 (closed 2026-07-09); nothing is undated now
+    expect(realm.treasury.undatedCashIn).toBe(0);
+    expect(realm.lots.find((l) => l.name === "Eastland — Lot 6")?.closeDate).toBe("2026-07-09");
     expect(realm.treasury.totalCashIn).toBe(round2(realm.goal.cashRealized + realm.treasury.totalOtherNoteSales));
   });
 
