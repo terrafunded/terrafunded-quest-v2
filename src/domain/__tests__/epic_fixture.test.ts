@@ -253,28 +253,39 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
   const d = realm.warPlanDefaults;
   const profit = solveWarPlan(d.inputs, realm);
 
-  it("prefills every input from the realm: 10-lot farms at $482,320, 74.47 % conversion, 2.63 months to first close, five sponsors", () => {
+  it("prefills every input from the realm: 10-lot farms at $460,080 (recent land), 74.47 % conversion, 2.63 months to first close, an 8.9-month cycle, five sponsors", () => {
     expect(d.inputs).toMatchObject({
       target: 10_000_000,
       deadline: "2027-12-31",
       targetMode: "profit_at_closing",
       lotsPerFarm: 10,
-      farmCost: 482_320,
+      farmCost: 460_080,
       adSpendPerClosing: 2_500,
       conversionPct: 74.47,
       farmToFirstCloseMonths: 2.63,
       noteSaleLagMonths: 3.17,
+      cycleMonths: 8.9,
     });
     expect(d.real).toMatchObject({
       lotsPerFarm: 12.11,
       landCostPerLot: 48_232,
+      recentLandCostPerLot: 46_008,
+      recentFarms: ["Franklin", "Avery", "Wichita"],
+      defaultLandCostPerLot: 46_008,
       conversionPct: 74.47,
+      conversionWithCancellationsPct: 74.47,
+      cancellationRatePct: 0,
+      cancelledReservations: 0,
       farmToFirstCloseMonths: 2.63,
       farmToFirstCloseFarms: 6,
       medianDaysToClose: 63,
       noteSaleLagMonths: 3.17,
       closingsPerMonth: 4.4,
       inventory: 71,
+      cycleDays: 271,
+      cycleMonths: 8.9,
+      cycleSource: "freed_farms",
+      cycleFarms: 1,
     });
     expect(d.inputs.investorMix.map((e) => [e.name, e.dealType, e.ratePct, e.capital])).toEqual([
       ["Kevin Concua", "fixed_interest", 20, 1_398_628],
@@ -287,94 +298,255 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     expect(round2(d.inputs.investorMix.reduce((a, e) => a + e.capital, 0))).toBe(realm.liberation.totalCapital);
   });
 
+  it("land cost trend: the three most recent purchases (Franklin, Avery, Wichita) average $46,008 per lot against $48,232 all-time", () => {
+    const recent = realm.farms.filter((f) => ["Franklin", "Avery", "Wichita"].includes(f.name));
+    expect(recent.map((f) => f.fundingDate).sort()).toEqual(["2026-04-15", "2026-06-16", "2026-07-31"]);
+    expect(Math.round(recent.reduce((a, f) => a + f.landCostPerLot, 0) / 3)).toBe(46_008);
+    // Franklin 2 closes on 2026-10-15, after asOf, so it is not a purchase yet.
+    expect(d.real.recentFarms).not.toContain("Franklin 2");
+    expect(d.inputs.farmCost).toBe(46_008 * 10);
+  });
+
   it("owes sponsors $4,235,797.47 today ($3,579,399.48 of capital + $656,397.99 of unpaid take) and has kept $1,362,503.84 of cash", () => {
     expect(profit.ledger).toEqual({ capitalOwed: 3_579_399.48, paidOut: 793_990.46, unpaidTake: 656_397.99, cashKept: 1_362_503.84, owedToday: 4_235_797.47 });
     expect(profit.ledger.capitalOwed).toBe(realm.debt.capitalOwed);
   });
 
-  it("profit mode: ≈8.3 closings/month and ≈130 lots still needed — 7 farms of 10 lots, the last by Jul 2027, $3.4M to raise", () => {
+  it("profit mode: ≈8.3 closings/month and ≈130 lots still needed — 6 farms of 10 lots, the last by Jul 2027, $2.8M to raise", () => {
     expect(profit.feasible).toBe(true);
     expect(profit).toMatchObject({ deadlineMonthIndex: 16, monthsToDeadline: 15.63, landLag: 3, closeLag: 2, noteLag: 3, maxPurchaseMonth: 11, lastClosingDate: null, startInventory: 71 });
     const r = profit.required;
     expect(r.closingsPerMonth).toBeCloseTo(8.3, 0);
-    expect(r.closingsPerMonth).toBe(8.44);
+    expect(r.closingsPerMonth).toBe(8.2);
     expect(r.lotsNeeded).toBeCloseTo(130, -1);
-    expect(r.lotsNeeded).toBe(131.95);
-    expect(r.farmsToBuy).toBe(7);
+    expect(r.lotsNeeded).toBe(128.18);
+    expect(r.farmsToBuy).toBe(6);
     expect(r.lastPurchaseDate).toBe("2027-07-31");
-    expect(r.capitalToRaise).toBe(7 * 482_320);
+    expect(r.capitalToRaise).toBe(6 * 460_080);
+    expect(r.totalDeployed).toBe(6 * 460_080);
     expect(r.funding.map((f) => [f.name, f.amount])).toEqual([
       ["Kevin Concua", 1_398_628],
-      ["Townson Family", 1_672_000],
-      ["Julio Arriola", 305_612],
+      ["Townson Family", 1_361_852],
     ]);
     expect(r.unfunded).toBe(0);
-    expect(r.adSpendPerMonth).toBe(28_333.56);
-    expect(r.adSpendPerMonth).toBe(round2((8.44 / 0.7447) * 2_500));
-    expect(r.noteSalesPerMonth).toBe(8.44);
+    expect(r.adSpendPerMonth).toBe(27_527.86);
+    expect(r.adSpendPerMonth).toBe(round2((8.2 / 0.7447) * 2_500));
+    expect(r.reservationsPerMonth).toBe(11.01);
+    expect(r.noteSalesPerMonth).toBe(8.2);
     expect(r.exitDate).toBe("2027-12-31");
     expect(r.hitsDeadline).toBe(true);
     expect(r.targetAtDeadline).toBeGreaterThanOrEqual(10_000_000);
-    expect(r.flaggedMonths).toBe(0);
     expect(r.rows).toHaveLength(16);
-    expect(r.rows[0]).toMatchObject({ date: "2026-09-30", lotsClosed: 5.35, farmsBought: 0 });
-    expect(r.rows.at(-1)).toMatchObject({ date: "2027-12-31", lotsClosed: 8.44, notesSold: 8.44, cumulativeNet: 10_008_439.6, inventory: 9.05 });
-    expect(r.rows.at(-1)?.capitalReturned).toEqual([1_398_628, 1_511_996.8, 28_890.52, 0, 0]);
+    expect(r.rows[0]).toMatchObject({ date: "2026-09-30", lotsClosed: 3.54, flatLotsClosed: 5.19, seasonalFactor: 0.681, farmsBought: 0 });
+    expect(r.rows.at(-1)).toMatchObject({ date: "2027-12-31", lotsClosed: 2.8, flatLotsClosed: 8.2, notesSold: 5.58, cumulativeNet: 10_000_072.98, inventory: 2.81 });
+    expect(r.rows.at(-1)?.capitalReturned).toEqual([1_398_628, 1_232_722.88, 0, 0, 0]);
     expect(profit.verdict).toBe(
-      "Buy 7 farms, the last one no later than Jul 2027, raise $3.4M (Kevin Concua $1.4M, Townson Family $1.7M, Julio Arriola $306K), close 8.4 lots/month, sell 8.4 notes/month and spend at least $28K/month on ads.",
+      "Buy 6 farms, the last one no later than Jul 2027, raise $2.8M (Kevin Concua $1.4M, Townson Family $1.4M), close 8.2 lots/month, sell 8.2 notes/month and spend at least $28K/month on ads.",
     );
     expect(profit.verdict).toMatch(/\$[\d.,]+[KM]?/);
     expect(profit.verdict).toMatch(/\b\d+ farms?\b/);
   });
 
-  it("with the blended 24.41 % take on new lots the answer is exactly the brief's 8.3 / 130 (8.27 lots/month, 129.29 lots); Townson's 50 % share costs the extra 0.17", () => {
+  it("seasonality: 37 dated closings peak in May and vanish in winter; the required plan asks each month for its own share, the flat 8.2 alongside", () => {
+    expect(realm.seasonality.closings).toBe(37);
+    expect(realm.seasonality.counts).toEqual([1, 0, 0, 1, 13, 2, 9, 4, 0, 4, 3, 0]);
+    expect(realm.seasonality.factors).toEqual([0.25, 0.25, 0.25, 1.172, 2.266, 2.031, 1.875, 1.328, 0.625, 0.859, 0.781, 0.313]);
+    expect(round2(realm.seasonality.factors.reduce((a, b) => a + b, 0))).toBe(12);
+    expect(realm.seasonality.peakMonth).toBe(4);
+    expect(realm.seasonality.troughMonth).toBe(0);
+    expect(Math.min(...realm.seasonality.factors)).toBe(0.25);
+    // rescaled over the plan's 16 months so the flat pace stays the average
+    expect(profit.seasonality).toEqual([0.272, 0.272, 0.272, 1.277, 2.469, 2.213, 2.043, 1.447, 0.681, 0.936, 0.851, 0.341]);
+    const rows = profit.required.rows;
+    expect(rows.map((r) => r.flatLotsClosed).slice(1).every((f) => f === 8.2)).toBe(true);
+    expect(rows.find((r) => r.date === "2027-05-31")).toMatchObject({ lotsClosed: 20.24, seasonalFactor: 2.469 });
+    expect(rows.find((r) => r.date === "2027-01-31")).toMatchObject({ lotsClosed: 2.23, seasonalFactor: 0.272 });
+    // the seasonal months still add up to the flat plan's lots
+    const seasonalTotal = rows.reduce((a, r) => a + r.lotsClosed, 0);
+    const flatTotal = rows.reduce((a, r) => a + r.flatLotsClosed, 0);
+    expect(Math.abs(seasonalTotal - flatTotal)).toBeLessThan(0.1);
+    // the current-pace column keeps the flat trailing average
+    expect(profit.current.rows.every((r) => r.seasonalFactor === 1)).toBe(true);
+  });
+
+  it("cancellations: no file case in the snapshot is cancelled, so the rate is 0 % and conversion with cancellations equals conversion", () => {
+    expect(fixture.fileCases.filter((c) => c.status === "cancelled")).toHaveLength(0);
+    expect(realm.pipeline.conversion).toMatchObject({ cohort: 47, closed: 35, stillReserved: 12, pct: 74.47, cancelled: 0, cohortWithCancellations: 47, pctWithCancellations: 74.47, cancellationRatePct: 0 });
+    expect(realm.pipeline.cancelledReservations).toBe(0);
+    expect(realm.lots.every((l) => l.cancelledFileCases === 0)).toBe(true);
+  });
+
+  it("rotation: Lamar's real cycle is 271 days (2025-08-21 → 2026-05-19, 8.9 months) and every other sponsor farm is behind it", () => {
+    const b = realm.rotation;
+    expect(b.source).toBe("freed_farms");
+    expect(b.cycleDays).toBe(271);
+    expect(b.cycleMonths).toBe(8.9);
+    expect(b.benchmark).toEqual({
+      farmId: b.benchmark?.farmId,
+      farmName: "Lamar",
+      investorName: "Townson Family",
+      fundingDate: "2025-08-21",
+      liberationDate: "2026-05-19",
+      days: 271,
+      months: 8.9,
+      projected: false,
+    });
+    expect(b.benchmark?.days).toBe(realm.liberation.freedHostages[0]?.daysHeld);
+    expect(b.turnsCompleted).toBe(1);
+    expect(b.capitalOutstanding).toBe(3_579_399.48);
+    // Lamar's curve: 21.9 % after 57 days, 90.2 % after 112, 100 % on day 271
+    expect(b.curve.map((c) => [c.day, c.pct])).toEqual([
+      [50, 0.84],
+      [57, 21.89],
+      [68, 22.74],
+      [75, 24.84],
+      [76, 25.68],
+      [112, 90.16],
+      [227, 92.68],
+      [236, 92.98],
+      [267, 93.29],
+      [271, 100],
+    ]);
+    expect(b.grades.map((g) => [g.farmName, g.verdict, g.daysElapsed, g.pctReturned, g.benchmarkPctAtSameDay, g.pctVsBenchmark, g.daysToGo])).toEqual([
+      ["Lamar", "benchmark", 271, 100, null, null, 0],
+      ["Eastland", "behind", 382, 0, 100, -100, 0],
+      ["Titus", "behind", 304, 0, 100, -100, 228],
+      ["Freestone", "behind", 150, 0, 90.16, -90.16, 0],
+      ["Wichita", "behind", 149, 11.97, 90.16, -78.19, 55],
+      ["Avery", "behind", 87, 0, 25.68, -25.68, 163],
+      ["Franklin", "on_pace", 42, 0, 0, 0, 304],
+      ["Franklin 2", "unrated", -34, 0, null, null, null],
+    ]);
+    // Wichita returned 11.97 % in 149 days; Lamar had that much after 57
+    expect(b.grades.find((g) => g.farmName === "Wichita")).toMatchObject({ benchmarkDaysToSamePct: 57, daysVsBenchmark: -92, projectedLiberationDate: "2026-11-05" });
+    // Eastland's sales already cover its capital; the payout has not been distributed
+    expect(b.nextLiberation?.farmName).toBe("Eastland");
+    expect(b.nextLiberation?.daysToGo).toBe(0);
+  });
+
+  it("rotation: the required plan turns $2.8M once — every farm is bought Mar–Jul 2027 and only the first is back before the deadline", () => {
+    const rot = profit.rotation;
+    expect(rot).toMatchObject({
+      cycleMonths: 8.9,
+      totalDeployed: 2_760_480,
+      peakOutstanding: 2_760_480,
+      newMoney: 2_760_480,
+      recycled: 0,
+      turnsNeeded: 1,
+      turnsCompleted: 1,
+      turnsIncomplete: 5,
+      farms: 6,
+      firstTurnStartBy: "2027-03-31",
+      lastTurnCompletes: "2028-04-30",
+    });
+    expect(rot.perInvestor.map((i) => [i.name, i.deployed, i.fresh, i.peakOutstanding, i.turns])).toEqual([
+      ["Kevin Concua", 1_398_628, 1_398_628, 1_398_628, 1],
+      ["Townson Family", 1_361_852, 1_361_852, 1_361_852, 1],
+    ]);
+    expect(rot.headline).toBe(
+      "With $2.8M of land capital rotating every 8.9 months you reach $10.0M by the deadline; you need 1 turn; the first turn must start by Mar 2027. 5 of the 6 turns cannot complete before the deadline.",
+    );
+    expect(rot.headline).toMatch(/\b\d+(\.\d)? turns?\b/);
+    expect(profit.required.schedule.map((f) => [f.purchaseMonth, f.turnCompletesMonth, f.turnComplete])).toEqual([
+      [7, 16, true],
+      [8, 17, false],
+      [8, 17, false],
+      [9, 18, false],
+      [11, 20, false],
+      [11, 20, false],
+    ]);
+    expect(profit.required.rows.filter((r) => r.flags.includes("turn_incomplete")).map((r) => r.monthIndex)).toEqual([8, 9, 11]);
+    expect(profit.required.flaggedMonths).toBe(3);
+    // no turn completes before a later purchase, so the peak is the whole deployment
+    expect(rot.peakOutstanding).toBe(rot.totalDeployed);
+  });
+
+  it("rotation: with a 2028-12-31 deadline the first turn completes before the last farm is bought, so the peak ($2.3M) is below the total deployed ($2.76M): 1.2 turns", () => {
+    const later = solveWarPlan({ ...d.inputs, deadline: "2028-12-31" }, realm);
+    const rot = later.rotation;
+    expect(rot).toMatchObject({ totalDeployed: 2_760_480, peakOutstanding: 2_300_400, newMoney: 2_300_400, recycled: 460_080, turnsNeeded: 1.2, turnsIncomplete: 3, farms: 6, firstTurnStartBy: "2027-10-31" });
+    expect(rot.peakOutstanding).toBeLessThan(rot.totalDeployed);
+    expect(later.required.capitalToRaise).toBe(2_300_400);
+    expect(later.required.schedule.map((f) => [f.purchaseMonth, f.turnCompletesMonth, f.recycled])).toEqual([
+      [14, 23, 0],
+      [18, 27, 0],
+      [19, 28, 0],
+      [20, 29, 0],
+      [21, 30, 0],
+      [23, 32, 460_080],
+    ]);
+    // Kevin's dollars from the October 2027 farm buy the July 2028 farm: 1.33 turns for him
+    expect(rot.perInvestor.map((i) => [i.name, i.deployed, i.fresh, i.turns])).toEqual([
+      ["Kevin Concua", 1_858_708, 1_398_628, 1.33],
+      ["Townson Family", 901_772, 901_772, 1],
+    ]);
+    expect(rot.headline).toBe(
+      "With $2.3M of land capital rotating every 8.9 months you reach $10.0M by the deadline; you need 1.2 turns; the first turn must start by Oct 2027. 3 of the 6 turns cannot complete before the deadline.",
+    );
+  });
+
+  it("with the blended 24.41 % take on new lots the answer is 8.17 lots/month and 127.74 lots; Townson's 50 % share on the second farm costs the extra 0.03", () => {
     const blended = solveWarPlan(
       { ...d.inputs, investorMix: [{ investorId: null, name: "Blended", dealType: "profit_share", ratePct: realm.oracleDefaults.investorTakePct, capital: 1e9 }] },
       realm,
     );
     expect(realm.oracleDefaults.investorTakePct).toBe(24.41);
-    expect(blended.required.closingsPerMonth).toBe(8.27);
-    expect(blended.required.lotsNeeded).toBe(129.29);
+    expect(blended.required.closingsPerMonth).toBe(8.17);
+    expect(blended.required.lotsNeeded).toBe(127.74);
     expect(blended.required.farmsToBuy).toBe(6);
     expect(blended.required.closingsPerMonth).toBeLessThan(profit.required.closingsPerMonth);
   });
 
-  it("the buffer column adds one farm ($482,320) at the last purchase and still exits on the deadline", () => {
+  it("the buffer column adds one farm ($460,080) at the last purchase and still exits on the deadline", () => {
     const b = profit.buffer;
-    expect(b.farmsToBuy).toBe(8);
-    expect(b.capitalToRaise).toBe(profit.required.capitalToRaise + 482_320);
+    expect(b.farmsToBuy).toBe(7);
+    expect(b.capitalToRaise).toBe(profit.required.capitalToRaise + 460_080);
     expect(b.lastPurchaseDate).toBe("2027-07-31");
     expect(b.exitDate).toBe("2027-12-31");
-    expect(b.inventoryAtDeadline).toBe(19.05);
+    expect(b.inventoryAtDeadline).toBe(12.81);
     expect(b.unfunded).toBe(0);
+    expect(b.funding.map((f) => [f.name, f.amount])).toEqual([
+      ["Kevin Concua", 1_398_628],
+      ["Townson Family", 1_672_000],
+      ["Julio Arriola", 149_932],
+    ]);
   });
 
-  it("the current pace (4.4/month, a farm every 1.72 months) lands at $6.4M on the deadline and exits 2029-04-22, its last two farms too late to convert", () => {
+  it("the current pace (4.4/month, a farm every 1.72 months) lands at $6.4M on the deadline and exits 2029-03-26; Kevin's capital turns twice", () => {
     const c = profit.current;
     expect(c.closingsPerMonth).toBe(4.4);
     expect(c.hitsDeadline).toBe(false);
-    expect(c.exitDate).toBe("2029-04-22");
+    expect(c.exitDate).toBe("2029-03-26");
     expect(c.targetAtDeadline).toBe(6_385_331.52);
     expect(c.farmsToBuy).toBe(9);
-    expect(c.unfunded).toBe(143_232);
+    expect(c.totalDeployed).toBe(9 * 460_080);
+    // three of the nine farms are bought with capital back from the first ones
+    expect(c.capitalToRaise).toBe(6 * 460_080);
+    expect(c.peakOutstanding).toBe(6 * 460_080);
+    expect(c.unfunded).toBe(0);
+    expect(c.funding.map((f) => [f.name, f.amount, f.deployed])).toEqual([
+      ["Kevin Concua", 1_398_628, 2_778_868],
+      ["Townson Family", 1_361_852, 1_361_852],
+    ]);
     expect(c.rows.filter((r) => r.flags.includes("too_late")).map((r) => r.monthIndex)).toEqual([14, 15]);
-    expect(c.flaggedMonths).toBe(2);
-    expect(profit.required.daysEarlierThanCurrent).toBe(478);
+    expect(c.rows.filter((r) => r.flags.includes("turn_incomplete")).map((r) => r.monthIndex)).toEqual([9, 10, 12, 14, 15]);
+    expect(c.flaggedMonths).toBe(5);
+    expect(profit.required.daysEarlierThanCurrent).toBe(451);
   });
 
-  it("cash mode needs materially more lots (258 vs 132): every note sells at 80 % and every sponsor is paid out first", () => {
+  it("cash mode needs materially more lots (248 vs 128): every note sells at 80 % and every sponsor is paid out first", () => {
     const cash = solveWarPlan({ ...d.inputs, targetMode: "cash_in_bank" }, realm);
     expect(cash.feasible).toBe(true);
     expect(cash.maxPurchaseMonth).toBe(8);
     expect(cash.lastClosingDate).toBe("2027-09-30");
     const r = cash.required;
-    expect(r.lotsNeeded).toBe(258.1);
+    expect(r.lotsNeeded).toBe(248.36);
     expect(r.lotsNeeded).toBeGreaterThan(profit.required.lotsNeeded * 1.5);
-    expect(r.closingsPerMonth).toBe(20.43);
-    expect(r.farmsToBuy).toBe(19);
+    expect(r.closingsPerMonth).toBe(19.66);
+    expect(r.farmsToBuy).toBe(18);
     expect(r.lastPurchaseDate).toBe("2027-04-30");
-    expect(r.capitalToRaise).toBe(19 * 482_320);
-    expect(r.unfunded).toBe(4_966_432);
+    expect(r.capitalToRaise).toBe(18 * 460_080);
+    expect(r.unfunded).toBe(4_083_792);
     expect(r.funding).toHaveLength(5);
     expect(r.hitsDeadline).toBe(true);
     expect(r.targetAtDeadline).toBeGreaterThanOrEqual(10_000_000);
@@ -382,25 +554,26 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     // October to December 2027 only harvest notes
     expect(r.rows.slice(13).map((row) => row.lotsClosed)).toEqual([0, 0, 0]);
     expect(cash.verdict).toContain("until Sep 2027 (then only note sales)");
-    expect(cash.verdict).toContain("unfunded $5.0M");
+    expect(cash.verdict).toContain("unfunded $4.1M");
+    expect(cash.rotation).toMatchObject({ totalDeployed: 18 * 460_080, peakOutstanding: 18 * 460_080, turnsNeeded: 1, turnsIncomplete: 7, firstTurnStartBy: "2027-01-31" });
     // the buffer farm's unsold lots are land, not cash: the cushion costs its price at the deadline
-    expect(cash.buffer.targetAtDeadline).toBe(round2(r.targetAtDeadline - 482_320));
+    expect(cash.buffer.targetAtDeadline).toBe(round2(r.targetAtDeadline - 460_080));
   });
 
-  it("10-lot farms need at least as many farms as the real 12.1-lot average (7 vs 6)", () => {
-    const big = solveWarPlan({ ...d.inputs, lotsPerFarm: 12.1, farmCost: Math.round(12.1 * d.real.landCostPerLot) }, realm);
-    expect(big.inputs.farmCost).toBe(583_607);
-    expect(big.required.farmsToBuy).toBe(6);
+  it("10-lot farms need at least as many farms as the real 12.1-lot average (6 vs 5)", () => {
+    const big = solveWarPlan({ ...d.inputs, lotsPerFarm: 12.1, farmCost: Math.round(12.1 * d.real.defaultLandCostPerLot) }, realm);
+    expect(big.inputs.farmCost).toBe(556_697);
+    expect(big.required.farmsToBuy).toBe(5);
     expect(profit.required.farmsToBuy).toBeGreaterThanOrEqual(big.required.farmsToBuy);
     expect(big.required.closingsPerMonth).toBeCloseTo(profit.required.closingsPerMonth, 1);
   });
 
-  it("changing the deadline changes the verdict: by 2028-12-31 it is 4.78 lots/month with the last farm in Jul 2028", () => {
+  it("changing the deadline changes the verdict: by 2028-12-31 it is 4.64 lots/month with the last farm in Jul 2028", () => {
     const later = solveWarPlan({ ...d.inputs, deadline: "2028-12-31" }, realm);
     expect(later.verdict).not.toBe(profit.verdict);
     expect(later.deadlineMonthIndex).toBe(28);
-    expect(later.required.closingsPerMonth).toBe(4.78);
-    expect(later.required.farmsToBuy).toBe(7);
+    expect(later.required.closingsPerMonth).toBe(4.64);
+    expect(later.required.farmsToBuy).toBe(6);
     expect(later.required.lastPurchaseDate).toBe("2028-07-31");
     expect(later.verdict).toContain("Jul 2028");
   });
@@ -409,8 +582,9 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     const soon = solveWarPlan({ ...d.inputs, targetMode: "cash_in_bank", deadline: "2027-03-31" }, realm);
     expect(soon.feasible).toBe(false);
     expect(soon.verdict).toBe(
-      "No pace reaches $10.0M by 2027-03-31: even 12.1 lots/month with 0 farms and $0 raised lands at $860K. Push the deadline or lower the target.",
+      "No pace reaches $10.0M by 2027-03-31: even 6.7 lots/month with 0 farms and $0 raised lands at -$797K. Push the deadline or lower the target.",
     );
+    expect(soon.rotation.headline).toContain("no capital turn helps");
   });
 
   it("changes nothing in the Oracle's futures", () => {

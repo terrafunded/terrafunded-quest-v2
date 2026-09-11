@@ -5,6 +5,10 @@ import type { Lot } from "./lot";
 import { isSold } from "./lot";
 import type { Pipeline } from "./pipeline";
 import type { Future } from "./futures";
+import type { Campaign } from "./campaigns";
+import type { Hostage, Liberation } from "./liberation";
+import type { InvestorDistributionRow, PaymentsSnapshot } from "./types";
+import { normalizeSeasonality, type SeasonalProfile } from "./seasonality";
 import {
   ORACLE_HORIZON_MONTHS,
   buildMonthGrid,
@@ -18,8 +22,8 @@ import {
   type OracleRunOptions,
   type TargetMode,
 } from "./oracle";
-import { daysBetween, monthsBetween, parseDate } from "./dates";
-import { median, round2, sum } from "./math";
+import { addDays, daysBetween, monthsBetween, parseDate, toIsoDate } from "./dates";
+import { mean, median, round2, sum } from "./math";
 import { DAYS_PER_MONTH } from "../config/goal";
 import {
   WARPLAN_DEFAULT_AD_SPEND_PER_CLOSING,
@@ -49,15 +53,36 @@ export interface WarPlanInputs {
   noteSaleLagMonths: number;
   /** Funding order: new farms draw from the top down. */
   investorMix: InvestorMixEntry[];
+  /**
+   * Months for a dollar of land capital to come back and buy the next farm — the realm's real
+   * liberation cycle. Null when no farm has been freed and none can be projected: capital then
+   * never rotates inside the plan.
+   */
+  cycleMonths: number | null;
+  /** Shape the required pace by the realm's month-of-year profile (the flat average is always shown alongside). */
+  seasonal: boolean;
 }
+
+export type CycleSource = "freed_farms" | "projected";
 
 /** The real figures each input is prefilled from (null when the data cannot say). */
 export interface WarPlanRealValues {
   target: number;
   deadline: string;
   lotsPerFarm: number | null;
+  /** All-time average land cost per sold lot (the Oracle's figure). */
   landCostPerLot: number;
+  /** Average per-lot cost of the most recent farm purchases (`recentFarms`). */
+  recentLandCostPerLot: number | null;
+  recentFarms: string[];
+  /** The per-lot cost the farm-cost input is prefilled from: recent when available, else all-time. */
+  defaultLandCostPerLot: number;
+  /** Reservation → closing conversion over live and closed reservations only. */
   conversionPct: number | null;
+  /** Conversion counting cancelled reservations as failures — what the plan buys ads against. */
+  conversionWithCancellationsPct: number | null;
+  cancellationRatePct: number | null;
+  cancelledReservations: number;
   farmToFirstCloseMonths: number | null;
   /** Farms with both an acquisition date and a first closing, behind the median. */
   farmToFirstCloseFarms: number;
@@ -65,6 +90,11 @@ export interface WarPlanRealValues {
   noteSaleLagMonths: number;
   closingsPerMonth: number;
   inventory: number;
+  cycleDays: number | null;
+  cycleMonths: number | null;
+  cycleSource: CycleSource | null;
+  /** Farms behind the cycle median. */
+  cycleFarms: number;
 }
 
 export interface WarPlanDefaults {
@@ -94,10 +124,110 @@ export interface WarPlanContext {
   investors: InvestorSummary[];
   oracleDefaults: OracleParams;
   pipeline: Pipeline;
+  liberation: Liberation;
+  campaigns: Campaign[];
+  snapshot: Pick<PaymentsSnapshot, "investorDistributions">;
+  seasonality: SeasonalProfile;
 }
 
 export type WarPlanColumnId = "current_pace" | "required_plan" | "required_plus_buffer";
-export type WarPlanFlag = "shortfall" | "too_late";
+export type WarPlanFlag = "shortfall" | "too_late" | "turn_incomplete";
+
+/** One farm's real (or projected) capital cycle: funding → every dollar of capital returned. */
+export interface CapitalCycle {
+  farmId: string;
+  farmName: string;
+  investorName: string;
+  fundingDate: string;
+  /** Date cumulative capital_return reached 100 % (real), or the projected liberation date. */
+  liberationDate: string;
+  days: number;
+  months: number;
+  projected: boolean;
+}
+
+export type FarmGradeVerdict = "benchmark" | "ahead" | "on_pace" | "behind" | "unrated";
+
+/** A sponsor-funded farm measured against the benchmark cycle at the same point in its life. */
+export interface FarmGrade {
+  farmId: string;
+  farmName: string;
+  investorName: string;
+  dealType: string | null;
+  capital: number;
+  capitalReturned: number;
+  pctReturned: number;
+  freed: boolean;
+  fundingDate: string | null;
+  /** Days since funding (to liberation when freed, to today otherwise). */
+  daysElapsed: number | null;
+  /** The benchmark's % of capital returned this many days into its own cycle. */
+  benchmarkPctAtSameDay: number | null;
+  /** pctReturned − benchmarkPctAtSameDay; positive means ahead of the benchmark. */
+  pctVsBenchmark: number | null;
+  /** Days the benchmark needed to return the same %; null when it never reached it. */
+  benchmarkDaysToSamePct: number | null;
+  /** benchmarkDaysToSamePct − daysElapsed; positive means ahead. */
+  daysVsBenchmark: number | null;
+  verdict: FarmGradeVerdict;
+  /** Campaign lots still to sell to cover the capital (and accrued interest). */
+  lotsLeftToCover: number | null;
+  /** Projected liberation at the current pace (campaigns.ts), or the real date when freed. */
+  projectedLiberationDate: string | null;
+  daysToGo: number | null;
+}
+
+/** The realm's capital cycle today — where the rotation engine gets its turn length. */
+export interface RotationBenchmark {
+  cycleDays: number | null;
+  cycleMonths: number | null;
+  source: CycleSource | null;
+  /** The freed farm whose cycle is the median (Lamar today), or the projected one when none is freed. */
+  benchmark: CapitalCycle | null;
+  cycles: CapitalCycle[];
+  /** Cumulative % of capital returned by day since funding on the benchmark farm (step curve). */
+  curve: { day: number; pct: number; date: string }[];
+  grades: FarmGrade[];
+  /** Farms already freed — turns completed so far. */
+  turnsCompleted: number;
+  capitalOutstanding: number;
+  /** The captive farm closest to its own liberation. */
+  nextLiberation: FarmGrade | null;
+}
+
+export interface InvestorTurns {
+  mixIndex: number;
+  name: string;
+  /** Capital of theirs put into farms over the plan, counting every turn. */
+  deployed: number;
+  /** Fresh capital they have to bring (deployed − what came back from earlier farms). */
+  fresh: number;
+  /** Most of their capital out at any one time. */
+  peakOutstanding: number;
+  turns: number;
+}
+
+/** The rotation reading of a plan: how much capital really has to be raised and how often it turns. */
+export interface RotationPlan {
+  cycleMonths: number | null;
+  /** Σ farm cost over the plan (every purchase, counting recycled dollars each time). */
+  totalDeployed: number;
+  /** Most land capital out at any one moment — the amount that actually has to be raised. */
+  peakOutstanding: number;
+  /** Fresh money the mix brings plus the unfunded remainder (totalDeployed − recycled). */
+  newMoney: number;
+  recycled: number;
+  /** totalDeployed ÷ peakOutstanding — how many times the raised capital turns over the plan. */
+  turnsNeeded: number | null;
+  turnsCompleted: number;
+  /** Planned farms whose capital is not back before the deadline. */
+  turnsIncomplete: number;
+  farms: number;
+  firstTurnStartBy: string | null;
+  lastTurnCompletes: string | null;
+  perInvestor: InvestorTurns[];
+  headline: string;
+}
 
 export interface WarPlanRow {
   monthIndex: number;
@@ -106,6 +236,9 @@ export interface WarPlanRow {
   farmsBought: number;
   capitalDeployed: number;
   lotsClosed: number;
+  /** What the flat average pace alone would ask of this month. */
+  flatLotsClosed: number;
+  seasonalFactor: number;
   notesSold: number;
   adSpend: number;
   /** In the chosen target mode. */
@@ -121,7 +254,10 @@ export interface WarPlanFunding {
   mixIndex: number;
   investorId: string | null;
   name: string;
+  /** Fresh capital this sponsor brings to the plan. */
   amount: number;
+  /** Everything of theirs deployed over the plan, counting returned dollars on their next turn. */
+  deployed: number;
 }
 
 /** One of the three futures, in the futures.ts shape plus the plan's own figures. */
@@ -133,11 +269,20 @@ export interface WarPlanColumn extends Omit<Future, "id"> {
   farmsToBuy: number;
   lastPurchaseMonth: number | null;
   lastPurchaseDate: string | null;
+  /** Fresh capital the plan needs: Σ farm cost − capital that came back from earlier farms in the plan. */
   capitalToRaise: number;
-  /** Split of the capital by investor, in mix order (zero entries omitted). */
+  /** Σ farm cost over every purchase. */
+  totalDeployed: number;
+  /** Most land capital out at once — what actually has to be raised. */
+  peakOutstanding: number;
+  /** Split of the fresh capital by investor, in mix order (zero entries omitted). */
   funding: WarPlanFunding[];
   unfunded: number;
+  /** Planned farms whose capital is not back before the deadline (needs a cycle). */
+  turnsIncomplete: number;
   adSpendPerMonth: number;
+  /** Reservations the pace needs each month at the conversion including cancellations. */
+  reservationsPerMonth: number;
   noteSalesPerMonth: number;
   /** Lots the plan closes between today and the deadline. */
   lotsNeeded: number;
@@ -166,6 +311,10 @@ export interface WarPlan {
   /** False when no pace up to the cap reaches the target by the deadline. */
   feasible: boolean;
   ledger: SponsorLedger;
+  /** Twelve seasonal factors as applied to the required plan (normalised over its closing months). */
+  seasonality: number[];
+  benchmark: RotationBenchmark;
+  rotation: RotationPlan;
   current: WarPlanColumn;
   required: WarPlanColumn;
   buffer: WarPlanColumn;
@@ -189,6 +338,202 @@ export function farmToFirstCloseMonths(farms: FarmEconomics[]): { months: number
   }
   const med = median(values);
   return { months: med === null ? null : round2(med), farms: values.length };
+}
+
+/** Farms bought on or before asOf, most recent first (funding_date, else closing_date). */
+function purchasedFarms(farms: FarmEconomics[], asOf: Date): { farm: FarmEconomics; date: Date }[] {
+  return farms
+    .map((farm) => ({ farm, date: parseDate(farm.fundingDate) ?? parseDate(farm.closingDate) }))
+    .filter((x): x is { farm: FarmEconomics; date: Date } => x.date !== null && x.date <= asOf)
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
+}
+
+/** Average per-lot land cost of the `count` most recent farm purchases with a capital basis. */
+export function recentLandCostPerLot(farms: FarmEconomics[], asOf: Date, count = 3): { perLot: number | null; farms: string[] } {
+  const recent = purchasedFarms(farms, asOf)
+    .filter(({ farm }) => farm.capitalBasisSource !== "none" && farm.landCostPerLot > 0)
+    .slice(0, count);
+  const perLot = mean(recent.map(({ farm }) => farm.landCostPerLot));
+  return { perLot: perLot === null ? null : Math.round(perLot), farms: recent.map(({ farm }) => farm.name) };
+}
+
+const pctOf = (part: number, whole: number) => (whole <= 0 ? 0 : round2(Math.min(100, (part / whole) * 100)));
+
+function benchmarkCurve(hostage: Hostage, fundingDate: Date, distributions: InvestorDistributionRow[]): RotationBenchmark["curve"] {
+  const returns = distributions
+    .filter((d) => d.farm_acquisition_id === hostage.farmId && d.kind === "capital_return" && d.distribution_date)
+    .sort((a, b) => (a.distribution_date as string).localeCompare(b.distribution_date as string));
+  const curve: RotationBenchmark["curve"] = [];
+  let cum = 0;
+  for (const d of returns) {
+    const date = parseDate(d.distribution_date);
+    if (!date) continue;
+    cum += d.amount ?? 0;
+    const day = daysBetween(fundingDate, date);
+    const pct = pctOf(cum, hostage.capital);
+    const last = curve[curve.length - 1];
+    if (last && last.day === day) last.pct = pct;
+    else curve.push({ day, pct, date: d.distribution_date as string });
+  }
+  return curve;
+}
+
+/** The benchmark's % returned `day` days into its cycle (0 before its first return). */
+function curvePctAt(curve: RotationBenchmark["curve"], day: number): number {
+  let pct = 0;
+  for (const p of curve) {
+    if (p.day <= day) pct = p.pct;
+    else break;
+  }
+  return pct;
+}
+
+/** Days the benchmark needed to return at least `pct` %, or null when it never did (or nothing has been returned yet). */
+function curveDaysTo(curve: RotationBenchmark["curve"], pct: number): number | null {
+  if (pct <= 0) return null;
+  for (const p of curve) if (p.pct >= pct - 1e-9) return p.day;
+  return null;
+}
+
+/**
+ * The capital cycle the rotation engine turns on. Real when a farm has been freed (funding_date →
+ * the day cumulative capital_return reached 100 %, liberation.ts); projected from each captive
+ * farm's campaign shortfall at the current pace when none has. Never a constant.
+ */
+export function computeRotationBenchmark(
+  ctx: Pick<WarPlanContext, "asOf" | "farms" | "goal" | "liberation" | "campaigns" | "snapshot">,
+): RotationBenchmark {
+  const { asOf, liberation } = ctx;
+  const farmById = new Map(ctx.farms.map((f) => [f.farmId, f]));
+  const campaignByFarm = new Map(ctx.campaigns.map((c) => [c.farmId, c]));
+  const fundedOn = (h: Hostage): Date | null => {
+    const f = farmById.get(h.farmId);
+    return f ? parseDate(f.fundingDate) ?? parseDate(f.closingDate) : null;
+  };
+
+  // Current pace shared out over the farms that still have lots to sell, by their unsold inventory.
+  const pace = ctx.goal.closedLotsPerMonth;
+  const unsoldBy = new Map<string, number>();
+  let unsoldTotal = 0;
+  for (const f of ctx.farms) {
+    const unsold = Math.max(0, f.lots.length - f.soldLots);
+    const purchased = (parseDate(f.fundingDate) ?? parseDate(f.closingDate) ?? asOf) <= asOf;
+    if (unsold > 0 && purchased) {
+      unsoldBy.set(f.farmId, unsold);
+      unsoldTotal += unsold;
+    }
+  }
+  const projectedDaysToGo = (h: Hostage): { days: number | null; lotsLeft: number | null } => {
+    const c = campaignByFarm.get(h.farmId);
+    if (!c) return { days: null, lotsLeft: null };
+    if (c.lotsLeftToCover === null) return { days: null, lotsLeft: null };
+    if (c.lotsLeftToCover === 0) return { days: 0, lotsLeft: 0 };
+    const share = unsoldTotal > 0 ? (unsoldBy.get(h.farmId) ?? 0) / unsoldTotal : 0;
+    const farmPace = pace * share;
+    if (farmPace <= 0) return { days: null, lotsLeft: c.lotsLeftToCover };
+    return { days: Math.round((c.lotsLeftToCover / farmPace) * DAYS_PER_MONTH), lotsLeft: c.lotsLeftToCover };
+  };
+
+  const realCycles: CapitalCycle[] = [];
+  for (const h of liberation.freedHostages) {
+    const funded = fundedOn(h);
+    const freed = parseDate(h.freedAt);
+    if (!funded || !freed || !h.freedAt) continue;
+    const days = daysBetween(funded, freed);
+    if (days < 0) continue;
+    realCycles.push({
+      farmId: h.farmId,
+      farmName: h.farmName,
+      investorName: h.investorName,
+      fundingDate: toIsoDate(funded),
+      liberationDate: h.freedAt,
+      days,
+      months: round2(days / DAYS_PER_MONTH),
+      projected: false,
+    });
+  }
+  const projectedCycles: CapitalCycle[] = [];
+  for (const h of liberation.captiveHostages) {
+    const funded = fundedOn(h);
+    const { days } = projectedDaysToGo(h);
+    if (!funded || days === null) continue;
+    const total = daysBetween(funded, addDays(asOf, days));
+    if (total <= 0) continue;
+    projectedCycles.push({
+      farmId: h.farmId,
+      farmName: h.farmName,
+      investorName: h.investorName,
+      fundingDate: toIsoDate(funded),
+      liberationDate: toIsoDate(addDays(asOf, days)),
+      days: total,
+      months: round2(total / DAYS_PER_MONTH),
+      projected: true,
+    });
+  }
+
+  const cycles = realCycles.length > 0 ? realCycles : projectedCycles;
+  const source: CycleSource | null = realCycles.length > 0 ? "freed_farms" : projectedCycles.length > 0 ? "projected" : null;
+  const cycleDays = median(cycles.map((c) => c.days));
+  // The benchmark farm is the one whose cycle sits at (or just above) the median.
+  const benchmark =
+    cycleDays === null ? null : ([...cycles].sort((a, b) => a.days - b.days).find((c) => c.days >= cycleDays) ?? cycles[0] ?? null);
+  const benchmarkHostage = benchmark ? liberation.hostages.find((h) => h.farmId === benchmark.farmId) ?? null : null;
+  const benchmarkFunded = benchmark ? parseDate(benchmark.fundingDate) : null;
+  const curve = benchmarkHostage && benchmarkFunded && !benchmark?.projected ? benchmarkCurve(benchmarkHostage, benchmarkFunded, ctx.snapshot.investorDistributions) : [];
+
+  const grades: FarmGrade[] = liberation.hostages.map((h): FarmGrade => {
+    const funded = fundedOn(h);
+    const isBenchmark = benchmark !== null && h.farmId === benchmark.farmId;
+    const freedAt = parseDate(h.freedAt);
+    const daysElapsed = funded ? (h.freed && freedAt ? daysBetween(funded, freedAt) : daysBetween(funded, asOf)) : null;
+    const rated = curve.length > 0 && daysElapsed !== null && daysElapsed >= 0 && !isBenchmark;
+    const benchmarkPctAtSameDay = rated ? curvePctAt(curve, daysElapsed as number) : null;
+    const benchmarkDaysToSamePct = rated ? curveDaysTo(curve, h.pctReturned) : null;
+    const pctVs = benchmarkPctAtSameDay === null ? null : round2(h.pctReturned - benchmarkPctAtSameDay);
+    const daysVs = benchmarkDaysToSamePct === null || daysElapsed === null ? null : benchmarkDaysToSamePct - daysElapsed;
+    let verdict: FarmGradeVerdict = "unrated";
+    if (isBenchmark) verdict = "benchmark";
+    else if (pctVs !== null) verdict = pctVs >= 5 ? "ahead" : pctVs <= -5 ? "behind" : "on_pace";
+    const projected = h.freed ? { days: 0, lotsLeft: 0 } : projectedDaysToGo(h);
+    return {
+      farmId: h.farmId,
+      farmName: h.farmName,
+      investorName: h.investorName,
+      dealType: h.dealType,
+      capital: h.capital,
+      capitalReturned: h.capitalReturned,
+      pctReturned: h.pctReturned,
+      freed: h.freed,
+      fundingDate: funded ? toIsoDate(funded) : null,
+      daysElapsed,
+      benchmarkPctAtSameDay,
+      pctVsBenchmark: pctVs,
+      benchmarkDaysToSamePct,
+      daysVsBenchmark: daysVs,
+      verdict,
+      lotsLeftToCover: projected.lotsLeft,
+      projectedLiberationDate: h.freed ? h.freedAt : projected.days === null ? null : toIsoDate(addDays(asOf, projected.days)),
+      daysToGo: h.freed ? 0 : projected.days,
+    };
+  });
+
+  const nextLiberation =
+    grades
+      .filter((g) => !g.freed && g.daysToGo !== null)
+      .sort((a, b) => (a.daysToGo as number) - (b.daysToGo as number) || b.pctReturned - a.pctReturned)[0] ?? null;
+
+  return {
+    cycleDays,
+    cycleMonths: cycleDays === null ? null : round2(cycleDays / DAYS_PER_MONTH),
+    source,
+    benchmark,
+    cycles,
+    curve,
+    grades,
+    turnsCompleted: liberation.freedHostages.length,
+    capitalOutstanding: round2(sum(liberation.captiveHostages.map((h) => h.capitalOutstanding))),
+    nextLiberation,
+  };
 }
 
 export function sponsorLedger(ctx: Pick<WarPlanContext, "farms" | "investors" | "goal">): SponsorLedger {
@@ -243,41 +588,59 @@ export function prefillInvestorMix(investors: InvestorSummary[]): InvestorMixEnt
 export function deriveWarPlanDefaults(ctx: WarPlanContext): WarPlanDefaults {
   const first = farmToFirstCloseMonths(ctx.farms);
   const landCostPerLot = ctx.oracleDefaults.avgLandCost;
+  const recent = recentLandCostPerLot(ctx.farms, ctx.asOf);
+  const defaultLandCostPerLot = recent.perLot ?? landCostPerLot;
   const lotsPerFarm = WARPLAN_DEFAULT_LOTS_PER_FARM;
-  const conversion = ctx.pipeline.conversion.pct;
+  const conversion = ctx.pipeline.conversion;
+  const benchmark = computeRotationBenchmark(ctx);
   return {
     inputs: {
       target: ctx.goal.goal,
       deadline: ctx.goal.deadline,
       targetMode: "profit_at_closing",
       lotsPerFarm,
-      farmCost: Math.round(landCostPerLot * lotsPerFarm),
+      farmCost: Math.round(defaultLandCostPerLot * lotsPerFarm),
       adSpendPerClosing: WARPLAN_DEFAULT_AD_SPEND_PER_CLOSING,
-      conversionPct: conversion ?? 100,
+      conversionPct: conversion.pctWithCancellations ?? conversion.pct ?? 100,
       farmToFirstCloseMonths: first.months ?? 3,
       noteSaleLagMonths: ctx.oracleDefaults.avgMonthsToSellNote,
       investorMix: prefillInvestorMix(ctx.investors),
+      cycleMonths: benchmark.cycleMonths,
+      seasonal: true,
     },
     real: {
       target: ctx.goal.goal,
       deadline: ctx.goal.deadline,
       lotsPerFarm: ctx.goal.avgLotsPerFarm,
       landCostPerLot,
-      conversionPct: conversion,
+      recentLandCostPerLot: recent.perLot,
+      recentFarms: recent.farms,
+      defaultLandCostPerLot,
+      conversionPct: conversion.pct,
+      conversionWithCancellationsPct: conversion.pctWithCancellations,
+      cancellationRatePct: conversion.cancellationRatePct,
+      cancelledReservations: ctx.pipeline.cancelledReservations,
       farmToFirstCloseMonths: first.months,
       farmToFirstCloseFarms: first.farms,
       medianDaysToClose: ctx.pipeline.medianDaysToClose,
       noteSaleLagMonths: ctx.oracleDefaults.avgMonthsToSellNote,
       closingsPerMonth: ctx.goal.closedLotsPerMonth,
       inventory: ctx.goal.availableLots + ctx.goal.reservedLots,
+      cycleDays: benchmark.cycleDays,
+      cycleMonths: benchmark.cycleMonths,
+      cycleSource: benchmark.source,
+      cycleFarms: benchmark.cycles.length,
     },
   };
 }
 
-/** cum[m] = Σ fraction of months 1..m (cum[0] = 0). */
-function cumulativeFractions(grid: OracleMonthGrid): number[] {
+/** cum[m] = Σ fraction × seasonal factor of months 1..m (cum[0] = 0): lots the flat pace consumes per unit of pace. */
+function cumulativeFractions(grid: OracleMonthGrid, factors?: number[]): number[] {
   const cum = [0];
-  for (const mo of grid.months) cum.push((cum[cum.length - 1] as number) + mo.fraction);
+  for (const mo of grid.months) {
+    const f = factors ? (factors[mo.end.getUTCMonth()] ?? 1) : 1;
+    cum.push((cum[cum.length - 1] as number) + mo.fraction * f);
+  }
   return cum;
 }
 
@@ -339,19 +702,52 @@ function bisect(ok: (p: number) => boolean, lo: number, hi: number): number {
   return p;
 }
 
-function aggregateFunding(farms: OracleFarm[], mix: InvestorMixEntry[]): { funding: WarPlanFunding[]; unfunded: number } {
-  const amounts = mix.map(() => 0);
+/**
+ * Per-sponsor totals over the planned farms. A sponsor's fresh money is what they deploy minus what
+ * came back to them from an earlier farm in the plan; the recycled part is attributed to sponsors in
+ * mix order, the same order the simulation drew it.
+ */
+function aggregateFunding(
+  farms: OracleFarm[],
+  mix: InvestorMixEntry[],
+  deadlineIndex: number,
+): { funding: WarPlanFunding[]; unfunded: number; perInvestor: InvestorTurns[]; peakOutstanding: number; recycled: number } {
+  const deployed = mix.map(() => 0);
+  const fresh = mix.map(() => 0);
   let unfunded = 0;
+  let recycled = 0;
   for (const f of farms) {
-    for (const s of f.funding) amounts[s.mixIndex] = (amounts[s.mixIndex] ?? 0) + s.amount;
+    let toRecycle = f.recycled;
+    for (const s of f.funding) {
+      deployed[s.mixIndex] = (deployed[s.mixIndex] ?? 0) + s.amount;
+      const r = Math.min(toRecycle, s.amount);
+      toRecycle -= r;
+      fresh[s.mixIndex] = (fresh[s.mixIndex] ?? 0) + (s.amount - r);
+    }
     unfunded += f.unfunded;
+    recycled += f.recycled;
+  }
+  // Outstanding capital by month: farms bought and not yet back with their sponsors.
+  const outstandingAt = (m: number, of: (f: OracleFarm) => number) =>
+    sum(farms.filter((f) => f.purchaseMonth <= m && (f.turnCompletesMonth === null || f.turnCompletesMonth > m)).map(of));
+  let peakOutstanding = 0;
+  const peakBy = mix.map(() => 0);
+  for (let m = 1; m <= Math.max(1, deadlineIndex); m++) {
+    peakOutstanding = Math.max(peakOutstanding, outstandingAt(m, (f) => f.cost));
+    mix.forEach((_, i) => {
+      peakBy[i] = Math.max(peakBy[i] ?? 0, outstandingAt(m, (f) => sum(f.funding.filter((s) => s.mixIndex === i).map((s) => s.amount))));
+    });
   }
   const funding: WarPlanFunding[] = [];
+  const perInvestor: InvestorTurns[] = [];
   mix.forEach((e, i) => {
-    const amount = round2(amounts[i] ?? 0);
-    if (amount > 0) funding.push({ mixIndex: i, investorId: e.investorId, name: e.name, amount });
+    const amount = round2(fresh[i] ?? 0);
+    const total = round2(deployed[i] ?? 0);
+    if (amount > 0) funding.push({ mixIndex: i, investorId: e.investorId, name: e.name, amount, deployed: total });
+    const peak = round2(peakBy[i] ?? 0);
+    if (total > 0) perInvestor.push({ mixIndex: i, name: e.name, deployed: total, fresh: amount, peakOutstanding: peak, turns: peak > 0 ? round2(total / peak) : 0 });
   });
-  return { funding, unfunded: round2(unfunded) };
+  return { funding, unfunded: round2(unfunded), perInvestor, peakOutstanding: round2(peakOutstanding), recycled: round2(recycled) };
 }
 
 const monthFmt = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
@@ -421,6 +817,9 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
   const maxPurchaseMonth = k - landLag - closeLag - (cashMode ? noteLag : 0);
   const lotsPerFarm = Math.max(0, inputs.lotsPerFarm);
 
+  const cycleMonths = inputs.cycleMonths !== null && inputs.cycleMonths > 0 ? inputs.cycleMonths : null;
+  const cycleRounded = cycleMonths === null ? null : Math.max(1, Math.round(cycleMonths));
+
   const base: OracleParams = {
     ...ctx.oracleDefaults,
     avgLotsPerFarm: lotsPerFarm,
@@ -431,14 +830,19 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
     farmToFirstCloseMonths: inputs.farmToFirstCloseMonths,
     investorMix: inputs.investorMix,
     targetMode: inputs.targetMode,
+    ...(cycleMonths !== null ? { capitalCycleMonths: cycleMonths } : {}),
   };
   const opts: OracleRunOptions = { calendarMonths: true, cashStart: ledger.cashKept, owedStart: ledger.owedToday };
-  const cum = cumulativeFractions(grid);
   // In cash mode a closing only pays off once its note sells, so farms are sized for the closings
   // that can still do that before the deadline, and the plan stops closing lots after that month.
   const lastUsefulMonth = cashMode ? Math.max(0, k - noteLag) : k;
   const pauseClosings: [number, number] | undefined = cashMode && lastUsefulMonth < k ? [lastUsefulMonth + 1, k] : undefined;
-  const planParams: OracleParams = pauseClosings ? { ...base, pauseClosings } : base;
+  // The month-of-year shape of the realm's closings, rescaled so the flat pace stays the plan's average.
+  const seasonality = inputs.seasonal
+    ? normalizeSeasonality(ctx.seasonality.factors, grid.months, Math.max(1, lastUsefulMonth))
+    : ctx.seasonality.factors.map(() => 1);
+  const cum = cumulativeFractions(grid, seasonality);
+  const planParams: OracleParams = { ...base, seasonality, ...(pauseClosings ? { pauseClosings } : {}) };
   const simulate = (pace: number, schedule: number[]): OracleResult =>
     runOracle({ ...planParams, lotsPerMonth: pace, farmsToBuy: schedule }, goal, startInventory, asOf, opts);
   const scheduleFor = (pace: number) => justInTimeSchedule(pace, cum, lastUsefulMonth, startInventory, lotsPerFarm, landLag, maxPurchaseMonth);
@@ -473,7 +877,7 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
     const params: OracleParams = { ...from, lotsPerMonth: round2(pace), farmsToBuy: schedule };
     const result = runOracle(params, goal, startInventory, asOf, opts);
     const planned = result.farms.filter((f) => f.purchaseMonth <= k);
-    const { funding, unfunded } = aggregateFunding(planned, inputs.investorMix);
+    const { funding, unfunded, peakOutstanding } = aggregateFunding(planned, inputs.investorMix, k);
     const lastPurchaseMonth = planned.length > 0 ? Math.max(...planned.map((f) => f.purchaseMonth)) : null;
     const rows: WarPlanRow[] = result.series
       .filter((p) => p.monthIndex <= Math.max(k, 1))
@@ -481,12 +885,15 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
         const flags: WarPlanFlag[] = [];
         if (p.shortfall) flags.push("shortfall");
         if (k > 0 && result.farms.some((f) => f.purchaseMonth === p.monthIndex && f.tooLate)) flags.push("too_late");
+        if (k > 0 && cycleRounded !== null && planned.some((f) => f.purchaseMonth === p.monthIndex && !f.turnComplete)) flags.push("turn_incomplete");
         return {
           monthIndex: p.monthIndex,
           date: p.date,
           farmsBought: p.farmsBought,
           capitalDeployed: p.capitalDeployed,
           lotsClosed: p.lotsClosed,
+          flatLotsClosed: p.flatLotsClosed,
+          seasonalFactor: p.seasonalFactor,
           notesSold: p.notesSold,
           adSpend: p.adSpend,
           cumulativeNet: p.cumulativeNet,
@@ -516,10 +923,14 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
       farmsToBuy: planned.length,
       lastPurchaseMonth,
       lastPurchaseDate: lastPurchaseMonth === null ? null : (rows.find((r) => r.monthIndex === lastPurchaseMonth)?.date ?? result.series[lastPurchaseMonth - 1]?.date ?? null),
-      capitalToRaise: round2(sum(planned.map((f) => f.cost))),
+      capitalToRaise: round2(sum(planned.map((f) => f.cost - f.recycled))),
+      totalDeployed: round2(sum(planned.map((f) => f.cost))),
+      peakOutstanding,
       funding,
       unfunded,
+      turnsIncomplete: cycleRounded === null ? 0 : planned.filter((f) => !f.turnComplete).length,
       adSpendPerMonth: inputs.conversionPct > 0 ? round2((pace / (inputs.conversionPct / 100)) * inputs.adSpendPerClosing) : 0,
+      reservationsPerMonth: inputs.conversionPct > 0 ? round2(pace / (inputs.conversionPct / 100)) : 0,
       noteSalesPerMonth: round2(pace),
       lotsNeeded: round2(lotsNeeded),
       inventoryAtDeadline: deadlinePoint?.inventory ?? startInventory,
@@ -577,6 +988,7 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
     return { ...c, daysEarlierThanCurrent: exit && currentExit ? daysBetween(exit, currentExit) : null };
   };
   const all = [withDiff(current), withDiff(required), withDiff(buffer)];
+  const benchmark = computeRotationBenchmark(ctx);
 
   const plan: WarPlan = {
     inputs,
@@ -592,6 +1004,9 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
     lastClosingDate,
     feasible,
     ledger,
+    seasonality: seasonality.map((f) => Math.round(f * 1000) / 1000),
+    benchmark,
+    rotation: rotationPlan(all[1] as WarPlanColumn, inputs.investorMix, cycleMonths, benchmark.turnsCompleted, k, grid, goal, feasible, startInventory),
     current: all[0] as WarPlanColumn,
     required: all[1] as WarPlanColumn,
     buffer: all[2] as WarPlanColumn,
@@ -599,4 +1014,73 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
     verdict: "",
   };
   return { ...plan, verdict: warPlanVerdict(plan) };
+}
+
+function turnsLabel(turns: number): string {
+  const n = Number.isInteger(turns) ? String(turns) : turns.toFixed(1);
+  return `${n} turn${turns === 1 ? "" : "s"}`;
+}
+
+/** The rotation reading of the required plan, with the founder's headline. Pure so it can be tested. */
+export function rotationPlan(
+  column: WarPlanColumn,
+  mix: InvestorMixEntry[],
+  cycleMonths: number | null,
+  turnsCompleted: number,
+  deadlineIndex: number,
+  grid: OracleMonthGrid,
+  goal: GoalStatus,
+  feasible: boolean,
+  startInventory: number,
+): RotationPlan {
+  const planned = column.schedule;
+  const { perInvestor, peakOutstanding, recycled } = aggregateFunding(planned, mix, deadlineIndex);
+  const totalDeployed = column.totalDeployed;
+  const turnsNeeded = planned.length > 0 && peakOutstanding > 0 ? round2(totalDeployed / peakOutstanding) : null;
+  const monthEnd = (m: number | null): string | null => {
+    if (m === null || m <= 0) return null;
+    const mo = grid.months[m - 1];
+    return mo ? toIsoDate(mo.end) : null;
+  };
+  const firstPurchase = planned.length > 0 ? Math.min(...planned.map((f) => f.purchaseMonth)) : null;
+  const lastCompletes = planned.length > 0 && cycleMonths !== null ? Math.max(...planned.map((f) => f.turnCompletesMonth ?? 0)) : null;
+  const firstTurnStartBy = monthEnd(firstPurchase);
+  const lastTurnCompletes = monthEnd(lastCompletes);
+  const turnsIncomplete = column.turnsIncomplete;
+
+  const target = usdCompact(goal.goal);
+  const cycle = cycleMonths === null ? null : `${cycleMonths.toFixed(1)} months`;
+  let headline: string;
+  if (deadlineIndex === 0) {
+    headline = feasible
+      ? `The target is already met: no land capital has to turn.`
+      : `The deadline ${goal.deadline} is not in the future: no capital turn can start before it.`;
+  } else if (planned.length === 0) {
+    headline = feasible
+      ? `Today's ${startInventory} lots reach ${target} by ${goal.deadline} without a new farm: no land capital has to turn.`
+      : `No pace reaches ${target} by ${goal.deadline} from today's ${startInventory} lots, and no farm bought now could convert in time: no capital turn helps.`;
+  } else if (cycle === null) {
+    headline = `The length of a capital turn is unknown — no freed farm to measure it, none projectable, or the input left blank — so the plan needs ${usdCompact(totalDeployed)} of land capital across ${planned.length} farm${planned.length === 1 ? "" : "s"} with nothing rotating; the first must be bought by ${firstTurnStartBy ? warPlanMonthLabel(firstTurnStartBy) : "—"}.`;
+  } else if (!feasible) {
+    headline = `No pace reaches ${target} by ${goal.deadline}: even ${usdCompact(peakOutstanding)} of land capital rotating every ${cycle} (${turnsLabel(turnsNeeded ?? 0)} across ${planned.length} farms) lands at ${usdCompact(column.targetAtDeadline)}.`;
+  } else {
+    const incomplete = turnsIncomplete > 0 ? ` ${turnsIncomplete} of the ${planned.length} turns cannot complete before the deadline.` : "";
+    headline = `With ${usdCompact(peakOutstanding)} of land capital rotating every ${cycle} you reach ${target} by the deadline; you need ${turnsLabel(turnsNeeded ?? 0)}; the first turn must start by ${firstTurnStartBy ? warPlanMonthLabel(firstTurnStartBy) : "—"}.${incomplete}`;
+  }
+
+  return {
+    cycleMonths,
+    totalDeployed,
+    peakOutstanding,
+    newMoney: column.capitalToRaise,
+    recycled,
+    turnsNeeded,
+    turnsCompleted,
+    turnsIncomplete,
+    farms: planned.length,
+    firstTurnStartBy,
+    lastTurnCompletes,
+    perInvestor,
+    headline,
+  };
 }

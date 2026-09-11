@@ -58,6 +58,16 @@ export interface OracleParams {
    * notes cannot be sold before the deadline and harvests the notes instead.
    */
   pauseClosings?: [from: number, to: number];
+  /**
+   * Twelve multipliers on the monthly pace by calendar month (index 0 = January), calendar mode
+   * only. Month-of-year shape of the closings; the plan's flat pace is the average.
+   */
+  seasonality?: number[];
+  /**
+   * Months from buying a farm until the capital that funded it is back in the sponsor's hands
+   * and can fund the next farm (the realm's real liberation cycle). Without it capital never rotates.
+   */
+  capitalCycleMonths?: number;
 }
 
 /** Realm-level context the Oracle sliders do not carry. */
@@ -95,6 +105,12 @@ export interface OracleFarm {
   funding: FarmFundingSlice[];
   /** Part of the cost no sponsor in the mix could cover. */
   unfunded: number;
+  /** Part of the funding that was capital returned by an earlier farm in this plan (a second turn of the same dollar). */
+  recycled: number;
+  /** Month the capital that bought this farm is back with its sponsors (purchase + capitalCycleMonths), or null without a cycle. */
+  turnCompletesMonth: number | null;
+  /** True when the turn completes on or before the deadline month. */
+  turnComplete: boolean;
   lotsClosedByDeadline: number;
   notesSoldByDeadline: number;
   /** Bought so late that (after the lag, plus the note sale in cash mode) nothing converts before the deadline. */
@@ -105,6 +121,10 @@ export interface OraclePoint {
   monthIndex: number;
   date: string;
   lotsClosed: number;
+  /** Closings the flat pace alone would ask for this month (before the seasonal shape). */
+  flatLotsClosed: number;
+  /** Seasonal multiplier applied this month (1 without a profile). */
+  seasonalFactor: number;
   inventory: number;
   cumulativeNetProfit: number;
   cumulativeCash: number;
@@ -266,20 +286,48 @@ interface FarmBatch {
   closedByMonth: number[];
 }
 
-/** Funds each scheduled farm from the mix in order; whatever the mix cannot cover is `unfunded`. */
-function fundSchedule(schedule: number[], farmCost: number, lotsPerFarm: number, landLag: number, mix: InvestorMixEntry[]): OracleFarm[] {
+/**
+ * Funds each scheduled farm from the mix in order; whatever the mix cannot cover is `unfunded`.
+ * With a capital cycle, the money that bought a farm returns to its sponsor `cycleMonths` later
+ * and funds the farms bought from that month on — the same dollar on its next turn.
+ */
+function fundSchedule(
+  schedule: number[],
+  farmCost: number,
+  lotsPerFarm: number,
+  landLag: number,
+  mix: InvestorMixEntry[],
+  cycleMonths: number | null,
+  deadlineIndex: number,
+): OracleFarm[] {
   const remaining = mix.map((e) => Math.max(0, e.capital));
+  const recycledPool = mix.map(() => 0);
+  const pending: { month: number; mixIndex: number; amount: number }[] = [];
   return schedule.map((purchaseMonth, index) => {
+    for (const p of pending) {
+      if (p.month <= purchaseMonth && p.amount > 0) {
+        recycledPool[p.mixIndex] = (recycledPool[p.mixIndex] ?? 0) + p.amount;
+        p.amount = 0;
+      }
+    }
     let need = farmCost;
+    let recycled = 0;
     const funding: FarmFundingSlice[] = [];
     for (let s = 0; s < mix.length && need > 1e-9; s++) {
       const entry = mix[s] as InvestorMixEntry;
-      const amount = Math.min(remaining[s] as number, need);
+      const fromReturned = Math.min(recycledPool[s] as number, need);
+      recycledPool[s] = (recycledPool[s] as number) - fromReturned;
+      need -= fromReturned;
+      recycled += fromReturned;
+      const fromFresh = Math.min(remaining[s] as number, need);
+      remaining[s] = (remaining[s] as number) - fromFresh;
+      need -= fromFresh;
+      const amount = fromReturned + fromFresh;
       if (amount <= 0) continue;
-      remaining[s] = (remaining[s] as number) - amount;
-      need -= amount;
       funding.push({ mixIndex: s, investorId: entry.investorId, name: entry.name, dealType: entry.dealType, ratePct: entry.ratePct, amount });
+      if (cycleMonths !== null) pending.push({ month: purchaseMonth + cycleMonths, mixIndex: s, amount });
     }
+    const turnCompletesMonth = cycleMonths === null ? null : purchaseMonth + cycleMonths;
     return {
       index,
       purchaseMonth,
@@ -288,6 +336,9 @@ function fundSchedule(schedule: number[], farmCost: number, lotsPerFarm: number,
       cost: farmCost,
       funding,
       unfunded: Math.max(0, need),
+      recycled,
+      turnCompletesMonth,
+      turnComplete: turnCompletesMonth !== null && deadlineIndex > 0 && turnCompletesMonth <= deadlineIndex,
       lotsClosedByDeadline: 0,
       notesSoldByDeadline: 0,
       tooLate: false,
@@ -338,7 +389,9 @@ export function runOracle(params: OracleParams, goal: GoalStatus, startInventory
         .filter((p) => p <= ORACLE_HORIZON_MONTHS)
         .sort((a, b) => a - b)
     : [];
-  const farms = fundSchedule(schedule, farmCost, lotsPerFarm, landLag, mix);
+  const cycleMonths = params.capitalCycleMonths !== undefined && params.capitalCycleMonths > 0 ? Math.max(1, Math.round(params.capitalCycleMonths)) : null;
+  const farms = fundSchedule(schedule, farmCost, lotsPerFarm, landLag, mix, cycleMonths, deadlineIndex);
+  const seasonality = calendar && params.seasonality && params.seasonality.length === 12 ? params.seasonality : null;
   const fundedOf = (f: OracleFarm) => f.funding.filter((s) => s.dealType !== "own_capital").reduce((a, s) => a + s.amount, 0);
 
   const series: OraclePoint[] = [];
@@ -398,7 +451,9 @@ export function runOracle(params: OracleParams, goal: GoalStatus, startInventory
     outlays += capitalNow;
 
     const paused = params.pauseClosings !== undefined && m >= params.pauseClosings[0] && m <= params.pauseClosings[1];
-    const pace = paused ? 0 : Math.max(0, params.lotsPerMonth) * (calendar ? month.fraction : 1);
+    const flatPace = paused ? 0 : Math.max(0, params.lotsPerMonth) * (calendar ? month.fraction : 1);
+    const seasonalFactor = seasonality ? Math.max(0, seasonality[month.end.getUTCMonth()] ?? 1) : 1;
+    const pace = flatPace * seasonalFactor;
     const farmInventory = farmBatches.reduce((a, b) => a + b.lots, 0);
     const closed = Math.min(pace, poolInventory + farmInventory);
 
@@ -451,6 +506,8 @@ export function runOracle(params: OracleParams, goal: GoalStatus, startInventory
       monthIndex: m,
       date,
       lotsClosed: round2(closed),
+      flatLotsClosed: round2(flatPace),
+      seasonalFactor: Math.round(seasonalFactor * 1000) / 1000,
       inventory: round2(poolInventory + farmBatches.reduce((a, b) => a + b.lots, 0)),
       cumulativeNetProfit: round2(profit),
       cumulativeCash: round2(cash),
@@ -519,6 +576,7 @@ export function runOracle(params: OracleParams, goal: GoalStatus, startInventory
       f.notesSoldByDeadline = round2(notesSold);
       f.tooLate = k === 0 || f.landMonth + (cashMode ? noteLag : 0) > k;
       f.unfunded = round2(f.unfunded);
+      f.recycled = round2(f.recycled);
     }
   }
 

@@ -8,13 +8,16 @@ import {
   deriveWarPlanDefaults,
   farmToFirstCloseMonths,
   justInTimeSchedule,
+  computeRotationBenchmark,
+  recentLandCostPerLot,
   solveWarPlan,
   sponsorLedger,
   usdCompact,
   warPlanMonthLabel,
   type WarPlanInputs,
 } from "../warplan";
-import { ASOF, farm, fileCase, investor, note, noteSale, property, snapshot } from "./builders";
+import { computeSeasonality, normalizeSeasonality } from "../seasonality";
+import { ASOF, distribution, farm, fileCase, investor, note, noteSale, property, snapshot } from "./builders";
 
 const params: OracleParams = {
   lotsPerMonth: 5,
@@ -298,7 +301,8 @@ describe("solveWarPlan on a synthetic realm", () => {
     snapshot({ farmAcquisitions: [alpha, beta, gamma], properties, fileCases, notes, noteSales, investors: [kevin, townson, grace] }),
     ASOF,
   );
-  const inputs: WarPlanInputs = { ...realm.warPlanDefaults.inputs, target: 3_000_000 };
+  // The plan the earlier pins were written against: the all-time land cost, no capital cycle, flat pace.
+  const inputs: WarPlanInputs = { ...realm.warPlanDefaults.inputs, target: 3_000_000, farmCost: 500_000, cycleMonths: null, seasonal: false };
   const plan = solveWarPlan(inputs, realm);
   const oracleOpts = { calendarMonths: true, cashStart: plan.ledger.cashKept, owedStart: plan.ledger.owedToday };
 
@@ -309,13 +313,35 @@ describe("solveWarPlan on a synthetic realm", () => {
       deadline: "2027-12-31",
       targetMode: "profit_at_closing",
       lotsPerFarm: 10,
-      farmCost: 500_000,
+      farmCost: 466_670,
       adSpendPerClosing: 2_500,
       conversionPct: 100,
       farmToFirstCloseMonths: 5.11,
       noteSaleLagMonths: realm.oracleDefaults.avgMonthsToSellNote,
+      cycleMonths: 9.69,
+      seasonal: true,
     });
-    expect(d.real).toMatchObject({ lotsPerFarm: 13.33, landCostPerLot: 50_000, conversionPct: 100, farmToFirstCloseMonths: 5.11, farmToFirstCloseFarms: 2, medianDaysToClose: 87.5, closingsPerMonth: 3.38, inventory: 30 });
+    expect(d.real).toMatchObject({
+      lotsPerFarm: 13.33,
+      landCostPerLot: 50_000,
+      // Gamma ($40,000/lot), Beta and Alpha ($50,000/lot) are the three most recent purchases
+      recentLandCostPerLot: 46_667,
+      recentFarms: ["Gamma", "Beta", "Alpha"],
+      defaultLandCostPerLot: 46_667,
+      conversionPct: 100,
+      conversionWithCancellationsPct: 100,
+      cancellationRatePct: 0,
+      farmToFirstCloseMonths: 5.11,
+      farmToFirstCloseFarms: 2,
+      medianDaysToClose: 87.5,
+      closingsPerMonth: 3.38,
+      inventory: 30,
+      // nobody is freed yet, so the cycle is projected from the campaigns at the current pace
+      cycleDays: 295,
+      cycleMonths: 9.69,
+      cycleSource: "projected",
+      cycleFarms: 3,
+    });
     expect(d.inputs.investorMix.map((e) => [e.name, e.dealType, e.ratePct, e.capital])).toEqual([
       ["Kevin Concua", "fixed_interest", 20, 1_000_000],
       ["Townson Family", "profit_share", 50, 500_000],
@@ -361,7 +387,10 @@ describe("solveWarPlan on a synthetic realm", () => {
     expect(r.lastPurchaseMonth).toBe(8);
     expect(r.lastPurchaseDate).toBe("2027-04-30");
     expect(r.capitalToRaise).toBe(1_000_000);
-    expect(r.funding).toEqual([{ mixIndex: 0, investorId: kevin.id, name: "Kevin Concua", amount: 1_000_000 }]);
+    expect(r.funding).toEqual([{ mixIndex: 0, investorId: kevin.id, name: "Kevin Concua", amount: 1_000_000, deployed: 1_000_000 }]);
+    expect(r.totalDeployed).toBe(1_000_000);
+    expect(r.peakOutstanding).toBe(1_000_000);
+    expect(r.reservationsPerMonth).toBe(2.63);
     expect(r.unfunded).toBe(0);
     expect(r.adSpendPerMonth).toBe(6_575);
     expect(r.noteSalesPerMonth).toBe(2.63);
@@ -501,5 +530,298 @@ describe("solveWarPlan on a synthetic realm", () => {
     expect(impossible.verdict).toMatch(
       /^No pace reaches \$50\.0M by 2027-12-31: even 60\.0 lots\/month with \d+ farms and \$[\d.]+M raised \(.*unfunded \$[\d.]+M\) lands at \$[\d.]+M\. Push the deadline or lower the target\.$/,
     );
+  });
+});
+
+describe("rotation engine: the capital cycle", () => {
+  const kevin = investor({ name: "Kevin Concua" });
+  const townson = investor({ name: "Townson Family" });
+  // Delta: $300,000 funded 2026-01-01, every dollar back by 2026-06-30 (181 days) — the benchmark.
+  const delta = farm({ farm_name: "Delta", total_lots: 6, investor_id: kevin.id, investor_capital: 300_000, deal_type: "fixed_interest", annual_interest_rate: 20, funding_date: "2026-01-01", closing_date: "2026-01-01" });
+  // Echo: $600,000 funded 2026-03-01, a third back so far.
+  const echo = farm({ farm_name: "Echo", total_lots: 12, investor_id: townson.id, investor_capital: 600_000, deal_type: "profit_share", annual_interest_rate: 0, profit_share_pct: 50, funding_date: "2026-03-01", closing_date: "2026-03-01" });
+  // Foxtrot: $400,000 funded 2026-08-01, nothing back yet.
+  const foxtrot = farm({ farm_name: "Foxtrot", total_lots: 8, investor_id: kevin.id, investor_capital: 400_000, deal_type: "fixed_interest", annual_interest_rate: 20, funding_date: "2026-08-01", closing_date: "2026-08-01" });
+  const properties: ReturnType<typeof property>[] = [];
+  const fileCases: ReturnType<typeof fileCase>[] = [];
+  for (let i = 1; i <= 6; i++) {
+    const p = property(delta.id, i, { name: `Delta — Lot ${i}` });
+    properties.push(p);
+    fileCases.push(fileCase(p.id, { status: "completed", reservation_date: "2026-02-01", closing_date: `2026-0${Math.min(9, 2 + i)}-15`, sale_price: 120_000 }));
+  }
+  for (let i = 1; i <= 12; i++) {
+    const p = property(echo.id, i, { name: `Echo — Lot ${i}` });
+    properties.push(p);
+    if (i <= 4) fileCases.push(fileCase(p.id, { status: "completed", reservation_date: "2026-04-01", closing_date: "2026-07-10", sale_price: 120_000 }));
+  }
+  for (let i = 1; i <= 8; i++) properties.push(property(foxtrot.id, i, { name: `Foxtrot — Lot ${i}` }));
+  const distributions = [
+    distribution(delta.id, { investor_id: kevin.id, distribution_date: "2026-03-01", amount: 100_000 }),
+    distribution(delta.id, { investor_id: kevin.id, distribution_date: "2026-05-01", amount: 120_000 }),
+    distribution(delta.id, { investor_id: kevin.id, distribution_date: "2026-06-30", amount: 80_000 }),
+    distribution(delta.id, { investor_id: kevin.id, distribution_date: "2026-06-30", amount: 15_000, kind: "interest" }),
+    distribution(echo.id, { investor_id: townson.id, distribution_date: "2026-08-01", amount: 200_000 }),
+  ];
+  const realm = buildRealm(
+    snapshot({ farmAcquisitions: [delta, echo, foxtrot], properties, fileCases, investorDistributions: distributions, investors: [kevin, townson] }),
+    ASOF,
+  );
+  const b = realm.rotation;
+
+  it("derives the cycle from funding_date to the day cumulative capital_return reached 100 % on the freed farm — never a constant", () => {
+    expect(realm.liberation.freedHostages.map((h) => [h.farmName, h.freedAt, h.daysHeld])).toEqual([["Delta", "2026-06-30", 180]]);
+    expect(b.source).toBe("freed_farms");
+    expect(b.cycleDays).toBe(180);
+    expect(b.cycleMonths).toBe(5.91);
+    expect(b.benchmark).toMatchObject({ farmName: "Delta", investorName: "Kevin Concua", fundingDate: "2026-01-01", liberationDate: "2026-06-30", days: 180, months: 5.91, projected: false });
+    expect(b.cycles).toHaveLength(1);
+    expect(b.turnsCompleted).toBe(1);
+    expect(b.capitalOutstanding).toBe(400_000 + 400_000);
+    expect(realm.warPlanDefaults.inputs.cycleMonths).toBe(5.91);
+    expect(realm.warPlanDefaults.real).toMatchObject({ cycleDays: 180, cycleMonths: 5.91, cycleSource: "freed_farms", cycleFarms: 1 });
+  });
+
+  it("draws the benchmark curve from the capital_return distributions, interest excluded", () => {
+    expect(b.curve).toEqual([
+      { day: 59, pct: 33.33, date: "2026-03-01" },
+      { day: 120, pct: 73.33, date: "2026-05-01" },
+      { day: 180, pct: 100, date: "2026-06-30" },
+    ]);
+  });
+
+  it("grades every other sponsor farm against the benchmark at the same point in its life", () => {
+    const echoGrade = b.grades.find((g) => g.farmName === "Echo");
+    // 194 days in, a third returned; Delta had everything back by day 180 and a third by day 59
+    expect(echoGrade).toMatchObject({
+      verdict: "behind",
+      daysElapsed: 194,
+      pctReturned: 33.33,
+      benchmarkPctAtSameDay: 100,
+      pctVsBenchmark: -66.67,
+      benchmarkDaysToSamePct: 59,
+      daysVsBenchmark: -135,
+      freed: false,
+    });
+    const foxGrade = b.grades.find((g) => g.farmName === "Foxtrot");
+    // 41 days in with nothing back — so was Delta at day 41
+    expect(foxGrade).toMatchObject({ verdict: "on_pace", daysElapsed: 41, pctReturned: 0, benchmarkPctAtSameDay: 0, pctVsBenchmark: 0, benchmarkDaysToSamePct: null, daysVsBenchmark: null });
+    expect(b.grades.find((g) => g.farmName === "Delta")?.verdict).toBe("benchmark");
+    // Echo needs one more $120,000 lot to cover its $600,000; Foxtrot needs four (plus interest) — both projected at the current pace
+    expect(echoGrade?.lotsLeftToCover).toBe(1);
+    expect(echoGrade?.daysToGo).toBeGreaterThan(0);
+    expect(foxGrade?.lotsLeftToCover).toBe(4);
+    expect(foxGrade?.daysToGo as number).toBeGreaterThan(echoGrade?.daysToGo as number);
+    expect(echoGrade?.projectedLiberationDate).toBe(iso(new Date(ASOF.getTime() + (echoGrade?.daysToGo as number) * 86_400_000)));
+    expect(b.nextLiberation?.farmName).toBe("Echo");
+    expect(b.grades.find((g) => g.farmName === "Delta")).toMatchObject({ daysToGo: 0, projectedLiberationDate: "2026-06-30" });
+  });
+
+  it("recycles a sponsor's returned capital into later farms: the peak outstanding is below the total deployed once a turn completes before a later purchase", () => {
+    const d = realm.warPlanDefaults.inputs;
+    const long = solveWarPlan({ ...d, target: 4_000_000, deadline: "2029-12-31", seasonal: false }, realm);
+    expect(long.feasible).toBe(true);
+    const rot = long.rotation;
+    expect(rot.cycleMonths).toBe(5.91);
+    expect(rot.farms).toBeGreaterThan(1);
+    expect(rot.recycled).toBeGreaterThan(0);
+    expect(rot.peakOutstanding).toBeLessThan(rot.totalDeployed);
+    expect(rot.newMoney).toBe(long.required.capitalToRaise);
+    expect(round2(rot.newMoney + rot.recycled)).toBe(rot.totalDeployed);
+    expect(rot.turnsNeeded).toBe(round2(rot.totalDeployed / rot.peakOutstanding));
+    expect(rot.turnsNeeded as number).toBeGreaterThan(1);
+    expect(rot.turnsCompleted).toBe(1);
+    // every recycled dollar came from a farm whose turn completed before the purchase that reused it
+    for (const f of long.required.schedule) {
+      if (f.recycled > 0) {
+        expect(long.required.schedule.some((g) => g.turnCompletesMonth !== null && g.turnCompletesMonth <= f.purchaseMonth)).toBe(true);
+      }
+    }
+    expect(rot.headline).toMatch(/^With \$[\d.]+[KM] of land capital rotating every 5\.9 months you reach \$4\.0M by the deadline; you need [\d.]+ turns?; the first turn must start by [A-Z][a-z]{2} \d{4}\./);
+    expect(rot.headline).toMatch(/\b\d+(\.\d)? turns?\b/);
+    expect(rot.perInvestor.every((i) => i.turns >= 1 && i.deployed >= i.fresh)).toBe(true);
+    expect(round2(rot.perInvestor.reduce((a, i) => a + i.fresh, 0) + long.required.unfunded)).toBe(rot.newMoney);
+  });
+
+  it("without a turn completing before a later purchase the peak equals the total, and every such farm is flagged", () => {
+    const d = realm.warPlanDefaults.inputs;
+    // a 14-month cycle: no farm bought inside the 16 months to the deadline is back before a later purchase
+    const plan = solveWarPlan({ ...d, target: 3_000_000, cycleMonths: 14, seasonal: false }, realm);
+    const rot = plan.rotation;
+    expect(rot.farms).toBeGreaterThan(0);
+    expect(rot.recycled).toBe(0);
+    expect(rot.peakOutstanding).toBe(rot.totalDeployed);
+    expect(rot.turnsNeeded).toBe(1);
+    const incomplete = plan.required.schedule.filter((f) => !f.turnComplete);
+    expect(rot.turnsIncomplete).toBe(incomplete.length);
+    const flagged = plan.required.rows.filter((r) => r.flags.includes("turn_incomplete")).map((r) => r.monthIndex);
+    expect(flagged).toEqual([...new Set(incomplete.map((f) => f.purchaseMonth))].sort((a, b) => a - b));
+    if (incomplete.length > 0) expect(rot.headline).toContain(`${incomplete.length} of the ${rot.farms} turns cannot complete before the deadline.`);
+  });
+
+  it("with no capital cycle nothing rotates and the headline says the turn length is unknown", () => {
+    const d = realm.warPlanDefaults.inputs;
+    const plan = solveWarPlan({ ...d, target: 3_000_000, cycleMonths: null, seasonal: false }, realm);
+    expect(plan.rotation.recycled).toBe(0);
+    expect(plan.rotation.turnsIncomplete).toBe(0);
+    expect(plan.required.rows.every((r) => !r.flags.includes("turn_incomplete"))).toBe(true);
+    expect(plan.rotation.headline).toMatch(/^The length of a capital turn is unknown/);
+    expect(plan.required.schedule.every((f) => f.turnCompletesMonth === null)).toBe(true);
+  });
+
+  it("falls back to a projected cycle when no farm is freed, and to null when nothing can be projected", () => {
+    const captive = buildRealm(
+      snapshot({ farmAcquisitions: [echo, foxtrot], properties: properties.filter((p) => p.farm_acquisition_id !== delta.id), fileCases: fileCases.filter((c) => properties.find((p) => p.id === c.property_id)?.farm_acquisition_id !== delta.id), investorDistributions: distributions.filter((x) => x.farm_acquisition_id !== delta.id), investors: [kevin, townson] }),
+      ASOF,
+    );
+    expect(captive.liberation.freedHostages).toHaveLength(0);
+    expect(captive.rotation.source).toBe("projected");
+    expect(captive.rotation.cycles.every((c) => c.projected)).toBe(true);
+    expect(captive.rotation.cycleDays).not.toBeNull();
+    expect(captive.rotation.curve).toEqual([]);
+    expect(captive.warPlanDefaults.inputs.cycleMonths).toBe(captive.rotation.cycleMonths);
+
+    const own = buildRealm(snapshot({ farmAcquisitions: [farm({ farm_name: "Solo", total_lots: 5, investor_capital: 200_000 })] }), ASOF);
+    expect(own.rotation).toMatchObject({ cycleDays: null, cycleMonths: null, source: null, benchmark: null, turnsCompleted: 0, nextLiberation: null });
+    expect(own.warPlanDefaults.inputs.cycleMonths).toBeNull();
+    expect(computeRotationBenchmark(own).grades).toEqual([]);
+  });
+
+  it("defaults the farm cost to the per-lot cost of the three most recent purchases", () => {
+    // Foxtrot $50,000/lot (Aug), Echo $50,000/lot (Mar), Delta $50,000/lot (Jan)
+    expect(recentLandCostPerLot(realm.farms, ASOF)).toEqual({ perLot: 50_000, farms: ["Foxtrot", "Echo", "Delta"] });
+    expect(recentLandCostPerLot(realm.farms, ASOF, 1)).toEqual({ perLot: 50_000, farms: ["Foxtrot"] });
+    // a farm dated after asOf is not a purchase yet
+    const future = { ...(realm.farms[0] as NonNullable<(typeof realm.farms)[0]>), name: "Later", fundingDate: "2026-12-01", closingDate: "2026-12-01", landCostPerLot: 90_000 };
+    expect(recentLandCostPerLot([...realm.farms, future], ASOF).farms).not.toContain("Later");
+    expect(recentLandCostPerLot([], ASOF)).toEqual({ perLot: null, farms: [] });
+    expect(realm.warPlanDefaults.inputs.farmCost).toBe(500_000);
+  });
+});
+
+describe("cancellations count against conversion", () => {
+  const sponsor = investor({ name: "Kevin Concua" });
+  const f = farm({ farm_name: "Hotel", total_lots: 10, investor_id: sponsor.id, investor_capital: 500_000, deal_type: "fixed_interest", annual_interest_rate: 20, funding_date: "2026-01-01", closing_date: "2026-01-01" });
+  const properties = Array.from({ length: 10 }, (_, i) => property(f.id, i + 1, { name: `Hotel — Lot ${i + 1}` }));
+  const fileCases = [
+    // 4 matured reservations closed, 2 still waiting, 2 cancelled (one re-reserved and live, one whose only case was cancelled)
+    ...properties.slice(0, 4).map((p) => fileCase(p.id, { status: "completed", reservation_date: "2026-03-01", closing_date: "2026-05-01" })),
+    ...properties.slice(4, 6).map((p) => fileCase(p.id, { status: "active", reservation_date: "2026-04-01" })),
+    fileCase((properties[6] as NonNullable<(typeof properties)[6]>).id, { status: "cancelled", reservation_date: "2026-02-15" }),
+    fileCase((properties[7] as NonNullable<(typeof properties)[7]>).id, { status: "cancelled", reservation_date: "2026-03-10" }),
+    fileCase((properties[7] as NonNullable<(typeof properties)[7]>).id, { status: "active", reservation_date: "2026-08-20" }),
+    // a young cancellation is a failure too, but not yet in the 90-day cohort
+    fileCase((properties[8] as NonNullable<(typeof properties)[8]>).id, { status: "cancelled", reservation_date: "2026-08-01" }),
+  ];
+  const realm = buildRealm(snapshot({ farmAcquisitions: [f], properties, fileCases, investors: [sponsor] }), ASOF);
+
+  it("a lot whose only file case was cancelled is available again and remembers the failed reservation", () => {
+    const lot7 = realm.lots.find((l) => l.name === "Hotel — Lot 7");
+    expect(lot7).toMatchObject({ stage: "available", cancelledFileCases: 1, cancelledReservationDate: "2026-02-15", reservationDate: null });
+    const lot8 = realm.lots.find((l) => l.name === "Hotel — Lot 8");
+    expect(lot8).toMatchObject({ stage: "reserved", cancelledFileCases: 1, cancelledReservationDate: null, reservationDate: "2026-08-20" });
+    expect(realm.pipeline.cancelledReservations).toBe(2);
+  });
+
+  it("conversion with cancellations divides closings by live, closed and cancelled matured reservations", () => {
+    const c = realm.pipeline.conversion;
+    expect(c).toMatchObject({ cohort: 6, closed: 4, stillReserved: 2, pct: 66.67, cancelled: 1, cohortWithCancellations: 7, pctWithCancellations: 57.14, cancellationRatePct: 14.29 });
+    expect(c.pctWithCancellations).toBe(round2((4 / 7) * 100));
+    expect(c.cancellationRatePct).toBe(round2((1 / 7) * 100));
+  });
+
+  it("the War Plan spends ads and books reservations against the conversion that includes cancellations", () => {
+    const d = realm.warPlanDefaults;
+    expect(d.inputs.conversionPct).toBe(57.14);
+    expect(d.real).toMatchObject({ conversionPct: 66.67, conversionWithCancellationsPct: 57.14, cancellationRatePct: 14.29, cancelledReservations: 2 });
+    const plan = solveWarPlan({ ...d.inputs, target: 1_000_000, seasonal: false }, realm);
+    const r = plan.required;
+    expect(r.closingsPerMonth).toBeGreaterThan(0);
+    expect(r.adSpendPerMonth).toBe(round2((r.closingsPerMonth / 0.5714) * 2_500));
+    expect(r.reservationsPerMonth).toBe(round2(r.closingsPerMonth / 0.5714));
+    expect(r.reservationsPerMonth).toBeGreaterThan(r.closingsPerMonth);
+  });
+});
+
+describe("seasonality: the month-of-year shape of closings", () => {
+  const sold = (dates: string[]) =>
+    dates.map((d, i) => ({ stage: "closed" as const, closeDate: d, propertyId: `p${i}` })) as unknown as Parameters<typeof computeSeasonality>[0];
+
+  it("is flat with no closings", () => {
+    const s = computeSeasonality([]);
+    expect(s.closings).toBe(0);
+    expect(s.factors).toEqual(Array.from({ length: 12 }, () => 1));
+    expect(s.peakMonth).toBeNull();
+  });
+
+  it("smooths a single busy month over its neighbours, floors the rest at 25 % and keeps the average at 1", () => {
+    const s = computeSeasonality(sold(["2026-05-01", "2026-05-10", "2026-05-20", "2026-05-30"]));
+    expect(s.closings).toBe(4);
+    expect(s.counts[4]).toBe(4);
+    expect(s.peakMonth).toBe(4);
+    expect(s.factors[4]).toBeGreaterThan(s.factors[3] as number);
+    expect(s.factors[3]).toBe(s.factors[5]);
+    expect(s.factors[3]).toBeGreaterThan(0.25);
+    expect(Math.min(...s.factors)).toBe(0.25);
+    expect(round2(s.factors.reduce((a, b) => a + b, 0) / 12)).toBe(1);
+    expect(round2(s.shares.reduce((a, b) => a + b, 0))).toBe(1);
+    // December wraps to January
+    const dec = computeSeasonality(sold(["2026-12-05", "2026-12-15"]));
+    expect(dec.factors[0]).toBe(dec.factors[10]);
+    expect(dec.factors[0]).toBeGreaterThan(0.25);
+  });
+
+  it("ignores closings after asOf and unsold lots", () => {
+    const lots = [
+      ...sold(["2026-05-01", "2026-06-01"]),
+      { stage: "reserved", closeDate: null, propertyId: "r" },
+      { stage: "closed", closeDate: "2026-10-01", propertyId: "future" },
+    ] as unknown as Parameters<typeof computeSeasonality>[0];
+    const s = computeSeasonality(lots, ASOF);
+    expect(s.closings).toBe(2);
+    expect(s.counts[9]).toBe(0);
+  });
+
+  it("normalises the factors over the plan window so the flat pace stays the average", () => {
+    const grid = buildMonthGrid(ASOF, new Date("2027-12-31T00:00:00Z"), true);
+    const factors = computeSeasonality(sold(["2026-05-01", "2026-05-10", "2026-07-01"])).factors;
+    const scaled = normalizeSeasonality(factors, grid.months, grid.deadlineIndex);
+    let weight = 0;
+    let weighted = 0;
+    for (let m = 1; m <= grid.deadlineIndex; m++) {
+      const mo = grid.months[m - 1] as NonNullable<(typeof grid.months)[0]>;
+      weight += mo.fraction;
+      weighted += mo.fraction * (scaled[mo.end.getUTCMonth()] as number);
+    }
+    expect(round2(weighted / weight)).toBe(1);
+    expect(normalizeSeasonality(factors, [], 0)).toEqual(factors.map(() => 1));
+  });
+
+  it("shapes the required plan month by month while the flat average is shown alongside; off, every factor is 1", () => {
+    const sponsor = investor({ name: "Kevin Concua" });
+    const f = farm({ farm_name: "India", total_lots: 40, investor_id: sponsor.id, investor_capital: 2_000_000, deal_type: "fixed_interest", annual_interest_rate: 20, funding_date: "2026-01-01", closing_date: "2026-01-01" });
+    const properties = Array.from({ length: 40 }, (_, i) => property(f.id, i + 1, { name: `India — Lot ${i + 1}` }));
+    const summer = ["2026-06-05", "2026-06-15", "2026-07-05", "2026-07-15", "2026-07-25", "2026-08-05"];
+    const fileCases = summer.map((d, i) => fileCase((properties[i] as NonNullable<(typeof properties)[0]>).id, { status: "completed", reservation_date: "2026-04-01", closing_date: d }));
+    const realm = buildRealm(snapshot({ farmAcquisitions: [f], properties, fileCases, investors: [sponsor] }), ASOF);
+    const d = realm.warPlanDefaults.inputs;
+    const seasonal = solveWarPlan({ ...d, target: 2_000_000 }, realm);
+    const flat = solveWarPlan({ ...d, target: 2_000_000, seasonal: false }, realm);
+    expect(seasonal.seasonality).toHaveLength(12);
+    expect(flat.seasonality).toEqual(Array.from({ length: 12 }, () => 1));
+    const rows = seasonal.required.rows;
+    expect(rows.every((r) => r.flatLotsClosed === (r.monthIndex === 1 ? r.flatLotsClosed : seasonal.required.closingsPerMonth))).toBe(true);
+    const july = rows.find((r) => r.date === "2027-07-31") as NonNullable<(typeof rows)[0]>;
+    const january = rows.find((r) => r.date === "2027-01-31") as NonNullable<(typeof rows)[0]>;
+    expect(july.seasonalFactor).toBeGreaterThan(1);
+    expect(january.seasonalFactor).toBeLessThan(1);
+    expect(july.lotsClosed).toBeCloseTo(july.flatLotsClosed * july.seasonalFactor, 1);
+    expect(january.lotsClosed).toBeLessThan(january.flatLotsClosed);
+    // both plans close the same number of lots by the deadline and both hit the target
+    const total = (r: typeof rows) => r.reduce((a, x) => a + x.lotsClosed, 0);
+    expect(Math.abs(total(rows) - total(flat.required.rows))).toBeLessThan(0.5);
+    expect(seasonal.required.hitsDeadline).toBe(true);
+    expect(flat.required.rows.every((r) => r.seasonalFactor === 1 && r.lotsClosed === r.flatLotsClosed)).toBe(true);
+    // the current-pace column is never shaped
+    expect(seasonal.current.rows.every((r) => r.seasonalFactor === 1)).toBe(true);
   });
 });

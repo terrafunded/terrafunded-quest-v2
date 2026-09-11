@@ -18,7 +18,8 @@ import { computeFutures, type Futures } from "./futures";
 import { narrateAll } from "./narrative";
 import { buildStory, type Story } from "./story";
 import { computePipeline, type Pipeline } from "./pipeline";
-import { deriveWarPlanDefaults, type WarPlanDefaults } from "./warplan";
+import { deriveWarPlanDefaults, solveWarPlan, type RotationBenchmark, type WarPlan, type WarPlanDefaults } from "./warplan";
+import { computeSeasonality, type SeasonalProfile } from "./seasonality";
 import { startOfUtcDay } from "./dates";
 
 /** Everything the pages render. Built once from a snapshot; pages never compute money. */
@@ -49,6 +50,12 @@ export interface Realm {
   pipeline: Pipeline;
   /** WAR PLAN — the inputs /warplan starts from, each next to the real figure it came from. */
   warPlanDefaults: WarPlanDefaults;
+  /** The War Plan solved on the real defaults (the Throne Room's rotation strip reads it). */
+  warPlan: WarPlan;
+  /** The realm's capital cycle: the benchmark farm and every sponsor farm graded against it. */
+  rotation: RotationBenchmark;
+  /** Month-of-year shape of the realm's closings. */
+  seasonality: SeasonalProfile;
   snapshot: PaymentsSnapshot;
 }
 
@@ -112,7 +119,22 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
   });
   const story = buildStory(goal, farms, debt, oxygen, liberation);
   const pipeline = computePipeline(lots, asOf, { closedLotsPerMonth: goal.closedLotsPerMonth });
-  const warPlanDefaults = deriveWarPlanDefaults({ asOf, lots, farms, goal, investors, oracleDefaults, pipeline });
+  const seasonality = computeSeasonality(lots, asOf);
+  const warPlanContext = {
+    asOf,
+    lots,
+    farms,
+    goal,
+    investors,
+    oracleDefaults,
+    pipeline,
+    liberation,
+    campaigns,
+    snapshot,
+    seasonality,
+  };
+  const warPlanDefaults = deriveWarPlanDefaults(warPlanContext);
+  const warPlan = solveWarPlan(warPlanDefaults.inputs, warPlanContext);
 
   return {
     asOf,
@@ -137,6 +159,9 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
     story,
     pipeline,
     warPlanDefaults,
+    warPlan,
+    rotation: warPlan.benchmark,
+    seasonality,
     snapshot,
   };
 }
