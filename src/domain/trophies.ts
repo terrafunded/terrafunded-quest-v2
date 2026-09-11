@@ -5,16 +5,28 @@ import type { RealmEvent } from "./events";
 import type { Treasury } from "./treasury";
 import type { InvestorSummary } from "./investors";
 import { isSold } from "./lot";
+import type { Streaks } from "./streaks";
+import type { Liberation } from "./liberation";
 import { groupBy, round2 } from "./math";
 import { monthKey, parseDate } from "./dates";
 
 export type TrophyTier = "bronze" | "silver" | "gold" | "legendary";
+/** Rarity tiers (Phase 2 §5): how hard the trophy is to earn. Derived from the tier. */
+export type TrophyRarity = "common" | "rare" | "epic" | "legendary";
+
+export const RARITY_BY_TIER: Record<TrophyTier, TrophyRarity> = {
+  bronze: "common",
+  silver: "rare",
+  gold: "epic",
+  legendary: "legendary",
+};
 
 export interface Trophy {
   id: string;
   title: string;
   description: string;
   tier: TrophyTier;
+  rarity: TrophyRarity;
   earned: boolean;
   /** ISO date when earned, if known. */
   earnedAt: string | null;
@@ -31,6 +43,8 @@ export interface TrophyInputs {
   events: RealmEvent[];
   treasury: Treasury;
   investors: InvestorSummary[];
+  streaks?: Streaks;
+  liberation?: Liberation;
 }
 
 const pct = (value: number, target: number) => (target <= 0 ? 100 : round2(Math.max(0, Math.min(100, (value / target) * 100))));
@@ -44,7 +58,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
   const milestones = i.events.filter((e) => e.kind === "milestone");
   const firstAt = (list: RealmEvent[]) => list[0]?.date ?? null;
 
-  const trophies: Trophy[] = [];
+  const trophies: Omit<Trophy, "rarity">[] = [];
 
   trophies.push({
     id: "first_blood",
@@ -265,7 +279,66 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     detail: `${streakMonths} consecutive month${streakMonths === 1 ? "" : "s"}`,
   });
 
-  return trophies;
+  if (i.streaks) {
+    const s = i.streaks;
+    trophies.push({
+      id: "streak_weeks_3",
+      title: "Week After Week",
+      description: "Close at least one lot in three consecutive weeks.",
+      tier: "silver",
+      earned: s.bestWeeks >= 3,
+      earnedAt: s.bestWeeks >= 3 ? s.bestWeeksEndedOn : null,
+      progress: pct(s.bestWeeks, 3),
+      detail: `best ${s.bestWeeks} week${s.bestWeeks === 1 ? "" : "s"} · current ${s.currentWeeks}`,
+    });
+    trophies.push({
+      id: "streak_weeks_6",
+      title: "Relentless",
+      description: "Six consecutive weeks with a closing.",
+      tier: "gold",
+      earned: s.bestWeeks >= 6,
+      earnedAt: s.bestWeeks >= 6 ? s.bestWeeksEndedOn : null,
+      progress: pct(s.bestWeeks, 6),
+      detail: `best ${s.bestWeeks} weeks`,
+    });
+    trophies.push({
+      id: "busy_week_3",
+      title: "Harvest Week",
+      description: "Three closings inside a single week.",
+      tier: "silver",
+      earned: (s.bestWeek?.count ?? 0) >= 3,
+      earnedAt: (s.bestWeek?.count ?? 0) >= 3 ? s.bestWeek?.weekStart ?? null : null,
+      progress: pct(s.bestWeek?.count ?? 0, 3),
+      detail: s.bestWeek ? `${s.bestWeek.count} in week ${s.bestWeek.week}` : "no closings yet",
+    });
+  }
+
+  if (i.liberation) {
+    const freed = i.liberation.freedHostages;
+    const captiveBest = [...i.liberation.hostages].sort((a, b) => b.pctReturned - a.pctReturned)[0];
+    trophies.push({
+      id: "first_liberation",
+      title: "Chains Broken",
+      description: "Return 100% of a sponsor's capital on one farm.",
+      tier: "gold",
+      earned: freed.length > 0,
+      earnedAt: freed.map((h) => h.freedAt ?? "").filter(Boolean).sort()[0] ?? null,
+      progress: freed.length > 0 ? 100 : captiveBest?.pctReturned ?? 0,
+      detail: freed.length > 0 ? freed.map((h) => `${h.investorName} · ${h.farmName}`).join(", ") : captiveBest ? `${captiveBest.farmName} at ${captiveBest.pctReturned}%` : "no sponsor capital",
+    });
+    trophies.push({
+      id: "all_free",
+      title: "No Hostages",
+      description: "Every sponsor position fully repaid.",
+      tier: "legendary",
+      earned: i.liberation.hostages.length > 0 && i.liberation.captiveHostages.length === 0,
+      earnedAt: null,
+      progress: i.liberation.pctReturned,
+      detail: `${freed.length} / ${i.liberation.hostages.length} positions freed`,
+    });
+  }
+
+  return trophies.map((t) => ({ ...t, rarity: RARITY_BY_TIER[t.tier] }));
 }
 
 function lastCloseDate(lots: Lot[]): string | null {

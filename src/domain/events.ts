@@ -5,7 +5,7 @@ import { indexBy, round2 } from "./math";
 import { toIsoDate } from "./dates";
 import { MILESTONE_STEP } from "../config/goal";
 
-export type EventKind = "farm_acquired" | "reservation" | "closing" | "note_sale" | "distribution" | "milestone";
+export type EventKind = "farm_acquired" | "reservation" | "closing" | "note_sale" | "distribution" | "milestone" | "liberation";
 
 export interface RealmEvent {
   id: string;
@@ -33,6 +33,7 @@ const KIND_ORDER: Record<EventKind, number> = {
   milestone: 3,
   note_sale: 4,
   distribution: 5,
+  liberation: 6,
 };
 
 /**
@@ -155,6 +156,43 @@ export function computeEvents(
     }
   }
   return out;
+}
+
+/**
+ * Inserts one `liberation` event per fully repaid sponsor position (Phase 2 §3), keeping the
+ * chronological order and the running cumulative net profit of the surrounding events.
+ */
+export function withLiberationEvents(
+  events: RealmEvent[],
+  moments: { id: string; date: string; hostage: { investorName: string; farmName: string; farmId: string; capital: number; daysHeld: number | null } }[],
+  asOf: Date,
+): RealmEvent[] {
+  if (moments.length === 0) return events;
+  const asOfIso = toIsoDate(asOf);
+  const extra: RealmEvent[] = moments.map((m) => ({
+    id: m.id,
+    date: m.date,
+    kind: "liberation",
+    title: `${m.hostage.investorName} freed`,
+    description: `${m.hostage.farmName} repaid in full${m.hostage.daysHeld !== null ? ` after ${m.hostage.daysHeld} days` : ""}`,
+    amount: m.hostage.capital,
+    farmName: m.hostage.farmName,
+    lotName: null,
+    propertyId: null,
+    cumulativeNetProfit: 0,
+    milestone: null,
+    future: m.date > asOfIso,
+  }));
+  // Insert after every existing event of the same date so milestones keep their place right
+  // behind the closing that crossed them; only the liberation rows are new.
+  const merged = [...events];
+  for (const ev of extra.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))) {
+    let idx = merged.findIndex((e) => e.date > ev.date);
+    if (idx === -1) idx = merged.length;
+    const prev = merged[idx - 1];
+    merged.splice(idx, 0, { ...ev, cumulativeNetProfit: prev?.cumulativeNetProfit ?? 0 });
+  }
+  return merged;
 }
 
 /** Newest first (past events only), optionally limited to some kinds. */

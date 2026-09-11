@@ -95,7 +95,8 @@ describe("events and treasury (buildRealm on synthetic rows)", () => {
 
   it("orders events chronologically with cumulative net profit and a $1M milestone", () => {
     const kinds = realm.events.filter((e) => !e.future).map((e) => e.kind);
-    expect(kinds).toEqual(["farm_acquired", "reservation", "closing", "milestone", "distribution", "note_sale", "distribution", "reservation"]);
+    // the capital_return on this date repays the farm in full, so a liberation event follows it
+    expect(kinds).toEqual(["farm_acquired", "reservation", "closing", "milestone", "distribution", "liberation", "note_sale", "distribution", "reservation"]);
     const closing = realm.events.find((e) => e.kind === "closing")!;
     // land cost 50,000 → gross 2,050,000 → 50% share → net 1,025,000
     expect(closing.amount).toBe(1_025_000);

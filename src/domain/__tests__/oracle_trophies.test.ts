@@ -92,7 +92,16 @@ describe("computeTrophies", () => {
     expect(earned).toContain("farm_half_sold");
     expect(earned).not.toContain("net_profit_1m");
     expect(realm.trophies.find((t) => t.id === "first_blood")?.earnedAt).toBe("2026-02-10");
-    const trophies = computeTrophies({ lots: realm.lots, farms: realm.farms, goal: realm.goal, events: realm.events, treasury: realm.treasury, investors: realm.investors });
+    const trophies = computeTrophies({
+      lots: realm.lots,
+      farms: realm.farms,
+      goal: realm.goal,
+      events: realm.events,
+      treasury: realm.treasury,
+      investors: realm.investors,
+      streaks: realm.streaks,
+      liberation: realm.liberation,
+    });
     expect(trophies).toEqual(realm.trophies);
   });
 });
