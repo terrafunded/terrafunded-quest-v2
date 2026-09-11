@@ -5,8 +5,8 @@
  *
  * Read-only. Signs in with QUEST_TEST_EMAIL / QUEST_TEST_PASSWORD (from .env or the shell), waits
  * for the realm to load, asserts the net-profit counter is a dollar amount > 0, that the SPA
- * rewrite serves deep links (/pipeline reloaded directly), and that picking each theme on /login
- * sets html[data-theme] and survives a reload. Writes docs/live-<theme>.jpg for the record.
+ * rewrite serves deep links (/pipeline reloaded directly), and that picking each theme in the
+ * nav drawer sets html[data-theme] and survives a reload. Writes docs/live-<theme>.jpg for the record.
  * Exit code 0 on success, 1 on any failure.
  */
 import { mkdirSync } from "node:fs";
@@ -67,26 +67,29 @@ async function main() {
   const trapped = Number(await page.getByTestId("pipeline-trapped").getAttribute("data-target"));
   console.log(`✓ Throne Room: net profit $${target.toLocaleString("en-US")} · trapped $${trapped.toLocaleString("en-US")} · "${verdict}"`);
 
-  // 4. Every theme switches and persists.
+  // 4. Every theme switches and persists (drawer skin picker when signed in; /login when not).
   for (const theme of THEMES) {
-    await page.goto(`${base}/login`);
-    // Signed-in users are redirected off /login; the compact switcher in the shell covers that.
-    const onLogin = new URL(page.url()).pathname.startsWith("/login");
-    const option = page.locator(`[data-theme-option='${theme}']`).first();
-    await option.waitFor({ timeout: 30_000 });
+    await page.goto(`${base}/`);
+    await waitForRealm(page);
+    await page.getByTestId("nav-menu-button").click();
+    const drawer = page.getByTestId("nav-drawer");
+    await drawer.waitFor({ timeout: 15_000 });
+    const option = drawer.locator(`[data-theme-option='${theme}']`).first();
+    await option.waitFor({ timeout: 15_000 });
     await option.click();
     const applied = await page.locator("html").getAttribute("data-theme");
     if (applied !== theme) fail(`clicking ${theme} set data-theme=${applied}`);
     const stored = await page.evaluate(() => localStorage.getItem("quest.theme"));
     if (stored !== theme) fail(`localStorage quest.theme=${stored} after picking ${theme}`);
-    await page.goto(`${base}/`);
+    await page.keyboard.press("Escape").catch(() => undefined);
+    await page.reload();
     await waitForRealm(page);
     const afterReload = await page.locator("html").getAttribute("data-theme");
     if (afterReload !== theme) fail(`${theme} did not survive a reload (got ${afterReload})`);
     await page.getByTestId("net-profit-counter").waitFor({ timeout: 60_000 });
     await page.waitForTimeout(3500);
     await page.screenshot({ path: `docs/live-${theme}.jpg`, type: "jpeg", quality: 78 });
-    console.log(`✓ ${theme}: applied${onLogin ? " from /login" : " from the shell switcher"}, persisted, Throne Room rendered → docs/live-${theme}.jpg`);
+    console.log(`✓ ${theme}: applied from the nav drawer, persisted, Throne Room rendered → docs/live-${theme}.jpg`);
   }
 
   if (consoleErrors.length) fail(`console errors:\n  ${consoleErrors.join("\n  ")}`);
