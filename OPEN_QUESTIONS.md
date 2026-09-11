@@ -436,3 +436,102 @@ reads 8.6 lots/month, 7 farms, $3.4M (fixture: 8.4). The e2e test that required 
 now accepts either the freed cards or the gallery's explicit empty state; nothing in the domain
 changed. The fixture was **not** refreshed, so every pinned number in `epic_fixture.test.ts`
 keeps reproducing the verified 2026-09-10 spec; a new `npm run snapshot` would re-pin ~20 of them.
+
+## 51. Rotation: Lamar's cycle is 271 days, not the brief's 261
+
+The brief defines the cycle as "days from `farm_acquisitions.funding_date` to the date cumulative
+`capital_return` distributions on that farm reach 100 %" and quotes Lamar as 2025-09-01 →
+2026-05-19, 261 days, 8.6 months. In the fixture Lamar's `funding_date` is **2025-08-21** (its
+`closing_date` is also 2025-08-21), and the capital_return distributions reach $475,000 on
+2026-05-19 — exactly the liberation date `liberation.ts` already reports. 2025-08-21 → 2026-05-19
+is **271 days, 8.9 months**. Nothing in Payments carries 2025-09-01 for Lamar (no acquisition,
+distribution, reservation or closing on that day), and 261 days from 2025-08-21 would land on
+2026-05-09, when nothing happened either. Chosen: reproduce the definition from the data
+(`epic_fixture.test.ts` pins 271 / 8.9 / `freed_farms`) rather than the quoted figure. The
+projected 8.6 months would need a funding date eleven days later than the one recorded.
+
+## 52. Rotation: on live data nobody is freed, so the benchmark is a projection
+
+Per #50, live `investor_capital` on Lamar was raised to $484,000 after the snapshot, so Lamar is
+98.14 % returned and no farm is freed on the deployed site. The brief forbids a hard-coded
+fallback, so when no farm is freed the cycle is the **median of every captive farm's projected
+liberation** (campaigns.ts `lotsLeftToCover` ÷ (realm pace × that farm's share of unsold lots),
+in months of 30.44 days). On the 2026-09-11 16:00 UTC live data that is Franklin, 325 days /
+10.7 months, over 7 captive farms; the Throne Room strip then reads "turns completed 0" and the
+grading table marks every farm "unrated" because a projected benchmark has no real
+capital-returned curve to compare against. The fixture still says Lamar 271 days, 1 turn
+completed. The page states which of the two it is showing ("(projected)" and an explanatory
+note); the first real liberation switches it to a measured cycle with no code change. Farms whose
+campaign already covers their capital but whose payout has not been booked (Eastland, Freestone
+on the fixture; Lamar live) project to "today" with 0 days to go and are shown as "covered,
+awaiting payout" rather than pretending a future date.
+
+## 53. Rotation: peak capital outstanding equals total deployed on the fixture's own plan
+
+"Peak capital outstanding" is the most land capital out at any single moment ≤ the deadline —
+what actually has to be raised — and `turns needed = total deployed ÷ peak`. A dollar can only be
+reused when a farm's turn completes (`round(cycle)` months after purchase) **before** a later
+farm is bought. With the 2027-12-31 deadline the required plan buys its 6 farms between Mar and
+Jul 2027 with a 9-month cycle, so no dollar comes back in time to buy another farm: peak = total
+= $2,760,480, 1 turn, and 5 of the 6 turns are flagged as not completing before the deadline
+(only the March farm's capital is back by December). Moving the deadline to 2028-12-31 spreads
+the purchases out and the same engine shows peak $2,300,400 against $2,760,480 deployed, 1.2
+turns. The unit test pins "peak < total whenever a turn completes before a later purchase"
+(synthetic realm) and "peak = total when the cycle is longer than the plan" — the fixture's own
+plan is the second case. The number the founder asked for is therefore honest but blunt: by the
+current deadline the capital does not rotate, it has to be raised once and stays out.
+
+## 54. Rotation: recycled capital in the funding schedule vs. "capital returned" in the month table
+
+Two different things carry the word "returned". The **rotation engine** returns a farm's whole
+cost to its funder `round(cycleMonths)` months after purchase and lets the same money buy the next
+farm; that is what drives peak outstanding, turns and the `turn_incomplete` flag. The month
+table's **capital returned per investor** is the display accounting from #43 (today's positions
+repaid pro rata as existing lots close, a new farm's as its lots close) and is unchanged. In cash
+mode the target still counts every dollar of new farm cost as an outlay and every dollar of
+investor take as owed; recycling changes who brings the cash and when, not the plan's profit or
+cash arithmetic. "Capital to raise" on each column is now the *fresh* money (Σ farm cost −
+recycled) and the column also shows total deployed and peak outstanding.
+
+## 55. Seasonality: the profile is built from 37 closings and applied only to the required pace
+
+The month-of-year profile counts sold lots by the UTC calendar month of their closing date
+(fixture: Jan 1, Apr 1, May 13, Jun 2, Jul 9, Aug 4, Oct 4, Nov 3, none in Feb/Mar/Sep/Dec — 37
+closings), smooths with a circular [¼, ½, ¼] kernel, converts shares to multipliers on the flat
+pace (mean 1) and floors them at 25 % of the flat rate, renormalising so the year still averages 1
+(May ×2.27, Jan–Mar ×0.25). Thirty-seven closings over roughly one selling season is a thin
+basis — a single month with 13 closings sets the whole peak — so the toggle defaults to seasonal
+(as the brief asks) but the flat average is always shown next to it and one click removes it. The factors
+are normalised again over the plan's own closing months so the solved flat pace stays the plan's
+average; the current-pace column is never shaped (it is the trailing average, by definition
+flat). The required plan therefore asks 20.2 lots of May 2027 and 2.2 of January, against a flat
+8.2 — and a farm's `too_late` and `shortfall` checks now run against that shaped month.
+
+## 56. Land cost: the three most recent purchases exclude Franklin 2
+
+The farm-cost input defaults to `lots per farm × the average per-lot cost of the three most
+recent farms by closing/funding date on or before today`: Franklin, Avery and Wichita, **$46,008
+per lot** ($460,080 for 10 lots) against the all-time $48,232 ($482,320). Franklin 2 closes on
+2026-10-15, after the snapshot, so it is not yet a purchase and is left out; once its date passes
+it becomes the most recent and Wichita drops off. Both figures sit under the input so the drift
+is visible; every downstream number that used the all-time cost (verdict capital, #45's buffer
+cost) moved with it and was re-pinned.
+
+## 57. Cancellations: the data has none, so the rate is 0 %
+
+A lot whose file cases are all in a non-active, non-completed status (cancelled, withdrawn…) is
+`available` again with a `cancelledReservationDate`; matured ones join the conversion cohort as
+failures and the War Plan spends ad dollars against `conversion including cancellations`. Both
+the fixture and the live database hold **zero** such lots, so `pctWithCancellations` equals the
+plain 74.47 % (75 % live), the cancellation rate is 0.0 % on /pipeline and /warplan, and the
+reservations-per-month requirement is unchanged. The synthetic unit test carries the case the
+data lacks (cohort 6, closed 4, cancelled 1: 66.67 % → 57.14 %, rate 14.29 %). Reservations
+that were cancelled and then re-reserved (an active case exists) are not counted as failures,
+which understates churn if that pattern appears.
+
+## 58. Rotation: turn length rounds to whole months inside the plan
+
+The plan runs on calendar months, so the real cycle (8.9 months on the fixture, 10.7 live) is
+rounded to the nearest whole month (9, 11) when deciding which month a farm's capital comes back;
+the headline and inputs keep the decimal. A farm bought in the last month before a turn would
+complete is therefore judged a month early or late at most.

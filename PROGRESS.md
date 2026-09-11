@@ -11,7 +11,7 @@
 | **Check** | `npm run verify:live -- <url>` (`scripts/verify-live.ts`): deep link `/pipeline` is not a 404, signs in as the viewer, asserts the Throne Room net-profit counter is a real dollar amount > 0 and reads the trapped-profit counter and the verdict, then picks each of the three themes on `/login`, asserts `html[data-theme]` + `localStorage` and that the choice survives a reload, and saves `docs/live-<theme>.jpg`. Run against the local production build (`http://localhost:4173`) it reports net profit **$2,272,304**, trapped **$1,116,863**, "You need 8.31 lots/month; you are doing 4.4." and all three skins switching — the same run is the acceptance test for the live URL. |
 
 Branch `v2`. Snapshot of live Payments taken **2026-09-11 02:07 UTC** (`npm run snapshot`).
-Last full verification (build · lint · 162 unit tests · 61 Playwright tests): **2026-09-11**.
+Last full verification (build · lint · 221 unit tests · 219 Playwright tests): **2026-09-11**.
 
 Order of work, as requested: Phase 1 numbers verified → connection check → domain reproduces the
 verified numbers → **Phase 2: Epic** → **Pipeline layer** → **three visual themes + POLISH loops
@@ -332,3 +332,42 @@ Live: https://terrafunded-quest-v2.vercel.app · log: `MOBILE_LOG.md` · shots: 
 - Playwright projects per matrix device×orientation (`e2e/matrix.ts`, `playwright.config.ts`)
 - `e2e/mobile-matrix.spec.ts` — no H-scroll, 15px body, 16px inputs, 44px taps, drawer in viewport
 - `npm run mobile:audit` / `npm run e2e:matrix` / `scripts/mobile-visual-check.ts`
+
+## War Plan + Rotation — status (2026-09-11, fixture numbers pinned in `epic_fixture.test.ts` and `warplan.test.ts`)
+
+`/warplan` is the Oracle in reverse and now reads as a **land-only capital-rotation plan**: the
+target is $10M from land alone (houses, receivables and overhead are out of scope by design). Every
+input starts at the real figure; the page says where each one comes from.
+
+| Piece | Where | Fixture figure |
+|---|---|---|
+| Solver | `src/domain/warplan.ts` `solveWarPlan` — bisection on the smallest constant pace that reaches the target by the deadline, farms bought just in time, capital drawn from the investor mix in order, each new lot paying its own farm's deal | required **8.2 lots/month**, 6 farms, $2.8M, last purchase Jul 2027 (#41, #49) |
+| Three plans | current pace / required / +1 buffer farm, each with exit date, capital to raise (fresh), peak outstanding, total deployed, funding split, reservations and ad spend per month, note sales, inventory, flags | current pace exits 2029-03-26 |
+| Month table | one row per calendar month to the deadline: farms bought, capital deployed, lots closed (seasonal) with the flat average alongside, notes sold, ads, cumulative target, capital owed and returned per sponsor, inventory, flags | 16 rows |
+| **Rotation engine** | `computeRotationBenchmark` + `rotationPlan`: cycle = median days `funding_date` → 100 % cumulative `capital_return` over freed farms (`liberation.ts`); captive farms fall back to their own projected liberation (`campaigns.ts`, current pace) — never a constant | **Lamar 2025-08-21 → 2026-05-19, 271 days / 8.9 months** (#51: the brief's 261 is not in the data) |
+| Benchmark grading | every sponsor-funded farm vs Lamar at the same day of its life: % returned vs Lamar's %, days vs Lamar to the same %, lots left to cover, projected liberation and days to go | Wichita 11.97 % at day 149 vs Lamar 90.16 % → behind, 92 days; Franklin on pace; Franklin 2 unrated (closes 2026-10-15) |
+| Headline | "With $X of land capital rotating every N months you reach $10M by the deadline; you need Y turns; the first turn must start by <month>." + a flag when turns cannot complete | **$2.8M rotating every 8.9 months, 1 turn, first turn by Mar 2027, 5 of 6 turns cannot complete before the deadline** (#53) |
+| Peak vs total | peak capital outstanding at any moment (what has to be raised) vs total deployed over the plan; turns = total ÷ peak; per-investor turns | 2027-12-31: peak = total $2,760,480; 2028-12-31: peak $2,300,400 vs $2,760,480, 1.2 turns |
+| Cancellations | `pipeline.ts`: lots whose only file cases are cancelled count as conversion failures; `pctWithCancellations`, `cancellationRatePct` on `/pipeline` (page + Throne Room panel) and `/warplan`; ad spend and reservations/month use the inclusive conversion | 0 cancelled in the data → 74.47 % both ways, 0.0 % rate (#57); synthetic case 66.67 % → 57.14 % |
+| Seasonality | `seasonality.ts`: share of closings per calendar month, circular [¼,½,¼] smoothing, floor 25 % of the flat rate, renormalised; applied to the required pace only, flat shown alongside, toggle on the page | 37 closings, May ×2.27, Jan–Mar ×0.25; required plan asks 20.2 lots of May 2027 and 2.2 of January against a flat 8.2 (#55) |
+| Land cost trend | farm cost defaults to lots per farm × average per-lot cost of the **three most recent** purchases; both values under the input | Franklin, Avery, Wichita: **$46,008/lot → $460,080**; all-time $48,232/lot → $482,320 (#56) |
+| Throne Room | "Rotation" strip: capital outstanding, benchmark turn (Lamar), turns completed, turns still needed, next liberation with days to go | $3,579,399 · 271 days · 1 · 1 · Eastland, covered and awaiting payout |
+| Scenarios | save / load / delete named input sets in `localStorage`, merged over the current defaults | — |
+
+**Live vs fixture.** Live Payments (per #50, #52) has raised `investor_capital` on ten farms, so
+Lamar is 98.14 % returned and **nobody is freed**: the deployed site shows a **projected**
+benchmark (Franklin, 325 days / 10.7 months, median over 7 captive farms), turns completed 0, every
+farm "unrated", and the note on the page says why. The first real liberation switches it to a
+measured cycle with no code change.
+
+**Tests.** 221 unit tests (`warplan.test.ts` 42: cycle derivation, benchmark grading, recycling
+peak < total and peak = total, cancellation conversion, seasonality smoothing/floor/normalisation,
+recent land cost; `epic_fixture.test.ts` pins Lamar 271 days, the rotation headline, peak vs total
+on both deadlines, cancellation rate, seasonal factors). e2e: the rotation headline renders with a
+turn count, the benchmark cycle in days and graded farms; blanking the capital turn removes
+rotation; the Throne Room strip and `/pipeline` cancellation rate render — desktop, mobile and the
+full device matrix (219 Playwright tests green).
+
+**Open questions** #41–#58 in `OPEN_QUESTIONS.md` (261 vs 271, projected benchmark on live, peak =
+total on the fixture's deadline, recycled vs returned capital, seasonality basis, recent-3 land
+cost, zero cancellations, whole-month turn rounding).
