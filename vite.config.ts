@@ -43,6 +43,10 @@ function themeFontPreload(): Plugin {
 
 export default defineConfig({
   plugins: [react(), themeFontPreload()],
+  // Besides VITE_*, exactly one more variable reaches the browser bundle: QUEST_ALLOWED_TEST_EMAIL,
+  // the questbot e-mail the Payments-staff gate lets in (src/domain/access.ts). The prefix is
+  // deliberately narrower than QUEST_ so QUEST_TEST_EMAIL / QUEST_TEST_PASSWORD never can.
+  envPrefix: ["VITE_", "QUEST_ALLOWED_"],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

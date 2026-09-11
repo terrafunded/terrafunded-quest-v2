@@ -19,6 +19,7 @@ import {
   INVESTOR_DISTRIBUTION_COLUMNS,
   NOTE_COLUMNS,
   NOTE_SALE_COLUMNS,
+  PROFILE_COLUMNS,
   PROPERTY_COLUMNS,
   PROPERTY_COST_COLUMNS,
 } from "./columns";
@@ -114,6 +115,21 @@ export function fetchClients(sb: SupabaseClient): Promise<ClientRow[]> {
     "clients",
     sb.from("clients").select(CLIENT_COLUMNS).eq("is_test", false).order("full_name").limit(MAX_ROWS),
   );
+}
+
+export interface ProfileRow {
+  id: string;
+  role: string | null;
+}
+
+/**
+ * The signed-in user's own `profiles` row (`id, role`) — the one read that happens before the
+ * realm loads, and the only one that is not part of it. Decides who may enter (see
+ * `src/domain/access.ts`). Returns `null` when the user has no row.
+ */
+export async function fetchOwnProfile(sb: SupabaseClient, userId: string): Promise<ProfileRow | null> {
+  const rows = await run<ProfileRow>("profiles", sb.from("profiles").select(PROFILE_COLUMNS).eq("id", userId).limit(1));
+  return rows[0] ?? null;
 }
 
 export interface SnapshotFetchResult {

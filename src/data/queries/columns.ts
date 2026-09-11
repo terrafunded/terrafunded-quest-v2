@@ -28,3 +28,6 @@ export const PROPERTY_COST_COLUMNS =
 export const INVESTOR_COLUMNS = "id, name, contact, notes, created_at";
 
 export const CLIENT_COLUMNS = "id, full_name, is_test, created_at";
+
+/** Only the signed-in user's own row is ever requested (`.eq("id", auth user id)`), and only these two columns. */
+export const PROFILE_COLUMNS = "id, role";

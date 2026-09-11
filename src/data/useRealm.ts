@@ -18,10 +18,11 @@ export const REALM_QUERY_KEY = ["payments", "realm"] as const;
  * Every page reads from this; nothing else touches Supabase.
  */
 export function useRealm() {
-  const { session } = useAuth();
+  const { session, access } = useAuth();
   return useQuery<RealmData, Error>({
     queryKey: [...REALM_QUERY_KEY, session?.user.id ?? "anon"],
-    enabled: !!session,
+    // Never before the Payments-staff check has passed (RequireAuth already guarantees this).
+    enabled: !!session && access === "granted",
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,

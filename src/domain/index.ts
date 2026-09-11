@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./access";
 export * from "./dates";
 export * from "./math";
 export * from "./interest";

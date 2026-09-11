@@ -7,6 +7,11 @@
  * for the realm to load, asserts the net-profit counter is a dollar amount > 0, that the SPA
  * rewrite serves deep links (/pipeline reloaded directly), and that picking each theme in the
  * nav drawer sets html[data-theme] and survives a reload. Writes docs/live-<theme>.jpg for the record.
+ *
+ * It also proves the Payments-staff gate on the deployed bundle: the login footer names it, and a
+ * sign-in staged as a non-admin (the questbot's real token response with `user.email` rewritten to
+ * an address the gate does not know, so its `viewer` role decides) is refused with
+ * "Quest is for the TerraFunded team only." and left with no session.
  * Exit code 0 on success, 1 on any failure.
  */
 import { mkdirSync } from "node:fs";
@@ -16,10 +21,15 @@ import { config as loadDotenv } from "dotenv";
 loadDotenv();
 
 const THEMES = ["iron-crown", "gilded-realm", "neon-kingdom"] as const;
+const REFUSAL = "Quest is for the TerraFunded team only.";
 
 function fail(msg: string): never {
   console.error(`✘ ${msg}`);
   process.exit(1);
+}
+
+async function sessionKeys(page: Page): Promise<string[]> {
+  return page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("sb-") && k.endsWith("-auth-token")));
 }
 
 async function waitForRealm(page: Page) {
@@ -49,7 +59,41 @@ async function main() {
   if (!deep || deep.status() >= 400) fail(`/pipeline returned ${deep?.status()} — vercel.json rewrite missing?`);
   console.log(`✓ deep link /pipeline → ${deep.status()} (redirected to ${new URL(page.url()).pathname})`);
 
-  // 2. Sign in.
+  // 2. The Payments-staff gate, on the live bundle: footer text, and a staged non-admin refused.
+  {
+    const gate = await ctx.newPage();
+    await gate.route("**/auth/v1/token**", async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as { user?: { email?: string } };
+      if (body.user) body.user.email = "not.the.questbot@example.com";
+      const headers = Object.fromEntries(
+        Object.entries(response.headers()).filter(([k]) => !["content-length", "content-encoding", "transfer-encoding"].includes(k.toLowerCase())),
+      );
+      await route.fulfill({ status: response.status(), headers, json: body });
+    });
+    await gate.goto(`${base}/login`);
+    const footer = (await gate.getByTestId("login-footer").textContent({ timeout: 30_000 }))?.trim() ?? "";
+    if (!footer.includes("TerraFunded team only")) fail(`login footer does not say who may enter: "${footer}"`);
+    await gate.getByLabel("Email").fill(email!);
+    await gate.getByLabel("Password").fill(password!);
+    await gate.getByRole("button", { name: "Enter" }).click();
+    const refusal = gate.getByTestId("access-refused");
+    await refusal.waitFor({ timeout: 60_000 });
+    const text = (await refusal.textContent())?.trim();
+    if (text !== REFUSAL) fail(`refusal reads "${text}", expected "${REFUSAL}"`);
+    if (!/\/login$/.test(new URL(gate.url()).pathname)) fail(`refused user ended on ${gate.url()}`);
+    if ((await gate.getByTestId("net-profit-counter").count()) !== 0) fail("refused user can see the Throne Room");
+    let keys = await sessionKeys(gate);
+    for (let i = 0; i < 20 && keys.length; i++) {
+      await gate.waitForTimeout(500);
+      keys = await sessionKeys(gate);
+    }
+    if (keys.length) fail(`refused user still has a session in localStorage (${keys.join(", ")})`);
+    await gate.close();
+    console.log(`✓ access gate: footer names the TerraFunded team; a viewer that is not the allowed test e-mail is refused with "${text}" and signed out`);
+  }
+
+  // 3. Sign in as the allowed test account.
   await page.goto(`${base}/login`);
   await page.getByLabel("Email").fill(email!);
   await page.getByLabel("Password").fill(password!);
@@ -58,7 +102,7 @@ async function main() {
   await waitForRealm(page);
   console.log("✓ signed in");
 
-  // 3. Real numbers on the Throne Room.
+  // 4. Real numbers on the Throne Room.
   const counter = page.getByTestId("net-profit-counter");
   await counter.waitFor({ timeout: 60_000 });
   const target = Number(await counter.getAttribute("data-target"));
@@ -67,7 +111,7 @@ async function main() {
   const trapped = Number(await page.getByTestId("pipeline-trapped").getAttribute("data-target"));
   console.log(`✓ Throne Room: net profit $${target.toLocaleString("en-US")} · trapped $${trapped.toLocaleString("en-US")} · "${verdict}"`);
 
-  // 4. Every theme switches and persists (drawer skin picker when signed in; /login when not).
+  // 5. Every theme switches and persists (drawer skin picker when signed in; /login when not).
   for (const theme of THEMES) {
     await page.goto(`${base}/`);
     await waitForRealm(page);

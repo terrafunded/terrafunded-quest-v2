@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 
 /**
  * Ledger contract-price total: $8,986,794.30 in GOAL.md until Payments re-priced Titus Lot 6's file case from $141,802 to its
@@ -231,6 +231,105 @@ test.describe("Every route renders without console errors", () => {
     await expect(page).toHaveURL(/\/login$/);
     expect(errors).toEqual([]);
     await context.close();
+  });
+});
+
+/**
+ * Quest is for Payments staff: after sign-in the app reads the user's own `profiles` row and admits
+ * only `role = 'admin'` — plus, by e-mail, the questbot `viewer` these tests sign in with
+ * (`QUEST_ALLOWED_TEST_EMAIL`). The only credentials available here are that questbot's, so a
+ * non-admin is staged on the wire: the Supabase token response is fetched for real and its
+ * `user.email` rewritten to an address the gate does not know; for the `investor` / `note_buyer`
+ * cases the `profiles` row is fetched for real and its `role` rewritten too. The app then sees
+ * exactly what it would see for such a user, and must sign it out at once.
+ */
+test.describe("Access — Payments staff only", () => {
+  const REFUSAL = "Quest is for the TerraFunded team only.";
+  const STRANGER = "not.the.questbot@example.com";
+
+  /** Re-serves a real upstream response with a rewritten JSON body (stale length/encoding headers dropped). */
+  async function rewriteJson(route: Route, edit: (body: unknown) => unknown) {
+    const response = await route.fetch();
+    const body: unknown = await response.json();
+    const headers = Object.fromEntries(
+      Object.entries(response.headers()).filter(([k]) => !["content-length", "content-encoding", "transfer-encoding"].includes(k.toLowerCase())),
+    );
+    await route.fulfill({ status: response.status(), headers, json: edit(body) });
+  }
+
+  async function stageNonAdmin(page: Page, role: "viewer" | "investor" | "note_buyer") {
+    await page.route("**/auth/v1/token**", (route) =>
+      rewriteJson(route, (body) => {
+        const b = body as { user?: { email?: string } };
+        if (b.user) b.user.email = STRANGER;
+        return b;
+      }),
+    );
+    if (role !== "viewer") {
+      // The questbot really is a viewer; investor / note_buyer are staged on its own row.
+      await page.route("**/rest/v1/profiles**", (route) =>
+        rewriteJson(route, (body) => (Array.isArray(body) ? body.map((r) => ({ ...(r as object), role })) : body)),
+      );
+    }
+  }
+
+  test("the login footer says who may enter", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const page = await context.newPage();
+    await page.goto("/login");
+    await expect(page.getByTestId("login-footer")).toContainText("for the TerraFunded team only");
+    await expect(page.getByTestId("login-footer")).toContainText("admin");
+    await context.close();
+  });
+
+  for (const role of ["viewer", "investor", "note_buyer"] as const) {
+    test(`${/^[aeiou]/.test(role) ? "an" : "a"} ${role} is signed out immediately with "${REFUSAL}"`, async ({ browser }) => {
+      const email = process.env.QUEST_TEST_EMAIL;
+      const password = process.env.QUEST_TEST_PASSWORD;
+      if (!email || !password) throw new Error("QUEST_TEST_EMAIL / QUEST_TEST_PASSWORD must be set");
+
+      const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+      const page = await context.newPage();
+      const errors = collectConsoleErrors(page);
+      const restTables: string[] = [];
+      page.on("request", (req) => {
+        const m = /\/rest\/v1\/([^/?]+)/.exec(req.url());
+        if (m?.[1]) restTables.push(m[1]);
+      });
+      await stageNonAdmin(page, role);
+
+      await page.goto("/login");
+      await page.getByLabel("Email").fill(email);
+      await page.getByLabel("Password").fill(password);
+      await page.getByRole("button", { name: "Enter" }).click();
+
+      const refused = page.getByTestId("access-refused");
+      await expect(refused).toHaveText(REFUSAL);
+      await expect(refused).toHaveRole("alert");
+      await expect(page).toHaveURL(/\/login$/);
+      await expect(page.getByRole("form", { name: "Sign in" })).toBeVisible();
+      await expect(page.getByTestId("net-profit-counter")).toHaveCount(0);
+
+      // Signed out: no Supabase session left in this browser …
+      await expect
+        .poll(() => page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("sb-") && k.endsWith("-auth-token"))))
+        .toEqual([]);
+      // … and a deep link still bounces to /login.
+      await page.goto("/quests");
+      await expect(page).toHaveURL(/\/login$/);
+
+      // The only table read was the user's own profiles row; no realm table was touched.
+      expect(restTables.length).toBeGreaterThan(0);
+      expect(new Set(restTables)).toEqual(new Set(["profiles"]));
+      expect(errors).toEqual([]);
+      await context.close();
+    });
+  }
+
+  test("the allowed test account (a viewer) still enters and sees the Throne Room", async ({ page }) => {
+    await page.goto("/");
+    await waitForRealm(page);
+    await expect(page.getByTestId("net-profit-counter")).toBeVisible();
   });
 });
 

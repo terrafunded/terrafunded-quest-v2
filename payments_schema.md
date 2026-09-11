@@ -232,6 +232,23 @@ Portafolio Diversificado · (one more).
 id uuid · legal_name text · trade_name text · tax_id text · address · phone · email · logo_url ·
 is_default bool · is_active bool · created_at · updated_at.
 
+## profiles  (one row per Payments login; decides who may enter Quest)
+
+Not introspected on 2026-09-10; the two columns below were confirmed by reading them on
+2026-09-11 (`select id, role from profiles where id = auth.uid()` as the questbot viewer — 1 row,
+role `viewer`). No other column of this table has been looked at or is used.
+
+| column | type | notes |
+|---|---|---|
+| id | uuid | PK = `auth.users.id` of the login |
+| role | text | observed values: `admin` (7 rows), `investor` (5), `viewer` (1, the questbot). `note_buyer` is a role Payments uses but no row carried it that day |
+
+Quest reads **only the signed-in user's own row** (`.eq("id", <auth user id>).limit(1)`, columns
+`id, role`) right after sign-in and admits the user only when `role = 'admin'` — or when the e-mail
+is the one in `QUEST_ALLOWED_TEST_EMAIL` (the questbot). Under the current RLS policy the viewer
+login can in fact `select` every profiles row (13 on 2026-09-11); Quest does not, and this is
+recorded as a question for Payments in OPEN_QUESTIONS.md, not something Quest works around.
+
 ---
 
 ## Known data-quality issues (surface them, do not "fix" them)

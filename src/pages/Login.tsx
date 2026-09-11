@@ -10,7 +10,7 @@ import { useTheme } from "@/theme/ThemeProvider";
 import { themeIcon } from "@/theme/icons";
 
 export function Login() {
-  const { session, ready, configured, signIn } = useAuth();
+  const { session, ready, configured, access, refusal, signIn } = useAuth();
   const { themeId, theme } = useTheme();
   const Brand = themeIcon(themeId, "brand");
   const location = useLocation();
@@ -20,7 +20,10 @@ export function Login() {
   const [busy, setBusy] = useState(false);
 
   const from = (location.state as { from?: string } | null)?.from ?? "/";
-  if (ready && session) return <Navigate to={from} replace />;
+  if (ready && session && access === "granted") return <Navigate to={from} replace />;
+  // The password was accepted; the profiles row is still being read.
+  const checking = !!session && access === "checking";
+  const alert = error ?? refusal;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -72,16 +75,22 @@ export function Login() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            {error && (
-              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-ember" role="alert">
-                {error}
+            {alert && (
+              <p
+                className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-ember"
+                role="alert"
+                data-testid={error ? "sign-in-error" : "access-refused"}
+              >
+                {alert}
               </p>
             )}
-            <Button type="submit" className="w-full" disabled={busy}>
-              {busy ? <Loader2 className="animate-spin" /> : null}
+            <Button type="submit" className="w-full" disabled={busy || checking}>
+              {busy || checking ? <Loader2 className="animate-spin" /> : null}
               Enter
             </Button>
-            <p className="text-center text-xs text-muted-foreground">Read-only. Any Payments user may view; nothing here can write.</p>
+            <p className="text-center text-xs text-muted-foreground" data-testid="login-footer">
+              Read-only, and for the TerraFunded team only: Payments staff (role <code>admin</code>) may enter; nothing here can write.
+            </p>
           </form>
         )}
 
