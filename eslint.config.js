@@ -24,6 +24,12 @@ export default tseslint.config(
     },
   },
   {
+    // shadcn-style primitives export their cva variants next to the component, and the
+    // auth module exports its provider and hook together. Both are intentional.
+    files: ["src/components/ui/**/*.tsx", "src/data/auth.tsx"],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
+  {
     // The domain layer is pure TypeScript: no React, no Supabase, no DOM.
     files: ["src/domain/**/*.ts"],
     rules: {

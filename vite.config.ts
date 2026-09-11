@@ -15,6 +15,8 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
+    // recharts is only loaded by the Treasury and Oracle routes (lazy chunks).
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
