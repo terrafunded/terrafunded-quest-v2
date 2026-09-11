@@ -18,6 +18,7 @@ import { computeFutures, type Futures } from "./futures";
 import { narrateAll } from "./narrative";
 import { buildStory, type Story } from "./story";
 import { computePipeline, type Pipeline } from "./pipeline";
+import { deriveWarPlanDefaults, type WarPlanDefaults } from "./warplan";
 import { startOfUtcDay } from "./dates";
 
 /** Everything the pages render. Built once from a snapshot; pages never compute money. */
@@ -46,6 +47,8 @@ export interface Realm {
   story: Story;
   /** Reservations layer — read-only view of the pipeline; never feeds the goal, pace or oxygen. */
   pipeline: Pipeline;
+  /** WAR PLAN — the inputs /warplan starts from, each next to the real figure it came from. */
+  warPlanDefaults: WarPlanDefaults;
   snapshot: PaymentsSnapshot;
 }
 
@@ -109,6 +112,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
   });
   const story = buildStory(goal, farms, debt, oxygen, liberation);
   const pipeline = computePipeline(lots, asOf, { closedLotsPerMonth: goal.closedLotsPerMonth });
+  const warPlanDefaults = deriveWarPlanDefaults({ asOf, lots, farms, goal, investors, oracleDefaults, pipeline });
 
   return {
     asOf,
@@ -132,6 +136,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date()): 
     narrative,
     story,
     pipeline,
+    warPlanDefaults,
     snapshot,
   };
 }

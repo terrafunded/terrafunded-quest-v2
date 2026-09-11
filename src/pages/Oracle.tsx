@@ -10,8 +10,20 @@ import { ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/compo
 import { date, money, moneyCompact, number } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/** The nine trailing averages the sliders drive; the War Plan extensions of OracleParams are not sliders. */
+type SliderKey =
+  | "lotsPerMonth"
+  | "avgSalePrice"
+  | "avgLandCost"
+  | "avgMonthsToSellNote"
+  | "newFarmEveryMonths"
+  | "avgLotsPerFarm"
+  | "investorTakePct"
+  | "downPaymentPct"
+  | "noteSalePct";
+
 interface SliderDef {
-  key: keyof OracleParams;
+  key: SliderKey;
   label: string;
   min: number;
   max: number;

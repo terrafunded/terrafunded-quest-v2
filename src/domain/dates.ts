@@ -36,6 +36,15 @@ export function addMonths(d: Date, months: number): Date {
   return addDays(base, Math.round(frac * 30.44));
 }
 
+/** Last day of the UTC month `d` falls in. */
+export function endOfUtcMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
+}
+
+export function daysInUtcMonth(d: Date): number {
+  return endOfUtcMonth(d).getUTCDate();
+}
+
 /** "YYYY-MM" bucket key. */
 export function monthKey(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;

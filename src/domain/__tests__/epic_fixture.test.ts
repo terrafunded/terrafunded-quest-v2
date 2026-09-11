@@ -7,6 +7,7 @@ import raw from "../__fixtures__/payments.json";
 import type { PaymentsSnapshot } from "../types";
 import { buildRealm } from "../realm";
 import { round2 } from "../math";
+import { solveWarPlan } from "../warplan";
 
 const fixture = raw as unknown as PaymentsSnapshot & { snapshotAt: string };
 const ASOF = new Date("2026-09-11T00:00:00Z");
@@ -245,5 +246,176 @@ describe("fixture: PIPELINE (reservations layer)", () => {
     expect(realm.goal.closedLotsPerMonth).toBe(4.4);
     expect(realm.oxygen.totalDaysGained).toBe(547);
     expect(realm.debt.requiredNetProfitPerDay).toBe(16_234.65);
+  });
+});
+
+describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
+  const d = realm.warPlanDefaults;
+  const profit = solveWarPlan(d.inputs, realm);
+
+  it("prefills every input from the realm: 10-lot farms at $482,320, 74.47 % conversion, 2.63 months to first close, five sponsors", () => {
+    expect(d.inputs).toMatchObject({
+      target: 10_000_000,
+      deadline: "2027-12-31",
+      targetMode: "profit_at_closing",
+      lotsPerFarm: 10,
+      farmCost: 482_320,
+      adSpendPerClosing: 2_500,
+      conversionPct: 74.47,
+      farmToFirstCloseMonths: 2.63,
+      noteSaleLagMonths: 3.17,
+    });
+    expect(d.real).toMatchObject({
+      lotsPerFarm: 12.11,
+      landCostPerLot: 48_232,
+      conversionPct: 74.47,
+      farmToFirstCloseMonths: 2.63,
+      farmToFirstCloseFarms: 6,
+      medianDaysToClose: 63,
+      noteSaleLagMonths: 3.17,
+      closingsPerMonth: 4.4,
+      inventory: 71,
+    });
+    expect(d.inputs.investorMix.map((e) => [e.name, e.dealType, e.ratePct, e.capital])).toEqual([
+      ["Kevin Concua", "fixed_interest", 20, 1_398_628],
+      ["Townson Family", "profit_share", 50, 1_672_000],
+      ["Julio Arriola", "fixed_interest", 25, 383_500],
+      ["Rony Schumann", "fixed_interest", 18, 364_520],
+      ["Doctores Motta", "fixed_interest", 20, 379_000],
+    ]);
+    expect(d.inputs.investorMix.every((e) => e.investorId !== null)).toBe(true);
+    expect(round2(d.inputs.investorMix.reduce((a, e) => a + e.capital, 0))).toBe(realm.liberation.totalCapital);
+  });
+
+  it("owes sponsors $4,235,797.47 today ($3,579,399.48 of capital + $656,397.99 of unpaid take) and has kept $1,362,503.84 of cash", () => {
+    expect(profit.ledger).toEqual({ capitalOwed: 3_579_399.48, paidOut: 793_990.46, unpaidTake: 656_397.99, cashKept: 1_362_503.84, owedToday: 4_235_797.47 });
+    expect(profit.ledger.capitalOwed).toBe(realm.debt.capitalOwed);
+  });
+
+  it("profit mode: ≈8.3 closings/month and ≈130 lots still needed — 7 farms of 10 lots, the last by Jul 2027, $3.4M to raise", () => {
+    expect(profit.feasible).toBe(true);
+    expect(profit).toMatchObject({ deadlineMonthIndex: 16, monthsToDeadline: 15.63, landLag: 3, closeLag: 2, noteLag: 3, maxPurchaseMonth: 11, lastClosingDate: null, startInventory: 71 });
+    const r = profit.required;
+    expect(r.closingsPerMonth).toBeCloseTo(8.3, 0);
+    expect(r.closingsPerMonth).toBe(8.44);
+    expect(r.lotsNeeded).toBeCloseTo(130, -1);
+    expect(r.lotsNeeded).toBe(131.95);
+    expect(r.farmsToBuy).toBe(7);
+    expect(r.lastPurchaseDate).toBe("2027-07-31");
+    expect(r.capitalToRaise).toBe(7 * 482_320);
+    expect(r.funding.map((f) => [f.name, f.amount])).toEqual([
+      ["Kevin Concua", 1_398_628],
+      ["Townson Family", 1_672_000],
+      ["Julio Arriola", 305_612],
+    ]);
+    expect(r.unfunded).toBe(0);
+    expect(r.adSpendPerMonth).toBe(28_333.56);
+    expect(r.adSpendPerMonth).toBe(round2((8.44 / 0.7447) * 2_500));
+    expect(r.noteSalesPerMonth).toBe(8.44);
+    expect(r.exitDate).toBe("2027-12-31");
+    expect(r.hitsDeadline).toBe(true);
+    expect(r.targetAtDeadline).toBeGreaterThanOrEqual(10_000_000);
+    expect(r.flaggedMonths).toBe(0);
+    expect(r.rows).toHaveLength(16);
+    expect(r.rows[0]).toMatchObject({ date: "2026-09-30", lotsClosed: 5.35, farmsBought: 0 });
+    expect(r.rows.at(-1)).toMatchObject({ date: "2027-12-31", lotsClosed: 8.44, notesSold: 8.44, cumulativeNet: 10_008_439.6, inventory: 9.05 });
+    expect(r.rows.at(-1)?.capitalReturned).toEqual([1_398_628, 1_511_996.8, 28_890.52, 0, 0]);
+    expect(profit.verdict).toBe(
+      "Buy 7 farms, the last one no later than Jul 2027, raise $3.4M (Kevin Concua $1.4M, Townson Family $1.7M, Julio Arriola $306K), close 8.4 lots/month, sell 8.4 notes/month and spend at least $28K/month on ads.",
+    );
+    expect(profit.verdict).toMatch(/\$[\d.,]+[KM]?/);
+    expect(profit.verdict).toMatch(/\b\d+ farms?\b/);
+  });
+
+  it("with the blended 24.41 % take on new lots the answer is exactly the brief's 8.3 / 130 (8.27 lots/month, 129.29 lots); Townson's 50 % share costs the extra 0.17", () => {
+    const blended = solveWarPlan(
+      { ...d.inputs, investorMix: [{ investorId: null, name: "Blended", dealType: "profit_share", ratePct: realm.oracleDefaults.investorTakePct, capital: 1e9 }] },
+      realm,
+    );
+    expect(realm.oracleDefaults.investorTakePct).toBe(24.41);
+    expect(blended.required.closingsPerMonth).toBe(8.27);
+    expect(blended.required.lotsNeeded).toBe(129.29);
+    expect(blended.required.farmsToBuy).toBe(6);
+    expect(blended.required.closingsPerMonth).toBeLessThan(profit.required.closingsPerMonth);
+  });
+
+  it("the buffer column adds one farm ($482,320) at the last purchase and still exits on the deadline", () => {
+    const b = profit.buffer;
+    expect(b.farmsToBuy).toBe(8);
+    expect(b.capitalToRaise).toBe(profit.required.capitalToRaise + 482_320);
+    expect(b.lastPurchaseDate).toBe("2027-07-31");
+    expect(b.exitDate).toBe("2027-12-31");
+    expect(b.inventoryAtDeadline).toBe(19.05);
+    expect(b.unfunded).toBe(0);
+  });
+
+  it("the current pace (4.4/month, a farm every 1.72 months) lands at $6.4M on the deadline and exits 2029-04-22, its last two farms too late to convert", () => {
+    const c = profit.current;
+    expect(c.closingsPerMonth).toBe(4.4);
+    expect(c.hitsDeadline).toBe(false);
+    expect(c.exitDate).toBe("2029-04-22");
+    expect(c.targetAtDeadline).toBe(6_385_331.52);
+    expect(c.farmsToBuy).toBe(9);
+    expect(c.unfunded).toBe(143_232);
+    expect(c.rows.filter((r) => r.flags.includes("too_late")).map((r) => r.monthIndex)).toEqual([14, 15]);
+    expect(c.flaggedMonths).toBe(2);
+    expect(profit.required.daysEarlierThanCurrent).toBe(478);
+  });
+
+  it("cash mode needs materially more lots (258 vs 132): every note sells at 80 % and every sponsor is paid out first", () => {
+    const cash = solveWarPlan({ ...d.inputs, targetMode: "cash_in_bank" }, realm);
+    expect(cash.feasible).toBe(true);
+    expect(cash.maxPurchaseMonth).toBe(8);
+    expect(cash.lastClosingDate).toBe("2027-09-30");
+    const r = cash.required;
+    expect(r.lotsNeeded).toBe(258.1);
+    expect(r.lotsNeeded).toBeGreaterThan(profit.required.lotsNeeded * 1.5);
+    expect(r.closingsPerMonth).toBe(20.43);
+    expect(r.farmsToBuy).toBe(19);
+    expect(r.lastPurchaseDate).toBe("2027-04-30");
+    expect(r.capitalToRaise).toBe(19 * 482_320);
+    expect(r.unfunded).toBe(4_966_432);
+    expect(r.funding).toHaveLength(5);
+    expect(r.hitsDeadline).toBe(true);
+    expect(r.targetAtDeadline).toBeGreaterThanOrEqual(10_000_000);
+    expect(r.rows[0]?.cumulativeNet).toBeLessThan(0);
+    // October to December 2027 only harvest notes
+    expect(r.rows.slice(13).map((row) => row.lotsClosed)).toEqual([0, 0, 0]);
+    expect(cash.verdict).toContain("until Sep 2027 (then only note sales)");
+    expect(cash.verdict).toContain("unfunded $5.0M");
+    // the buffer farm's unsold lots are land, not cash: the cushion costs its price at the deadline
+    expect(cash.buffer.targetAtDeadline).toBe(round2(r.targetAtDeadline - 482_320));
+  });
+
+  it("10-lot farms need at least as many farms as the real 12.1-lot average (7 vs 6)", () => {
+    const big = solveWarPlan({ ...d.inputs, lotsPerFarm: 12.1, farmCost: Math.round(12.1 * d.real.landCostPerLot) }, realm);
+    expect(big.inputs.farmCost).toBe(583_607);
+    expect(big.required.farmsToBuy).toBe(6);
+    expect(profit.required.farmsToBuy).toBeGreaterThanOrEqual(big.required.farmsToBuy);
+    expect(big.required.closingsPerMonth).toBeCloseTo(profit.required.closingsPerMonth, 1);
+  });
+
+  it("changing the deadline changes the verdict: by 2028-12-31 it is 4.78 lots/month with the last farm in Jul 2028", () => {
+    const later = solveWarPlan({ ...d.inputs, deadline: "2028-12-31" }, realm);
+    expect(later.verdict).not.toBe(profit.verdict);
+    expect(later.deadlineMonthIndex).toBe(28);
+    expect(later.required.closingsPerMonth).toBe(4.78);
+    expect(later.required.farmsToBuy).toBe(7);
+    expect(later.required.lastPurchaseDate).toBe("2028-07-31");
+    expect(later.verdict).toContain("Jul 2028");
+  });
+
+  it("a cash target by 2027-03-31 is out of reach and says so", () => {
+    const soon = solveWarPlan({ ...d.inputs, targetMode: "cash_in_bank", deadline: "2027-03-31" }, realm);
+    expect(soon.feasible).toBe(false);
+    expect(soon.verdict).toBe(
+      "No pace reaches $10.0M by 2027-03-31: even 12.1 lots/month with 0 farms and $0 raised lands at $860K. Push the deadline or lower the target.",
+    );
+  });
+
+  it("changes nothing in the Oracle's futures", () => {
+    expect(realm.futures.current.exitDate).toBe("2029-03-11");
+    expect(realm.futures.required.exitDate).toBe("2027-12-11");
+    expect(realm.futures.oneMoreFarm.exitDate).toBe("2028-11-11");
   });
 });
