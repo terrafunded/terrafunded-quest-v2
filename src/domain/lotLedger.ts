@@ -102,14 +102,18 @@ export function accruedOn(entries: readonly LotLedgerCapitalEntry[], ratePct: nu
 }
 
 /**
- * What it costs to release the lot on `date`: capital + interest accrued to that day − credits
- * already received, never below zero. Grows every day the lot stays unreleased. Zero once released.
+ * What it costs to release the lot on `date`: capital booked by that day + interest accrued to it
+ * − credits received by it, never below zero. Grows every day the lot stays unreleased. Zero from
+ * the release day on. Costs and credits dated after `date` do not exist yet, so a ledger computed
+ * as of a later day (e.g. the deadline) can still be read at any earlier day.
  */
 export function outstandingAt(lot: LotLedgerLot, date: Date | string): number {
-  if (lot.released) return 0;
   const to = typeof date === "string" ? date : toIsoDate(date);
-  const capital = lot.capitalEntries.reduce((a, e) => a + e.amt, 0);
-  return Math.max(0, capital + accruedOn(lot.capitalEntries, lot.ratePct, to) - lot.credits);
+  if (lot.released && lot.released <= to) return 0;
+  const entries = lot.capitalEntries.filter((e) => e.dt <= to);
+  const capital = entries.reduce((a, e) => a + e.amt, 0);
+  const credits = lot.creditEntries.filter((c) => c.dt <= to).reduce((a, c) => a + c.amt, 0);
+  return Math.max(0, capital + accruedOn(entries, lot.ratePct, to) - credits);
 }
 
 /**

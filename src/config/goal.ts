@@ -6,6 +6,12 @@ export const GOAL_NET_PROFIT = 10_000_000;
 /** ISO date (UTC). The fund must be paid out and closed by this day. */
 export const GOAL_DEADLINE = "2027-12-31";
 
+/**
+ * Capital invested by the limited partners of Portafolio Diversificado Alpha LP, to be returned
+ * by the deadline in cash and note fractions (the Exodus, `src/domain/exodus.ts`).
+ */
+export const LP_CAPITAL_TO_RETURN = 10_000_000;
+
 /** Trailing window used for "current pace" (closed lots per month). */
 export const TRAILING_WINDOW_DAYS = 90;
 
