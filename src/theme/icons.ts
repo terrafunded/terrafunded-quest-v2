@@ -1,4 +1,5 @@
 import {
+  ArrowRightFromLine,
   Award,
   BookOpen,
   BookMarked,
@@ -10,6 +11,7 @@ import {
   Eye,
   Feather,
   Flame,
+  Footprints,
   Gem,
   Hexagon,
   Hourglass,
@@ -17,6 +19,7 @@ import {
   Map,
   Medal,
   Radar,
+  Sailboat,
   Scroll,
   ScrollText,
   Shield,
@@ -34,7 +37,7 @@ import {
 } from "lucide-react";
 import type { ThemeId } from "./themes";
 
-export type IconName = "brand" | "throne" | "warplan" | "realm" | "quests" | "pipeline" | "sponsors" | "treasury" | "oracle" | "chronicle" | "trophies" | "quality";
+export type IconName = "brand" | "throne" | "warplan" | "exodus" | "realm" | "quests" | "pipeline" | "sponsors" | "treasury" | "oracle" | "chronicle" | "trophies" | "quality";
 
 /**
  * Iconography per theme. Iron Crown speaks in war and stone, Gilded Realm in scribes and heraldry,
@@ -45,6 +48,7 @@ const ICONS: Record<ThemeId, Record<IconName, LucideIcon>> = {
     brand: Castle,
     throne: Crown,
     warplan: Target,
+    exodus: Footprints,
     realm: Map,
     quests: Swords,
     pipeline: Hourglass,
@@ -59,6 +63,7 @@ const ICONS: Record<ThemeId, Record<IconName, LucideIcon>> = {
     brand: Landmark,
     throne: Crown,
     warplan: Compass,
+    exodus: Sailboat,
     realm: Map,
     quests: ScrollText,
     pipeline: Hourglass,
@@ -73,6 +78,7 @@ const ICONS: Record<ThemeId, Record<IconName, LucideIcon>> = {
     brand: Hexagon,
     throne: Zap,
     warplan: Crosshair,
+    exodus: ArrowRightFromLine,
     realm: Radar,
     quests: Scroll,
     pipeline: Timer,

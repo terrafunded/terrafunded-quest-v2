@@ -815,7 +815,10 @@ export interface PartialRelease {
   label: string;
   farmName: string;
   monthIndex: number;
+  /** Month the release is paid (month end). */
   date: string;
+  /** Month end of the closing batch for projected lots; null for a note that exists today. */
+  closingDate: string | null;
   /** Whole notes for today's inventory; fractional lots for projected notes. */
   units: number;
   cost: number;
@@ -1199,7 +1202,7 @@ export function runExodus(base: ExodusBase, inputs: Pick<ExodusInputs, "lpCapita
           const value = deliver(tr, units, t, "existingReleased");
           month.deliveredValue += value;
           month.deliveredUnits += units;
-          releases.push({ label: tr.label, farmName: tr.farmName, monthIndex: t, date: monthEndIso(grid, t), units: 1, cost: round2(o.cost), upbDelivered: round2(value), ratio: round2(o.ratio), source: "existing" });
+          releases.push({ label: tr.label, farmName: tr.farmName, monthIndex: t, date: monthEndIso(grid, t), closingDate: null, units: 1, cost: round2(o.cost), upbDelivered: round2(value), ratio: round2(o.ratio), source: "existing" });
           if (tr.unitsHeld > EPS) sell(tr, tr.unitsHeld, t, month);
         } else {
           const units = Math.min(tr.unitsHeld, cash / o.cost, remainingNeed / o.upb);
@@ -1214,7 +1217,18 @@ export function runExodus(base: ExodusBase, inputs: Pick<ExodusInputs, "lpCapita
           const value = deliver(tr, units, t, "projectedReleased");
           month.deliveredValue += value;
           month.deliveredUnits += units;
-          releases.push({ label: tr.label, farmName: tr.farmName, monthIndex: t, date: monthEndIso(grid, t), units: round2(units), cost: round2(units * o.cost), upbDelivered: round2(value), ratio: round2(o.ratio), source: "projected" });
+          releases.push({
+            label: tr.label,
+            farmName: tr.farmName,
+            monthIndex: t,
+            date: monthEndIso(grid, t),
+            closingDate: monthEndIso(grid, tr.closeMonth),
+            units: round2(units),
+            cost: round2(units * o.cost),
+            upbDelivered: round2(value),
+            ratio: round2(o.ratio),
+            source: "projected",
+          });
         }
       }
     }
@@ -1515,30 +1529,69 @@ export function compareVersusCash(scenario: ExodusScenario, baseline: ExodusScen
 
 const plural = (n: number, one: string, many: string) => `${Number.isInteger(n) ? n : n.toFixed(1)} ${n === 1 ? one : many}`;
 
-/** One sentence. Pure so it can be tested. */
-export function exodusVerdict(plan: Pick<ExodusPlan, "scenario" | "inputs" | "maxNotesPct" | "deadline" | "deadlineMonthIndex">): string {
+export type ExodusLang = "en" | "es";
+
+const MONTHS_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** "Mar 2027" / "mar 2027" from an ISO date. */
+export function exodusMonthLabel(iso: string, lang: ExodusLang): string {
+  if (lang === "en") return warPlanMonthLabel(iso);
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? iso : `${MONTHS_ES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/** One sentence, in English or Spanish. Pure so it can be tested. */
+export function exodusVerdict(plan: Pick<ExodusPlan, "scenario" | "inputs" | "maxNotesPct" | "deadline" | "deadlineMonthIndex">, lang: ExodusLang = "en"): string {
   const s = plan.scenario;
   const pct = `${Math.round(s.notesPct)}%`;
   const lp = usdCompact(plan.inputs.lpCapital);
-  if (plan.deadlineMonthIndex === 0) return `The deadline ${plan.deadline} is not in the future: nothing can be freed or sold before it.`;
-  if (!s.feasible) {
-    const notes = s.notesPct > 0 ? ` Notes cover ${usdCompact(s.notesDelivered)} of the ${usdCompact(s.noteTarget)} target${s.notesCovered ? "" : ` — the inventory can cover at most ${plan.maxNotesPct}%`}.` : "";
-    return `Not feasible with ${pct} in notes: ${usdCompact(s.totalReturned)} of ${lp} is returned by ${plan.deadline}, ${usdCompact(s.shortfall)} short (${usdCompact(s.notesDelivered)} in notes, ${usdCompact(s.cashPaidToLPs)} in cash).${notes}`;
+  const es = lang === "es";
+  if (plan.deadlineMonthIndex === 0) {
+    return es
+      ? `La fecha límite ${plan.deadline} no está en el futuro: nada puede liberarse ni venderse antes.`
+      : `The deadline ${plan.deadline} is not in the future: nothing can be freed or sold before it.`;
   }
-  const sold = `sell ${plural(Math.round(s.notesSold.count), "note", "notes")}`;
-  const cash = `pay ${usdCompact(s.cashPaidToLPs)} to LPs in cash`;
-  if (s.notesPct <= 0 || s.notesDelivered <= 0) return `With ${pct} in notes: ${sold} and ${cash}.`;
+  if (!s.feasible) {
+    const atMost = s.notesCovered ? "" : es ? ` — el inventario cubre como máximo ${plan.maxNotesPct}%` : ` — the inventory can cover at most ${plan.maxNotesPct}%`;
+    const notes = s.notesPct > 0 ? (es ? ` Los pagarés cubren ${usdCompact(s.notesDelivered)} de la meta de ${usdCompact(s.noteTarget)}${atMost}.` : ` Notes cover ${usdCompact(s.notesDelivered)} of the ${usdCompact(s.noteTarget)} target${atMost}.`) : "";
+    return es
+      ? `No es factible con ${pct} en pagarés: se devuelven ${usdCompact(s.totalReturned)} de ${lp} al ${plan.deadline}, faltan ${usdCompact(s.shortfall)} (${usdCompact(s.notesDelivered)} en pagarés, ${usdCompact(s.cashPaidToLPs)} en efectivo).${notes}`
+      : `Not feasible with ${pct} in notes: ${usdCompact(s.totalReturned)} of ${lp} is returned by ${plan.deadline}, ${usdCompact(s.shortfall)} short (${usdCompact(s.notesDelivered)} in notes, ${usdCompact(s.cashPaidToLPs)} in cash).${notes}`;
+  }
+  const soldN = Math.round(s.notesSold.count);
+  const sold = es ? `vender ${plural(soldN, "pagaré", "pagarés")}` : `sell ${plural(soldN, "note", "notes")}`;
+  const cash = es ? `pagar ${usdCompact(s.cashPaidToLPs)} a los LP en efectivo` : `pay ${usdCompact(s.cashPaidToLPs)} to LPs in cash`;
+  if (s.notesPct <= 0 || s.notesDelivered <= 0) return es ? `Con ${pct} en pagarés: ${sold} y ${cash}.` : `With ${pct} in notes: ${sold} and ${cash}.`;
   const freed = s.package.existingReleased.upb + s.package.projectedReleased.upb + s.package.cashFarm.upb;
+  const relN = Math.round(s.partialReleases.count);
   const releases =
     s.partialReleases.count > 0
-      ? `through ${plural(Math.round(s.partialReleases.count), "partial release", "partial releases")} costing ${usdCompact(s.partialReleases.cost)}`
-      : "with no partial release";
+      ? es
+        ? `mediante ${plural(relN, "liberación parcial", "liberaciones parciales")} por ${usdCompact(s.partialReleases.cost)}`
+        : `through ${plural(relN, "partial release", "partial releases")} costing ${usdCompact(s.partialReleases.cost)}`
+      : es
+        ? "sin liberaciones parciales"
+        : "with no partial release";
+  const lastFarm = s.cashFarms.lastPurchaseDate ? exodusMonthLabel(s.cashFarms.lastPurchaseDate, lang) : "—";
   const farms =
     s.cashFarms.count > 0
-      ? `buy ${plural(s.cashFarms.count, "cash farm", "cash farms")} before ${s.cashFarms.lastPurchaseDate ? warPlanMonthLabel(s.cashFarms.lastPurchaseDate) : "—"}`
-      : "buy no cash farm";
-  const head = freed > 0.5 ? `free ${usdCompact(freed)} ${releases}` : `deliver ${usdCompact(s.notesDelivered)} of notes that are already free, with no partial release`;
-  return `With ${pct} in notes (${usdCompact(s.notesDelivered)} delivered): ${head}, ${farms}, ${sold} and ${cash}.`;
+      ? es
+        ? `comprar ${plural(s.cashFarms.count, "finca con efectivo propio", "fincas con efectivo propio")} antes de ${lastFarm}`
+        : `buy ${plural(s.cashFarms.count, "cash farm", "cash farms")} before ${lastFarm}`
+      : es
+        ? "no comprar fincas con efectivo propio"
+        : "buy no cash farm";
+  const head =
+    freed > 0.5
+      ? es
+        ? `liberar ${usdCompact(freed)} ${releases}`
+        : `free ${usdCompact(freed)} ${releases}`
+      : es
+        ? `entregar ${usdCompact(s.notesDelivered)} en pagarés que ya están libres, sin liberaciones parciales`
+        : `deliver ${usdCompact(s.notesDelivered)} of notes that are already free, with no partial release`;
+  return es
+    ? `Con ${pct} en pagarés (${usdCompact(s.notesDelivered)} entregados): ${head}, ${farms}, ${sold} y ${cash}.`
+    : `With ${pct} in notes (${usdCompact(s.notesDelivered)} delivered): ${head}, ${farms}, ${sold} and ${cash}.`;
 }
 
 /** Parts a caller may compute once and reuse: the base changes with the deadline, the scan with everything but `notesPct`. */

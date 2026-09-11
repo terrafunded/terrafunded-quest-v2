@@ -7,7 +7,7 @@ loadDotenv();
 const BASE = "http://localhost:4173";
 const OUT = "/opt/cursor/artifacts/screenshots/mobile-inspect";
 mkdirSync(OUT, { recursive: true });
-const routes = ["/", "/warplan", "/realm", "/quests", "/pipeline", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"] as const;
+const routes = ["/", "/warplan", "/exodus", "/realm", "/quests", "/pipeline", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"] as const;
 const devices = [
   { name: "se", w: 375, h: 667, dpr: 2 },
   { name: "se-land", w: 667, h: 375, dpr: 2 },

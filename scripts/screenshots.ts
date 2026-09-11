@@ -32,7 +32,7 @@ const BASE = args.get("base") ?? "http://localhost:4173";
 const FULL = args.get("full") === "true";
 const ONLY = args.get("only");
 
-const ROUTES = ["/login", "/", "/warplan", "/realm", "/quests", "/pipeline", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"];
+const ROUTES = ["/login", "/", "/warplan", "/exodus", "/realm", "/quests", "/pipeline", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"];
 const WIDTHS = [
   { name: "1280", viewport: { width: 1280, height: 800 }, mobile: false },
   { name: "390", viewport: { width: 390, height: 844 }, mobile: true },
