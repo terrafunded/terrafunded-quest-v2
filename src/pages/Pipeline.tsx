@@ -52,7 +52,7 @@ export default function Pipeline() {
 
       <TableErrorsBanner errors={data.tableErrors} />
 
-      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Pipeline figures">
+      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" aria-label="Pipeline figures">
         <Stat
           label="Profit trapped in reservations"
           value={money(p.netProfitTrapped)}
@@ -72,8 +72,21 @@ export default function Pipeline() {
         />
         <Stat
           label="Reservation → closing conversion"
-          value={p.conversion.pct === null ? "—" : pct(p.conversion.pct)}
-          hint={`${p.conversion.closed} of ${p.conversion.cohort} reservations made on or before ${date(p.conversion.cutoff)} have closed; ${p.conversion.stillReserved} still waiting`}
+          value={
+            <>
+              {p.conversion.pct === null ? "—" : pct(p.conversion.pct)}
+              {p.conversion.pctWithCancellations !== null && p.conversion.pctWithCancellations !== p.conversion.pct && <span className="text-muted-foreground"> · {pct(p.conversion.pctWithCancellations)} incl. cancellations</span>}
+            </>
+          }
+          hint={`${p.conversion.closed} of ${p.conversion.cohort} reservations made on or before ${date(p.conversion.cutoff)} have closed; ${p.conversion.stillReserved} still waiting; ${p.conversion.cancelled} cancelled`}
+          data-testid="pipeline-page-conversion"
+        />
+        <Stat
+          label="Cancellation rate"
+          value={p.conversion.cancellationRatePct === null ? "—" : pct(p.conversion.cancellationRatePct)}
+          hint={`${p.conversion.cancelled} matured reservations whose only file case was cancelled, out of ${p.conversion.cohortWithCancellations} · ${p.cancelledReservations} cancelled in all, counted as conversion failures in the War Plan`}
+          valueClassName={p.conversion.cancellationRatePct ? "text-ember" : undefined}
+          data-testid="pipeline-page-cancellation-rate"
         />
         <Stat
           label="Median days to close"

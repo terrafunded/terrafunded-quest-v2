@@ -383,6 +383,58 @@ test.describe("Phase 2: Epic", () => {
     await expect(page.getByLabel("Saved scenarios").locator("option")).toHaveCount(1);
   });
 
+  test("war plan: the rotation headline renders with a turn count, the benchmark cycle and graded farms", async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto("/warplan");
+    await waitForRealm(page);
+
+    const headline = page.getByTestId("warplan-rotation-headline");
+    await expect(headline).toBeVisible();
+    const text = (await headline.textContent()) ?? "";
+    expect(text).toMatch(/\b\d+(\.\d)? turns?\b/);
+    expect(text).toMatch(/\$[\d.,]+[KM]?/);
+    expect(text).toMatch(/rotating every \d+(\.\d)? months/);
+    await expect(headline).toHaveAttribute("data-turns", /^\d+(\.\d+)?$/);
+
+    // The benchmark cycle is a real freed farm measured in days, and every other farm is graded against it.
+    await expect(page.getByTestId("warplan-benchmark-cycle")).toContainText(/\d+ days/);
+    await expect(page.getByTestId("warplan-turns-completed")).toHaveText(/^\d+$/);
+    const grades = page.getByTestId("warplan-grade");
+    expect(await grades.count()).toBeGreaterThan(0);
+    for (const g of await grades.all()) {
+      await expect(g).toHaveAttribute("data-verdict", /^(ahead|on_pace|behind|unrated)$/);
+    }
+
+    // Peak capital outstanding never exceeds total deployed; the cycle input carries the real figure.
+    const peak = Number(((await page.getByTestId("warplan-rotation-peak").textContent()) ?? "").replace(/[^\d]/g, ""));
+    const deployed = Number(((await page.getByTestId("warplan-rotation-deployed").textContent()) ?? "").replace(/[^\d]/g, ""));
+    expect(peak).toBeLessThanOrEqual(deployed);
+    await expect(page.getByTestId("warplan-cycle-real")).toContainText(/\d+ days/);
+
+    // Blank the cycle: capital never rotates and the headline says so without a turn count.
+    await page.getByLabel("Capital turn").fill("");
+    await expect(headline).toContainText(/unknown|nothing rotating/);
+    await page.getByTestId("warplan-reset").click();
+    await expect(headline).toHaveText(text);
+    expect(errors).toEqual([]);
+  });
+
+  test("throne room rotation strip and pipeline cancellation rate render from the same realm", async ({ page }) => {
+    await page.goto("/");
+    await waitForRealm(page);
+    const strip = page.getByTestId("rotation-strip");
+    await expect(strip).toBeVisible();
+    await expect(strip.getByTestId("rotation-benchmark")).toContainText(/\d+ days/);
+    await expect(strip.getByTestId("rotation-turns-completed")).toHaveText(/^\d+$/);
+    await expect(strip.getByTestId("rotation-turns-needed")).toHaveText(/^(\d+(\.\d)?|—)$/);
+    await expect(strip.getByTestId("rotation-outstanding")).toHaveText(/^\$[\d,]+$/);
+    await expect(page.getByTestId("pipeline-cancellation-rate")).toContainText(/\d+(\.\d)?% cancelled/);
+
+    await page.goto("/pipeline");
+    await waitForRealm(page);
+    await expect(page.getByTestId("pipeline-page-cancellation-rate")).toContainText(/\d+(\.\d)?%/);
+  });
+
   test("chronicle narrates every event in prose", async ({ page }) => {
     await page.goto("/chronicle");
     await waitForRealm(page);

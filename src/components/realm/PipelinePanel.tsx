@@ -64,6 +64,15 @@ export function PipelinePanel({ pipeline, className }: { pipeline: Pipeline; cla
             </div>
             <div className="text-[11px] text-muted-foreground">
               {p.conversion.closed} of {p.conversion.cohort} reserved {p.conversion.maturityDays}+ days ago closed
+              {p.conversion.cancellationRatePct !== null && (
+                <>
+                  {" · "}
+                  <span data-testid="pipeline-cancellation-rate" data-value={p.conversion.cancellationRatePct}>
+                    {pct(p.conversion.cancellationRatePct)} cancelled
+                  </span>
+                  , {p.conversion.pctWithCancellations === null ? "—" : pct(p.conversion.pctWithCancellations)} incl. cancellations
+                </>
+              )}
             </div>
           </div>
           <div className="rounded-md bg-background/40 p-3">

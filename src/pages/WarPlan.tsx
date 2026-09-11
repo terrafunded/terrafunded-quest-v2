@@ -4,8 +4,12 @@ import { useRealm } from "@/data/useRealm";
 import {
   solveWarPlan,
   warPlanMonthLabel,
+  type FarmGrade,
+  type FarmGradeVerdict,
   type InvestorMixEntry,
   type MixDealType,
+  type RotationBenchmark,
+  type RotationPlan,
   type TargetMode,
   type WarPlan,
   type WarPlanColumn,
@@ -61,8 +65,19 @@ const DEAL_OPTIONS: { value: MixDealType; label: string }[] = [
   { value: "profit_share", label: "Profit share" },
   { value: "own_capital", label: "Own capital" },
 ];
-const FLAG_LABEL: Record<WarPlanFlag, string> = { shortfall: "Closings exceed inventory", too_late: "Farm bought too late to convert" };
+const FLAG_LABEL: Record<WarPlanFlag, string> = {
+  shortfall: "Closings exceed inventory",
+  too_late: "Farm bought too late to convert",
+  turn_incomplete: "Capital turn cannot complete before the deadline",
+};
 const COLUMN_SHORT: Record<WarPlanColumnId, string> = { current_pace: "Current pace", required_plan: "Required plan", required_plus_buffer: "+1 buffer farm" };
+const GRADE_LABEL: Record<FarmGradeVerdict, string> = { benchmark: "Benchmark", ahead: "Ahead", on_pace: "On pace", behind: "Behind", unrated: "Unrated" };
+const GRADE_CLASS: Record<FarmGradeVerdict, string> = { benchmark: "text-gold", ahead: "text-stage-closed", on_pace: "text-foreground", behind: "text-ember", unrated: "text-muted-foreground" };
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+const signed = (n: number, digits = 1) => `${n > 0 ? "+" : ""}${n.toFixed(digits)}`;
+const days = (n: number) => `${number(n)} ${Math.abs(n) === 1 ? "day" : "days"}`;
+const turnsLabel = (n: number | null) => (n === null ? "—" : `${Number.isInteger(n) ? String(n) : n.toFixed(1)} ${n === 1 ? "turn" : "turns"}`);
 
 export default function WarPlanPage() {
   const { data, isLoading, error, refetch } = useRealm();
@@ -157,7 +172,7 @@ export default function WarPlanPage() {
             label="Lots per new farm"
             value={inputs.lotsPerFarm}
             onChange={(v) =>
-              setInputs((prev) => (prev ? { ...prev, lotsPerFarm: v, farmCost: farmCostTouched ? prev.farmCost : Math.round(v * real.landCostPerLot) } : prev))
+              setInputs((prev) => (prev ? { ...prev, lotsPerFarm: v, farmCost: farmCostTouched ? prev.farmCost : Math.round(v * real.defaultLandCostPerLot) } : prev))
             }
             step={1}
             min={1}
@@ -174,8 +189,12 @@ export default function WarPlanPage() {
             }}
             step={10_000}
             prefix="$"
-            real={`${money(real.landCostPerLot * inputs.lotsPerFarm)} (${number(inputs.lotsPerFarm)} × ${money(real.landCostPerLot)}/lot)`}
-            hint="Capital one new farm needs"
+            real={
+              <span data-testid="warplan-farm-cost-real">
+                {real.recentLandCostPerLot === null ? "no recent purchase" : `${money(real.recentLandCostPerLot * inputs.lotsPerFarm)} recent (${real.recentFarms.join(", ")}: ${money(real.recentLandCostPerLot)}/lot)`} · {money(real.landCostPerLot * inputs.lotsPerFarm)} all-time ({money(real.landCostPerLot)}/lot)
+              </span>
+            }
+            hint={`${number(inputs.lotsPerFarm)} lots × the per-lot cost of the ${real.recentFarms.length > 0 ? `${real.recentFarms.length} most recent farms` : "all-time average"}`}
           />
           <NumberField id="wp-ad-spend" label="Ad spend per closing" value={inputs.adSpendPerClosing} onChange={(v) => update({ adSpendPerClosing: v })} step={100} prefix="$" real="no source in the data — assumption" hint="Monthly ads = closings ÷ conversion × this" />
           <NumberField
@@ -187,8 +206,14 @@ export default function WarPlanPage() {
             min={1}
             max={100}
             suffix="%"
-            real={real.conversionPct === null ? "—" : `${pct(real.conversionPct, 2)} (${number(data.realm.pipeline.conversion.closed)} of ${number(data.realm.pipeline.conversion.cohort)} matured reservations)`}
-            hint="Reservations that closed, pipeline.ts"
+            real={
+              <span data-testid="warplan-conversion-real">
+                {real.conversionWithCancellationsPct === null
+                  ? "—"
+                  : `${pct(real.conversionWithCancellationsPct, 2)} incl. cancellations (${number(data.realm.pipeline.conversion.closed)} of ${number(data.realm.pipeline.conversion.cohortWithCancellations)}) · ${pct(real.conversionPct, 2)} live only`}
+              </span>
+            }
+            hint={real.cancellationRatePct === null ? "Cancelled reservations count as failures" : `Cancellation rate ${pct(real.cancellationRatePct, 1)} — ${number(data.realm.pipeline.conversion.cancelled)} matured reservations cancelled, ${number(real.cancelledReservations)} cancelled in all`}
           />
           <NumberField
             id="wp-farm-lag"
@@ -201,6 +226,59 @@ export default function WarPlanPage() {
             hint={`Plus ${real.medianDaysToClose === null ? "—" : number(real.medianDaysToClose)} median days to close a reservation`}
           />
           <NumberField id="wp-note-lag" label="Note-sale lag" value={inputs.noteSaleLagMonths} onChange={(v) => update({ noteSaleLagMonths: v })} step={0.5} suffix="mo" real={`${number(real.noteSaleLagMonths)} mo (closing → note sale)`} hint="When the financed balance turns into cash" />
+          <div className="min-w-0">
+            <label htmlFor="wp-cycle" className="mb-1 block text-sm">
+              Capital turn
+            </label>
+            <div className="relative">
+              <Input
+                id="wp-cycle"
+                type="number"
+                inputMode="decimal"
+                step={0.5}
+                min={0}
+                className="tabular pr-12"
+                value={inputs.cycleMonths ?? ""}
+                placeholder="never returns"
+                onChange={(e) => {
+                  const raw = e.target.value.trim();
+                  const n = Number(raw);
+                  if (raw === "" || n <= 0) update({ cycleMonths: null });
+                  else if (Number.isFinite(n)) update({ cycleMonths: n });
+                }}
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">mo</span>
+            </div>
+            <FieldFooter
+              hint="Farm bought → lots close → notes sold → capital back → next farm. Blank: capital never rotates."
+              real={
+                <span data-testid="warplan-cycle-real">
+                  {real.cycleDays === null || real.cycleMonths === null
+                    ? "no farm freed, none projectable"
+                    : `${number(real.cycleDays)} days / ${real.cycleMonths.toFixed(1)} mo (${real.cycleSource === "freed_farms" ? `median of ${real.cycleFarms} freed ${real.cycleFarms === 1 ? "farm" : "farms"}` : `projected from ${real.cycleFarms} captive ${real.cycleFarms === 1 ? "farm" : "farms"}`})`}
+                </span>
+              }
+            />
+          </div>
+          <div className="min-w-0">
+            <span className="mb-1 block text-sm">Required pace</span>
+            <div role="group" aria-label="Required pace shape" className="flex gap-2">
+              <Button type="button" size="sm" variant={inputs.seasonal ? "default" : "outline"} aria-pressed={inputs.seasonal} onClick={() => update({ seasonal: true })} data-testid="warplan-seasonal-on">
+                Seasonal
+              </Button>
+              <Button type="button" size="sm" variant={inputs.seasonal ? "outline" : "default"} aria-pressed={!inputs.seasonal} onClick={() => update({ seasonal: false })} data-testid="warplan-seasonal-off">
+                Flat
+              </Button>
+            </div>
+            <FieldFooter
+              hint={inputs.seasonal ? "Each month asks what its calendar month really delivers; the flat average sits alongside" : "Every month asks the same average"}
+              real={
+                data.realm.seasonality.peakMonth === null || data.realm.seasonality.troughMonth === null
+                  ? "no dated closings"
+                  : `${number(data.realm.seasonality.closings)} closings · peak ${MONTH_NAMES[data.realm.seasonality.peakMonth]} ×${(data.realm.seasonality.factors[data.realm.seasonality.peakMonth] ?? 1).toFixed(2)}, trough ${MONTH_NAMES[data.realm.seasonality.troughMonth]} ×${(data.realm.seasonality.factors[data.realm.seasonality.troughMonth] ?? 1).toFixed(2)} (floor ${pct(data.realm.seasonality.floor * 100, 0)})`
+              }
+            />
+          </div>
         </div>
 
         <div className="mt-6">
@@ -258,6 +336,8 @@ export default function WarPlanPage() {
         </p>
       </section>
 
+      <RotationSection plan={plan} />
+
       <section aria-label="Three plans" className="mb-6 grid gap-3 lg:grid-cols-3" data-testid="warplan-columns">
         {plan.all.map((c) => (
           <ColumnCard key={c.id} c={c} plan={plan} modeShort={modeShort} selected={c.id === column} onSelect={() => setColumn(c.id)} />
@@ -266,6 +346,190 @@ export default function WarPlanPage() {
 
       <MonthTable plan={plan} column={selected} modeShort={modeShort} onColumn={setColumn} />
     </div>
+  );
+}
+
+function RotationSection({ plan }: { plan: WarPlan }) {
+  const r: RotationPlan = plan.rotation;
+  const b: RotationBenchmark = plan.benchmark;
+  const flagged = r.turnsIncomplete > 0;
+  return (
+    <section aria-label="Capital rotation" className={cn("parchment-card mb-6 overflow-hidden", plan.feasible && !flagged ? "border-gold/40" : "border-ember/40")} data-testid="warplan-rotation">
+      <div className="p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div className="stat-label">Capital rotation — the required plan</div>
+          <span className="text-xs text-muted-foreground">Land only: houses, receivables and overhead are out of scope by design.</span>
+        </div>
+        <p className="mt-2 font-heading text-lg leading-snug sm:text-xl" data-testid="warplan-rotation-headline" data-turns={r.turnsNeeded ?? ""} data-incomplete={r.turnsIncomplete}>
+          {r.headline}
+        </p>
+        {flagged && (
+          <div className="mt-3">
+            <Badge variant="error" data-testid="warplan-rotation-flag">
+              {r.turnsIncomplete} of {r.farms} {r.farms === 1 ? "turn" : "turns"} cannot complete before the deadline
+            </Badge>
+          </div>
+        )}
+
+        <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="warplan-rotation-stats">
+          <RotationStat label="Peak capital outstanding" value={money(r.peakOutstanding)} hint="The most land capital out at once — what actually has to be raised" tone="text-gold" testId="warplan-rotation-peak" />
+          <RotationStat label="Total capital deployed" value={money(r.totalDeployed)} hint={`Every purchase over ${r.farms} ${r.farms === 1 ? "farm" : "farms"}, counting recycled dollars each time · ${money(r.recycled)} recycled`} testId="warplan-rotation-deployed" />
+          <RotationStat label="Turns needed" value={turnsLabel(r.turnsNeeded)} hint={`Deployed ÷ peak · ${r.turnsCompleted} completed so far${r.cycleMonths === null ? "" : ` · ${r.cycleMonths.toFixed(1)} months each`}`} testId="warplan-rotation-turns" />
+          <RotationStat
+            label="First turn must start by"
+            value={r.firstTurnStartBy ? warPlanMonthLabel(r.firstTurnStartBy) : "—"}
+            hint={r.lastTurnCompletes ? `Last turn completes ${warPlanMonthLabel(r.lastTurnCompletes)}` : r.farms > 0 && r.cycleMonths !== null ? "No planned turn completes before the deadline" : "No farm to buy"}
+            tone={flagged ? "text-ember" : undefined}
+          />
+        </dl>
+
+        {r.perInvestor.length > 0 && (
+          <div className="mt-4">
+            <div className="stat-label mb-2">Turns per investor</div>
+            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="warplan-rotation-investors">
+              {r.perInvestor.map((inv) => (
+                <li key={inv.mixIndex} className="rounded-md border border-border/60 bg-background/40 p-3 text-sm" data-testid="warplan-rotation-investor" data-name={inv.name}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="truncate font-heading">{inv.name}</span>
+                    <span className="tabular text-gold">{turnsLabel(inv.turns)}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground tabular">
+                    {money(inv.peakOutstanding)} out at peak · {money(inv.deployed)} deployed · {money(inv.fresh)} fresh
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <BenchmarkPanel b={b} />
+    </section>
+  );
+}
+
+function RotationStat({ label, value, hint, tone, testId }: { label: string; value: ReactNode; hint: ReactNode; tone?: string; testId?: string }) {
+  return (
+    <div className="rounded-md bg-background/40 p-3">
+      <dt className="stat-label">{label}</dt>
+      <dd className={cn("mt-1 font-heading text-xl tabular", tone)} data-testid={testId}>
+        {value}
+      </dd>
+      <dd className="mt-1 text-xs text-muted-foreground">{hint}</dd>
+    </div>
+  );
+}
+
+function BenchmarkPanel({ b }: { b: RotationBenchmark }) {
+  const bench = b.benchmark;
+  const graded = b.grades.filter((g) => g.verdict !== "benchmark");
+  return (
+    <div className="border-t border-border/60" data-testid="warplan-benchmark">
+      <div className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <div>
+          <div className="stat-label">Benchmark cycle</div>
+          {bench ? (
+            <>
+              <div className="mt-1 font-display text-2xl leading-none text-gold sm:text-3xl" data-testid="warplan-benchmark-farm">
+                {bench.farmName}
+              </div>
+              <div className="mt-2 text-sm tabular" data-testid="warplan-benchmark-cycle">
+                <strong>{number(bench.days)} days</strong> · {bench.months.toFixed(1)} months{bench.projected ? " (projected)" : ""}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {bench.investorName} funded {date(bench.fundingDate)} → {bench.projected ? "projected free" : "100 % of capital back"} {date(bench.liberationDate)}
+                {b.cycles.length > 1 ? ` · median of ${b.cycles.length} ${b.source === "freed_farms" ? "freed" : "projected"} cycles` : ""}
+              </div>
+              {b.curve.length > 0 && (
+                <ol className="mt-3 flex flex-wrap gap-1 text-[11px] tabular text-muted-foreground" aria-label="Capital returned over the benchmark cycle">
+                  {b.curve.map((p) => (
+                    <li key={p.day} className="rounded bg-background/50 px-1.5 py-0.5">
+                      d{p.day} · {p.pct.toFixed(0)}%
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-muted-foreground">No sponsor-funded farm has been freed and none can be projected, so there is no benchmark cycle yet.</p>
+          )}
+          <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
+            <dt className="text-muted-foreground">Turns completed</dt>
+            <dd className="text-right tabular" data-testid="warplan-turns-completed">
+              {b.turnsCompleted}
+            </dd>
+            <dt className="text-muted-foreground">Capital outstanding</dt>
+            <dd className="text-right tabular">{money(b.capitalOutstanding)}</dd>
+            <dt className="text-muted-foreground">Next liberation</dt>
+            <dd className="text-right tabular">{b.nextLiberation ? `${b.nextLiberation.farmName}${b.nextLiberation.daysToGo === null ? "" : ` · ${days(b.nextLiberation.daysToGo)}`}` : "—"}</dd>
+          </dl>
+        </div>
+
+        <div className="min-w-0">
+          <div className="stat-label mb-2">Every farm against the benchmark</div>
+          {graded.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No other sponsor-funded farm to grade.</p>
+          ) : (
+            <div className="rounded-lg border border-border/60">
+              <Table className="min-w-[720px] max-sm:min-w-0" data-mobile="cards" data-testid="warplan-grades">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Farm</TableHead>
+                    <TableHead className="text-right">Days in</TableHead>
+                    <TableHead className="text-right">Returned</TableHead>
+                    <TableHead className="text-right">{bench?.farmName ?? "Benchmark"} at the same day</TableHead>
+                    <TableHead className="text-right">vs benchmark</TableHead>
+                    <TableHead className="text-right">Liberation</TableHead>
+                    <TableHead className="text-right">Grade</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {graded.map((g) => (
+                    <GradeRow key={g.farmId} g={g} />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GradeRow({ g }: { g: FarmGrade }) {
+  const cls = GRADE_CLASS[g.verdict];
+  return (
+    <TableRow data-testid="warplan-grade" data-farm={g.farmName} data-verdict={g.verdict}>
+      <TableCell data-label="Farm" className="font-medium">
+        {g.farmName}
+        <span className="block text-xs font-normal text-muted-foreground">
+          {g.investorName} · {money(g.capital)}
+          {g.fundingDate ? ` · ${date(g.fundingDate)}` : ""}
+        </span>
+      </TableCell>
+      <TableCell data-label="Days in" className="text-right tabular">
+        {g.daysElapsed === null ? "—" : number(g.daysElapsed)}
+      </TableCell>
+      <TableCell data-label="Returned" className="text-right tabular">
+        {pct(g.pctReturned, 1)}
+        <span className="block text-xs text-muted-foreground">{money(g.capitalReturned)}</span>
+      </TableCell>
+      <TableCell data-label="Benchmark at the same day" className="text-right tabular text-muted-foreground">
+        {g.benchmarkPctAtSameDay === null ? "—" : pct(g.benchmarkPctAtSameDay, 1)}
+      </TableCell>
+      <TableCell data-label="vs benchmark" className={cn("text-right tabular", cls)}>
+        {g.pctVsBenchmark === null ? "—" : `${signed(g.pctVsBenchmark)} pts`}
+        {g.daysVsBenchmark !== null && <span className="block text-xs">{g.daysVsBenchmark >= 0 ? `${days(g.daysVsBenchmark)} ahead` : `${days(-g.daysVsBenchmark)} behind`}</span>}
+      </TableCell>
+      <TableCell data-label="Liberation" className="text-right tabular">
+        {g.freed ? `freed ${date(g.projectedLiberationDate)}` : g.projectedLiberationDate ? `${date(g.projectedLiberationDate)}${g.daysToGo === null ? "" : ` · ${days(g.daysToGo)}`}` : "—"}
+        {!g.freed && g.lotsLeftToCover !== null && <span className="block text-xs text-muted-foreground">{g.lotsLeftToCover === 0 ? "covered, awaiting payout" : `${number(g.lotsLeftToCover)} lots to cover`}</span>}
+      </TableCell>
+      <TableCell data-label="Grade" className={cn("text-right font-heading", cls)}>
+        {GRADE_LABEL[g.verdict]}
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -508,6 +772,20 @@ function ColumnCard({ c, plan, modeShort, selected, onSelect }: { c: WarPlanColu
             </dd>
           </>
         )}
+        {c.farmsToBuy > 0 && (
+          <>
+            <dt className="text-muted-foreground">Peak outstanding</dt>
+            <dd className="text-right tabular" data-testid="warplan-column-peak">
+              {money(c.peakOutstanding)}
+            </dd>
+            <dt className="text-muted-foreground">Total deployed</dt>
+            <dd className="text-right tabular">{money(c.totalDeployed)}</dd>
+          </>
+        )}
+        <dt className="text-muted-foreground">Reservations / month</dt>
+        <dd className="text-right tabular" data-testid="warplan-column-reservations">
+          {number(c.reservationsPerMonth)}
+        </dd>
         <dt className="text-muted-foreground">Ad spend / month</dt>
         <dd className="text-right tabular">{money(c.adSpendPerMonth)}</dd>
         <dt className="text-muted-foreground">Note sales / month</dt>
@@ -518,6 +796,14 @@ function ColumnCard({ c, plan, modeShort, selected, onSelect }: { c: WarPlanColu
         <dd className="text-right tabular">{number(c.inventoryAtDeadline)} lots</dd>
         <dt className="text-muted-foreground">Cumulative {modeShort} at the deadline</dt>
         <dd className={cn("text-right tabular font-medium", c.targetAtDeadline >= plan.goal.goal ? "text-stage-closed" : "text-ember")}>{moneyCompact(c.targetAtDeadline)}</dd>
+        {c.turnsIncomplete > 0 && (
+          <>
+            <dt className="text-ember">Turns not back by the deadline</dt>
+            <dd className="text-right tabular text-ember" data-testid="warplan-column-incomplete">
+              {c.turnsIncomplete} of {c.farmsToBuy}
+            </dd>
+          </>
+        )}
         {c.flaggedMonths > 0 && (
           <>
             <dt className="text-ember">Red flags</dt>
@@ -541,6 +827,7 @@ function MonthTable({ plan, column, modeShort, onColumn }: { plan: WarPlan; colu
   const rows = column.rows;
   const last = rows.at(-1);
   const sum = (pick: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + pick(r), 0);
+  const seasonal = plan.inputs.seasonal && column.id !== "current_pace" && rows.some((r) => r.seasonalFactor !== 1);
 
   return (
     <section aria-label="Month by month" className="parchment-card overflow-hidden" data-testid="warplan-months" data-column={column.id}>
@@ -560,7 +847,8 @@ function MonthTable({ plan, column, modeShort, onColumn }: { plan: WarPlan; colu
             <TableHead>Month</TableHead>
             <TableHead className="text-right">Farms bought</TableHead>
             <TableHead className="text-right">Capital deployed</TableHead>
-            <TableHead className="text-right">Lots closed</TableHead>
+            <TableHead className="text-right">{seasonal ? "Lots closed (seasonal)" : "Lots closed"}</TableHead>
+            {seasonal && <TableHead className="text-right">Flat average</TableHead>}
             <TableHead className="text-right">Notes sold</TableHead>
             <TableHead className="text-right">Ad spend</TableHead>
             <TableHead className="text-right">Cumulative {modeShort}</TableHead>
@@ -587,9 +875,15 @@ function MonthTable({ plan, column, modeShort, onColumn }: { plan: WarPlan; colu
               <TableCell data-label="Capital deployed" className={cn("text-right tabular", r.capitalDeployed === 0 && "max-sm:!hidden")}>
                 {r.capitalDeployed > 0 ? money(r.capitalDeployed) : "—"}
               </TableCell>
-              <TableCell data-label="Lots closed" className="text-right tabular">
+              <TableCell data-label={seasonal ? "Lots closed (seasonal)" : "Lots closed"} className="text-right tabular" data-testid="warplan-month-lots">
                 {number(r.lotsClosed)}
+                {seasonal && r.lotsClosed > 0 && <span className={cn("block text-xs", r.seasonalFactor > 1 ? "text-stage-closed" : r.seasonalFactor < 1 ? "text-ember" : "text-muted-foreground")}>×{r.seasonalFactor.toFixed(2)}</span>}
               </TableCell>
+              {seasonal && (
+                <TableCell data-label="Flat average" className="text-right tabular text-muted-foreground">
+                  {number(r.flatLotsClosed)}
+                </TableCell>
+              )}
               <TableCell data-label="Notes sold" className="text-right tabular">
                 {number(r.notesSold)}
               </TableCell>
@@ -637,9 +931,14 @@ function MonthTable({ plan, column, modeShort, onColumn }: { plan: WarPlan; colu
             <TableCell data-label="Capital deployed" className="text-right tabular">
               {money(sum((r) => r.capitalDeployed))}
             </TableCell>
-            <TableCell data-label="Lots closed" className="text-right tabular">
+            <TableCell data-label={seasonal ? "Lots closed (seasonal)" : "Lots closed"} className="text-right tabular">
               {number(Math.round(sum((r) => r.lotsClosed) * 100) / 100)}
             </TableCell>
+            {seasonal && (
+              <TableCell data-label="Flat average" className="text-right tabular text-muted-foreground">
+                {number(Math.round(sum((r) => r.flatLotsClosed) * 100) / 100)}
+              </TableCell>
+            )}
             <TableCell data-label="Notes sold" className="text-right tabular">
               {number(Math.round(sum((r) => r.notesSold) * 100) / 100)}
             </TableCell>
@@ -667,7 +966,7 @@ function MonthTable({ plan, column, modeShort, onColumn }: { plan: WarPlan; colu
         </TableFooter>
       </Table>
       <p className="border-t border-border/60 p-4 text-sm text-muted-foreground">
-        The first row runs from today to the end of the month, so its closings are prorated. Capital owed is what sponsors are still due at month end (today's positions repaid pro rata as the existing lots close, new farms as their lots close). Red rows are months where the required closings exceed the inventory or a farm is bought too late to convert before the deadline.
+        The first row runs from today to the end of the month, so its closings are prorated.{seasonal ? " Seasonal closings follow the realm's month-of-year profile of real closing dates (smoothed, floored at 25% of the flat rate) and average out to the flat pace over the plan." : ""} Capital owed is what sponsors are still due at month end (today's positions repaid pro rata as the existing lots close, new farms as their lots close). Red rows are months where the required closings exceed the inventory, a farm is bought too late to convert before the deadline, or a farm's capital turn cannot complete before it.
       </p>
     </section>
   );
