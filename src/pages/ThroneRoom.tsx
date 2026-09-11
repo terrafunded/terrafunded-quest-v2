@@ -127,7 +127,7 @@ export function ThroneRoom() {
         <div className="parchment-card min-w-0 p-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">Live chronicle</h2>
-            <Link to="/chronicle" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            <Link to="/chronicle" className="touch-link inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
               Full chronicle <ArrowRight className="h-3 w-3" />
             </Link>
           </div>

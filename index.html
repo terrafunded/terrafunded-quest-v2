@@ -28,7 +28,13 @@
     </script>
   </head>
   <body class="bg-background text-foreground">
-    <div id="root"></div>
+    <div id="root">
+      <!-- Painted before the bundle runs; React replaces it on mount. Uses the theme tokens from the stylesheet. -->
+      <div class="boot-shell" aria-hidden="true">
+        <div class="boot-shell__brand">Exodus</div>
+        <div class="boot-shell__hint">Entering the war room…</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

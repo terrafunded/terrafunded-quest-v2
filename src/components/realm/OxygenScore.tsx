@@ -24,7 +24,7 @@ export function OxygenScore({ oxygen, className }: { oxygen: Oxygen; className?:
           <Wind className="mr-2 inline h-4 w-4" />
           Oxygen · days gained
         </h2>
-        <Link to="/quests" className="text-xs text-muted-foreground hover:text-foreground">
+        <Link to="/quests" className="touch-link text-xs text-muted-foreground hover:text-foreground">
           per lot in the ledger →
         </Link>
       </div>

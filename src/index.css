@@ -42,6 +42,41 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* First-paint shell from index.html: brand mark and a hint until the bundle mounts. */
+  .boot-shell {
+    display: flex;
+    min-height: 100dvh;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+  }
+  .boot-shell__brand {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    letter-spacing: var(--brand-tracking);
+    text-transform: uppercase;
+    color: hsl(var(--gold));
+  }
+  .boot-shell__hint {
+    @apply stat-label;
+  }
+
+  /* Animated counters reserve their finished width up front (see AnimatedCounter). */
+  .counter {
+    display: inline-grid;
+  }
+  .counter::before {
+    content: attr(data-final);
+    grid-area: 1 / 1;
+    visibility: hidden;
+  }
+  .counter-live {
+    grid-area: 1 / 1;
+    text-align: start;
+  }
+
   /* Horizontal scrollers on phones fade at the right edge so the overflow is discoverable. */
   @media (max-width: 639px) {
     .map-scroll {

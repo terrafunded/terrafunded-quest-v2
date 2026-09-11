@@ -8,7 +8,10 @@ const Slider = React.forwardRef<React.ElementRef<typeof SliderPrimitive.Root>, R
       <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-muted">
         <SliderPrimitive.Range className="absolute h-full bg-primary" />
       </SliderPrimitive.Track>
-      <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-primary bg-background shadow transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50" />
+      {/* The visible knob is the inner span; the outer thumb grows to a 44 px hit area on touch. */}
+      <SliderPrimitive.Thumb className="slider-thumb flex h-5 w-5 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50">
+        <span className="block h-5 w-5 rounded-full border-2 border-primary bg-background shadow transition-colors" />
+      </SliderPrimitive.Thumb>
     </SliderPrimitive.Root>
   ),
 );

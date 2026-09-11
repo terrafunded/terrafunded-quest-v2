@@ -476,10 +476,23 @@ body::before {
   a.nav-item {
     min-height: 44px;
   }
+  button {
+    min-width: 44px;
+  }
   .lot-tile-hit,
-  .swatch-button {
+  .swatch-button,
+  .slider-thumb {
     min-width: 44px;
     min-height: 44px;
+  }
+  /* Inline text links grow a thumb-sized hit box without moving the text around them. */
+  .touch-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-block: -14px;
+    padding-inline: 0.25rem;
+    margin-inline: -0.25rem;
   }
 }
 

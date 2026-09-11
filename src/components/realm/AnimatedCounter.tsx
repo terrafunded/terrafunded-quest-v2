@@ -48,9 +48,18 @@ export function AnimatedCounter({ value, format = defaultFormat, durationMs: bas
     };
   }, [value, durationMs]);
 
+  // `.counter` paints the final value invisibly (::before, from data-final) in the same grid cell,
+  // so the box already has its finished width while the digits tick up: no layout shift from a
+  // centred number growing.
   return (
-    <span className={cn("tabular counter-glow", className)} data-value={Math.round(display)} data-target={Math.round(value)} {...rest}>
-      {format(display)}
+    <span
+      className={cn("counter tabular counter-glow", className)}
+      data-value={Math.round(display)}
+      data-target={Math.round(value)}
+      data-final={format(value)}
+      {...rest}
+    >
+      <span className="counter-live">{format(display)}</span>
     </span>
   );
 }

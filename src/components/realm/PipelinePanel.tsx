@@ -24,7 +24,7 @@ export function PipelinePanel({ pipeline, className }: { pipeline: Pipeline; cla
           <Hourglass className="mr-2 inline h-4 w-4" />
           Pipeline · reservations lead, closings pay
         </h2>
-        <Link to="/pipeline" className="text-xs text-muted-foreground hover:text-foreground">
+        <Link to="/pipeline" className="touch-link text-xs text-muted-foreground hover:text-foreground">
           the stuck list →
         </Link>
       </div>

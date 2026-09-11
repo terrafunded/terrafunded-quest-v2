@@ -44,7 +44,7 @@ export default function Pipeline() {
             </option>
           ))}
         </Select>
-        <Link to="/quests?filter=stuck" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <Link to="/quests?filter=stuck" className="touch-link inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
           in the ledger <ArrowRight className="h-3 w-3" />
         </Link>
       </PageHeader>
