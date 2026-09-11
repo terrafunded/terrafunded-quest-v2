@@ -26,12 +26,20 @@ export interface StuckLot {
 }
 
 export interface Conversion {
-  /** Reservations made at least `maturityDays` before `asOf` (any current stage). */
+  /** Reservations made at least `maturityDays` before `asOf` that are still live or closed (any current stage). */
   cohort: number;
   closed: number;
   stillReserved: number;
   /** closed ÷ cohort, in percent. Null when the cohort is empty. */
   pct: number | null;
+  /** Matured reservations whose only file case was cancelled — a conversion failure. */
+  cancelled: number;
+  /** cohort + cancelled. */
+  cohortWithCancellations: number;
+  /** closed ÷ (cohort + cancelled), in percent — the conversion the War Plan spends ad dollars against. */
+  pctWithCancellations: number | null;
+  /** cancelled ÷ (cohort + cancelled), in percent. */
+  cancellationRatePct: number | null;
   maturityDays: number;
   /** Reservations on or before this date belong to the cohort. */
   cutoff: string;
@@ -65,6 +73,8 @@ export interface Pipeline {
   closedLotsPerMonth: number;
 
   conversion: Conversion;
+  /** Lots whose only file case was cancelled, any age. */
+  cancelledReservations: number;
 
   reserved: number;
   pipelineNetProfit: number;
@@ -146,21 +156,31 @@ export function computeConversion(lots: Lot[], asOf: Date, maturityDays = CONVER
   let cohort = 0;
   let closed = 0;
   let stillReserved = 0;
+  let cancelled = 0;
   for (const l of lots) {
+    // A lot whose only file case was cancelled is available again; its failed reservation still
+    // counts against conversion once it is old enough to belong to the cohort.
+    if (l.stage === "available") {
+      const c = parseDate(l.cancelledReservationDate);
+      if (c && c <= cutoff) cancelled += 1;
+      continue;
+    }
     const r = parseDate(l.reservationDate);
     if (!r || r > cutoff) continue;
-    // Available lots with a reservation date do not exist (a reservation implies a live file case),
-    // so the cohort is exactly reserved + sold lots reserved on or before the cutoff.
-    if (l.stage === "available") continue;
     cohort += 1;
     if (isSold(l)) closed += 1;
     else stillReserved += 1;
   }
+  const withCancellations = cohort + cancelled;
   return {
     cohort,
     closed,
     stillReserved,
     pct: cohort > 0 ? round2((closed / cohort) * 100) : null,
+    cancelled,
+    cohortWithCancellations: withCancellations,
+    pctWithCancellations: withCancellations > 0 ? round2((closed / withCancellations) * 100) : null,
+    cancellationRatePct: withCancellations > 0 ? round2((cancelled / withCancellations) * 100) : null,
     maturityDays,
     cutoff: toIsoDate(cutoff),
   };
@@ -213,6 +233,7 @@ export function computePipeline(lots: Lot[], asOf: Date, opts: PipelineOptions =
     reservationsMadePerMonth: round2(reservationsMadeTrailing / monthsInWindow),
     closedLotsPerMonth: opts.closedLotsPerMonth ?? 0,
     conversion,
+    cancelledReservations: lots.filter((l) => l.stage === "available" && l.cancelledReservationDate !== null).length,
     reserved: reservedLots.length,
     pipelineNetProfit: round2(sum(reservedLots.map(netProfitAtStake))),
     stuck,

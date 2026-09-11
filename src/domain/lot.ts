@@ -55,6 +55,10 @@ export interface Lot {
   buyerName: string | null;
   buyerIsTestClient: boolean;
   reservationDate: string | null;
+  /** Cancelled file cases on this property (a reservation that failed). */
+  cancelledFileCases: number;
+  /** Reservation date of the latest cancelled file case, when the lot has no live case. */
+  cancelledReservationDate: string | null;
   /** Effective closing date: file_cases.closing_date ?? notes.start_date. */
   closeDate: string | null;
   estimatedClosingDate: string | null;
@@ -239,7 +243,9 @@ export function computeLots(inputs: LotInputs): Lot[] {
     if (!ctx) continue;
     const farm = ctx.farm;
 
-    const fileCase = pickFileCase(casesByProperty.get(property.id) ?? []);
+    const cases = casesByProperty.get(property.id) ?? [];
+    const fileCase = pickFileCase(cases);
+    const cancelled = cases.filter((c) => c.status !== "active" && c.status !== "completed");
     const note = pickNote(notesByProperty.get(property.id) ?? []);
     const noteSale = note ? saleByNote.get(note.id) ?? null : null;
     const stage = deriveStage(fileCase, note, noteSale);
@@ -327,6 +333,15 @@ export function computeLots(inputs: LotInputs): Lot[] {
       buyerName: client?.full_name ?? null,
       buyerIsTestClient,
       reservationDate: reservation ? toIsoDate(reservation) : null,
+      cancelledFileCases: cancelled.length,
+      cancelledReservationDate:
+        fileCase || note
+          ? null
+          : cancelled
+              .map((c) => c.reservation_date ?? c.created_at?.slice(0, 10) ?? null)
+              .filter((d): d is string => !!d)
+              .sort()
+              .at(-1) ?? null,
       closeDate: close ? toIsoDate(close) : null,
       estimatedClosingDate: fileCase?.estimated_closing_date ?? null,
       daysInPipeline,
