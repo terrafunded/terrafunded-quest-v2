@@ -13,6 +13,14 @@ import { cn } from "@/lib/utils";
  */
 export function DebtCountdown({ debt, className }: { debt: Debt; className?: string }) {
   const behind = debt.actualNetProfitPerDay !== null && debt.requiredNetProfitPerDay !== null && debt.actualNetProfitPerDay < debt.requiredNetProfitPerDay;
+  // The pace is measured from the era start (config ERA_START) when closings predate it; the all-time figure stays for the record.
+  const paceHint =
+    debt.actualNetProfitPerDay === null
+      ? "no closings yet"
+      : debt.actualEraClipped
+        ? `you have averaged ${money(debt.actualNetProfitPerDay)} / day ${debt.actualSinceLabel} (${number(debt.actualDays)} days)` +
+          (debt.actualNetProfitPerDayAllTime !== null ? ` · ${money(debt.actualNetProfitPerDayAllTime)} / day over the full history since ${date(debt.firstCloseDate ?? debt.asOf)}` : "")
+        : `you have averaged ${money(debt.actualNetProfitPerDay)} / day since the first closing`;
   return (
     <section
       className={cn("relative overflow-hidden rounded-2xl border border-ember/18 bg-gradient-to-br from-ember/14 via-card to-card p-5 sm:p-6", className)}
@@ -39,14 +47,7 @@ export function DebtCountdown({ debt, className }: { debt: Debt; className?: str
             </span>
           </span>
         </Cell>
-        <Cell
-          label="Net profit required per day"
-          hint={
-            debt.actualNetProfitPerDay !== null
-              ? `you have averaged ${money(debt.actualNetProfitPerDay)} / day since the first closing`
-              : "no closings yet"
-          }
-        >
+        <Cell label="Net profit required per day" hint={paceHint} hintTestId="debt-actual-pace-hint">
           {debt.requiredNetProfitPerDay === null ? (
             <span className="text-muted-foreground" data-testid="debt-per-day" data-value={0}>
               —
@@ -63,7 +64,7 @@ export function DebtCountdown({ debt, className }: { debt: Debt; className?: str
       {debt.requiredNetProfitPerDay !== null && debt.actualNetProfitPerDay !== null && (
         <div className="mt-4">
           <div className="flex justify-between text-[11px] uppercase tracking-wider text-muted-foreground">
-            <span>actual pace per day</span>
+            <span data-testid="debt-actual-pace-label">actual pace per day{debt.actualSinceLabel ? ` · ${debt.actualSinceLabel}` : ""}</span>
             <span>required</span>
           </div>
           <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
@@ -80,12 +81,16 @@ export function DebtCountdown({ debt, className }: { debt: Debt; className?: str
   );
 }
 
-function Cell({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+function Cell({ label, hint, hintTestId, children }: { label: string; hint?: string; hintTestId?: string; children: ReactNode }) {
   return (
     <div className="min-w-0 rounded-lg bg-background/40 p-4">
       <div className="stat-label">{label}</div>
       <div className="mt-1 font-display text-2xl leading-none xl:text-3xl">{children}</div>
-      {hint && <div className="mt-2 text-[11px] text-muted-foreground">{hint}</div>}
+      {hint && (
+        <div className="mt-2 text-[11px] text-muted-foreground" data-testid={hintTestId}>
+          {hint}
+        </div>
+      )}
     </div>
   );
 }

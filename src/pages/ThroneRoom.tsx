@@ -136,7 +136,10 @@ export function ThroneRoom() {
               <p data-testid="pace-line-reservations">
                 Reserving <strong className="text-stage-reserved tabular">{number(x.reservationsPerMonth)}</strong>/month, closing{" "}
                 <strong className="text-stage-closed tabular">{number(x.closingsPerMonth)}</strong>/month
-                <span className="text-xs"> · trailing {x.trailingWindowDays} days</span>
+                <span className="text-xs" data-testid="pace-window">
+                  {" "}
+                  · {x.trailingEraClipped && realm.era ? `${realm.era.since} (${x.trailingDays} days)` : `trailing ${x.trailingWindowDays} days`}
+                </span>
               </p>
               <p data-testid="pace-line-required">
                 Need <strong className="text-foreground tabular">{x.requiredReservationsPerMonth === null ? "—" : number(x.requiredReservationsPerMonth)}</strong> reservations/month
@@ -222,8 +225,15 @@ export function ThroneRoom() {
             <dd className="mt-1 font-heading text-xl tabular" data-testid="rotation-benchmark">
               {rot.cycleDays === null ? "—" : `${number(rot.cycleDays)} days`}
             </dd>
-            <dd className="text-[11px] text-muted-foreground">
+            <dd className="text-[11px] text-muted-foreground" data-testid="rotation-benchmark-hint">
               {rot.benchmark ? `${rot.benchmark.farmName} · ${rot.benchmark.months.toFixed(1)} months${rot.benchmark.projected ? ", projected" : ""}` : "no farm freed, none projectable"}
+              {rot.sinceLabel && (
+                <>
+                  {" "}
+                  · farms funded {rot.sinceLabel}
+                  {rot.excludedCycles.length > 0 && ` (${rot.excludedCycles.map((c) => c.farmName).join(", ")} freed earlier, on record only)`}
+                </>
+              )}
             </dd>
           </div>
           <div className="rounded-md bg-background/40 p-3">

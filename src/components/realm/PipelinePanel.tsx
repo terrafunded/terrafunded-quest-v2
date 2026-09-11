@@ -3,7 +3,7 @@ import { Hourglass, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Pipeline } from "@/domain";
 import { AnimatedCounter } from "./AnimatedCounter";
-import { money, pct } from "@/lib/format";
+import { money, monthLabel, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -50,7 +50,9 @@ export function PipelinePanel({ pipeline, className }: { pipeline: Pipeline; cla
             <div className={cn("mt-1 font-heading text-2xl tabular", ahead ? "text-siege" : "text-ember")} data-testid="pipeline-reservations-per-month">
               {p.reservationsPerMonth}
             </div>
-            <div className="text-[11px] text-muted-foreground">{p.newReservationsTrailing} in {p.trailingWindowDays} days, still waiting</div>
+            <div className="text-[11px] text-muted-foreground">
+              {p.newReservationsTrailing} {p.trailingEraClipped ? `since ${monthLabel(p.trailingSince.slice(0, 7))} (${p.trailingDays} days)` : `in ${p.trailingWindowDays} days`}, still waiting
+            </div>
           </div>
           <div className="rounded-md bg-background/40 p-3">
             <div className="stat-label">Closings / mo</div>

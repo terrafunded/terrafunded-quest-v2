@@ -61,16 +61,24 @@ export function StreaksPanel({ streaks, kind = "closing" }: { streaks: Streaks; 
         />
         <Stat label="Best streak" value={`${streaks.bestWeeks} ${streaks.bestWeeks === 1 ? "week" : "weeks"}`} hint={streaks.bestWeeksEndedOn ? `ended ${date(streaks.bestWeeksEndedOn)}` : "—"} />
         <Stat
-          label="Best week"
+          label={streaks.bestSinceLabel ? `Best week · ${streaks.bestSinceLabel}` : "Best week"}
           value={streaks.bestWeek ? `${streaks.bestWeek.count} ${streaks.bestWeek.count === 1 ? w.noun : w.nouns}` : "—"}
-          hint={streaks.bestWeek ? `week of ${date(streaks.bestWeek.weekStart)} · ${money(streaks.bestWeek.netProfit)} ${w.moneyLabel}` : w.noneYet}
+          hint={streaks.bestWeek ? `week of ${date(streaks.bestWeek.weekStart)} · ${money(streaks.bestWeek.netProfit)} ${w.moneyLabel}` : streaks.bestSinceLabel ? `none ${streaks.bestSinceLabel}` : w.noneYet}
           valueClassName="text-gold"
+          data-testid={kind === "closing" ? "streak-best-week" : "reservation-streak-best-week"}
         />
         <Stat
-          label="Best month"
+          label={streaks.bestSinceLabel ? `Best month · ${streaks.bestSinceLabel}` : "Best month"}
           value={streaks.bestMonth ? `${streaks.bestMonth.count} ${streaks.bestMonth.count === 1 ? w.noun : w.nouns}` : "—"}
-          hint={streaks.bestMonth ? `${monthLabel(streaks.bestMonth.month)} · ${money(streaks.bestMonth.netProfit)} ${w.moneyLabel} · best run ${streaks.bestMonths} months` : w.noneYet}
+          hint={
+            streaks.bestMonth
+              ? `${monthLabel(streaks.bestMonth.month)} · ${money(streaks.bestMonth.netProfit)} ${w.moneyLabel} · best run ${streaks.bestMonths} months${streaks.bestExcluded > 0 ? ` · ${streaks.bestExcluded} earlier ${streaks.bestExcluded === 1 ? w.noun : w.nouns} left out` : ""}`
+              : streaks.bestSinceLabel
+                ? `none ${streaks.bestSinceLabel}`
+                : w.noneYet
+          }
           valueClassName="text-gold"
+          data-testid={kind === "closing" ? "streak-best-month" : "reservation-streak-best-month"}
         />
       </div>
       {recent.length > 0 && (

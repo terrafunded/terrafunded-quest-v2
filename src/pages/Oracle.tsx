@@ -67,8 +67,14 @@ export default function Oracle() {
 
   const g = data.realm.goal;
   const x = data.realm.expected;
+  const cadence = data.realm.farmCadence;
   const series = result.series.filter((p) => p.monthIndex <= Math.max(24, (result.monthsToGoal ?? 0) + 3));
   const deadlineLabel = date(g.deadline);
+  // THE ERA: the cadence only counts farms funded on or after ERA_START, and says so.
+  const sliderHint = (s: SliderDef) =>
+    s.key === "newFarmEveryMonths" && cadence.sinceLabel
+      ? `${s.hint} ${cadence.sinceLabel} (${cadence.farms} funding${cadence.farms === 1 ? "" : "s"}${cadence.excluded > 0 ? `, ${cadence.excluded} earlier left out` : ""})`
+      : s.hint;
   const adopt = (f: Future) => {
     setParams(f.params);
     setWithReservations(f.scheduled.length > 0);
@@ -95,7 +101,7 @@ export default function Oracle() {
 
       <section className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Four futures" data-testid="futures">
         {data.realm.futures.all.map((f, i) => (
-          <FutureCard key={f.id} f={f} index={i} onAdopt={() => adopt(f)} />
+          <FutureCard key={f.id} f={f} index={i} onAdopt={() => adopt(f)} cadenceSince={f.params.newFarmEveryMonths === defaults.newFarmEveryMonths ? cadence.sinceLabel : null} />
         ))}
       </section>
 
@@ -147,9 +153,9 @@ export default function Oracle() {
                 onValueChange={([v]) => v !== undefined && setParams({ ...params, [s.key]: v })}
                 aria-label={s.label}
               />
-              <div className="flex justify-between text-[11px] text-muted-foreground">
-                <span>{s.hint}</span>
-                <span>real: {s.format(defaults[s.key])}</span>
+              <div className="flex justify-between gap-3 text-[11px] text-muted-foreground">
+                <span data-testid={`slider-hint-${s.key}`}>{sliderHint(s)}</span>
+                <span className="shrink-0">real: {s.format(defaults[s.key])}</span>
               </div>
             </div>
           ))}
@@ -196,7 +202,7 @@ export default function Oracle() {
   );
 }
 
-function FutureCard({ f, index, onAdopt }: { f: Future; index: number; onAdopt: () => void }) {
+function FutureCard({ f, index, onAdopt, cadenceSince }: { f: Future; index: number; onAdopt: () => void; cadenceSince: string | null }) {
   const tone = f.hitsDeadline ? "text-stage-closed" : f.exitDate ? "text-ember" : "text-muted-foreground";
   return (
     <article
@@ -233,7 +239,9 @@ function FutureCard({ f, index, onAdopt }: { f: Future; index: number; onAdopt: 
         <dt className="text-muted-foreground">{f.scheduled.length > 0 ? "Then lots / month" : "Lots / month"}</dt>
         <dd className="text-right tabular">{f.params.lotsPerMonth}</dd>
         <dt className="text-muted-foreground">Farm every</dt>
-        <dd className="text-right tabular">{f.params.newFarmEveryMonths} mo</dd>
+        <dd className="text-right tabular" data-testid="future-cadence">
+          {f.params.newFarmEveryMonths} mo{cadenceSince ? <span className="ml-1 text-[11px] text-muted-foreground">{cadenceSince}</span> : null}
+        </dd>
         <dt className="text-muted-foreground">Inventory today</dt>
         <dd className="text-right tabular">{number(f.startInventory)} lots</dd>
         <dt className="text-muted-foreground">Net at deadline</dt>

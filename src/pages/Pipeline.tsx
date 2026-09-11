@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { Stat } from "@/components/realm/Stat";
 import { Ellipsize } from "@/components/realm/FitMoney";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
-import { date, money, moneyExact, pct } from "@/lib/format";
+import { date, money, moneyExact, monthLabel, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -68,7 +68,7 @@ export default function Pipeline() {
               <span className="text-stage-closed">{p.closedLotsPerMonth}</span>
             </>
           }
-          hint={`trailing ${p.trailingWindowDays} days · ${p.newReservationsTrailing} new reservations still waiting, ${p.reservationsMadeTrailing} made in total`}
+          hint={`${p.trailingEraClipped ? `since ${monthLabel(p.trailingSince.slice(0, 7))} (${p.trailingDays} days)` : `trailing ${p.trailingWindowDays} days`} · ${p.newReservationsTrailing} new reservations still waiting, ${p.reservationsMadeTrailing} made in total`}
         />
         <Stat
           label="Reservation → closing conversion"

@@ -692,6 +692,46 @@ test.describe("Phase 2: Epic", () => {
     await expect(page.getByTestId("pipeline-page-cancellation-rate")).toContainText(/\d+(\.\d)?%/);
   });
 
+  test("the era: every rate carries 'since Mar 2026', seasonality says it lacks history, and totals keep the full history", async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    // Throne Room: the Debt's actual pace is measured from March 2026 while the counter and capital owed keep every closing.
+    await page.goto("/");
+    await waitForRealm(page);
+    await expect(page.getByTestId("debt-actual-pace-label")).toContainText("since Mar 2026");
+    await expect(page.getByTestId("debt-actual-pace-hint")).toContainText(/since Mar 2026 \(\d+ days\)/);
+    await expect(page.getByTestId("debt-actual-pace-hint")).toContainText("over the full history");
+    await expect(page.getByTestId("rotation-benchmark-hint")).toContainText("farms funded since Mar 2026");
+    // 90-day windows sit inside the era today, so the pace line is not clipped.
+    await expect(page.getByTestId("pace-window")).toContainText("trailing 90 days");
+
+    // Oracle: the farm cadence only counts fundings since the era start, and the current pace says so.
+    await page.goto("/oracle");
+    await waitForRealm(page);
+    await expect(page.getByTestId("slider-hint-newFarmEveryMonths")).toContainText("Mean gap between fundings since Mar 2026");
+    await expect(page.locator("[data-future='current_pace']")).toContainText("(since Mar 2026)");
+    await expect(page.locator("[data-future='current_pace']").getByTestId("future-cadence")).toContainText("since Mar 2026");
+
+    // War Plan: land cost and cycle are era figures; the seasonal shape is unavailable with under 12 months of history.
+    await page.goto("/warplan");
+    await waitForRealm(page);
+    await expect(page.getByTestId("warplan-farm-cost-real")).toContainText("since Mar 2026");
+    await expect(page.getByTestId("warplan-cycle-real")).toContainText("funded since Mar 2026");
+    await expect(page.getByTestId("warplan-seasonality-real")).toContainText("not enough history for seasonality");
+    await expect(page.getByTestId("warplan-seasonal-on")).toBeDisabled();
+    await expect(page.getByTestId("warplan-seasonal-off")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("warplan-benchmark-scope")).toContainText("farms funded since Mar 2026");
+    await expect(page.locator("[data-testid='warplan-column'][data-column='current_pace']")).toContainText("(since Mar 2026)");
+    // No seasonal column in the month table while the profile is not applied.
+    await expect(page.getByRole("columnheader", { name: "Flat average" })).toHaveCount(0);
+
+    // Trophies: best week and best month are measured since the era start; runs keep the full history.
+    await page.goto("/trophies");
+    await waitForRealm(page);
+    await expect(page.getByTestId("streak-best-week")).toContainText("since Mar 2026");
+    await expect(page.getByTestId("streak-best-month")).toContainText("since Mar 2026");
+    expect(errors).toEqual([]);
+  });
+
   test("chronicle narrates every event in prose", async ({ page }) => {
     await page.goto("/chronicle");
     await waitForRealm(page);

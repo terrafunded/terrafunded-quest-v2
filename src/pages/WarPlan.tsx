@@ -100,6 +100,7 @@ export default function WarPlanPage() {
   if (!data || !inputs || !plan || !defaults) return null;
 
   const real = defaults.real;
+  const seasonality = data.realm.seasonality;
   const update = (patch: Partial<WarPlanInputs>) => setInputs((prev) => (prev ? { ...prev, ...patch } : prev));
   const setMix = (investorMix: InvestorMixEntry[]) => update({ investorMix });
   const reset = () => {
@@ -139,7 +140,7 @@ export default function WarPlanPage() {
     <div>
       <PageHeader
         title="War Plan"
-        subtitle="The Oracle in reverse: the Oracle takes a pace and returns a date; the War Plan takes the deadline and returns what must happen — closings, farms and when to buy them, capital and who funds it, ad spend, note sales, and what comes back to every sponsor. Every input starts at the real figure."
+        subtitle={`The Oracle in reverse: the Oracle takes a pace and returns a date; the War Plan takes the deadline and returns what must happen — closings, farms and when to buy them, capital and who funds it, ad spend, note sales, and what comes back to every sponsor. Every input starts at the real figure${real.eraSince ? `; rates and trends are measured ${real.eraSince}, when sales operations started in earnest` : ""}.`}
       >
         <Button variant="outline" size="sm" onClick={reset} data-testid="warplan-reset">
           <RotateCcw /> Reset to real data
@@ -191,10 +192,13 @@ export default function WarPlanPage() {
             prefix="$"
             real={
               <span data-testid="warplan-farm-cost-real">
-                {real.recentLandCostPerLot === null ? "no recent purchase" : `${money(real.recentLandCostPerLot * inputs.lotsPerFarm)} recent (${real.recentFarms.join(", ")}: ${money(real.recentLandCostPerLot)}/lot)`} · {money(real.landCostPerLot * inputs.lotsPerFarm)} all-time ({money(real.landCostPerLot)}/lot)
+                {real.recentLandCostPerLot === null
+                  ? `no purchase ${real.eraSince ?? "on record"}`
+                  : `${money(real.recentLandCostPerLot * inputs.lotsPerFarm)} recent${real.eraSince ? `, ${real.eraSince}` : ""} (${real.recentFarms.join(", ")}: ${money(real.recentLandCostPerLot)}/lot)`}{" "}
+                · {money(real.landCostPerLot * inputs.lotsPerFarm)} all-time ({money(real.landCostPerLot)}/lot)
               </span>
             }
-            hint={`${number(inputs.lotsPerFarm)} lots × the per-lot cost of the ${real.recentFarms.length > 0 ? `${real.recentFarms.length} most recent farms` : "all-time average"}`}
+            hint={`${number(inputs.lotsPerFarm)} lots × the per-lot cost of the ${real.recentFarms.length > 0 ? `${real.recentFarms.length} most recent farms${real.eraSince ? ` bought ${real.eraSince}` : ""}` : "all-time average"}`}
           />
           <NumberField id="wp-ad-spend" label="Ad spend per closing" value={inputs.adSpendPerClosing} onChange={(v) => update({ adSpendPerClosing: v })} step={100} prefix="$" real="no source in the data — assumption" hint="Monthly ads = closings ÷ conversion × this" />
           <NumberField
@@ -254,28 +258,48 @@ export default function WarPlanPage() {
               real={
                 <span data-testid="warplan-cycle-real">
                   {real.cycleDays === null || real.cycleMonths === null
-                    ? "no farm freed, none projectable"
-                    : `${number(real.cycleDays)} days / ${real.cycleMonths.toFixed(1)} mo (${real.cycleSource === "freed_farms" ? `median of ${real.cycleFarms} freed ${real.cycleFarms === 1 ? "farm" : "farms"}` : `projected from ${real.cycleFarms} captive ${real.cycleFarms === 1 ? "farm" : "farms"}`})`}
+                    ? `no farm freed${real.eraSince ? ` ${real.eraSince}` : ""}, none projectable`
+                    : `${number(real.cycleDays)} days / ${real.cycleMonths.toFixed(1)} mo (${real.cycleSource === "freed_farms" ? `median of ${real.cycleFarms} freed ${real.cycleFarms === 1 ? "farm" : "farms"}` : `projected from ${real.cycleFarms} captive ${real.cycleFarms === 1 ? "farm" : "farms"}`}${real.eraSince ? ` funded ${real.eraSince}` : ""})`}
+                  {real.cycleExcludedFarms.length > 0 && ` · ${real.cycleExcludedFarms.join(", ")} freed before then: on record, not measured`}
                 </span>
               }
             />
           </div>
           <div className="min-w-0">
             <span className="mb-1 block text-sm">Required pace</span>
-            <div role="group" aria-label="Required pace shape" className="flex gap-2">
-              <Button type="button" size="sm" variant={inputs.seasonal ? "default" : "outline"} aria-pressed={inputs.seasonal} onClick={() => update({ seasonal: true })} data-testid="warplan-seasonal-on">
+            <div role="group" aria-label="Required pace shape" className="flex gap-2" data-seasonality-applied={seasonality.applied}>
+              <Button
+                type="button"
+                size="sm"
+                variant={inputs.seasonal && seasonality.applied ? "default" : "outline"}
+                aria-pressed={inputs.seasonal && seasonality.applied}
+                disabled={!seasonality.applied}
+                title={seasonality.applied ? undefined : seasonality.reason ?? undefined}
+                onClick={() => update({ seasonal: true })}
+                data-testid="warplan-seasonal-on"
+              >
                 Seasonal
               </Button>
-              <Button type="button" size="sm" variant={inputs.seasonal ? "outline" : "default"} aria-pressed={!inputs.seasonal} onClick={() => update({ seasonal: false })} data-testid="warplan-seasonal-off">
+              <Button type="button" size="sm" variant={inputs.seasonal && seasonality.applied ? "outline" : "default"} aria-pressed={!inputs.seasonal || !seasonality.applied} onClick={() => update({ seasonal: false })} data-testid="warplan-seasonal-off">
                 Flat
               </Button>
             </div>
             <FieldFooter
-              hint={inputs.seasonal ? "Each month asks what its calendar month really delivers; the flat average sits alongside" : "Every month asks the same average"}
+              hint={
+                !seasonality.applied
+                  ? `Every month asks the same average — ${seasonality.reason ?? "no seasonal profile"}`
+                  : inputs.seasonal
+                    ? "Each month asks what its calendar month really delivers; the flat average sits alongside"
+                    : "Every month asks the same average"
+              }
               real={
-                data.realm.seasonality.peakMonth === null || data.realm.seasonality.troughMonth === null
-                  ? "no dated closings"
-                  : `${number(data.realm.seasonality.closings)} closings · peak ${MONTH_NAMES[data.realm.seasonality.peakMonth]} ×${(data.realm.seasonality.factors[data.realm.seasonality.peakMonth] ?? 1).toFixed(2)}, trough ${MONTH_NAMES[data.realm.seasonality.troughMonth]} ×${(data.realm.seasonality.factors[data.realm.seasonality.troughMonth] ?? 1).toFixed(2)} (floor ${pct(data.realm.seasonality.floor * 100, 0)})`
+                <span data-testid="warplan-seasonality-real">
+                  {!seasonality.applied
+                    ? `${seasonality.reason ?? "no seasonal profile"}: ${seasonality.monthsOfHistory ?? 0} of ${seasonality.monthsRequired} months ${seasonality.sinceLabel ?? "of closings"} (${number(seasonality.closings)} closings${seasonality.excluded > 0 ? `, ${seasonality.excluded} earlier left out` : ""})`
+                    : seasonality.peakMonth === null || seasonality.troughMonth === null
+                      ? "no dated closings"
+                      : `${number(seasonality.closings)} closings${seasonality.sinceLabel ? ` ${seasonality.sinceLabel}` : ""} · peak ${MONTH_NAMES[seasonality.peakMonth]} ×${(seasonality.factors[seasonality.peakMonth] ?? 1).toFixed(2)}, trough ${MONTH_NAMES[seasonality.troughMonth]} ×${(seasonality.factors[seasonality.troughMonth] ?? 1).toFixed(2)} (floor ${pct(seasonality.floor * 100, 0)})`}
+                </span>
               }
             />
           </div>
@@ -436,9 +460,10 @@ function BenchmarkPanel({ b }: { b: RotationBenchmark }) {
               <div className="mt-2 text-sm tabular" data-testid="warplan-benchmark-cycle">
                 <strong>{number(bench.days)} days</strong> · {bench.months.toFixed(1)} months{bench.projected ? " (projected)" : ""}
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">
+              <div className="mt-1 text-xs text-muted-foreground" data-testid="warplan-benchmark-scope">
                 {bench.investorName} funded {date(bench.fundingDate)} → {bench.projected ? "projected free" : "100 % of capital back"} {date(bench.liberationDate)}
                 {b.cycles.length > 1 ? ` · median of ${b.cycles.length} ${b.source === "freed_farms" ? "freed" : "projected"} cycles` : ""}
+                {b.sinceLabel ? ` · farms funded ${b.sinceLabel}` : ""}
               </div>
               {b.curve.length > 0 && (
                 <ol className="mt-3 flex flex-wrap gap-1 text-[11px] tabular text-muted-foreground" aria-label="Capital returned over the benchmark cycle">
@@ -451,7 +476,13 @@ function BenchmarkPanel({ b }: { b: RotationBenchmark }) {
               )}
             </>
           ) : (
-            <p className="mt-1 text-sm text-muted-foreground">No sponsor-funded farm has been freed and none can be projected, so there is no benchmark cycle yet.</p>
+            <p className="mt-1 text-sm text-muted-foreground">No sponsor-funded farm{b.sinceLabel ? ` funded ${b.sinceLabel}` : ""} has been freed and none can be projected, so there is no benchmark cycle yet.</p>
+          )}
+          {b.excludedCycles.length > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground" data-testid="warplan-benchmark-excluded">
+              On record, not measured: {b.excludedCycles.map((c) => `${c.farmName} (funded ${date(c.fundingDate)}, freed ${date(c.liberationDate)} in ${number(c.days)} days)`).join("; ")} — funded before {b.sinceLabel?.replace(/^since /, "") ?? "the era"}, so
+              real money but not today's pace.
+            </p>
           )}
           <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
             <dt className="text-muted-foreground">Turns completed</dt>
@@ -469,7 +500,7 @@ function BenchmarkPanel({ b }: { b: RotationBenchmark }) {
           <div className="stat-label mb-2">Every farm against the benchmark</div>
           {bench?.projected && (
             <p className="mb-2 text-xs text-muted-foreground" data-testid="warplan-benchmark-projected">
-              No sponsor-funded farm has returned 100 % of its capital yet, so the benchmark is the median of every captive farm's projected liberation at the current pace (campaigns.ts) and no farm can be graded against a real curve. The first liberation turns this into a measured cycle.
+              No sponsor-funded farm{b.sinceLabel ? ` funded ${b.sinceLabel}` : ""} has returned 100 % of its capital yet, so the benchmark is the median of every captive farm's projected liberation at the current pace (campaigns.ts) and no farm can be graded against a real curve. The first liberation{b.sinceLabel ? " of a farm funded in the era" : ""} turns this into a measured cycle.
             </p>
           )}
           {graded.length === 0 ? (
