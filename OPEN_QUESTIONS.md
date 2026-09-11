@@ -167,3 +167,88 @@ login cannot write**, and deletes the row immediately if the insert were ever to
 in `scripts/`, not `src/`, and is not part of `build`, `test` or `e2e`. **Action:** if the
 viewer's RLS policies are ever loosened, `npm run check` exits with code 3 and prints a
 warning; treat that as a production incident, not a Quest bug.
+
+## 23. The Debt excludes own capital
+
+"Capital still owed to investors" (`src/domain/debt.ts`) sums `capitalOutstanding` over the
+subdivided farms whose `capital_basis_source` is `investor_capital`. Farms bought with
+`own_capital` (Red River 1 / Franklin, $790,000 outstanding) are not a debt to anyone and are
+shown separately as "own capital tied up". The required net profit per day is
+`(10,000,000 − net profit to date) ÷ days to 2027-12-31`, i.e. it tracks the $10M goal, not the
+debt — the debt counter tells you what is owed, the per-day figure tells you what it takes to
+reach the exit. Once the deadline passes the per-day figure is `null` ("the day has come").
+
+## 24. Oxygen = days gained, measured on the closing day
+
+A closed lot's "days gained" (`src/domain/oxygen.ts`) is `round(netProfit ÷ netProfitPerDay
+at pace)`, where the pace is the one the realm had **on that closing date** (average net profit
+per closed lot × closed lots per month, using only closings up to and including that day). The
+score is therefore fixed the day the lot closes and never changes afterwards. A naive
+"recompute today's projected exit date with and without this lot" was tried first and rejected:
+because the projection depends on the average profit per lot, a profitable but below-average
+lot came out with *negative* days, which no seller would accept as a score. Undated closings
+are measured at the as-of date. The first closings, when the realm had almost no history,
+score high (Lamar Lot 6 = 91 days) — that is the cold-start effect, not a bug.
+
+## 25. Liberation is per sponsor position, not per sponsor
+
+A hostage is one investor × one farm funded with `investor_capital`. It is freed when
+`Σ investor_distributions (capital_return)` for that farm reaches the capital lent (within one
+cent); the liberation date is the date of the distribution that crossed the line. A sponsor is
+"freed" when all of their positions are. Townson Family's Lamar position is free (2026-05-19);
+their Wichita position is not, so the sponsor card still shows chains. Own-capital farms have no
+hostage.
+
+## 26. Farm campaign target, recovery and the 60-day rule
+
+`src/domain/campaigns.ts`: the target is capital deployed + interest accrued to date
+(fixed-interest farms only; profit-share farms accrue none). "Recovered" is the farm's gross
+revenue, Σ sale price of sold lots (contract price, not net) — the question a campaign answers is
+"how many more lots must sell to give the sponsor their money back", not "how much profit did we
+make". Lots left = `ceil(shortfall ÷ average sale price on this farm)`, falling back to the realm
+average when the farm has no sale yet (Avery). States: **conquered** when the shortfall is zero
+or every lot is sold; **losing ground** when interest is still accruing on outstanding capital and
+there has been no closing in the last `LOSING_GROUND_DAYS = 60`; **under siege** otherwise.
+
+## 27. Streaks use ISO weeks
+
+Consecutive weeks with ≥ 1 closing are counted on ISO weeks (Monday start, ISO week-numbering
+year, so 2026-W22 is the week of 25 May). A streak is "current" only if it reaches the present
+or the previous ISO week; otherwise the current streak is 0 even if the best streak was recent.
+Best week / best month are the calendar buckets with the most closings, ties broken by net
+profit. Trophy rarity is derived from the existing tier (bronze → common, silver → rare, gold →
+epic, legendary → legendary) so the 20 Phase 1 trophies did not need re-tuning; five streak /
+liberation trophies were added.
+
+## 28. The three futures
+
+`src/domain/futures.ts` reuses the Oracle simulator. **Current pace** is the trailing-90-day
+defaults. **Required pace** is `lots still needed ÷ whole months to the deadline` with the farm
+cadence tightened so inventory never blocks it — it lands on 2027-12-11, the last simulated
+month before the deadline, by construction. **One more farm** was first modelled as "one extra
+farm of inventory", which produced the same exit date as the current pace because inventory is
+not the bottleneck today; it is therefore modelled as one more *sales stream*: pace × (1 + 1 ÷
+active farms) and one farm's worth of extra inventory. That reading is ours.
+
+## 29. Celebrations and localStorage
+
+`quest.lastVisit` (ISO timestamp) and `quest.celebrated` (up to 300 event ids) live in
+`localStorage`; `quest.liberations.seen` (Sponsors fanfare) and `quest.intro.seen`
+(`sessionStorage`) as well. On the very first visit nothing is celebrated — otherwise every new
+browser would replay three years of closings — but the ids of today's qualifying events are
+remembered so they are not celebrated later either. Clearing site data resets all of it. Nothing
+about visits is written to Payments.
+
+## 30. Narrative templates
+
+Every chronicle line comes from a TypeScript template in `src/domain/narrative.ts` (one per
+event kind, with variants for cash deals, own-capital farms and liberations). There is no
+external API and no randomness, so the same event always produces the same sentence and the
+templates are unit-tested. Prose dates omit the year when the event is in the current year.
+
+## 31. Intro story
+
+`src/domain/story.ts` builds the six intro cards from the realm: farms / counties / lots,
+capital lent vs owed, closings and net profit vs the goal, total days gained, liberations, and
+the countdown with the required daily profit. Cards with no data (e.g. no liberation yet) are
+dropped rather than shown with zeros.

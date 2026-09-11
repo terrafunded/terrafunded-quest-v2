@@ -46,7 +46,7 @@ of a login form.
 | `npm run build` | `tsc -b` (strict type-check of app, scripts and tests) then `vite build` → `dist/` |
 | `npm run preview` | Serves `dist/` on port 4173 (what the e2e suite runs against) |
 | `npm run lint` | ESLint 9 flat config, including the "no React/Supabase in `src/domain`" rule |
-| `npm run test` | Vitest — 96 unit tests under `src/domain/__tests__/` |
+| `npm run test` | Vitest — 146 unit tests under `src/domain/__tests__/` |
 | `npm run test:watch` | Same, in watch mode |
 | `npm run e2e` | Playwright, headless. Builds, serves, logs in with the env credentials and runs the suite on a 1280×800 desktop and a 390×844 phone viewport |
 | `npm run snapshot` | **Read-only.** Signs in as the viewer, runs exactly the app's `select` queries and writes `src/domain/__fixtures__/payments.json`. Re-run it whenever you want the fixture tests to reflect current data |
@@ -67,17 +67,22 @@ src/
     types.ts  dates.ts  math.ts
     lot.ts  interest.ts  farm.ts  goal.ts  quality.ts
     events.ts  investors.ts  treasury.ts  oracle.ts  trophies.ts
+    debt.ts  oxygen.ts  liberation.ts  campaigns.ts  streaks.ts      Phase 2: Epic
+    futures.ts  narrative.ts  story.ts  visits.ts
     realm.ts              buildRealm(snapshot, now) — runs the pipeline in order
     __fixtures__/         payments.json written by scripts/snapshot.ts
     __tests__/            Vitest suites (fixture-based + synthetic builders)
   components/
     ui/                   shadcn-style primitives (button, card, sheet, slider, table, …)
     realm/                AnimatedCounter, ProgressRing, GrowthBurst, MilestoneCelebration,
-                          QuestTree, CinematicIntro, Trophies, StageBadge, PageStates
+                          QuestTree, CinematicIntro, Trophies, StageBadge, PageStates,
+                          DebtCountdown, OxygenScore, Liberation, StreaksPanel,
+                          Celebration, SinceLastVisit
     layout/               AppShell (sidebar + mobile bottom nav), RequireAuth
   pages/                  one file per route
   routes.tsx  main.tsx  index.css
 scripts/snapshot.ts       read-only fixture generator
+scripts/check-connection.ts  connection + read-only proof (`npm run check`)
 e2e/                      Playwright: auth.setup.ts + quest.spec.ts
 sql/proposed_views.sql    proposed Postgres views — NOT applied
 GOAL.md  payments_schema.md  PROGRESS.md  OPEN_QUESTIONS.md
@@ -87,14 +92,14 @@ GOAL.md  payments_schema.md  PROGRESS.md  OPEN_QUESTIONS.md
 
 | Route | Page |
 |---|---|
-| `/` | **Throne Room** — giant animated net-profit counter, remaining amount, days to deadline, verdict sentence, cash vs. paper, pipeline, capital outstanding, 5 latest events |
-| `/realm` | **The Map** — stylized SVG realm; one territory per farm sized by lots and colored by % closed; lot tiles lit by stage; hover for economics, click for the farm drawer |
-| `/quests` | **Sales ledger** — every lot as a row with buyer, farm, stage, prices, gross, investor take, net, cash realized, days in pipeline; filters by farm/stage/investor; sortable; totals row |
-| `/sponsors` | **Investors** — one card per sponsor; Townson Family (profit share) is styled and measured differently from fixed-interest sponsors; distribution timeline |
+| `/` | **Throne Room** — giant animated net-profit counter, remaining amount, days to deadline, verdict sentence, cash vs. paper, pipeline, capital outstanding; **The Debt** (capital owed to investors, days left, required net profit per day) and the **Oxygen** score (days gained toward the exit); the 5 latest events narrated in prose |
+| `/realm` | **The Map** — stylized SVG realm; one territory per farm sized by lots and colored by % closed; borders show the **campaign state** (conquered / under siege / losing ground); lot tiles lit by stage; hover for economics, click for the farm drawer with the campaign panel (lots left to sell to cover capital + interest) |
+| `/quests` | **Sales ledger** — every lot as a row with buyer, farm, stage, prices, gross, investor take, net, cash realized, days in pipeline and **Oxygen** (days gained); filters by farm/stage/investor; sortable; totals row |
+| `/sponsors` | **Investors** — **Liberation** board: every investor × farm is a hostage with a capital-returned bar; a farm that returned 100 % is freed (full-screen fanfare once, then the Liberated gallery); one card per sponsor; Townson Family (profit share) is styled and measured differently from fixed-interest sponsors; distribution timeline |
 | `/treasury` | **Cash** — cash in (down payments + note sales) vs. cash out (distributions) by month; chart + table |
-| `/oracle` | **What-if** — sliders seeded from real trailing averages; goal date recomputed live |
-| `/chronicle` | **Timeline** — every real event newest first, with a celebration each time cumulative net profit crosses $1M |
-| `/trophies` | **Achievements** — 20 trophies computed from real data, earned/unearned |
+| `/oracle` | **What-if** — **three futures** side by side (current pace, required pace, current pace + one more farm), each with its exit date; sliders seeded from real trailing averages; goal date recomputed live |
+| `/chronicle` | **Timeline** — every real event newest first as one line of medieval prose from code templates (no external API), with a celebration each time cumulative net profit crosses $1M and each time a sponsor is liberated |
+| `/trophies` | **Achievements** — **streaks** (consecutive weeks with a closing, best week, best month) and 25 trophies computed from real data with rarity tiers (common / rare / epic / legendary) |
 | `/quality` | **Data quality** — every disagreement between tables, never hidden, never "corrected" |
 | `/login` | Supabase email/password auth against Payments |
 
@@ -160,6 +165,30 @@ payment, where a reservation is dated after the note started, where a farm has n
 `investor_capital`, where a sold note has no sale row, plus a handful of other disagreements
 described in `src/domain/quality.ts`.
 
+### Phase 2: Epic (everything below is computed, nothing is decorative)
+- **The Debt** — capital still outstanding on farms funded with `investor_capital` (own-capital
+  farms are shown separately). Days left run to 2027-12-31. Required net profit per day is
+  `remaining ÷ daysLeft`, so it moves every day.
+- **Oxygen** — every closed lot is worth `round(netProfit ÷ net profit per day at that day's
+  pace)` days, fixed on the closing date. The realm's score is the sum. It appears on each
+  ledger row and as the headline score on the Throne Room.
+- **Liberation** — each investor × farm is a hostage; `Σ capital_return distributions ÷ capital`
+  is the bar; 100 % frees them on the date of the crossing distribution. Freed hostages move to
+  the Liberated gallery; the first time you see a liberation a full-screen animation plays.
+- **Campaigns** — a farm's target is capital deployed + interest accrued; revenue from sold lots
+  counts toward it; `lotsLeftToCover = ceil(shortfall ÷ average sale price)`. Conquered when
+  covered or sold out, **losing ground** when interest is still accruing and nothing closed in
+  60 days, otherwise under siege.
+- **Streaks** — consecutive ISO weeks with at least one closing (alive if it reaches this or
+  last week); best week and best month by number of closings; trophies carry a rarity derived
+  from their tier.
+- **Three futures** — the Oracle simulator run with the trailing-90-day pace, with the pace
+  required to land by the deadline, and with one more farm's worth of sales.
+- **Narrated chronicle** — one sentence per event from templates in `src/domain/narrative.ts`.
+- **Intro** — the cinematic intro tells the realm's story from the same numbers, once per session.
+- **Celebrations** — on open, any closing, note sale or liberation dated after your last visit
+  (`localStorage` `quest.lastVisit`) is celebrated; nothing is ever written back to Payments.
+
 ## 7. Hard constraints (and where they are enforced)
 
 | Constraint | Enforcement |
@@ -182,4 +211,8 @@ The e2e suite logs in with the env credentials, checks that the Throne Room coun
 dollar amount greater than zero, that the ledger totals row shows **$8,986,794.30**, that all
 ten routes render on desktop and at 390px without console errors, and a few page-specific
 assertions (109 lot tiles, the documented quality issues, Townson Family as the only
-profit-share sponsor, at least 15 trophies).
+profit-share sponsor, at least 15 trophies). Phase 2 adds: the **Debt counter** (capital owed
+> 0, days left equal to the days until 2027-12-31, required net profit per day > 0 and smaller
+than the debt) and the **Oxygen score** (≥ 0 and equal to the sum of the ledger's "days gained"
+column), plus campaign states on every territory, hostages and the Liberated gallery, the three
+futures, and prose on every chronicle entry.
