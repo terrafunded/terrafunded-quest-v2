@@ -535,3 +535,66 @@ The plan runs on calendar months, so the real cycle (8.9 months on the fixture, 
 rounded to the nearest whole month (9, 11) when deciding which month a farm's capital comes back;
 the headline and inputs keep the decimal. A farm bought in the last month before a turn would
 complete is therefore judged a month early or late at most.
+
+## 59. Data Quality: live Payments has already fixed seven of the fixture's issues
+
+The fixture (snapshot 2026-09-11 02:07 UTC) carries **33 issues on 18 lots and 3 farms**; the
+live database that evening shows **26 on 15 lots and 3 farms**. The team has completed or corrected
+the Eastland Lot 4, 6 and 8 cases (`active_file_case_with_note` ×2, `completed_without_closing_date`)
+and closed the Lamar Lot 5/6/7 active cases, which also removed Lamar Lot 5's reservation-after-note
+warning. The five price mismatches with their five down-payment mismatches, the $21,801.50, the
+three farm cards and Ben White as the oldest open issue are identical on both. The e2e therefore
+pins the mismatches, the dollars and the oldest issue, and checks the lot count only for shape
+(and against the number of cards); the exact 18 / 33 live in `fixture.test.ts`. Regenerating the
+fixture (`npm run snapshot`) would move dozens of pinned numbers elsewhere and is left for a
+deliberate refresh.
+
+## 60. Data Quality: "since" is the latest business date on the records, not `created_at`
+
+The summary's "oldest unresolved issue" needs a date per issue. Every `created_at` in the
+snapshot is the September 2026 import time, so it says nothing about when the disagreement began.
+Each issue therefore carries `since` = the **latest** business date on the records involved (the
+first day both sides were on file): reservation/closing/note-start for a price or down-payment
+mismatch, the farm's closing or funding date for a blank capital, the note start for a sold note
+without a sale, and so on. Ben White's blank `investor_capital` dates from its 2024-07-30 closing
+(773 days at the snapshot). Eastland Lot 6's completed case has no reservation, closing or note
+date, so its `since` is null and it can never be "the oldest"; the card shows it without a date.
+"Oldest" is computed among issues not marked *Revisado* in this browser.
+
+## 61. Data Quality: the Payments screen and field names stay in English in both languages
+
+The brief's examples ("Notes → LAM-L05 → Original amount", "File Cases → Lamar Lot 5 → Sale
+price") are what the operations user sees on the Payments screens, so the *path* is kept exactly
+as Payments labels it in both Spanish and English; only the sentence around it is translated
+("Corregir en Payments: File Cases → Lamar Lot 5 → Sale price"). The lot is named the way
+Payments lists it ("Lamar Lot 5", no dash). If Payments is ever localised, only the dictionary in
+`src/domain/quality_human.ts` changes.
+
+## 62. Data Quality: review state is per lot **and** issue kind (and per note where a kind repeats)
+
+*Revisado* and *Nota* are stored in `localStorage` (`quest.quality.review`) keyed by
+`<lot name>::<kind>` as asked; four kinds can appear twice on one lot with different notes
+(`sold_note_without_sale`, `sale_without_sold_flag`, `note_without_file_case`,
+`note_before_farm_purchase`), so those keys also carry the note code. Farm-level issues use
+`farm:<farm name>` in place of the lot. The state is per browser and never reaches Payments; a
+card shows "k de N revisados" and is hidden by "Ocultar revisados" only when every issue on it is
+reviewed. Clearing site data resets it.
+
+## 63. Data Quality: the WhatsApp message is always Spanish, and the language toggle affects this page only
+
+The copy buttons produce the Spanish message regardless of the ES/EN toggle, because the message is
+for the operations team; the toggle (drawer, `quest.lang`, default Spanish) changes the on-screen
+text of `/quality` only — the rest of Quest, the drawer labels and the summary's technical
+`kind`/`id` block stay in English. The message uses WhatsApp's `*bold*` for the lot line and
+nothing else.
+
+## 64. Data Quality: the summary's dollars count price mismatches only
+
+"Ganancia afectada por diferencias de precio" is the sum of |file-case sale price − note original
+amount| over the price mismatches (**$21,801.50 on five lots**, fixture and live: Lamar 5 and 6
+$4,999.75 each, Lamar 7 $5,000, Eastland 3 $5,000, Titus 6 $1,802). The same five lots also
+disagree on the down payment ($1,000 on each Lamar lot, $5,000 on Eastland 3, $2,090.10 on Titus
+6); a down payment moves the cash timing, not the net profit, so those are listed on the cards but
+left out of the headline dollar. A blank farm capital or a missing closing date has no dollar to
+add. Two different properties in Payments are both named "Red River 1", so
+two lot cards share that title (they are keyed by property id, not by name).

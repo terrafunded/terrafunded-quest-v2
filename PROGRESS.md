@@ -11,11 +11,12 @@
 | **Check** | `npm run verify:live -- <url>` (`scripts/verify-live.ts`): deep link `/pipeline` is not a 404, signs in as the viewer, asserts the Throne Room net-profit counter is a real dollar amount > 0 and reads the trapped-profit counter and the verdict, then picks each of the three themes on `/login`, asserts `html[data-theme]` + `localStorage` and that the choice survives a reload, and saves `docs/live-<theme>.jpg`. Run against the local production build (`http://localhost:4173`) it reports net profit **$2,272,304**, trapped **$1,116,863**, "You need 8.31 lots/month; you are doing 4.4." and all three skins switching — the same run is the acceptance test for the live URL. |
 
 Branch `v2`. Snapshot of live Payments taken **2026-09-11 02:07 UTC** (`npm run snapshot`).
-Last full verification (build · lint · 221 unit tests · 219 Playwright tests): **2026-09-11**.
+Last full verification (build · lint · 265 unit tests · 227 Playwright tests): **2026-09-11**.
 
 Order of work, as requested: Phase 1 numbers verified → connection check → domain reproduces the
 verified numbers → **Phase 2: Epic** → **Pipeline layer** → **three visual themes + POLISH loops
-+ performance/mobile audit** (all at the end of the file).
++ performance/mobile audit** → **War Plan + Rotation** → **Data Quality for operations** (all at
+the end of the file).
 
 ## Payments connection check (`npm run check`, 2026-09-11 02:52 UTC)
 
@@ -371,3 +372,40 @@ full device matrix (219 Playwright tests green).
 **Open questions** #41–#58 in `OPEN_QUESTIONS.md` (261 vs 271, projected benchmark on live, peak =
 total on the fixture's deadline, recycled vs returned capital, seasonality basis, recent-3 land
 cost, zero cancellations, whole-month turn rounding).
+
+## Data Quality for operations — status (2026-09-11, fixture numbers pinned in `fixture.test.ts` and `quality_human.test.ts`)
+
+`/quality` is rewritten for a non-technical operations user. `src/domain/quality.ts` stays the single
+source of issues (15 kinds, unchanged detection); `src/domain/quality_human.ts` turns each one into
+plain language and the page only presents.
+
+| Piece | Where | Fixture figure |
+|---|---|---|
+| One card per lot | `groupIssuesByLot`: cards keyed by property id (farm-level issues get a farm card), sorted error → warning → info, then farm, then lot; issues inside sorted by severity then a fixed kind order (price, down payment, dates…) | **33 issues → 18 lot cards + 3 farm cards** (Ben White, Red River 1, Sharps Rd) |
+| Plain language | per kind and language: human title, one-sentence explanation, "Qué revisar", "Cómo corregir en Payments" naming screen → record → field (`File Cases → Lamar Lot 5 → Sale price`, `Notes → LAM-L05 → Original amount`, `Farm Acquisitions → Ben White → Investor capital`), the two conflicting values side by side (`Expediente: $118,506.75 / Nota: $113,507.00`) and "Qué usa Quest hoy"; no column names in visible text (unit-tested for every kind) | — |
+| Detalles técnicos | collapsed `<details>` per issue with the raw message, `kind`, `id` and the detail pairs | — |
+| ES / EN | drawer toggle "Idioma · Language" → `quest.lang` in `localStorage`, default **Spanish**; `src/i18n/lang.ts` (store) + `src/i18n/quality.ts` (UI strings) + the per-kind dictionary in `quality_human.ts`; this page only, the rest of Quest stays English | — |
+| Revisado / Nota | `button[role=checkbox]` + text field per issue, stored in `quest.quality.review` keyed `<lot>::<kind>` (+ note code where a kind repeats per note); per-card tally "k de N revisados"; "Ocultar revisados" hides fully reviewed cards; Quest never writes to Payments | — |
+| Copiar para WhatsApp | per card and for the whole list; always Spanish plain text: `*Lamar — Lot 5* (finca Lamar) — 4 problemas`, then `n) título`, the two values and which one Quest uses, `Corregir en Payments: …`; the list version opens with the date and the summary line | — |
+| Summary | lots with issues (+ farms), **dollars of net profit affected by price mismatches** = Σ \|file-case sale price − note original amount\|, oldest unreviewed issue by `since` (latest business date on the records; `created_at` is import time) | **18 lots and 3 farms · $21,801.50 on 5 lots · Ben White, blank capital since 2024-07-30 (773 days)** |
+| Mobile-first | cards stack, values in a 2-column grid, every tap target ≥ 44 px (`Revisado` is a button, `summary` has `min-h-11`), inputs 16 px, no horizontal scroll — covered by the device matrix on `/quality` | — |
+
+**Live vs fixture (#59).** The live database already has seven of the fixture's issues fixed
+(Eastland Lot 4/6/8, the Lamar 5/6/7 active cases): **26 issues on 15 lots + 3 farms** live vs 33 on
+18 + 3 on the fixture. The five price mismatches, the $21,801.50 and Ben White as the oldest are
+identical, so the e2e pins those and checks the lot count for shape (and against the card count).
+
+**Tests.** 265 unit tests (`quality_human.test.ts` 43: every kind in ES and EN — title, one-sentence
+explanation, check, `fix` starts with a Payments screen, `using` starts with "Quest", no column
+names or snake_case in visible text, ES ≠ EN; values lines; review keys; formatting; grouping order;
+summary; WhatsApp card and list text; `fixture.test.ts` pins the 18 + 3 cards, $21,801.50, the
+oldest issue and the one undated issue). e2e (`quest.spec.ts`, desktop + mobile): Spanish by
+default with one card per documented lot and column names kept behind "Detalles técnicos";
+summary figures; the copy button puts a Spanish message containing the lot name on the (stubbed)
+clipboard and the list message opens with `*Calidad de datos — <date>*`; Revisado/Nota persist
+across reloads and hide with "Ocultar revisados"; the drawer toggle switches to English, persists,
+and the WhatsApp text stays Spanish. Full run: 227 Playwright tests green.
+
+**Open questions** #59–#64 in `OPEN_QUESTIONS.md` (live drift, the `since` date, English Payments
+paths in both languages, review keys, WhatsApp always Spanish, price-only dollars and the two
+"Red River 1" properties).
