@@ -6,8 +6,12 @@ profit from subdivided farm lots by 2027-12-31**. Every number on screen is comp
 
 - **Stack:** Vite 6 · React 18 · TypeScript (strict) · Tailwind · shadcn-style primitives ·
   TanStack Query · React Router v6 · Recharts · Framer Motion · Vitest · Playwright.
-- **Read-only:** the app only ever runs `select`. There is no write surface, so there are no roles
-  inside Quest — any authenticated Payments user may view.
+- **Read-only:** the app only ever runs `select`. There is no write surface.
+- **For the TerraFunded team only:** after sign-in Quest reads the user's own `profiles` row
+  (`id, role`) and lets them in only when `role = 'admin'`; an `investor`, `viewer` or `note_buyer`
+  is signed out at once with "Quest is for the TerraFunded team only." The questbot `viewer` that
+  the e2e suite and `verify:live` use is the single exception, named by e-mail in
+  `QUEST_ALLOWED_TEST_EMAIL` (`src/domain/access.ts`, `src/data/auth.tsx`).
 - **Math lives in one place:** `src/domain/` is pure TypeScript with no React or Supabase imports
   (enforced by ESLint) and is covered by 162 unit tests. Pages only render what the domain computes.
 - **Three skins, one app:** Iron Crown, Gilded Realm and Neon Kingdom are pure CSS-token themes
@@ -20,7 +24,7 @@ profit from subdivided farm lots by 2027-12-31**. Every number on screen is comp
 
 ```bash
 npm install
-cp .env.example .env      # then fill in the four values below
+cp .env.example .env      # then fill in the five values below
 npm run dev               # http://localhost:5173
 ```
 
@@ -34,12 +38,16 @@ Only `.env.example` is committed. Never commit `.env`; never paste a key into so
 |---|---|---|
 | `VITE_SUPABASE_URL` | browser, scripts, e2e | Payments project URL |
 | `VITE_SUPABASE_ANON_KEY` | browser, scripts, e2e | Payments anon (public) key; RLS still applies |
-| `QUEST_TEST_EMAIL` | `npm run snapshot`, `npm run e2e` | A Payments login with the `viewer` role |
-| `QUEST_TEST_PASSWORD` | `npm run snapshot`, `npm run e2e` | Its password |
+| `QUEST_TEST_EMAIL` | `npm run snapshot`, `npm run e2e`, `npm run verify:live` | A Payments login with the `viewer` role (the questbot) |
+| `QUEST_TEST_PASSWORD` | `npm run snapshot`, `npm run e2e`, `npm run verify:live` | Its password |
+| `QUEST_ALLOWED_TEST_EMAIL` | browser (build time; also on Vercel) | The same address as `QUEST_TEST_EMAIL`: the one non-admin login the staff-only gate admits. Empty or unset means admins only |
 
-The browser reads its two variables through `import.meta.env`; Node scripts read them from `.env`
-via `dotenv`. If the two `VITE_` values are missing the app shows a configuration error instead
-of a login form.
+The browser reads its three variables through `import.meta.env` (Vite's `envPrefix` is
+`VITE_` plus `QUEST_ALLOWED_`, so `QUEST_TEST_EMAIL` / `QUEST_TEST_PASSWORD` can never reach the
+bundle); Node scripts read theirs from `.env` via `dotenv`. If the two `VITE_` values are missing
+the app shows a configuration error instead of a login form. `QUEST_ALLOWED_TEST_EMAIL` is baked
+in at build time, so set it where the build runs (Vercel: production + preview) and rebuild after
+changing it.
 
 ## 3. Scripts
 
@@ -64,12 +72,13 @@ src/
   config/goal.ts          GOAL_NET_PROFIT, GOAL_DEADLINE, trailing window, legacy farm list
   data/
     client.ts             Supabase client from import.meta.env
-    auth.tsx              AuthProvider / useAuth
+    auth.tsx              AuthProvider / useAuth — session + the Payments-staff check (profiles.role)
     queries/columns.ts    the explicit column list for every table (no "*", no ssn)
-    queries/index.ts      one fetch function per table + fetchPaymentsSnapshot()
+    queries/index.ts      one fetch function per table + fetchPaymentsSnapshot() + fetchOwnProfile()
     useRealm.ts           TanStack Query hook: snapshot → buildRealm()
   domain/                 pure TypeScript, unit-tested, no React
     types.ts  dates.ts  math.ts
+    access.ts             who may enter: role = 'admin' or the QUEST_ALLOWED_TEST_EMAIL questbot
     lot.ts  interest.ts  farm.ts  goal.ts  quality.ts
     events.ts  investors.ts  treasury.ts  oracle.ts  trophies.ts
     debt.ts  oxygen.ts  liberation.ts  campaigns.ts  streaks.ts      Phase 2: Epic
@@ -88,8 +97,8 @@ src/
                           DebtCountdown, OxygenScore, Liberation, StreaksPanel,
                           Celebration, SinceLastVisit, PipelinePanel
                           AmbientParticles (Throne Room canvas, per-theme recipe)
-    layout/               AppShell (top bar + hamburger drawer on every breakpoint), RequireAuth,
-                          PageTransition (Framer Motion, preset per theme)
+    layout/               AppShell (top bar + hamburger drawer on every breakpoint), RequireAuth
+                          (session + access granted), PageTransition (Framer Motion, preset per theme)
   theme/
     themes.ts             ThemeId, THEMES registry (motion language, particle recipe, swatches)
     tokens.css            one [data-theme] block per skin: colour, type, radius, glow, textures,
@@ -237,7 +246,8 @@ the only source of net profit, pace, oxygen and the goal date.
 | Explicit columns, never `select("*")` | `src/data/queries/columns.ts`; verified by grep in the DoD audit |
 | Never select `clients.ssn_itin_encrypted` | not present in `CLIENT_COLUMNS` |
 | Exclude test data | `.eq("is_test", false)` on `notes` and `clients` |
-| No secrets in source | env via `import.meta.env` / `dotenv`; `.env*` git-ignored except `.env.example` |
+| No secrets in source | env via `import.meta.env` / `dotenv`; `.env*` git-ignored except `.env.example`. The only non-`VITE_` variable that reaches the bundle is `QUEST_ALLOWED_TEST_EMAIL` (an e-mail address, never a password) |
+| Payments staff only | `src/domain/access.ts` decides from the user's own `profiles.role` (`fetchOwnProfile`, the one read that precedes the realm); `RequireAuth` renders nothing and `useRealm` stays disabled until it says `granted`; a refused user is signed out of this browser at once. e2e stages a viewer / investor / note_buyer on the wire and asserts the refusal; `verify:live` does the same against production |
 | Business math only in `src/domain/` | ESLint `no-restricted-imports` blocks react / supabase / data / components there |
 | No mock data in `src/` | the only JSON under `src/` is the live snapshot fixture used by tests |
 
@@ -261,7 +271,11 @@ counter renders on the Throne Room, and `/pipeline` and `/quests?filter=stuck` l
 The theme suite adds: switching skins on `/login` updates `html[data-theme]`, `localStorage`
 (`quest.theme`) and the numeric font; the choice survives a reload; every theme renders the
 Throne Room with its particle layer, a glowing counter and a page transition without console
-errors; and the particle layer is absent under `prefers-reduced-motion`.
+errors; and the particle layer is absent under `prefers-reduced-motion`. The access suite adds:
+the login footer names who may enter; a `viewer`, an `investor` and a `note_buyer` (staged from the
+questbot's real token and `profiles` responses with `user.email` / `role` rewritten on the wire)
+each see "Quest is for the TerraFunded team only.", stay on `/login`, keep no session, and cause
+no read beyond their own `profiles` row; and the allowed questbot still reaches the Throne Room.
 
 ## 9. Themes
 

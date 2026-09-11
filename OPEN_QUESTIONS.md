@@ -1005,3 +1005,80 @@ saved $572,400, capital back Oct 5, 2027 vs Oct 23, 2027, `maxNotesPct` 60. The 
 with today's date, so the release costs grow a few dollars a day (EAS-L01 $50,963 today,
 $51,498 at the end of September) and the same snapshot will read differently tomorrow; the e2e asserts
 shape (a dollar amount, 30 → 0 changes the verdict, $0 discount saved), never these figures.
+
+## 97. Access: `profiles` is readable under RLS — and more widely than Quest needs
+
+Checked on 2026-09-11 before building the gate, signed in as the questbot viewer with the anon key:
+`select id, role from profiles where id = <own auth id>` returned **1 row, role `viewer`**, no error
+— so the gate could be built as specified and nothing had to be worked around. The same login can
+also `select id, role from profiles` **without a filter** and gets every row: 13 (7 `admin`,
+5 `investor`, 1 `viewer`). Quest only ever asks for its own row (`fetchOwnProfile`, `.eq("id", …)
+.limit(1)`, columns `id, role`), but the policy itself is Payments' to judge: is a viewer meant to
+see every profile's role? Nothing else in `profiles` was read; its other columns are unknown to Quest
+(payments_schema.md lists only these two).
+
+## 98. Access: no admin credentials, so the admin path is verified by tests, not by a real sign-in
+
+The only login available here is the questbot (`viewer`). The rule `role === 'admin'` is pinned in
+`access.test.ts`; the e2e and `verify:live` prove the **refusals** (a `viewer`, an `investor` and a
+`note_buyer`, staged on the wire — see #99) and the **acceptance of the allowed e-mail** (the questbot
+enters). The first real `admin` sign-in on production has not been performed by me; if an admin is
+refused, the message will be the plain sentence (role read but not `admin`) or the sentence plus
+"Your profile could not be read: …" (RLS/network), which tells the two cases apart.
+
+## 99. Access: how a non-admin is staged, and why `note_buyer` is covered without a row
+
+The e2e cannot sign in as anyone but the questbot, so a non-admin is staged at the network layer:
+the real Supabase token response is fetched and its `user.email` rewritten to an address the gate
+does not know (so the questbot's real `viewer` role decides), and for `investor` / `note_buyer` the
+real `profiles` response has its `role` rewritten too. The app then sees exactly what it would see
+for such a user. This relies on supabase-js building `session.user` from the response body (which it
+does) rather than from the JWT claims; if that ever changes the staging, not the gate, needs updating.
+No `profiles` row carried `note_buyer` on 2026-09-11 (#97); the rule is an allow-list of one value
+(`admin`), so `note_buyer`, an unknown future role, a `NULL` role and a missing row are all refused.
+
+## 100. Access: the allowed test e-mail is visible in the browser bundle, by design
+
+`QUEST_ALLOWED_TEST_EMAIL` is a build-time constant (Vite `envPrefix` `VITE_` + `QUEST_ALLOWED_`),
+so the questbot's address is readable in `dist/assets/index-*.js`. It is an e-mail address, not a
+credential: entering still needs its password, which never reaches the bundle (checked by grepping
+`dist/` for the password value and for the names `QUEST_TEST_EMAIL` / `QUEST_TEST_PASSWORD` — none
+present). A server-side allow-list would need a function or a table write, which Quest may not do.
+The variable is set on Vercel for production and preview as a hidden Secret (2026-09-11).
+
+## 101. Access: the gate protects the app, RLS protects the data
+
+The check runs in the browser. Anyone holding a valid Payments login can still read whatever RLS
+lets that login read through the REST API directly, with or without Quest — which is exactly how
+`npm run snapshot` works with the questbot. Quest cannot tighten that; whether the realm tables
+should be readable by non-admin roles at all is a question for Payments' RLS. What the gate
+guarantees is that Quest itself renders nothing, and fires no realm query, for anyone but an admin
+or the allowed e-mail (`RequireAuth` waits for `granted`; `useRealm` is disabled until then).
+
+## 102. Access: decisions inside the gate that were not specified
+
+- Role match is exact: `'admin'` in lower case, untrimmed (`Admin`, `ADMIN`, `' admin'` are refused).
+  Every observed value is lower case (#97). The e-mail match is case-insensitive and trims whitespace.
+- A profile that cannot be read (RLS error, network) is treated as **not admin** (fail closed), with
+  the sentence followed by the error text so the cause is visible.
+- The refused sign-out uses `scope: "local"` — this browser only — so a refused attempt never revokes
+  the same account's sessions elsewhere (a `global` sign-out would also have killed the e2e's own
+  stored session mid-run). The drawer's "Sign out" button keeps the default global scope.
+- The check runs once per page load per user (one `profiles` request); token refreshes re-use the
+  verdict. `access` is derived from a stored verdict, not set in an effect: the first render after a
+  persisted session loads must already read "checking", or `RequireAuth` bounces through `/login`
+  (this happened once and five e2e tests caught it; a regression test now watches the navigations).
+- An empty or unset `QUEST_ALLOWED_TEST_EMAIL` admits admins only; it is never a wildcard.
+
+## 103. Access: what the first live run of `verify:live` taught about the gate in two tabs
+
+The first `verify:live` against the deployed gate failed after "✓ signed in": the gate check and the
+main tab shared one browser context, so when the staged non-admin signed in, the main tab — open at
+`/login` — received the same session through shared storage, ran its own `profiles` check, was refused
+too and sent a second `/auth/v1/logout?scope=local`, which Supabase answered **403** (the session was
+already gone; supabase-js ignores 401/403/404 on sign-out, but the browser logs the failed request as a
+console error). Behaviour to expect in real use: if a non-admin signs in while another Quest tab sits
+on `/login`, both tabs show the refusal and one logout may 403 harmlessly. The script now runs the gate
+check in its own context. Second lesson: where a sign-in lands depends on the deep link the browser
+came from (`state.from`, kept by Chromium across a same-URL `goto` of `/login`), so the script asserts
+"not `/login`" after signing in and then navigates to `/` explicitly for the Throne Room figures.
