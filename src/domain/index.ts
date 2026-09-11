@@ -18,6 +18,7 @@ export * from "./liberation";
 export * from "./campaigns";
 export * from "./streaks";
 export * from "./futures";
+export * from "./seasonality";
 export * from "./warplan";
 export * from "./narrative";
 export * from "./story";
