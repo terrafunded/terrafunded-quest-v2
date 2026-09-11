@@ -179,7 +179,7 @@ export default function RealmMap() {
                     {campaign.state !== "conquered" && campaign.lotsLeftToCover !== null ? ` · ${campaign.lotsLeftToCover} to cover` : ""}
                   </text>
                 )}
-                <text x={t.x + PAD} y={t.y + 22} className="pointer-events-none fill-[hsl(var(--gold))] font-heading" fontSize={14} fontWeight={600}>
+                <text x={t.x + PAD} y={t.y + 22} className="pointer-events-none fill-[hsl(var(--map-label))] font-heading" fontSize={14} fontWeight={600}>
                   {t.farm.name}
                 </text>
                 <text x={t.x + PAD} y={t.y + 37} className="pointer-events-none fill-[hsl(var(--muted-foreground))]" fontSize={10}>

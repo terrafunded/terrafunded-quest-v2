@@ -128,7 +128,7 @@ function makeParticle(recipe: ParticleRecipe, width: number, height: number, fre
         y: fresh ? -rand(0, 20) : rand(0, height),
         vx: rand(-4, 4),
         vy: rand(recipe.speed * 0.4, recipe.speed * 1.2),
-        size: rand(1, 2.2),
+        size: rand(1.4, 3),
         life: 0,
         ttl: rand(10, 24),
         color,
@@ -169,7 +169,7 @@ function drawParticle(ctx: CanvasRenderingContext2D, kind: ParticleRecipe["kind"
   const alpha = (kind === "embers" ? 0.85 : 0.6) * fade * flicker;
   ctx.fillStyle = `hsl(${p.color} / ${alpha})`;
   ctx.shadowColor = `hsl(${p.color} / ${alpha * 0.8})`;
-  ctx.shadowBlur = kind === "embers" ? 8 : 4;
+  ctx.shadowBlur = kind === "embers" ? 8 : 10;
   ctx.beginPath();
   ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
   ctx.fill();

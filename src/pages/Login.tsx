@@ -41,7 +41,7 @@ export function Login() {
       >
         <div className="mb-6 text-center">
           <Brand className="mx-auto h-8 w-8 text-gold" />
-          <h1 className="mt-3 font-display text-2xl uppercase tracking-[0.2em] text-gold">Exodus</h1>
+          <h1 className="mt-3 font-display text-2xl uppercase tracking-[var(--brand-tracking)] text-gold">Exodus</h1>
           <p className="mt-1 text-xs uppercase tracking-[0.3em] text-muted-foreground">Enter the war room</p>
         </div>
 

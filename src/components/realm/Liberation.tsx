@@ -49,12 +49,12 @@ export function LiberationBoard({ liberation }: { liberation: LiberationModel })
   return (
     <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
       <section className="parchment-card p-5" aria-label="Hostages of the realm">
-        <div className="mb-3 flex items-baseline justify-between gap-3">
-          <h2 className="shrink-0 whitespace-nowrap font-heading text-sm uppercase tracking-[0.2em] text-sponsor">
+        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+          <h2 className="whitespace-nowrap font-heading text-sm uppercase tracking-[0.2em] text-sponsor sm:shrink-0">
             <Lock className="mr-2 inline h-4 w-4" />
             Hostages of the realm · {liberation.captiveHostages.length}
           </h2>
-          <span className="text-right text-xs text-muted-foreground tabular">
+          <span className="text-xs text-muted-foreground tabular sm:text-right">
             {money(liberation.totalReturned)} of {money(liberation.totalCapital)} returned · {pct(liberation.pctReturned, 1)}
           </span>
         </div>

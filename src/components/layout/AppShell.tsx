@@ -34,7 +34,7 @@ export function AppShell() {
         <div className="flex items-center gap-2 px-5 py-5">
           <Brand className="h-5 w-5 text-gold" />
           <div>
-            <div className="font-display text-sm uppercase tracking-[0.25em] text-gold">Exodus</div>
+            <div className="font-display text-sm uppercase tracking-[var(--brand-tracking)] text-gold">Exodus</div>
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Quest v2</div>
           </div>
         </div>
@@ -77,7 +77,7 @@ export function AppShell() {
         <header className="flex items-center justify-between border-b border-border/70 bg-card/40 px-4 py-3 backdrop-blur md:hidden">
           <div className="flex items-center gap-2">
             <Brand className="h-4 w-4 text-gold" />
-            <span className="font-display text-xs uppercase tracking-[0.25em] text-gold">Exodus</span>
+            <span className="font-display text-xs uppercase tracking-[var(--brand-tracking)] text-gold">Exodus</span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeMenu variant="compact" />

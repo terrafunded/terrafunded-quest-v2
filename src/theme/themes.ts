@@ -63,7 +63,7 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
     themeColor: "#efe6d2",
     scheme: "light",
     motion: { scale: 1, ease: [0.16, 1, 0.3, 1], page: "turn" },
-    particles: { kind: "motes", count: 44, speed: 12, colors: ["42 90% 55%", "38 80% 45%", "150 30% 35%"] },
+    particles: { kind: "motes", count: 44, speed: 12, colors: ["42 96% 58%", "45 100% 70%", "36 90% 50%"] },
   },
   "neon-kingdom": {
     id: "neon-kingdom",

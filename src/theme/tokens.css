@@ -65,6 +65,8 @@
   --glow-radius: 22px;
   --glow-alpha: 0.35;
   --card-bg-alpha: 0.86;
+  --brand-tracking: 0.25em;
+  --map-label: var(--gold);
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -121,6 +123,8 @@
   --glow-radius: 14px;
   --glow-alpha: 0.45;
   --card-bg-alpha: 0.82;
+  --brand-tracking: 0.1em;
+  --map-label: var(--foreground);
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -177,6 +181,8 @@
   --glow-radius: 18px;
   --glow-alpha: 0.6;
   --card-bg-alpha: 0.62;
+  --brand-tracking: 0.3em;
+  --map-label: var(--gold);
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -271,6 +277,17 @@ body::before {
   text-shadow:
     0 1px 0 hsl(42 90% 80% / 0.9),
     0 0 var(--glow-radius) hsl(var(--glow-color) / var(--glow-alpha));
+}
+/* Gradient-clipped text is transparent, so a text-shadow would show through the glyphs and wash
+ * them out; the glow moves to a drop-shadow filter, which follows the painted pixels instead. */
+.gold-shimmer.counter-glow,
+.gold-text.counter-glow {
+  text-shadow: none;
+  filter: drop-shadow(0 0 var(--glow-radius) hsl(var(--glow-color) / var(--glow-alpha)));
+}
+[data-theme="gilded-realm"] .gold-shimmer.counter-glow,
+[data-theme="gilded-realm"] .gold-text.counter-glow {
+  filter: drop-shadow(0 1px 0 hsl(var(--gold-dim) / 0.55)) drop-shadow(0 0 var(--glow-radius) hsl(var(--glow-color) / 0.3));
 }
 
 /* Monospace numbers belong to the HUD only. */
