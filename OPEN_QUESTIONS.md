@@ -679,3 +679,93 @@ says 3 due in September and 6 in October 2026; the live database drifts daily (#
 the e2e asserts every reservation carries an ISO expected date, that the filter keeps only rows
 whose `data-month` is the browser's current month, and that the counters are non-negative numbers
 — never the fixture values.
+
+## 72. The Era: Lamar's real turn is on record, so the benchmark is a projection and nothing is graded
+
+`ERA_START = 2026-03-01` scopes the War Plan's cycle length to farms funded on or after that day.
+The only farm ever freed, **Lamar (funded 2025-08-21, freed 2026-05-19, 271 days)**, predates it,
+so its turn moves to `rotation.excludedCycles` — shown as "freed earlier, on record only" — and
+the cycle is the median of the four captive era farms' projected liberations at the current pace:
+Freestone 150, Wichita 204, Avery 250, Franklin 346 → **227 days / 7.46 months, Avery the
+benchmark** (over the full history it was Lamar's measured 271 / 8.9). A projected benchmark has
+no real capital-return curve, so every farm reads **unrated** until an era farm is actually freed
+(over the full history five farms graded "behind" and Franklin "on pace" against Lamar). The
+rotation headline changes from "every 8.9 months … 5 of the 6 turns cannot complete" to "every 7.5
+months … 3 of the 6 turns"; the verdict (6 farms, Jul 2027, $2.8M, 8.2 lots/month) is identical
+because the required plan does not depend on the cycle length. The shorter cycle is the honest
+reading of today's farms, but it is a projection of a projection (#52) until Wichita or Freestone
+is freed.
+
+## 73. The Era: Freestone's "150-day cycle" is the day it is fully sold, not the day its capital is back
+
+Freestone (funded 2026-04-14) has sold every lot, so `campaigns.ts` has nothing left to cover and
+projects its liberation as "today" (2026-09-11 = 150 days), although none of its capital has been
+distributed back yet (0 % returned). That 150 enters the era median above. The all-time benchmark
+did not have this problem because Lamar's real date was the median. Documented rather than
+patched: the projection is the campaign engine's rule (capital covered by sales → liberated), and
+the campaign state already says so ("covered, awaiting payout", the same state Eastland shows as
+the next liberation).
+
+## 74. The Era: seasonality is unavailable until 2027-03-01
+
+The month-of-year profile now counts era closings only (**29**, 8 left out) and requires **12
+whole calendar months** of history before it is applied at all; the fixture has **6** (Mar 1 → Sep
+11, 2026), so the War Plan's Seasonal button is disabled with *"not enough history for
+seasonality"* and every plan is flat. Whole months are counted by calendar (`wholeMonthsBetween`),
+so the profile switches on the morning of **2027-03-01**, not on 2027-02-28 (11 months). Without
+the era the history from the first closing (2025-10-10) would be 11 months — also too short. When
+it applies, the era profile peaks at **May ×2.65** (13 of the 29 closings) with Oct–Mar at the 25 %
+floor, steeper than the all-time ×2.27 because the 2025 autumn closings no longer fill October and
+November; the required plan would then ask ~26 lots of May 2027 against a flat 8.2. The spec's
+"fewer than 12 months of data" is read as whole months since `ERA_START`, not as twelve distinct
+calendar months with a closing (only five months — April to August — carry one).
+
+## 75. The Era: the per-day figure leaves out the undated Eastland Lot 6
+
+"Actual net profit per day since Mar 2026" is Σ net profit of closings **dated** on or after
+2026-03-01 ÷ 194 days = **$1,945,051.41 / 194 = $10,026.04**, against **$6,762.81** over the full
+history ($2,272,304.32 ÷ 336 days from the first closing on 2025-10-10). The gap of $327,252.91 is
+the 8 dated pre-era closings ($297,718.66) **plus Eastland Lot 6 ($29,534.25)**, a sold lot with no
+closing date at all (`missing_closing_date` on `/quality`): a lot with no date cannot be placed on
+either side of the era, so it counts in the total and in the all-time per-day (which divides the
+whole total) but not in the era rate. If Payments gets its date, it joins whichever side it
+belongs to automatically.
+
+## 76. The Era: the 90-day windows are inside it, so today's paces did not move
+
+Reservations per month (7.44), closings per month (4.4) and the verdict ("You need 8.31 lots/month;
+you are doing 4.4.") are trailing 90-day figures whose window starts on 2026-06-14, after
+`ERA_START`; the era only clips a window that reaches back before March 1 and then divides by the
+days it really covers (`trailingWindow`: 365 days on the snapshot day → "since Mar 2026 (195
+days)"). The labels switch to "since Mar 2026 (N days)" only when that happens, so the Throne Room
+and Pipeline still read "trailing 90 days" today. From 2026-05-29 on, the 90-day window has been
+entirely inside the era; between March 1 and May 28 it would have been clipped.
+
+## 77. The Era: Franklin 2's future funding date counts in the cadence
+
+The cadence "a farm every **1.51** months" is the mean gap between the five fundings on or after
+2026-03-01 — Freestone 2026-04-14, Wichita 04-15, Avery 06-16, Franklin 07-31 and **Franklin 2
+2026-10-15**, a closing date still in the future on the snapshot day (its `funding_date` is null,
+so `closing_date` stands in). This is the pre-era behaviour kept as it was (the all-time cadence,
+1.72 over 9 fundings, counted it too); dropping future dates would give 4 fundings and 1.18
+months. The Oracle slider hint says "5 fundings, 4 earlier left out".
+
+## 78. The Era: what stays all-time on purpose
+
+Only rates, averages and trends moved. Deliberately unchanged: every total (net profit to date,
+cash realized, capital returned, liberation, the ledger); the **trophies**, which are records
+("best month ever" stays the all-time best month — on the fixture it is the same May 2026); the
+streak **runs** (current and best consecutive weeks/months, which are a chain, not a rate); the
+oxygen ledger's **historical replay** (`goalOn` recomputes the pace as it stood on each closing's
+day, so an era clip there would rewrite history — 547 days unchanged); and the Oracle's other
+averages — sale price, land cost per lot, note-sale delay, conversion, median days to close, farm
+→ first closing — which are per-lot or per-event means rather than paces. They could be scoped the
+same way with one option each; left out of scope here so the change stays about pace.
+
+## 79. The Era on live data
+
+Live Payments is the same population as the fixture (#50, #59), so the deployed site shows the
+same shape: the Debt's "since Mar 2026 (N days)" with N growing daily, cadence 1.51, the projected
+227-day cycle, the disabled Seasonal button. The e2e checks the labels and the disabled state, not
+the figures. Two dates matter: **2027-03-01**, when seasonality switches on by itself, and the day
+the first era farm is freed, when the benchmark becomes a measured cycle and grading resumes.

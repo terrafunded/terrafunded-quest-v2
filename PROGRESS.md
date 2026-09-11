@@ -11,12 +11,12 @@
 | **Check** | `npm run verify:live -- <url>` (`scripts/verify-live.ts`): deep link `/pipeline` is not a 404, signs in as the viewer, asserts the Throne Room net-profit counter is a real dollar amount > 0 and reads the trapped-profit counter and the verdict, then picks each of the three themes on `/login`, asserts `html[data-theme]` + `localStorage` and that the choice survives a reload, and saves `docs/live-<theme>.jpg`. Run against the local production build (`http://localhost:4173`) it reports net profit **$2,272,304**, trapped **$1,116,863**, "You need 8.31 lots/month; you are doing 4.4." and all three skins switching — the same run is the acceptance test for the live URL. |
 
 Branch `v2`. Snapshot of live Payments taken **2026-09-11 02:07 UTC** (`npm run snapshot`).
-Last full verification (build · lint · 297 unit tests · 231 Playwright tests): **2026-09-11**.
+Last full verification (build · lint · 310 unit tests · 232 Playwright tests): **2026-09-11**.
 
 Order of work, as requested: Phase 1 numbers verified → connection check → domain reproduces the
 verified numbers → **Phase 2: Epic** → **Pipeline layer** → **three visual themes + POLISH loops
 + performance/mobile audit** → **War Plan + Rotation** → **Data Quality for operations** →
-**Reservations first-class** (all at the end of the file).
+**Reservations first-class** → **The Era** (`ERA_START = 2026-03-01`; all at the end of the file).
 
 ## Payments connection check (`npm run check`, 2026-09-11 02:52 UTC)
 
@@ -123,7 +123,7 @@ campaigns → streaks → futures → trophies → narrative → story.
 
 | # | Item | Where | Computed today |
 |---|---|---|---|
-| 1 | **The Debt** | `debt.ts`, `DebtCountdown` on `/` | capital owed to investors **$3,579,399.48** (7 open positions; $790,000 of own capital shown separately) · **476** days to 2027-12-31 · **$16,234.65** net profit required per day vs **$6,762.81** actually earned per day since the first closing · interest accruing **$1,253/day** |
+| 1 | **The Debt** | `debt.ts`, `DebtCountdown` on `/` | capital owed to investors **$3,579,399.48** (7 open positions; $790,000 of own capital shown separately) · **476** days to 2027-12-31 · **$16,234.65** net profit required per day vs **$6,762.81** actually earned per day since the first closing (since The Era, below: **$10,026.04/day since Mar 2026**, the all-time figure kept alongside) · interest accruing **$1,253/day** |
 | 2 | **Oxygen** | `oxygen.ts`, `OxygenScore` on `/`, "Oxygen" column on `/quests` | 38 closed lots scored, **+547 days** in total · best: Lamar Lot 6 **+91 d** (2025-10-10) · latest: Promised Valley Lot 3 **+5 d** · pace today $8,644.24 net/day |
 | 3 | **Investor liberation** | `liberation.ts`, `LiberationBoard` on `/sponsors` | 8 hostages (investor × farm), $4,197,648 capital, **$618,248.52 returned (14.7 %)** · **Lamar freed 2026-05-19** after 271 days ($175,741.94 paid on top) · Wichita 12.0 %, Townson/Lamar 37.0 % not yet freed · full-screen fanfare once, Liberated gallery, "Replay liberation" |
 | 4 | **Farm campaigns** | `campaigns.ts`, territory borders + `CampaignPanel` on `/realm` | conquered: Lamar, Eastland, Freestone · under siege: Promised Valley (2 lots left), Titus (2), Wichita (3), Franklin 2 · losing ground (interest accruing, no closing in 60 days): Avery (5 lots left), Franklin |
@@ -345,14 +345,14 @@ input starts at the real figure; the page says where each one comes from.
 | Solver | `src/domain/warplan.ts` `solveWarPlan` — bisection on the smallest constant pace that reaches the target by the deadline, farms bought just in time, capital drawn from the investor mix in order, each new lot paying its own farm's deal | required **8.2 lots/month**, 6 farms, $2.8M, last purchase Jul 2027 (#41, #49) |
 | Three plans | current pace / required / +1 buffer farm, each with exit date, capital to raise (fresh), peak outstanding, total deployed, funding split, reservations and ad spend per month, note sales, inventory, flags | current pace exits 2029-03-26 |
 | Month table | one row per calendar month to the deadline: farms bought, capital deployed, lots closed (seasonal) with the flat average alongside, notes sold, ads, cumulative target, capital owed and returned per sponsor, inventory, flags | 16 rows |
-| **Rotation engine** | `computeRotationBenchmark` + `rotationPlan`: cycle = median days `funding_date` → 100 % cumulative `capital_return` over freed farms (`liberation.ts`); captive farms fall back to their own projected liberation (`campaigns.ts`, current pace) — never a constant | **Lamar 2025-08-21 → 2026-05-19, 271 days / 8.9 months** (#51: the brief's 261 is not in the data) |
+| **Rotation engine** | `computeRotationBenchmark` + `rotationPlan`: cycle = median days `funding_date` → 100 % cumulative `capital_return` over freed farms (`liberation.ts`); captive farms fall back to their own projected liberation (`campaigns.ts`, current pace) — never a constant | **Lamar 2025-08-21 → 2026-05-19, 271 days / 8.9 months** (#51: the brief's 261 is not in the data). Since The Era (below) Lamar's turn is on record but out of the median, and the cycle is **227 days / 7.46 months projected** from the four captive farms funded since Mar 2026 (#72) |
 | Benchmark grading | every sponsor-funded farm vs Lamar at the same day of its life: % returned vs Lamar's %, days vs Lamar to the same %, lots left to cover, projected liberation and days to go | Wichita 11.97 % at day 149 vs Lamar 90.16 % → behind, 92 days; Franklin on pace; Franklin 2 unrated (closes 2026-10-15) |
-| Headline | "With $X of land capital rotating every N months you reach $10M by the deadline; you need Y turns; the first turn must start by <month>." + a flag when turns cannot complete | **$2.8M rotating every 8.9 months, 1 turn, first turn by Mar 2027, 5 of 6 turns cannot complete before the deadline** (#53) |
+| Headline | "With $X of land capital rotating every N months you reach $10M by the deadline; you need Y turns; the first turn must start by <month>." + a flag when turns cannot complete | **$2.8M rotating every 8.9 months, 1 turn, first turn by Mar 2027, 5 of 6 turns cannot complete before the deadline** (#53); since The Era: **every 7.5 months, 3 of 6 turns** |
 | Peak vs total | peak capital outstanding at any moment (what has to be raised) vs total deployed over the plan; turns = total ÷ peak; per-investor turns | 2027-12-31: peak = total $2,760,480; 2028-12-31: peak $2,300,400 vs $2,760,480, 1.2 turns |
 | Cancellations | `pipeline.ts`: lots whose only file cases are cancelled count as conversion failures; `pctWithCancellations`, `cancellationRatePct` on `/pipeline` (page + Throne Room panel) and `/warplan`; ad spend and reservations/month use the inclusive conversion | 0 cancelled in the data → 74.47 % both ways, 0.0 % rate (#57); synthetic case 66.67 % → 57.14 % |
-| Seasonality | `seasonality.ts`: share of closings per calendar month, circular [¼,½,¼] smoothing, floor 25 % of the flat rate, renormalised; applied to the required pace only, flat shown alongside, toggle on the page | 37 closings, May ×2.27, Jan–Mar ×0.25; required plan asks 20.2 lots of May 2027 and 2.2 of January against a flat 8.2 (#55) |
+| Seasonality | `seasonality.ts`: share of closings per calendar month, circular [¼,½,¼] smoothing, floor 25 % of the flat rate, renormalised; applied to the required pace only, flat shown alongside, toggle on the page | 37 closings, May ×2.27, Jan–Mar ×0.25; required plan asks 20.2 lots of May 2027 and 2.2 of January against a flat 8.2 (#55). Since The Era (below) the profile counts era closings only and is **not applied** until 12 whole months of history exist (2027-03-01): the toggle is disabled with "not enough history for seasonality" and the plan is flat (#74) |
 | Land cost trend | farm cost defaults to lots per farm × average per-lot cost of the **three most recent** purchases; both values under the input | Franklin, Avery, Wichita: **$46,008/lot → $460,080**; all-time $48,232/lot → $482,320 (#56) |
-| Throne Room | "Rotation" strip: capital outstanding, benchmark turn (Lamar), turns completed, turns still needed, next liberation with days to go | $3,579,399 · 271 days · 1 · 1 · Eastland, covered and awaiting payout |
+| Throne Room | "Rotation" strip: capital outstanding, benchmark turn (Lamar), turns completed, turns still needed, next liberation with days to go | $3,579,399 · 271 days · 1 · 1 · Eastland, covered and awaiting payout (since The Era: 227 days, Avery projected, "farms funded since Mar 2026 (Lamar freed earlier, on record only)") |
 | Scenarios | save / load / delete named input sets in `localStorage`, merged over the current defaults | — |
 
 **Live vs fixture.** Live Payments (per #50, #52) has raised `investor_capital` on ten farms, so
@@ -449,3 +449,55 @@ panels; reservation/closing/cancellation prose. Full run: 231 Playwright tests g
 reservations in the first Oracle month, provisional days at slow paces, what counts as a
 reservation made, September's eighth reservation, the pace lag, expected months on the fixture
 vs live).
+
+## The Era — status (2026-09-11, fixture numbers pinned in `era.test.ts`, `epic_fixture.test.ts` and `warplan.test.ts`)
+
+`ERA_START = "2026-03-01"` in `src/config/goal.ts`: sales operations started in earnest in March
+2026; earlier closings are real money but not representative of pace. `src/domain/era.ts`
+resolves it once (`resolveEra` → `{ start, label "Mar 2026", since "since Mar 2026",
+monthsOfHistory }`, `trailingWindow`, `wholeMonthsBetween`, `inEra`) and every rate, average and
+trend in `src/domain/` reads it through `buildRealm(snapshot, now, { eraStart })` — `undefined`
+takes the config, `null` measures over everything (the tests use it for the all-time
+comparisons). **Totals keep the full history**: net profit to date, cash realized, capital
+returned, liberation, the ledger and the trophies' records are untouched. Every affected number
+carries **"since Mar 2026"** on screen.
+
+| Rate | Where | All-time | Since Mar 2026 |
+|---|---|---|---|
+| Actual net profit per day | `debt.ts`: closings dated on or after the era start ÷ days since it; the all-time figure stays in `actualNetProfitPerDayAllTime` for the record | $6,762.81/day (first closing 2025-10-10, 336 days) | **$10,026.04/day** ($1,945,051.41 over 194 days; 8 dated pre-era closings and the undated Eastland Lot 6 left out, #75) |
+| Farm cadence (`newFarmEveryMonths`) | `oracle.ts` `farmCadence`: mean gap between fundings on or after the era start | 1.72 months (9 fundings) | **1.51 months** (5 fundings — Freestone, Wichita, Avery, Franklin, Franklin 2; 4 left out) |
+| Reservations / closings per month | `goal.ts`, `pipeline.ts`, `expected.ts`: the trailing window is clipped at the era start and divides by the days it really covers | — | **unchanged today**: the 90-day window (since 2026-06-14) sits inside the era; a wider window would read "since Mar 2026 (N days)" |
+| Seasonality | `seasonality.ts`: era closings only; **fewer than 12 whole months → no profile at all**, `reason = "not enough history for seasonality"` | 11 months from the first closing — also too short | **6 of 12 months, 29 closings (8 left out): not applied**; applies from 2027-03-01 (then May ×2.65 peak) |
+| Best week / best month | `streaks.ts`: era closings only; the runs (current/best streak) keep the full history | 2026-W22 · May 2026 | **same** — 2026-W22 with 7 ($553,411), May 2026 with 13 ($1,006,874); 8 earlier closings left out |
+| War Plan cycle length | `warplan.ts`: freed farms funded in the era give the median; none is, so the cycle is projected from the 4 captive era farms; Lamar's real 271-day turn is kept in `excludedCycles` | 271 d / 8.9 mo, Lamar measured, 6 farms graded (5 behind, Franklin on pace) | **227 d / 7.46 mo projected** (Wichita 204, Freestone 150, Avery 250 = benchmark, Franklin 346); nothing graded until an era farm is freed (#72) |
+| War Plan land-cost trend | `recentLandCostPerLot`: the 3 most recent purchases on or after the era start | $46,008/lot (Franklin, Avery, Wichita) | **$46,008/lot** — the same three farms (all bought after March 2026), so the $460,080 default is unchanged |
+| Rotation headline / verdict | | "rotating every 8.9 months … 5 of the 6 turns cannot complete" | **"rotating every 7.5 months … 3 of the 6 turns cannot complete"**; the verdict itself is unchanged (6 farms, Jul 2027, $2.8M, 8.2 lots/month) |
+| Oracle futures | `futures.ts`: premises read "a new farm every 1.51 months (since Mar 2026)" | exits unchanged | current **2028-06-11**, required 2027-12-11, one more farm 2028-04-11, closings only 2029-03-11 |
+
+**On screen.** Debt countdown: *"you have averaged $10,026 / day since Mar 2026 (194 days) ·
+$6,763 / day over the full history since Oct 10, 2025"* and the pace bar reads *"actual pace per
+day · since Mar 2026"*. Oracle: the cadence slider hint *"Mean gap between fundings since Mar 2026
+(5 fundings, 4 earlier left out)"*, the current pace's *"Farm every 1.51 mo since Mar 2026"*.
+Throne Room rotation strip: *"Avery · 8.2 months, projected · farms funded since Mar 2026 (Lamar
+freed earlier, on record only)"*. War Plan: farm cost *"$460,080 recent, since Mar 2026 (Franklin,
+Avery, Wichita: $46,008/lot)"*, capital turn *"227 days / 7.5 mo (projected from 4 captive farms
+funded since Mar 2026) · Lamar freed before then: on record, not measured"*, the **Seasonal**
+button disabled with *"not enough history for seasonality: 6 of 12 months since Mar 2026 (29
+closings, 8 earlier left out)"* and no seasonal column in the month table; the benchmark panel
+lists Lamar's turn as on record, not measured. Trophies: *"Best week · since Mar 2026"*, *"Best
+month · since Mar 2026"* with the count of earlier closings left out. Pipeline labels switch to
+the era window only when it clips them (not today).
+
+**Tests.** 310 unit tests. `era.test.ts` (5): the config value, `resolveEra` (undefined / null /
+not yet begun), whole-month counting (12 months arrive on 2027-03-01, not 2027-02-28), `inEra`,
+and trailing windows (90 days untouched; 365 days clipped to "since Mar 2026 (195 days)").
+`epic_fixture.test.ts`: **the per-day figure with the era ($10,026.04) is higher than without it
+($6,762.81)**, the excluded closings add up to the gap, **seasonality is not applied on the fixture
+(6 months)** and applies on 2027-03-01, the cadence, the futures' premises, the War Plan re-pinned
+against an all-time realm (`buildRealm(fixture, ASOF, { eraStart: null })`). `warplan.test.ts`:
+a freed farm funded before the era keeps its turn on record but out of the median; the land-cost
+trend drops a pre-era purchase; the synthetic realm's defaults with and without the era. e2e: one
+test walks the labels across the Throne Room, Oracle, War Plan and Trophies and checks the
+Seasonal button is disabled. Full run: 232 Playwright tests green.
+
+**Open questions** #72–#79 in `OPEN_QUESTIONS.md`.
