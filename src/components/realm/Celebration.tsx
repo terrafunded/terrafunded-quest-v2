@@ -53,7 +53,7 @@ export function Celebration({ events, narrative, onDone }: CelebrationProps) {
           onClick={(e) => e.stopPropagation()}
           className={cn(
             "relative w-full max-w-lg overflow-hidden rounded-2xl border p-6 text-center shadow-2xl",
-            liberation ? "border-emerald-400/50 bg-gradient-to-br from-emerald-950/60 via-card to-card" : "border-gold/50 bg-gradient-to-br from-gold/15 via-card to-card",
+            liberation ? "border-liberty/50 bg-gradient-to-br from-liberty/21 via-card to-card" : "border-gold/50 bg-gradient-to-br from-gold/15 via-card to-card",
           )}
         >
           <GrowthBurst trigger={events[0]?.id ?? "x"} particles={20} className="pointer-events-none absolute inset-0 left-1/2 top-1/3" />
@@ -63,7 +63,7 @@ export function Celebration({ events, narrative, onDone }: CelebrationProps) {
           <motion.div
             animate={{ rotate: [0, -8, 8, 0], scale: [1, 1.1, 1] }}
             transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 1.5 }}
-            className={cn("mx-auto mb-3 inline-flex h-16 w-16 items-center justify-center rounded-full", liberation ? "bg-emerald-400/20 text-emerald-200" : "bg-gold/20 text-gold")}
+            className={cn("mx-auto mb-3 inline-flex h-16 w-16 items-center justify-center rounded-full", liberation ? "bg-liberty/20 text-liberty" : "bg-gold/20 text-gold")}
           >
             {liberation ? <Unlock className="h-8 w-8" /> : <Crown className="h-8 w-8" />}
           </motion.div>

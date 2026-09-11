@@ -5,10 +5,10 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { money, moneyCompact, moneyExact, monthLabel } from "@/lib/format";
 
-const GOLD = "hsl(43 70% 55%)";
-const GREEN = "hsl(152 55% 45%)";
-const PINK = "hsl(320 60% 62%)";
-const VIOLET = "hsl(268 55% 60%)";
+const GOLD = "hsl(var(--gold))";
+const GREEN = "hsl(var(--stage-closed))";
+const PINK = "hsl(var(--sponsor))";
+const VIOLET = "hsl(var(--arcane))";
 
 export default function Treasury() {
   const { data, isLoading, error, refetch } = useRealm();
@@ -26,8 +26,8 @@ export default function Treasury() {
 
       <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Cash in" value={money(t.totalCashIn)} hint={`Down payments ${moneyCompact(t.totalDownPayments)} · notes ${moneyCompact(t.totalAllNoteSales)}`} valueClassName="text-stage-closed" data-testid="treasury-cash-in" />
-        <Stat label="Cash out to sponsors" value={money(t.totalCashOut)} hint={`Capital ${moneyCompact(t.totalCapitalReturns)} · profit share ${moneyCompact(t.totalProfitShares)}`} valueClassName="text-fuchsia-200" data-testid="treasury-cash-out" />
-        <Stat label="Net cash" value={money(t.net)} valueClassName={t.net >= 0 ? "text-gold" : "text-red-300"} />
+        <Stat label="Cash out to sponsors" value={money(t.totalCashOut)} hint={`Capital ${moneyCompact(t.totalCapitalReturns)} · profit share ${moneyCompact(t.totalProfitShares)}`} valueClassName="text-sponsor" data-testid="treasury-cash-out" />
+        <Stat label="Net cash" value={money(t.net)} valueClassName={t.net >= 0 ? "text-gold" : "text-ember"} />
         <Stat label="Note sales, all" value={money(t.totalAllNoteSales)} hint={t.totalOtherNoteSales > 0 ? `${moneyCompact(t.totalOtherNoteSales)} on notes outside the farms` : "all on farm lots"} />
       </section>
 
@@ -40,18 +40,18 @@ export default function Treasury() {
             <div className="h-72 w-full">
               <ResponsiveContainer>
                 <ComposedChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} stackOffset="sign">
-                  <CartesianGrid stroke="hsl(250 16% 18%)" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: "hsl(40 12% 62%)", fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: "hsl(40 12% 62%)", fontSize: 11 }} tickLine={false} axisLine={false} width={56} />
+                  <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={56} />
                   <ChartTooltip
-                    contentStyle={{ background: "hsl(250 22% 9%)", border: "1px solid hsl(250 16% 18%)", borderRadius: 8, fontSize: 12 }}
+                    contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                     formatter={(v: number, name: string) => [moneyExact(Math.abs(v)), name]}
                     labelStyle={{ color: GOLD }}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar dataKey="downPayments" name="Down payments" stackId="in" fill={GREEN} radius={[0, 0, 0, 0]} />
                   <Bar dataKey="noteSales" name="Note sales" stackId="in" fill={GOLD} />
-                  <Bar dataKey="otherNoteSales" name="Other notes" stackId="in" fill="hsl(43 40% 40%)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="otherNoteSales" name="Other notes" stackId="in" fill="hsl(var(--gold-dim))" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="cashOutNeg" name="To sponsors" stackId="out" fill={PINK} radius={[0, 0, 4, 4]} />
                   <Line type="monotone" dataKey="cumulativeNet" name="Cumulative net" stroke={VIOLET} strokeWidth={2} dot={false} />
                 </ComposedChart>
@@ -64,11 +64,11 @@ export default function Treasury() {
             <div className="h-56 w-full">
               <ResponsiveContainer>
                 <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid stroke="hsl(250 16% 18%)" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: "hsl(40 12% 62%)", fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: "hsl(40 12% 62%)", fontSize: 11 }} tickLine={false} axisLine={false} width={56} />
+                  <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={56} />
                   <ChartTooltip
-                    contentStyle={{ background: "hsl(250 22% 9%)", border: "1px solid hsl(250 16% 18%)", borderRadius: 8, fontSize: 12 }}
+                    contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                     formatter={(v: number, name: string) => [moneyExact(v), name]}
                     labelStyle={{ color: GOLD }}
                   />
@@ -106,8 +106,8 @@ export default function Treasury() {
                     <TableCell className="text-right tabular text-stage-closed">{moneyExact(m.cashIn)}</TableCell>
                     <TableCell className="text-right tabular">{moneyExact(m.capitalReturns)}</TableCell>
                     <TableCell className="text-right tabular">{moneyExact(m.profitShares)}</TableCell>
-                    <TableCell className="text-right tabular text-fuchsia-200">{moneyExact(m.cashOut)}</TableCell>
-                    <TableCell className={`text-right tabular ${m.net < 0 ? "text-red-300" : ""}`}>{moneyExact(m.net)}</TableCell>
+                    <TableCell className="text-right tabular text-sponsor">{moneyExact(m.cashOut)}</TableCell>
+                    <TableCell className={`text-right tabular ${m.net < 0 ? "text-ember" : ""}`}>{moneyExact(m.net)}</TableCell>
                     <TableCell className="text-right tabular">{moneyExact(m.cumulativeNet)}</TableCell>
                   </TableRow>
                 ))}
@@ -130,7 +130,7 @@ export default function Treasury() {
                   <TableCell className="text-right tabular text-stage-closed">{moneyExact(t.totalCashIn)}</TableCell>
                   <TableCell className="text-right tabular">{moneyExact(t.totalCapitalReturns)}</TableCell>
                   <TableCell className="text-right tabular">{moneyExact(t.totalProfitShares)}</TableCell>
-                  <TableCell className="text-right tabular text-fuchsia-200">{moneyExact(t.totalCashOut)}</TableCell>
+                  <TableCell className="text-right tabular text-sponsor">{moneyExact(t.totalCashOut)}</TableCell>
                   <TableCell className="text-right tabular">{moneyExact(t.net)}</TableCell>
                   <TableCell />
                 </TableRow>

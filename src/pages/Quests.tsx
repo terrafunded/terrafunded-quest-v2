@@ -169,7 +169,7 @@ export default function Quests() {
             </TableHeader>
             <TableBody>
               {filtered.map((l) => (
-                <TableRow key={l.propertyId} data-testid="ledger-row" data-stuck={l.stuck || undefined} className={cn(l.stuck && "bg-amber-950/20")}>
+                <TableRow key={l.propertyId} data-testid="ledger-row" data-stuck={l.stuck || undefined} className={cn(l.stuck && "bg-siege/8")}>
                   <TableCell className="whitespace-nowrap">
                     <div className="font-medium">{l.name}</div>
                     <div className="text-xs text-muted-foreground">
@@ -193,13 +193,13 @@ export default function Quests() {
                   <TableCell className="text-right tabular">{moneyExact(l.landCost)}</TableCell>
                   <TableCell className="text-right tabular">{moneyExact(l.grossProfit)}</TableCell>
                   <TableCell className="text-right tabular">{moneyExact(l.investorTake)}</TableCell>
-                  <TableCell className={cn("text-right tabular font-medium", (l.netProfit ?? 0) < 0 && "text-red-300")}>{moneyExact(l.netProfit)}</TableCell>
+                  <TableCell className={cn("text-right tabular font-medium", (l.netProfit ?? 0) < 0 && "text-ember")}>{moneyExact(l.netProfit)}</TableCell>
                   <TableCell className="text-right tabular text-stage-closed">{moneyExact(l.cashRealized)}</TableCell>
-                  <TableCell className={cn("text-right tabular whitespace-nowrap", l.stuck && "text-amber-200")}>
+                  <TableCell className={cn("text-right tabular whitespace-nowrap", l.stuck && "text-siege")}>
                     {l.stuck && <Hourglass className="mr-1 inline h-3 w-3" aria-label="Stuck reservation" />}
                     {days(l.daysInPipeline)}
                   </TableCell>
-                  <TableCell className={cn("text-right tabular", l.daysGained !== null && l.daysGained > 0 && "text-sky-200")} data-testid="ledger-oxygen" data-value={l.daysGained ?? ""}>
+                  <TableCell className={cn("text-right tabular", l.daysGained !== null && l.daysGained > 0 && "text-oxygen")} data-testid="ledger-oxygen" data-value={l.daysGained ?? ""}>
                     {l.daysGained === null ? "—" : `${l.daysGained > 0 ? "+" : ""}${l.daysGained}d`}
                   </TableCell>
                 </TableRow>
@@ -226,7 +226,7 @@ export default function Quests() {
                   {moneyExact(totals.cash)}
                 </TableCell>
                 <TableCell />
-                <TableCell className="text-right tabular font-semibold text-sky-200" data-testid="ledger-total-oxygen" data-value={totals.oxygen}>
+                <TableCell className="text-right tabular font-semibold text-oxygen" data-testid="ledger-total-oxygen" data-value={totals.oxygen}>
                   {totals.oxygen > 0 ? "+" : ""}
                   {totals.oxygen}d
                 </TableCell>

@@ -5,17 +5,17 @@ import { cn } from "@/lib/utils";
 import { date } from "@/lib/format";
 
 const TIER_STYLE: Record<Trophy["tier"], { ring: string; icon: typeof Award; label: string }> = {
-  bronze: { ring: "from-amber-700/50 to-amber-900/30 text-amber-400", icon: Medal, label: "Bronze" },
-  silver: { ring: "from-slate-300/40 to-slate-500/20 text-slate-200", icon: Award, label: "Silver" },
+  bronze: { ring: "from-siege/30 to-siege/10 text-siege", icon: Medal, label: "Bronze" },
+  silver: { ring: "from-steel/40 to-steel/20 text-steel", icon: Award, label: "Silver" },
   gold: { ring: "from-gold/50 to-gold-dim/30 text-gold", icon: Crown, label: "Gold" },
-  legendary: { ring: "from-fuchsia-500/40 to-accent/40 text-fuchsia-200", icon: Gem, label: "Legendary" },
+  legendary: { ring: "from-sponsor/40 to-accent/40 text-sponsor", icon: Gem, label: "Legendary" },
 };
 
 /** Rarity tiers (Phase 2 §5): how hard a trophy is to earn. */
 const RARITY_STYLE: Record<Trophy["rarity"], { label: string; className: string }> = {
-  common: { label: "Common", className: "border-slate-500/40 text-slate-300" },
-  rare: { label: "Rare", className: "border-sky-400/40 text-sky-200" },
-  epic: { label: "Epic", className: "border-fuchsia-400/50 text-fuchsia-200" },
+  common: { label: "Common", className: "border-steel/40 text-steel" },
+  rare: { label: "Rare", className: "border-oxygen/40 text-oxygen" },
+  epic: { label: "Epic", className: "border-sponsor/50 text-sponsor" },
   legendary: { label: "Legendary", className: "border-gold/60 text-gold" },
 };
 

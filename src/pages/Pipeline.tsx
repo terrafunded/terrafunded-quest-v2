@@ -56,14 +56,14 @@ export default function Pipeline() {
           label="Profit trapped in reservations"
           value={money(p.netProfitTrapped)}
           hint={`${p.stuckCount} of ${p.reserved} reservations waiting ${p.stuckAfterDays}+ days · ${money(p.salePriceTrapped)} of sales`}
-          valueClassName="text-amber-200"
+          valueClassName="text-siege"
           data-testid="pipeline-page-trapped"
         />
         <Stat
           label="Reservations vs closings / mo"
           value={
             <>
-              <span className="text-amber-200">{p.reservationsPerMonth}</span> <span className="text-muted-foreground">vs</span>{" "}
+              <span className="text-siege">{p.reservationsPerMonth}</span> <span className="text-muted-foreground">vs</span>{" "}
               <span className="text-stage-closed">{p.closedLotsPerMonth}</span>
             </>
           }
@@ -85,13 +85,13 @@ export default function Pipeline() {
         <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-gold">Per farm</h2>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {p.farms.map((f) => (
-            <div key={f.farmId} className={cn("rounded-md border border-border/60 bg-background/40 p-3 text-sm", f.stuck > 0 && "border-amber-800/60")} data-testid="pipeline-farm">
+            <div key={f.farmId} className={cn("rounded-md border border-border/60 bg-background/40 p-3 text-sm", f.stuck > 0 && "border-siege/36")} data-testid="pipeline-farm">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-heading">{f.farmName}</span>
                 <span className="tabular text-xs text-muted-foreground">median {f.medianDaysToClose === null ? "—" : `${f.medianDaysToClose}d`}</span>
               </div>
               <div className="mt-1 text-xs text-muted-foreground">
-                {f.reserved} reserved · <span className={cn(f.stuck > 0 && "text-amber-200")}>{f.stuck} stuck</span>
+                {f.reserved} reserved · <span className={cn(f.stuck > 0 && "text-siege")}>{f.stuck} stuck</span>
                 {f.stuck > 0 && <> · {money(f.netProfitTrapped)} trapped</>}
               </div>
             </div>
@@ -119,7 +119,7 @@ export default function Pipeline() {
               {stuck.map((s) => (
                 <TableRow key={s.propertyId} data-testid="stuck-row" data-days={s.daysWaiting}>
                   <TableCell className="text-right">
-                    <span className="inline-flex items-center gap-1 font-heading text-lg tabular text-amber-200">
+                    <span className="inline-flex items-center gap-1 font-heading text-lg tabular text-siege">
                       <Hourglass className="h-3.5 w-3.5" />
                       {s.daysWaiting}
                     </span>
@@ -129,7 +129,7 @@ export default function Pipeline() {
                   <TableCell className="whitespace-nowrap tabular">{date(s.reservationDate)}</TableCell>
                   <TableCell className="whitespace-nowrap tabular text-muted-foreground">{s.estimatedClosingDate ? date(s.estimatedClosingDate) : "—"}</TableCell>
                   <TableCell className="text-right tabular">{moneyExact(s.salePrice)}</TableCell>
-                  <TableCell className="text-right tabular font-medium text-amber-200">{moneyExact(s.netProfitAtStake)}</TableCell>
+                  <TableCell className="text-right tabular font-medium text-siege">{moneyExact(s.netProfitAtStake)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -139,7 +139,7 @@ export default function Pipeline() {
                   Totals · {stuck.length} stuck reservations
                 </TableCell>
                 <TableCell className="text-right tabular">{moneyExact(salesShown)}</TableCell>
-                <TableCell className="text-right tabular font-semibold text-amber-200" data-testid="stuck-total-trapped">
+                <TableCell className="text-right tabular font-semibold text-siege" data-testid="stuck-total-trapped">
                   {moneyExact(trappedShown)}
                 </TableCell>
               </TableRow>

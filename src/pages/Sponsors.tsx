@@ -115,7 +115,7 @@ function SponsorCard({ inv, index }: { inv: InvestorSummary; index: number }) {
       <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
         <Figure label="Capital deployed" value={money(inv.capitalDeployed)} />
         <Figure label="Capital returned" value={money(inv.capitalReturned)} className="text-stage-closed" />
-        <Figure label="Capital outstanding" value={money(inv.capitalOutstanding)} className={inv.capitalOutstanding > 0 ? "text-fuchsia-200" : "text-stage-closed"} />
+        <Figure label="Capital outstanding" value={money(inv.capitalOutstanding)} className={inv.capitalOutstanding > 0 ? "text-sponsor" : "text-stage-closed"} />
         {isProfitShare ? (
           <>
             <Figure label="Profit share earned" value={money(inv.profitShareEarned)} hint="Share of realized gross on closed lots" className="text-gold" />

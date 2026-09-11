@@ -18,13 +18,13 @@ const MAP_W = 1000;
 const DEAL_SHORT: Record<string, string> = { fixed_interest: "Fixed", profit_share: "Share", own_capital: "Own" };
 
 const CAMPAIGN_META: Record<CampaignState, { label: string; stroke: string; text: string; badge: string }> = {
-  conquered: { label: "Conquered", stroke: "hsl(152 55% 50%)", text: "text-stage-closed", badge: "bg-stage-closed/15 text-stage-closed border-stage-closed/40" },
+  conquered: { label: "Conquered", stroke: "hsl(var(--stage-closed))", text: "text-stage-closed", badge: "bg-stage-closed/15 text-stage-closed border-stage-closed/40" },
   under_siege: { label: "Under siege", stroke: "hsl(var(--gold))", text: "text-gold", badge: "bg-gold/15 text-gold border-gold/40" },
-  losing_ground: { label: "Losing ground", stroke: "hsl(0 70% 60%)", text: "text-red-300", badge: "bg-red-500/15 text-red-300 border-red-500/40" },
+  losing_ground: { label: "Losing ground", stroke: "hsl(var(--ember))", text: "text-ember", badge: "bg-ember/15 text-ember border-ember/40" },
 };
 
 /** Reserved lots are drawn as a hollow ring so they never read as closed; stuck reservations get a dashed amber ring. */
-const RING_STROKE = { reserved: "hsl(var(--stage-reserved))", stuck: "hsl(38 90% 60%)" } as const;
+const RING_STROKE = { reserved: "hsl(var(--stage-reserved))", stuck: "hsl(var(--siege))" } as const;
 
 const STAGE_FILL: Record<LotStage, string> = {
   available: "hsl(var(--stage-available))",
@@ -76,12 +76,9 @@ function layoutTerritories(farms: FarmEconomics[]): { territories: Territory[]; 
 }
 
 function territoryFill(pctClosed: number): string {
-  // muted violet → deep gold as the farm sells out
+  // From the theme's untouched ground to its gold as the farm sells out (tokens: --territory-from/--territory-to).
   const t = Math.max(0, Math.min(1, pctClosed / 100));
-  const h = 268 + (43 - 268) * t;
-  const s = 30 + 35 * t;
-  const l = 14 + 6 * t;
-  return `hsl(${h} ${s}% ${l}%)`;
+  return `color-mix(in oklab, hsl(var(--territory-to)) ${Math.round(t * 100)}%, hsl(var(--territory-from)))`;
 }
 
 export default function RealmMap() {
@@ -305,7 +302,7 @@ export function FarmDetail({
         {stat("Months since funding", farm.monthsSinceFunding === null ? "not yet" : `${farm.monthsSinceFunding}`)}
       </div>
       {pipeline && (
-        <div className="rounded-lg border border-amber-800/40 bg-amber-950/10 p-3" data-testid="farm-pipeline">
+        <div className="rounded-lg border border-siege/24 bg-siege/8 p-3" data-testid="farm-pipeline">
           <div className="stat-label">Reservation → closing</div>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="font-heading text-xl tabular" data-testid="farm-median-days" data-value={pipeline.medianDaysToClose ?? ""}>
@@ -317,7 +314,7 @@ export function FarmDetail({
             </span>
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            {pipeline.reserved} reserved · <span className={cn(pipeline.stuck > 0 && "text-amber-200")}>{pipeline.stuck} stuck</span>
+            {pipeline.reserved} reserved · <span className={cn(pipeline.stuck > 0 && "text-siege")}>{pipeline.stuck} stuck</span>
             {pipeline.stuck > 0 && <> · {money(pipeline.netProfitTrapped)} of profit trapped</>}
           </div>
         </div>

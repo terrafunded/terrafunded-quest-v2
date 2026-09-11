@@ -9,13 +9,13 @@ import { date, money, moneyCompact } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const KIND_META: Record<EventKind, { label: string; dot: string }> = {
-  farm_acquired: { label: "Farm acquired", dot: "bg-sky-400" },
+  farm_acquired: { label: "Farm acquired", dot: "bg-oxygen" },
   reservation: { label: "Reservation", dot: "bg-stage-reserved" },
   closing: { label: "Closing", dot: "bg-stage-closed" },
   note_sale: { label: "Note sale", dot: "bg-stage-note_sold" },
-  distribution: { label: "Distribution", dot: "bg-fuchsia-400" },
+  distribution: { label: "Distribution", dot: "bg-sponsor" },
   milestone: { label: "Milestone", dot: "bg-gold" },
-  liberation: { label: "Liberation", dot: "bg-emerald-300" },
+  liberation: { label: "Liberation", dot: "bg-liberty" },
 };
 
 const FILTERS: (EventKind | "all")[] = ["all", "closing", "reservation", "note_sale", "distribution", "liberation", "farm_acquired"];
@@ -92,7 +92,7 @@ function EventRow({ e, index, prose }: { e: RealmEvent; index: number; prose?: s
           <span>{date(e.date)}</span>
           <span>·</span>
           <span>{KIND_META[e.kind].label}</span>
-          {e.future && <span className="text-sky-300">· upcoming</span>}
+          {e.future && <span className="text-oxygen">· upcoming</span>}
         </div>
         <p className="font-heading leading-snug" data-testid="chronicle-prose">
           {prose ?? e.title}

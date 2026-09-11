@@ -74,7 +74,7 @@ export default function Oracle() {
           label="Goal reached"
           value={result.goalDate ? date(result.goalDate) : "Not within 10 years"}
           hint={result.goalDate ? (result.hitsDeadline ? `Before the ${deadlineLabel} deadline` : `After the ${deadlineLabel} deadline`) : "Raise pace or margin"}
-          valueClassName={result.hitsDeadline ? "text-stage-closed" : "text-red-300"}
+          valueClassName={result.hitsDeadline ? "text-stage-closed" : "text-ember"}
           data-testid="oracle-goal-date"
         />
         <Stat label="Months to goal" value={result.monthsToGoal === null ? "—" : `${result.monthsToGoal}`} hint={`${number(g.monthsToDeadline)} months left`} />
@@ -116,24 +116,24 @@ export default function Oracle() {
               <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="oracle-fill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(43 70% 55%)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="hsl(43 70% 55%)" stopOpacity={0.02} />
+                    <stop offset="0%" stopColor="hsl(var(--gold))" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="hsl(var(--gold))" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="hsl(250 16% 18%)" vertical={false} />
-                <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(0, 7)} tick={{ fill: "hsl(40 12% 62%)", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
-                <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: "hsl(40 12% 62%)", fontSize: 11 }} tickLine={false} axisLine={false} width={56} domain={[0, (max: number) => Math.max(max, g.goal * 1.05)]} />
+                <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(0, 7)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
+                <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={56} domain={[0, (max: number) => Math.max(max, g.goal * 1.05)]} />
                 <ChartTooltip
-                  contentStyle={{ background: "hsl(250 22% 9%)", border: "1px solid hsl(250 16% 18%)", borderRadius: 8, fontSize: 12 }}
+                  contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                   formatter={(v: number, name: string) => [money(v), name]}
                   labelFormatter={(d) => date(String(d))}
                 />
-                <ReferenceLine y={g.goal} stroke="hsl(43 70% 55%)" strokeDasharray="4 4" label={{ value: "$10M", fill: "hsl(43 70% 55%)", fontSize: 11, position: "insideTopRight" }} />
+                <ReferenceLine y={g.goal} stroke="hsl(var(--gold))" strokeDasharray="4 4" label={{ value: "$10M", fill: "hsl(var(--gold))", fontSize: 11, position: "insideTopRight" }} />
                 {series.some((p) => p.date >= g.deadline) && (
-                  <ReferenceLine x={series.find((p) => p.date >= g.deadline)?.date} stroke="hsl(320 60% 62%)" strokeDasharray="4 4" label={{ value: "Deadline", fill: "hsl(320 60% 62%)", fontSize: 11, position: "insideTopLeft" }} />
+                  <ReferenceLine x={series.find((p) => p.date >= g.deadline)?.date} stroke="hsl(var(--sponsor))" strokeDasharray="4 4" label={{ value: "Deadline", fill: "hsl(var(--sponsor))", fontSize: 11, position: "insideTopLeft" }} />
                 )}
-                <Area type="monotone" dataKey="cumulativeNetProfit" name="Net profit" stroke="hsl(43 70% 55%)" fill="url(#oracle-fill)" strokeWidth={2} />
-                <Area type="monotone" dataKey="cumulativeCash" name="Cash realized" stroke="hsl(152 55% 45%)" fill="transparent" strokeWidth={1.5} strokeDasharray="3 3" />
+                <Area type="monotone" dataKey="cumulativeNetProfit" name="Net profit" stroke="hsl(var(--gold))" fill="url(#oracle-fill)" strokeWidth={2} />
+                <Area type="monotone" dataKey="cumulativeCash" name="Cash realized" stroke="hsl(var(--stage-closed))" fill="transparent" strokeWidth={1.5} strokeDasharray="3 3" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -148,7 +148,7 @@ export default function Oracle() {
 }
 
 function FutureCard({ f, index, onAdopt }: { f: Future; index: number; onAdopt: () => void }) {
-  const tone = f.hitsDeadline ? "text-stage-closed" : f.exitDate ? "text-red-300" : "text-muted-foreground";
+  const tone = f.hitsDeadline ? "text-stage-closed" : f.exitDate ? "text-ember" : "text-muted-foreground";
   return (
     <article
       className={cn("parchment-card flex flex-col p-5", f.hitsDeadline && "border-stage-closed/40", index === 0 && "border-gold/30")}
@@ -164,7 +164,7 @@ function FutureCard({ f, index, onAdopt }: { f: Future; index: number; onAdopt: 
         {f.daysEarlierThanCurrent !== null && f.id !== "current_pace" && (
           <>
             {" · "}
-            <span className={f.daysEarlierThanCurrent > 0 ? "text-stage-closed" : f.daysEarlierThanCurrent < 0 ? "text-red-300" : ""}>
+            <span className={f.daysEarlierThanCurrent > 0 ? "text-stage-closed" : f.daysEarlierThanCurrent < 0 ? "text-ember" : ""}>
               {f.daysEarlierThanCurrent > 0 ? `${number(f.daysEarlierThanCurrent)} days earlier` : f.daysEarlierThanCurrent < 0 ? `${number(-f.daysEarlierThanCurrent)} days later` : "same day"}
             </span>
           </>

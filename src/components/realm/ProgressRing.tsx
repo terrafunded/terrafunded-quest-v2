@@ -34,12 +34,12 @@ export function ProgressRing({ value, size = 160, stroke = 10, className, childr
           initial={{ strokeDashoffset: c }}
           animate={{ strokeDashoffset: offset }}
           transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
-          style={{ filter: "drop-shadow(0 0 6px hsl(43 70% 55% / 0.6))" }}
+          style={{ filter: "drop-shadow(0 0 6px hsl(var(--gold) / 0.6))" }}
         />
         <defs>
           <linearGradient id="ring-gold" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="hsl(43 85% 72%)" />
-            <stop offset="100%" stopColor="hsl(36 65% 42%)" />
+            <stop offset="0%" stopColor="hsl(var(--gold-bright))" />
+            <stop offset="100%" stopColor="hsl(var(--gold-dim))" />
           </linearGradient>
         </defs>
       </svg>

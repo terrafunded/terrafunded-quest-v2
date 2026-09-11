@@ -29,7 +29,7 @@ export function GrowthBurst({ trigger, particles = 14, className }: GrowthBurstP
         <motion.span
           key={`${trigger}-${i}`}
           className="absolute left-1/2 top-1/2 rounded-full bg-gold"
-          style={{ width: s.size, height: s.size, boxShadow: "0 0 8px hsl(43 80% 60%)" }}
+          style={{ width: s.size, height: s.size, boxShadow: "0 0 8px hsl(var(--gold))" }}
           initial={{ x: 0, y: 0, opacity: 0, scale: 0.4 }}
           animate={{ x: s.x, y: s.y, opacity: [0, 1, 0], scale: [0.4, 1.2, 0.6] }}
           transition={{ duration: 1.4, delay: s.delay, ease: "easeOut" }}

@@ -15,7 +15,7 @@ export function StreaksPanel({ streaks }: { streaks: Streaks }) {
           label="Current streak"
           value={
             <span className="inline-flex items-center gap-2">
-              <Flame className={cn("h-5 w-5", alive ? "text-orange-400" : "text-muted-foreground")} />
+              <Flame className={cn("h-5 w-5", alive ? "text-siege" : "text-muted-foreground")} />
               {streaks.currentWeeks} {streaks.currentWeeks === 1 ? "week" : "weeks"}
             </span>
           }
@@ -26,7 +26,7 @@ export function StreaksPanel({ streaks }: { streaks: Streaks }) {
                 ? `${streaks.daysToKeepStreak} ${streaks.daysToKeepStreak === 1 ? "day" : "days"} left this week to keep it alive`
                 : "no closing last week or this week"
           }
-          valueClassName={alive ? "text-orange-200" : undefined}
+          valueClassName={alive ? "text-siege" : undefined}
           data-testid="streak-current"
         />
         <Stat label="Best streak" value={`${streaks.bestWeeks} ${streaks.bestWeeks === 1 ? "week" : "weeks"}`} hint={streaks.bestWeeksEndedOn ? `ended ${date(streaks.bestWeeksEndedOn)}` : "—"} />
