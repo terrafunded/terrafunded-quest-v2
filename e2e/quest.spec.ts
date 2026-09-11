@@ -164,6 +164,61 @@ test.describe("Page specifics", () => {
   });
 });
 
+test.describe("Themes", () => {
+  test("the login menu switches the skin and the choice persists in localStorage", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const page = await context.newPage();
+    const errors = collectConsoleErrors(page);
+    await page.goto("/login");
+    await expect(page.getByTestId("theme-menu")).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "iron-crown");
+
+    await page.locator("[data-theme-option='neon-kingdom']").first().click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "neon-kingdom");
+    expect(await page.evaluate(() => localStorage.getItem("quest.theme"))).toBe("neon-kingdom");
+    // The HUD uses monospace numbers; the other two do not.
+    const mono = await page.locator("html").evaluate((el) => el.ownerDocument.defaultView!.getComputedStyle(el).getPropertyValue("--font-numeric"));
+    expect(mono).toContain("JetBrains Mono");
+
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "neon-kingdom");
+
+    await page.locator("[data-theme-option='gilded-realm']").first().click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "gilded-realm");
+    await expect(page.locator("html")).toHaveClass(/light/);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  for (const theme of ["iron-crown", "gilded-realm", "neon-kingdom"] as const) {
+    test(`${theme}: the Throne Room renders its ambient layer, glowing counter and themed nav without console errors`, async ({ page }) => {
+      const errors = collectConsoleErrors(page);
+      await page.addInitScript((t) => localStorage.setItem("quest.theme", t), theme);
+      await page.goto("/");
+      await waitForRealm(page);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect(page.getByTestId("ambient-particles")).toBeAttached();
+      await expect(page.getByTestId("net-profit-counter")).toHaveClass(/counter-glow/);
+      await expect(page.getByTestId("page-transition")).toBeVisible();
+      await page.getByRole("link", { name: "Quests" }).first().click();
+      await expect(page).toHaveURL(/\/quests$/);
+      await waitForRealm(page);
+      await expect(page.getByTestId("ledger-row").first()).toBeVisible();
+      expect(errors).toEqual([]);
+    });
+  }
+
+  test("reduced motion disables the ambient layer", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: "playwright/.auth/user.json", reducedMotion: "reduce" });
+    const page = await context.newPage();
+    await page.goto("/");
+    await waitForRealm(page);
+    await expect(page.getByTestId("net-profit-counter")).toBeVisible();
+    await expect(page.getByTestId("ambient-particles")).toHaveCount(0);
+    await context.close();
+  });
+});
+
 test.describe("Pipeline layer", () => {
   test("the stuck-pipeline counter renders on the Throne Room and matches the /pipeline list", async ({ page }) => {
     await page.goto("/");
@@ -174,9 +229,8 @@ test.describe("Pipeline layer", () => {
     await expect(trapped).toHaveText(/^\$[\d,]+$/);
     const stuckCount = Number(await page.getByTestId("pipeline-stuck-count").getAttribute("data-value"));
     expect(stuckCount).toBeGreaterThanOrEqual(0);
-    // let the counter settle, then read the final value
-    await page.waitForTimeout(2500);
-    const trappedValue = Number(await trapped.getAttribute("data-value"));
+    // the counter tweens toward data-target; read the target rather than a mid-flight frame
+    const trappedValue = Number(await trapped.getAttribute("data-target"));
     if (stuckCount === 0) expect(trappedValue).toBe(0);
     else expect(trappedValue).toBeGreaterThan(0);
     await expect(panel.getByTestId("pipeline-reservations-per-month")).toHaveText(/^\d+(\.\d+)?$/);
