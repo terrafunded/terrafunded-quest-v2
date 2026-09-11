@@ -8,11 +8,14 @@ import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } f
 import { DEAL_LABEL, STAGE_LABEL, date, money, moneyExact, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const TILE = 22;
-const GAP = 5;
+const TILE = 26;
+const GAP = 6;
 const PAD = 16;
-const TITLE_H = 44;
+const TITLE_H = 46;
+const MIN_W = 190;
 const MAP_W = 1000;
+
+const DEAL_SHORT: Record<string, string> = { fixed_interest: "Fixed", profit_share: "Share", own_capital: "Own" };
 
 const STAGE_FILL: Record<LotStage, string> = {
   available: "hsl(var(--stage-available))",
@@ -43,7 +46,7 @@ function layoutTerritories(farms: FarmEconomics[]): { territories: Territory[]; 
     const n = Math.max(farm.lots.length, 1);
     const cols = Math.max(2, Math.ceil(Math.sqrt(n * 1.7)));
     const rows = Math.ceil(n / cols);
-    const w = cols * (TILE + GAP) - GAP + PAD * 2;
+    const w = Math.max(MIN_W, cols * (TILE + GAP) - GAP + PAD * 2);
     const h = rows * (TILE + GAP) - GAP + PAD * 2 + TITLE_H;
     if (cursorX + w > MAP_W && cursorX > 0) {
       cursorX = 0;
@@ -145,7 +148,7 @@ export default function RealmMap() {
                 {t.farm.name}
               </text>
               <text x={t.x + PAD} y={t.y + 37} className="pointer-events-none fill-[hsl(var(--muted-foreground))]" fontSize={10}>
-                {t.farm.soldLots}/{t.farm.totalLots} closed · {pct(t.farm.pctClosed, 0)} · {DEAL_LABEL[t.farm.dealType ?? ""] ?? t.farm.dealType}
+                {t.farm.soldLots}/{t.farm.totalLots} closed · {pct(t.farm.pctClosed, 0)} · {DEAL_SHORT[t.farm.dealType ?? ""] ?? t.farm.dealType}
               </text>
               {t.tiles.map(({ lot, x, y }) => (
                 <rect

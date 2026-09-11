@@ -61,7 +61,7 @@ export function ThroneRoom() {
 
       <section className="relative overflow-hidden rounded-2xl border border-gold/20 bg-gradient-to-b from-card/90 to-background/40 px-5 py-10 text-center shadow-[0_0_120px_-40px_hsl(var(--gold)/0.6)] sm:px-10 sm:py-14">
         <GrowthBurst trigger={g.netProfitToDate} className="pointer-events-none absolute inset-0 left-1/2 top-1/2" />
-        <div className="stat-label">Net profit chronicled · as of {date(g.asOf)}</div>
+        <h1 className="stat-label">Throne Room · Net profit chronicled · as of {date(g.asOf)}</h1>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

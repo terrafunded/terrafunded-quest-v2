@@ -27,8 +27,8 @@ type SortKey =
 const STAGE_ORDER: Record<LotStage, number> = { available: 0, reserved: 1, closed: 2, note_sold: 3 };
 
 const COLUMNS: { key: SortKey; label: string; numeric?: boolean; className?: string }[] = [
-  { key: "name", label: "Lot" },
-  { key: "buyerName", label: "Buyer" },
+  { key: "name", label: "Lot", className: "min-w-[200px]" },
+  { key: "buyerName", label: "Buyer", className: "min-w-[190px]" },
   { key: "stage", label: "Stage" },
   { key: "fileCaseSalePrice", label: "Contract price", numeric: true },
   { key: "salePrice", label: "Sale price", numeric: true },
@@ -132,7 +132,7 @@ export default function Quests() {
         <EmptyState title="No quests match" body="Loosen the filters to see lots." />
       ) : (
         <div className="parchment-card overflow-hidden">
-          <Table className="min-w-[1100px]" data-testid="ledger-table">
+          <Table className="min-w-[1280px]" data-testid="ledger-table">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {COLUMNS.map((c) => (
@@ -148,15 +148,15 @@ export default function Quests() {
             <TableBody>
               {filtered.map((l) => (
                 <TableRow key={l.propertyId} data-testid="ledger-row">
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <div className="font-medium">{l.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {l.farmName} · {l.dealType ?? "—"} · {l.investorName ?? "own capital"}
+                      {l.dealType ?? "—"} · {l.investorName ?? "own capital"}
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-[160px]">
+                  <TableCell className="max-w-[220px] whitespace-nowrap">
                     <div className="truncate">{l.buyerName ?? (l.buyerIsTestClient ? <span className="italic text-muted-foreground">test client</span> : "—")}</div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="truncate text-xs text-muted-foreground">
                       {l.reservationDate ? `Res. ${date(l.reservationDate)}` : ""}
                       {l.closeDate ? ` · Closed ${date(l.closeDate)}` : ""}
                     </div>
