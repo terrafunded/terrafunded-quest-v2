@@ -764,8 +764,17 @@ same way with one option each; left out of scope here so the change stays about 
 
 ## 79. The Era on live data
 
-Live Payments is the same population as the fixture (#50, #59), so the deployed site shows the
-same shape: the Debt's "since Mar 2026 (N days)" with N growing daily, cadence 1.51, the projected
-227-day cycle, the disabled Seasonal button. The e2e checks the labels and the disabled state, not
-the figures. Two dates matter: **2027-03-01**, when seasonality switches on by itself, and the day
-the first era farm is freed, when the benchmark becomes a measured cycle and grading resumes.
+Live Payments is the same population as the fixture but has drifted (#50, #59), so the deployed
+site shows the same shape with its own figures (read off the live Throne Room, Oracle, War Plan
+and Trophies after the deploy): *"$10,026 / day since Mar 2026 (194 days) · $6,656 / day over the
+full history since Oct 10, 2025"*; cadence *"1.51 mo since Mar 2026 (5 fundings, 4 earlier left
+out)"*; farm cost *"$468,520 recent, since Mar 2026 (Franklin, Avery, Wichita: $46,852/lot) ·
+$492,440 all-time"*; capital turn *"219.5 days / 7.2 mo (projected from 4 captive farms funded
+since Mar 2026)"* — Avery 7.8 months the benchmark, and **no "on record" line because on live data
+Lamar is not freed at all** (98.14 % returned, #52), so the era excludes nothing there; *"not
+enough history for seasonality: 6 of 12 months since Mar 2026 (30 closings, 8 earlier left out)"*
+with the Seasonal button disabled; headline *"$3.3M … rotating every 7.2 months … 4 of the 7
+turns cannot complete"*; best week 7 closings and best month May 2026 (13) "since Mar 2026, 8
+earlier closings left out". The e2e checks the labels and the disabled state, not the figures. Two
+dates matter: **2027-03-01**, when seasonality switches on by itself, and the day the first era
+farm is freed, when the benchmark becomes a measured cycle and grading resumes.
