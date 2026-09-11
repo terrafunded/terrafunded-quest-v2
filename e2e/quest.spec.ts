@@ -294,9 +294,19 @@ test.describe("Phase 2: Epic", () => {
     }
     const hostages = page.getByTestId("hostage");
     expect(await hostages.count()).toBeGreaterThan(0);
+    // Whether anyone is freed is live business data (Lamar sat at 100 % until its
+    // investor_capital was raised on 2026-09-11), so the gallery must render either
+    // the freed cards or its explicit empty state — never nothing.
+    const gallery = page.getByTestId("liberated-gallery");
+    await expect(gallery).toBeVisible();
     const freed = hostages.locator("xpath=self::*[@data-freed='true']");
-    expect(await freed.count()).toBeGreaterThan(0);
-    await expect(page.getByTestId("liberated-gallery")).toBeVisible();
+    const freedCount = await freed.count();
+    await expect(gallery).toContainText(`Liberated · ${freedCount}`);
+    if (freedCount === 0) {
+      await expect(gallery).toContainText("Nobody has been freed yet");
+    } else {
+      await expect(gallery.getByTestId("hostage")).toHaveCount(freedCount);
+    }
   });
 
   test("oracle shows three futures, and the required pace lands on or before the deadline", async ({ page }) => {
@@ -308,6 +318,69 @@ test.describe("Phase 2: Epic", () => {
       await expect(page.locator(`[data-future='${id}']`)).toBeVisible();
     }
     await expect(page.locator("[data-future='required_pace']").getByTestId("future-exit")).toHaveText(/(2026|2027)/);
+  });
+
+  test("war plan: the verdict names a dollar amount and a farm count, and moving the deadline changes it", async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto("/warplan");
+    await waitForRealm(page);
+
+    const verdict = page.getByTestId("warplan-verdict");
+    await expect(verdict).toBeVisible();
+    const before = (await verdict.textContent()) ?? "";
+    expect(before).toMatch(/\$[\d.,]+[KM]?/);
+    expect(before).toMatch(/\b\d+ farms?\b/);
+
+    // Three plans side by side, the required one landing on or before the deadline.
+    await expect(page.getByTestId("warplan-column")).toHaveCount(3);
+    for (const id of ["current_pace", "required_plan", "required_plus_buffer"]) {
+      await expect(page.locator(`[data-column='${id}']`).first()).toBeVisible();
+    }
+    await expect(page.locator("[data-testid='warplan-column'][data-column='required_plan']")).toHaveAttribute("data-hits", "true");
+    // The month table runs to the deadline: one row per month from today to Dec 2027.
+    await expect(page.getByTestId("warplan-month").first()).toBeVisible();
+    await expect(page.getByTestId("warplan-month").last()).toContainText("Dec 2027");
+
+    // A later deadline needs a slower pace and a later last purchase: the sentence changes.
+    await page.getByLabel("Deadline", { exact: true }).fill("2028-12-31");
+    await expect(verdict).not.toHaveText(before);
+    const after = (await verdict.textContent()) ?? "";
+    expect(after).toMatch(/\$[\d.,]+[KM]?/);
+    expect(after).toMatch(/\b\d+ farms?\b/);
+    await expect(page.getByTestId("warplan-month").last()).toContainText("Dec 2028");
+
+    // Reset brings the real deadline back, and the original verdict with it.
+    await page.getByTestId("warplan-reset").click();
+    await expect(page.getByLabel("Deadline", { exact: true })).toHaveValue("2027-12-31");
+    await expect(verdict).toHaveText(before);
+    expect(errors).toEqual([]);
+  });
+
+  test("war plan: the investor mix funds farms in order and a scenario survives a reload", async ({ page }) => {
+    await page.goto("/warplan");
+    await waitForRealm(page);
+    const rows = page.getByTestId("warplan-mix-row");
+    expect(await rows.count()).toBeGreaterThanOrEqual(5);
+    await expect(rows.nth(0)).toHaveAttribute("data-name", "Kevin Concua");
+    await expect(rows.nth(1)).toHaveAttribute("data-name", "Townson Family");
+
+    // Move Townson to the top: the required plan's first funder changes.
+    const required = page.locator("[data-testid='warplan-column'][data-column='required_plan']");
+    await expect(required.getByTestId("warplan-column-capital")).toHaveText(/^\$[\d,]+$/);
+    await page.getByRole("button", { name: "Move Townson Family up" }).click();
+    await expect(rows.nth(0)).toHaveAttribute("data-name", "Townson Family");
+    await expect(required.locator("dl dt").nth(3)).toHaveText("Townson Family");
+
+    // Save the scenario, reload, load it back.
+    await page.getByLabel("Scenario name").fill("Townson first");
+    await page.getByTestId("warplan-save").click();
+    await page.reload();
+    await waitForRealm(page);
+    await expect(page.getByTestId("warplan-mix-row").nth(0)).toHaveAttribute("data-name", "Kevin Concua");
+    await page.getByLabel("Saved scenarios").selectOption("Townson first");
+    await expect(page.getByTestId("warplan-mix-row").nth(0)).toHaveAttribute("data-name", "Townson Family");
+    await page.getByTestId("warplan-delete").click();
+    await expect(page.getByLabel("Saved scenarios").locator("option")).toHaveCount(1);
   });
 
   test("chronicle narrates every event in prose", async ({ page }) => {
