@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/theme/ThemeProvider";
 
 interface AnimatedCounterProps {
   value: number;
@@ -17,7 +18,9 @@ const easeOutExpo = (t: number) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
  * Tweens from the previous value to the new one with an exponential ease so
  * the last dollars tick in slowly, like coins settling. rAF-based, no canvas.
  */
-export function AnimatedCounter({ value, format = defaultFormat, durationMs = 2200, className, ...rest }: AnimatedCounterProps) {
+export function AnimatedCounter({ value, format = defaultFormat, durationMs: baseDurationMs = 2200, className, ...rest }: AnimatedCounterProps) {
+  const { theme } = useTheme();
+  const durationMs = Math.round(baseDurationMs * theme.motion.scale);
   const [display, setDisplay] = useState(0);
   const fromRef = useRef(0);
   const frame = useRef<number | null>(null);
@@ -46,7 +49,7 @@ export function AnimatedCounter({ value, format = defaultFormat, durationMs = 22
   }, [value, durationMs]);
 
   return (
-    <span className={cn("tabular", className)} data-value={Math.round(display)} {...rest}>
+    <span className={cn("tabular counter-glow", className)} data-value={Math.round(display)} data-target={Math.round(value)} {...rest}>
       {format(display)}
     </span>
   );

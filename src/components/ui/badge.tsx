@@ -2,7 +2,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const badgeVariants = cva("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium tracking-wide transition-colors", {
+const badgeVariants = cva("inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-medium tracking-wide transition-colors", {
   variants: {
     variant: {
       default: "border-transparent bg-primary text-primary-foreground",
@@ -12,7 +12,7 @@ const badgeVariants = cva("inline-flex items-center rounded-full border px-2.5 p
       reserved: "border-stage-reserved/40 bg-stage-reserved/15 text-stage-reserved",
       closed: "border-stage-closed/40 bg-stage-closed/15 text-stage-closed",
       note_sold: "border-stage-note_sold/40 bg-stage-note_sold/15 text-stage-note_sold",
-      error: "border-destructive/40 bg-destructive/15 text-red-300",
+      error: "border-destructive/40 bg-destructive/15 text-ember",
       warning: "border-stage-reserved/40 bg-stage-reserved/15 text-stage-reserved",
       info: "border-border bg-muted text-muted-foreground",
     },

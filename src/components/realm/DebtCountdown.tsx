@@ -15,21 +15,21 @@ export function DebtCountdown({ debt, className }: { debt: Debt; className?: str
   const behind = debt.actualNetProfitPerDay !== null && debt.requiredNetProfitPerDay !== null && debt.actualNetProfitPerDay < debt.requiredNetProfitPerDay;
   return (
     <section
-      className={cn("relative overflow-hidden rounded-2xl border border-red-900/50 bg-gradient-to-br from-red-950/40 via-card to-card p-5 sm:p-6", className)}
+      className={cn("relative overflow-hidden rounded-2xl border border-ember/18 bg-gradient-to-br from-ember/14 via-card to-card p-5 sm:p-6", className)}
       aria-label="The Debt"
       data-testid="debt"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-red-200">
+        <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-ember">
           <Skull className="mr-2 inline h-4 w-4" />
           The Debt
         </h2>
         <span className="text-xs text-muted-foreground">as of {date(debt.asOf)} · deadline {date(debt.deadline)}</span>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-[1.35fr_0.75fr_1.15fr]">
         <Cell label="Capital still owed to sponsors" hint={`${debt.openPositions} open position${debt.openPositions === 1 ? "" : "s"} · ${money(debt.interestPerDay)} of interest accrues per day`}>
-          <AnimatedCounter value={debt.capitalOwed} className="text-red-200" data-testid="debt-capital-owed" />
+          <AnimatedCounter value={debt.capitalOwed} className="text-ember" data-testid="debt-capital-owed" />
         </Cell>
         <Cell label="Days left" hint={debt.daysLeft > 0 ? `to ${date(debt.deadline)}` : "the deadline has passed"}>
           <span className="inline-flex items-baseline gap-2">
@@ -53,8 +53,8 @@ export function DebtCountdown({ debt, className }: { debt: Debt; className?: str
             </span>
           ) : (
             <span className="inline-flex items-baseline gap-2">
-              <Swords className={cn("h-5 w-5 self-center", behind ? "text-red-300" : "text-stage-closed")} />
-              <AnimatedCounter value={debt.requiredNetProfitPerDay} className={behind ? "text-red-200" : "text-stage-closed"} data-testid="debt-per-day" />
+              <Swords className={cn("h-5 w-5 self-center", behind ? "text-ember" : "text-stage-closed")} />
+              <AnimatedCounter value={debt.requiredNetProfitPerDay} className={behind ? "text-ember" : "text-stage-closed"} data-testid="debt-per-day" />
             </span>
           )}
         </Cell>
@@ -68,7 +68,7 @@ export function DebtCountdown({ debt, className }: { debt: Debt; className?: str
           </div>
           <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
             <motion.div
-              className={cn("h-full rounded-full", behind ? "bg-red-400/80" : "bg-stage-closed")}
+              className={cn("h-full rounded-full", behind ? "bg-ember/80" : "bg-stage-closed")}
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(100, (debt.actualNetProfitPerDay / debt.requiredNetProfitPerDay) * 100)}%` }}
               transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
@@ -82,9 +82,9 @@ export function DebtCountdown({ debt, className }: { debt: Debt; className?: str
 
 function Cell({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
-    <div className="rounded-lg bg-background/40 p-4">
+    <div className="min-w-0 rounded-lg bg-background/40 p-4">
       <div className="stat-label">{label}</div>
-      <div className="mt-1 font-display text-2xl leading-none sm:text-3xl">{children}</div>
+      <div className="mt-1 font-display text-2xl leading-none xl:text-3xl">{children}</div>
       {hint && <div className="mt-2 text-[11px] text-muted-foreground">{hint}</div>}
     </div>
   );

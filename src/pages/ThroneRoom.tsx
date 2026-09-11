@@ -12,6 +12,7 @@ import { QuestTree, type QuestNode } from "@/components/realm/QuestTree";
 import { CinematicIntro } from "@/components/realm/CinematicIntro";
 import { DebtCountdown } from "@/components/realm/DebtCountdown";
 import { OxygenScore } from "@/components/realm/OxygenScore";
+import { AmbientParticles } from "@/components/realm/AmbientParticles";
 import { PipelinePanel } from "@/components/realm/PipelinePanel";
 import { Stat } from "@/components/realm/Stat";
 import { EmptyState, ErrorState, LoadingState, TableErrorsBanner } from "@/components/realm/PageStates";
@@ -22,10 +23,10 @@ const EVENT_STYLE: Record<RealmEvent["kind"], { label: string; className: string
   reservation: { label: "Reserved", className: "text-stage-reserved" },
   closing: { label: "Closed", className: "text-stage-closed" },
   note_sale: { label: "Note sold", className: "text-stage-note_sold" },
-  distribution: { label: "Paid out", className: "text-fuchsia-300" },
-  farm_acquired: { label: "Farm", className: "text-sky-300" },
+  distribution: { label: "Paid out", className: "text-sponsor" },
+  farm_acquired: { label: "Farm", className: "text-oxygen" },
   milestone: { label: "Milestone", className: "text-gold" },
-  liberation: { label: "Freed", className: "text-emerald-300" },
+  liberation: { label: "Freed", className: "text-liberty" },
 };
 
 export function ThroneRoom() {
@@ -64,6 +65,7 @@ export function ThroneRoom() {
       <TableErrorsBanner errors={tableErrors} />
 
       <section className="relative overflow-hidden rounded-2xl border border-gold/20 bg-gradient-to-b from-card/90 to-background/40 px-5 py-10 text-center shadow-[0_0_120px_-40px_hsl(var(--gold)/0.6)] sm:px-10 sm:py-14">
+        <AmbientParticles />
         <GrowthBurst trigger={g.netProfitToDate} className="pointer-events-none absolute inset-0 left-1/2 top-1/2" />
         <h1 className="stat-label">Throne Room · Net profit chronicled · as of {date(g.asOf)}</h1>
         <motion.div
@@ -118,11 +120,11 @@ export function ThroneRoom() {
         <Stat label="Cash realized" value={money(g.cashRealized)} hint="Down payments + note sales, money in the door" valueClassName="text-stage-closed" />
         <Stat label="Profit on paper" value={money(g.profitOnPaper)} hint="Net profit recognized but not yet cash" />
         <Stat label="Pipeline profit" value={money(g.netProfitInPipeline)} hint={`${g.reservedLots} reserved lots, if they close as priced · ${money(realm.pipeline.netProfitTrapped)} of it stuck`} valueClassName="text-stage-reserved" />
-        <Stat label="Capital outstanding" value={money(g.capitalOutstanding)} hint="Still owed to sponsors" valueClassName="text-fuchsia-200" />
+        <Stat label="Capital outstanding" value={money(g.capitalOutstanding)} hint="Still owed to sponsors" valueClassName="text-sponsor" />
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <div className="parchment-card p-5">
+        <div className="parchment-card min-w-0 p-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">Live chronicle</h2>
             <Link to="/chronicle" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
@@ -156,7 +158,7 @@ export function ThroneRoom() {
           )}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-3 lg:grid-cols-1">
           <Link to="/quests" className="parchment-card group flex items-center gap-4 p-4 transition-colors hover:border-gold/40">
             <Scroll className="h-6 w-6 text-gold" />
             <div className="min-w-0">
