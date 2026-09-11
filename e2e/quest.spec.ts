@@ -331,6 +331,19 @@ test.describe("Access — Payments staff only", () => {
     await waitForRealm(page);
     await expect(page.getByTestId("net-profit-counter")).toBeVisible();
   });
+
+  test("a signed-in reload of a deep link waits for the check and never passes through /login", async ({ page }) => {
+    const visited: string[] = [];
+    page.on("framenavigated", (frame) => {
+      if (frame === page.mainFrame()) visited.push(new URL(frame.url()).pathname);
+    });
+    await page.goto("/trophies");
+    await waitForRealm(page);
+    await expect(page).toHaveURL(/\/trophies$/);
+    await expect(page.getByTestId("trophy-card").first()).toBeVisible();
+    expect(visited).not.toContain("/login");
+    await expect(page.getByRole("form", { name: "Sign in" })).toHaveCount(0);
+  });
 });
 
 test.describe("Page specifics", () => {

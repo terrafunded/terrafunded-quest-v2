@@ -22,7 +22,7 @@ export function Login() {
   const from = (location.state as { from?: string } | null)?.from ?? "/";
   if (ready && session && access === "granted") return <Navigate to={from} replace />;
   // The password was accepted; the profiles row is still being read.
-  const checking = !!session && access === "checking";
+  const checking = access === "checking";
   const alert = error ?? refusal;
 
   const onSubmit = async (e: FormEvent) => {

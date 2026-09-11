@@ -9,7 +9,7 @@ import { LoadingState } from "@/components/realm/PageStates";
 export function RequireAuth() {
   const { session, ready, access } = useAuth();
   const location = useLocation();
-  if (!ready || (session && access === "checking")) {
+  if (!ready || access === "checking") {
     return (
       <div className="p-6">
         <LoadingState rows={3} />

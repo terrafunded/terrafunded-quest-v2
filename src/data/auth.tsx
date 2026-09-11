@@ -30,10 +30,15 @@ const AuthContext = createContext<AuthState | null>(null);
 /** Build-time; only `VITE_` and `QUEST_ALLOWED_` variables reach the bundle (vite.config.ts `envPrefix`). */
 const ALLOWED_TEST_EMAIL = import.meta.env.QUEST_ALLOWED_TEST_EMAIL ?? "";
 
+interface Verdict {
+  userId: string;
+  access: "granted" | "refused";
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(!supabaseConfigured);
-  const [access, setAccess] = useState<Access>("none");
+  const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,14 +63,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Keyed on the user, not the session object, so hourly token refreshes do not re-read profiles.
   const userId = session?.user.id ?? null;
   const email = session?.user.email ?? null;
+  // Derived, not set in an effect: the render in which a session first appears must already be
+  // "checking", or RequireAuth would bounce through /login before the profiles read has started.
+  const access: Access = !userId ? "none" : verdict?.userId === userId ? verdict.access : "checking";
 
   useEffect(() => {
     if (!userId) {
-      setAccess("none");
+      setVerdict(null);
       return;
     }
     let cancelled = false;
-    setAccess("checking");
     (async () => {
       let decision: ReturnType<typeof decideAccess>;
       try {
@@ -79,11 +86,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       if (decision.allowed) {
         setRefusal(null);
-        setAccess("granted");
+        setVerdict({ userId, access: "granted" });
         return;
       }
       setRefusal(decision.message);
-      setAccess("refused");
+      setVerdict({ userId, access: "refused" });
       // This browser only: a refused sign-in must not revoke the same account's other sessions.
       await getSupabase().auth.signOut({ scope: "local" });
     })();
