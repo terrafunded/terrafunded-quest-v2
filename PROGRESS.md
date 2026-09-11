@@ -90,7 +90,7 @@ The only JSON under `src/` is `src/domain/__fixtures__/payments.json`, the live 
 - [x] Data layer: `src/data/queries/` with explicit column lists, `notes.is_test = false`, `clients.is_test = false`, never `ssn_itin_encrypted`, per-table error collection surfaced as a banner.
 - [x] Domain layer (`src/domain/`, pure TS): lot, interest, farm, goal, quality (15 issue kinds), events, investors, treasury, oracle, trophies (25), realm — plus the Phase 2 modules debt, oxygen, liberation, campaigns, streaks, futures, narrative, story, visits, and the pipeline layer (`pipeline.ts`).
 - [x] 162 unit tests, 30 + 24 of them fixture-based.
-- [x] Auth (`/login`), app shell with sidebar + mobile bottom nav, `RequireAuth`.
+- [x] Auth (`/login`), app shell with top bar + hamburger drawer (all breakpoints), `RequireAuth`.
 - [x] All 11 routes: Throne Room, Realm map (SVG, hover tooltip, farm drawer), Quests ledger (filters, sort, totals), Sponsors, Treasury (chart + table), Oracle (sliders seeded from trailing averages), Chronicle (milestone celebrations), Trophies, Quality, Pipeline.
 - [x] v1 components rebuilt from their descriptions: `AnimatedCounter`, `ProgressRing`, `MilestoneCelebration`, `GrowthBurst`, `QuestTree`, `CinematicIntro`, `Trophies`.
 - [x] Playwright suite, desktop and 390px.

@@ -1,125 +1,92 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { LogOut } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/data/auth";
+import { useEffect, useRef, useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import { Menu, Wind } from "lucide-react";
+import { useRealm } from "@/data/useRealm";
 import { Button } from "@/components/ui/button";
 import { SinceLastVisit } from "@/components/realm/SinceLastVisit";
 import { PageTransition } from "@/components/layout/PageTransition";
-import { ThemeMenu } from "@/theme/ThemeMenu";
-import { useTheme } from "@/theme/ThemeProvider";
-import { themeIcon, type IconName } from "@/theme/icons";
+import { NavDrawer } from "@/components/layout/NavDrawer";
 
-const NAV: readonly { to: string; label: string; short: string; icon: IconName }[] = [
-  { to: "/", label: "Throne Room", short: "Throne", icon: "throne" },
-  { to: "/realm", label: "The Realm", short: "Realm", icon: "realm" },
-  { to: "/quests", label: "Quests", short: "Quests", icon: "quests" },
-  { to: "/pipeline", label: "Pipeline", short: "Pipeline", icon: "pipeline" },
-  { to: "/sponsors", label: "Sponsors", short: "Sponsors", icon: "sponsors" },
-  { to: "/treasury", label: "Treasury", short: "Treasury", icon: "treasury" },
-  { to: "/oracle", label: "Oracle", short: "Oracle", icon: "oracle" },
-  { to: "/chronicle", label: "Chronicle", short: "Chronicle", icon: "chronicle" },
-  { to: "/trophies", label: "Trophies", short: "Trophies", icon: "trophies" },
-  { to: "/quality", label: "Data Quality", short: "Quality", icon: "quality" },
-];
+const TOPBAR_HEIGHT_PX = 56;
 
+/**
+ * App chrome: a fixed top bar on every breakpoint (hamburger · Exodus · Oxygen) and a single
+ * left drawer for navigation. No permanent sidebar, no bottom nav — phone and desktop share
+ * the same layout. The drawer always mounts closed; open state is not persisted.
+ */
 export function AppShell() {
-  const { session, signOut } = useAuth();
   const location = useLocation();
-  const { themeId } = useTheme();
-  const Brand = themeIcon(themeId, "brand");
+  const { data } = useRealm();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Close the drawer on every route change (including the click that navigates).
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  const oxygenDays = data?.realm.oxygen.totalDaysGained;
+  const oxygenLabel =
+    oxygenDays === undefined ? "…" : `${oxygenDays > 0 ? "+" : ""}${Math.round(oxygenDays).toLocaleString("en-US")}d`;
 
   return (
-    <div className="flex min-h-dvh">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-border/70 bg-card/40 backdrop-blur md:flex">
-        <div className="flex items-center gap-2 px-5 py-5">
-          <Brand className="h-5 w-5 text-gold" />
-          <div>
-            <div className="font-display text-sm uppercase tracking-[var(--brand-tracking)] text-gold">Exodus</div>
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Quest v2</div>
-          </div>
-        </div>
-        <nav className="flex-1 space-y-0.5 px-3" aria-label="Primary">
-          {NAV.map((item) => {
-            const Icon = themeIcon(themeId, item.icon);
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
-                className={({ isActive }) =>
-                  cn(
-                    "nav-item flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground",
-                    isActive && "bg-secondary text-gold",
-                  )
-                }
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </NavLink>
-            );
-          })}
-        </nav>
-        <div className="border-t border-border/70 p-3 text-xs text-muted-foreground">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="stat-label">Skin</span>
-            <ThemeMenu variant="compact" />
-          </div>
-          <div className="truncate" title={session?.user.email ?? ""}>
-            {session?.user.email}
-          </div>
-          <Button variant="ghost" size="sm" className="mt-1 w-full justify-start px-2" onClick={() => void signOut()}>
-            <LogOut /> Sign out
-          </Button>
-        </div>
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border/70 bg-card/40 px-4 py-3 backdrop-blur md:hidden">
-          <div className="flex items-center gap-2">
-            <Brand className="h-4 w-4 text-gold" />
-            <span className="font-display text-xs uppercase tracking-[var(--brand-tracking)] text-gold">Exodus</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeMenu variant="compact" />
-            <Button variant="ghost" size="sm" onClick={() => void signOut()} aria-label="Sign out">
-              <LogOut />
-            </Button>
-          </div>
-        </header>
-
-        <main className="flex-1 px-4 pb-24 pt-5 sm:px-6 md:pb-10 lg:px-10" id="main">
-          <div className="mx-auto w-full max-w-7xl">
-            <PageTransition routeKey={location.pathname}>
-              <Outlet />
-            </PageTransition>
-          </div>
-        </main>
-
-        <nav
-          className="fixed inset-x-0 bottom-0 z-40 flex justify-between overflow-x-auto border-t border-border/70 bg-card/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
-          aria-label="Primary"
+    <div className="min-h-dvh">
+      <header
+        className="fixed inset-x-0 top-0 z-40 border-b border-border/70 bg-card/90 backdrop-blur"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        data-testid="topbar"
+      >
+        <div
+          className="relative mx-auto grid max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-2 px-3 sm:px-4"
+          style={{ height: TOPBAR_HEIGHT_PX }}
         >
-          {NAV.map((item) => {
-            const Icon = themeIcon(themeId, item.icon);
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
-                className={({ isActive }) =>
-                  cn(
-                    "nav-item flex min-h-[52px] min-w-[64px] flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] text-muted-foreground",
-                    isActive && "text-gold",
-                  )
-                }
-              >
-                <Icon className="h-4 w-4" />
-                {item.short}
-              </NavLink>
-            );
-          })}
-        </nav>
-      </div>
+          <Button
+            ref={menuButtonRef}
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Open menu"
+            aria-expanded={menuOpen}
+            aria-controls="nav-drawer"
+            data-testid="nav-menu-button"
+            onClick={() => setMenuOpen(true)}
+          >
+            <Menu />
+          </Button>
+
+          <div className="pointer-events-none absolute inset-x-0 flex items-center justify-center">
+            <span className="font-display text-sm uppercase tracking-[var(--brand-tracking)] text-gold" data-testid="topbar-realm-name">
+              Exodus
+            </span>
+          </div>
+
+          <div
+            className="justify-self-end tabular-nums text-oxygen"
+            data-testid="topbar-oxygen"
+            title="Oxygen — days gained toward the exit"
+            aria-label={oxygenDays === undefined ? "Oxygen loading" : `Oxygen ${oxygenLabel}`}
+          >
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-oxygen/10 px-2 py-1 text-xs font-medium sm:text-sm">
+              <Wind className="h-3.5 w-3.5" aria-hidden />
+              <span className="font-heading">{oxygenLabel}</span>
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <main
+        id="main"
+        className="px-4 pb-10 sm:px-6 lg:px-10"
+        style={{ paddingTop: `calc(${TOPBAR_HEIGHT_PX}px + env(safe-area-inset-top) + 1.25rem)` }}
+      >
+        <div className="mx-auto w-full max-w-7xl">
+          <PageTransition routeKey={location.pathname}>
+            <Outlet />
+          </PageTransition>
+        </div>
+      </main>
+
+      <NavDrawer open={menuOpen} onOpenChange={setMenuOpen} triggerRef={menuButtonRef} />
       <SinceLastVisit />
     </div>
   );

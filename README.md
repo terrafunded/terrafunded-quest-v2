@@ -85,7 +85,7 @@ src/
                           DebtCountdown, OxygenScore, Liberation, StreaksPanel,
                           Celebration, SinceLastVisit, PipelinePanel
                           AmbientParticles (Throne Room canvas, per-theme recipe)
-    layout/               AppShell (sidebar + mobile bottom nav), RequireAuth,
+    layout/               AppShell (top bar + hamburger drawer on every breakpoint), RequireAuth,
                           PageTransition (Framer Motion, preset per theme)
   theme/
     themes.ts             ThemeId, THEMES registry (motion language, particle recipe, swatches)
@@ -93,7 +93,7 @@ src/
                           card constructions, icon stroke dialect, touch and reduced-motion rules
     fonts.css             self-hosted @fontsource latin subsets (only the active theme's download)
     ThemeProvider.tsx     context + localStorage + MotionConfig; useTheme()
-    ThemeMenu.tsx         the /login picker (full) and the sidebar/header swatches (compact)
+    ThemeMenu.tsx         the /login picker (full) and the drawer skin picker (same component)
     icons.ts              per-theme Lucide mapping for nav and brand icons
   pages/                  one file per route
   routes.tsx  main.tsx  index.css
@@ -258,7 +258,7 @@ errors; and the particle layer is absent under `prefers-reduced-motion`.
 
 ## 9. Themes
 
-Pick a skin from the menu on `/login` (or the three swatches in the sidebar / mobile header). The
+Pick a skin from the menu on `/login` (or the theme picker at the bottom of the nav drawer). The
 choice is stored in `localStorage` as `quest.theme` and applied to `<html data-theme="…">` by an
 inline script in `index.html` before the first paint, so there is no flash of the default skin.
 

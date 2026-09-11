@@ -19,6 +19,19 @@ async function waitForRealm(page: Page) {
   await expect(page.getByRole("status", { name: "Loading realm data" })).toHaveCount(0, { timeout: 30_000 });
 }
 
+/** Opens the hamburger drawer (same chrome on every viewport). */
+async function openNavDrawer(page: Page) {
+  await page.getByTestId("nav-menu-button").click();
+  await expect(page.getByTestId("nav-drawer")).toBeVisible();
+}
+
+/** Navigates via the drawer: open → click the labelled route → drawer closes. */
+async function goViaDrawer(page: Page, name: string | RegExp) {
+  await openNavDrawer(page);
+  await page.getByTestId("nav-drawer").getByRole("link", { name }).click();
+  await expect(page.getByTestId("nav-drawer")).toHaveCount(0);
+}
+
 test.describe("Throne Room", () => {
   test("renders the net-profit counter as a dollar amount greater than zero", async ({ page }) => {
     const errors = collectConsoleErrors(page);
@@ -200,7 +213,7 @@ test.describe("Themes", () => {
       await expect(page.getByTestId("ambient-particles")).toBeAttached();
       await expect(page.getByTestId("net-profit-counter")).toHaveClass(/counter-glow/);
       await expect(page.getByTestId("page-transition")).toBeVisible();
-      await page.getByRole("link", { name: "Quests" }).first().click();
+      await goViaDrawer(page, "Quests");
       await expect(page).toHaveURL(/\/quests$/);
       await waitForRealm(page);
       await expect(page.getByTestId("ledger-row").first()).toBeVisible();
@@ -302,5 +315,53 @@ test.describe("Phase 2: Epic", () => {
     expect(await prose.count()).toBeGreaterThan(10);
     await expect(prose.filter({ hasText: /claimed Lot \d+ of/ }).first()).toBeVisible();
     await expect(prose.filter({ hasText: /The realm gained \d+ days?\./ }).first()).toBeVisible();
+  });
+});
+
+test.describe("Navigation drawer", () => {
+  test("opens from the top bar, lists every route, and closes on route change", async ({ page }) => {
+    await page.goto("/");
+    await waitForRealm(page);
+    await expect(page.getByTestId("topbar")).toBeVisible();
+    await expect(page.getByTestId("topbar-realm-name")).toHaveText(/Exodus/i);
+    await expect(page.getByTestId("nav-drawer")).toHaveCount(0);
+
+    await openNavDrawer(page);
+    const drawer = page.getByTestId("nav-drawer");
+    for (const label of ["Throne Room", "The Realm", "Quests", "Pipeline", "Sponsors", "Treasury", "Oracle", "Chronicle", "Trophies", "Data Quality"]) {
+      await expect(drawer.getByRole("link", { name: label })).toBeVisible();
+    }
+    await expect(drawer.getByTestId("theme-menu")).toBeVisible();
+    await expect(drawer.getByTestId("nav-user-email")).not.toBeEmpty();
+
+    await drawer.getByRole("link", { name: "Pipeline" }).click();
+    await expect(page).toHaveURL(/\/pipeline$/);
+    await expect(page.getByTestId("nav-drawer")).toHaveCount(0);
+  });
+
+  test("traps focus inside the drawer and returns it to the hamburger on close", async ({ page }) => {
+    await page.goto("/");
+    await waitForRealm(page);
+    const hamburger = page.getByTestId("nav-menu-button");
+    await hamburger.click();
+    const drawer = page.getByTestId("nav-drawer");
+    await expect(drawer).toBeVisible();
+
+    // Focus should land inside the drawer (close button or first focusable).
+    await expect.poll(async () => drawer.locator(":focus").count()).toBeGreaterThan(0);
+
+    // Tab through many times — focus must never leave the drawer.
+    for (let i = 0; i < 30; i++) {
+      await page.keyboard.press("Tab");
+      const inside = await page.evaluate(() => {
+        const root = document.querySelector('[data-testid="nav-drawer"]');
+        return !!root && root.contains(document.activeElement);
+      });
+      expect(inside).toBe(true);
+    }
+
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+    await expect(hamburger).toBeFocused();
   });
 });

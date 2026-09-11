@@ -292,9 +292,9 @@ case has none, as everywhere else in Quest (#6).
 ## 36. Default theme and where the switcher lives
 
 The brief asks for the menu on `/login`; Iron Crown is the default for a first visit (it ranked
-first in `PROGRESS.md`). I also put the three swatches in the sidebar footer and the mobile header
+first in `PROGRESS.md`). I also put the three swatches in the nav drawer (and the full picker on /login)
 so a signed-in user does not have to sign out to change skin — an addition beyond the spec, easy
-to remove (`ThemeMenu variant="compact"` in `AppShell`). The choice is per browser
+to remove (the drawer hosts the full `ThemeMenu`). The choice is per browser
 (`localStorage`), not per Payments user; syncing it to a profile would be a write, which Quest
 never does.
 
