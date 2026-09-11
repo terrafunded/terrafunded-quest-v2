@@ -97,6 +97,9 @@ Ben White, Sharps Rd, Olney, Red River 1 are legacy/one-off properties with no l
 
 Verified totals (2026-09-10): **71 file cases on subdivided farms · $8,986,794.30 sale_price ·
 32 completed · 39 active · 7 cash · 64 financed.** (The other rows are houses / other lines.)
+Since 2026-09-11 (snapshots 19:17 and 21:31 UTC): still 71 · **$8,984,992.30** (Titus Lot 6 re-priced
+from $141,802 to its note's $140,000) · **37 completed · 34 active** (Lamar 5, 6, 7 and Eastland 4, 8
+closed) · 7 cash · 64 financed — see PROGRESS.md "Snapshot 2026-09-11 refresh".
 
 ## notes  (promissory note created at closing of a financed sale)
 
