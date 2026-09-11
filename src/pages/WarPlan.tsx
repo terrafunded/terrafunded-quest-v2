@@ -467,6 +467,11 @@ function BenchmarkPanel({ b }: { b: RotationBenchmark }) {
 
         <div className="min-w-0">
           <div className="stat-label mb-2">Every farm against the benchmark</div>
+          {bench?.projected && (
+            <p className="mb-2 text-xs text-muted-foreground" data-testid="warplan-benchmark-projected">
+              No sponsor-funded farm has returned 100 % of its capital yet, so the benchmark is the median of every captive farm's projected liberation at the current pace (campaigns.ts) and no farm can be graded against a real curve. The first liberation turns this into a measured cycle.
+            </p>
+          )}
           {graded.length === 0 ? (
             <p className="text-sm text-muted-foreground">No other sponsor-funded farm to grade.</p>
           ) : (
