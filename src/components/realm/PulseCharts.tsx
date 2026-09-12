@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from "recharts";
 import type { MonthlyPoint } from "@/domain";
 import { DAYS_PER_MONTH } from "@/config/goal";
+import { useInViewOnce } from "@/hooks/useInViewOnce";
 import { useTheme } from "@/theme/ThemeProvider";
 import { money, moneyCompact } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,15 @@ const CURSOR = { fill: "hsl(var(--foreground))", opacity: 0.06 };
  */
 const X_TICK = { fill: MUTED, fontSize: 10 };
 const X_AXIS_HEIGHT = 34;
+
+/**
+ * Reveal timing. Bars grow once, when the chart first scrolls into view. The second series of the
+ * pace chart starts a beat after the first so the two do not rise in unison; duration is capped so
+ * begin + duration stays under ~800ms on every skin (Iron Crown's 1.5× motion scale would push it
+ * past that).
+ */
+const MAX_BAR_DURATION_MS = 600;
+const SECOND_SERIES_BEGIN_MS = 150;
 
 const SM = "(min-width: 640px)";
 
@@ -119,7 +129,7 @@ export function PulseCharts({
   const t = useRealmStrings().pulseCharts;
   const wide = useWideViewport();
   const points = useMemo(() => (wide ? history : history.slice(-12)), [history, wide]);
-  const duration = Math.round(d(0.5) * 1000);
+  const duration = Math.min(Math.round(d(0.5) * 1000), MAX_BAR_DURATION_MS);
   const requiredProfit = requiredProfitPerDay === null ? null : requiredProfitPerDay * DAYS_PER_MONTH;
   const hasBeforeEra = points.some((p) => p.beforeEra);
 
@@ -134,28 +144,30 @@ export function PulseCharts({
           testId="pulse-chart-pace"
           requiredClosings={requiredClosings}
           requiredReservations={requiredReservations}
+          reducedMotion={reducedMotion}
         >
-          <ResponsiveContainer>
-            <BarChart data={points} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke={BORDER} vertical={false} />
-              <XAxis dataKey="label" interval={0} angle={-45} textAnchor="end" height={X_AXIS_HEIGHT} tick={X_TICK} tickLine={false} axisLine={false} />
-              <YAxis
-                allowDecimals={false}
-                domain={[0, (max: number) => Math.max(max, requiredClosings ?? 0, requiredReservations ?? 0, 1)]}
-                tick={{ fill: MUTED, fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                width={32}
-              />
-              <ChartTooltip content={<PaceTooltip t={t} />} cursor={CURSOR} />
-              {requiredReservations !== null && (
-                <ReferenceLine
-                  y={requiredReservations}
-                  stroke={EMBER}
-                  strokeDasharray="4 4"
-                  ifOverflow="extendDomain"
-                  label={{ value: t.required, fill: EMBER, fontSize: 11, position: "insideTopLeft" }}
+          {(reveal) => (
+            <ResponsiveContainer>
+              <BarChart data={points} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid stroke={BORDER} vertical={false} />
+                <XAxis dataKey="label" interval={0} angle={-45} textAnchor="end" height={X_AXIS_HEIGHT} tick={X_TICK} tickLine={false} axisLine={false} />
+                <YAxis
+                  allowDecimals={false}
+                  domain={[0, (max: number) => Math.max(max, requiredClosings ?? 0, requiredReservations ?? 0, 1)]}
+                  tick={{ fill: MUTED, fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={32}
                 />
+                <ChartTooltip content={<PaceTooltip t={t} />} cursor={CURSOR} />
+                {requiredReservations !== null && (
+                  <ReferenceLine
+                    y={requiredReservations}
+                    stroke={EMBER}
+                    strokeDasharray="4 4"
+                    ifOverflow="extendDomain"
+                    label={{ value: t.required, fill: EMBER, fontSize: 11, position: "insideTopLeft" }}
+                  />
               )}
               {requiredClosings !== null && (
                 <ReferenceLine
@@ -166,18 +178,36 @@ export function PulseCharts({
                   label={{ value: t.required, fill: GREEN, fontSize: 11, position: "insideTopRight" }}
                 />
               )}
-              <Bar dataKey="reservations" name={t.reservations} fill={EMBER} radius={[3, 3, 0, 0]} isAnimationActive={!reducedMotion} animationDuration={duration}>
+              <Bar
+                dataKey="reservations"
+                name={t.reservations}
+                fill={EMBER}
+                radius={[3, 3, 0, 0]}
+                isAnimationActive={reveal.animate}
+                animationBegin={0}
+                animationDuration={duration}
+              >
                 {points.map((p) => (
                   <Cell key={`r-${p.month}`} fill={EMBER} fillOpacity={fillOpacity(p)} />
                 ))}
               </Bar>
-              <Bar dataKey="closings" name={t.closings} fill={GREEN} radius={[3, 3, 0, 0]} isAnimationActive={!reducedMotion} animationDuration={duration}>
+              <Bar
+                dataKey="closings"
+                name={t.closings}
+                fill={GREEN}
+                radius={[3, 3, 0, 0]}
+                isAnimationActive={reveal.animate}
+                animationBegin={SECOND_SERIES_BEGIN_MS}
+                animationDuration={duration}
+                onAnimationEnd={reveal.settle}
+              >
                 {points.map((p) => (
                   <Cell key={`c-${p.month}`} fill={GREEN} fillOpacity={fillOpacity(p)} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          )}
         </ChartCard>
 
         <ChartCard
@@ -185,36 +215,48 @@ export function PulseCharts({
           legend={t.profitLegend}
           testId="pulse-chart-profit"
           requiredProfit={requiredProfit}
+          reducedMotion={reducedMotion}
         >
-          <ResponsiveContainer>
-            <BarChart data={points} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke={BORDER} vertical={false} />
-              <XAxis dataKey="label" interval={0} angle={-45} textAnchor="end" height={X_AXIS_HEIGHT} tick={X_TICK} tickLine={false} axisLine={false} />
-              <YAxis
-                domain={[0, (max: number) => Math.max(max, requiredProfit ?? 0, 1)]}
-                tickFormatter={(v: number) => moneyCompact(v)}
-                tick={{ fill: MUTED, fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                width={40}
-              />
-              <ChartTooltip content={<ProfitTooltip t={t} />} cursor={CURSOR} />
-              {requiredProfit !== null && (
-                <ReferenceLine
-                  y={requiredProfit}
-                  stroke={GOLD}
-                  strokeDasharray="4 4"
-                  ifOverflow="extendDomain"
-                  label={{ value: t.required, fill: GOLD, fontSize: 11, position: "insideTopRight" }}
+          {(reveal) => (
+            <ResponsiveContainer>
+              <BarChart data={points} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid stroke={BORDER} vertical={false} />
+                <XAxis dataKey="label" interval={0} angle={-45} textAnchor="end" height={X_AXIS_HEIGHT} tick={X_TICK} tickLine={false} axisLine={false} />
+                <YAxis
+                  domain={[0, (max: number) => Math.max(max, requiredProfit ?? 0, 1)]}
+                  tickFormatter={(v: number) => moneyCompact(v)}
+                  tick={{ fill: MUTED, fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={40}
                 />
+                <ChartTooltip content={<ProfitTooltip t={t} />} cursor={CURSOR} />
+                {requiredProfit !== null && (
+                  <ReferenceLine
+                    y={requiredProfit}
+                    stroke={GOLD}
+                    strokeDasharray="4 4"
+                    ifOverflow="extendDomain"
+                    label={{ value: t.required, fill: GOLD, fontSize: 11, position: "insideTopRight" }}
+                  />
               )}
-              <Bar dataKey="netProfit" name={t.netProfit} fill={GOLD} radius={[3, 3, 0, 0]} isAnimationActive={!reducedMotion} animationDuration={duration}>
+              <Bar
+                dataKey="netProfit"
+                name={t.netProfit}
+                fill={GOLD}
+                radius={[3, 3, 0, 0]}
+                isAnimationActive={reveal.animate}
+                animationBegin={0}
+                animationDuration={duration}
+                onAnimationEnd={reveal.settle}
+              >
                 {points.map((p) => (
                   <Cell key={`p-${p.month}`} fill={GOLD} fillOpacity={fillOpacity(p)} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          )}
         </ChartCard>
       </div>
       {hasBeforeEra && eraLabel && (
@@ -226,6 +268,20 @@ export function PulseCharts({
   );
 }
 
+/** Handed to a chart so its bars grow on first reveal and then stay put. */
+interface ChartReveal {
+  /** `isAnimationActive` for every series: true only during the first reveal. */
+  animate: boolean;
+  /** Wire to `onAnimationEnd` of the last-starting series to end the reveal. */
+  settle: () => void;
+}
+
+/**
+ * The chart mounts only once its box first scrolls into view (the box keeps its fixed height in
+ * the meantime, so nothing shifts) and animates only on that mount. Once the reveal ends, series
+ * animation is switched off so a new exit horizon or language re-renders the bars in place; without
+ * this, recharts replays the grow on every `data` identity change.
+ */
 function ChartCard({
   title,
   legend,
@@ -233,6 +289,7 @@ function ChartCard({
   requiredClosings,
   requiredReservations,
   requiredProfit,
+  reducedMotion,
   children,
 }: {
   title: string;
@@ -241,19 +298,28 @@ function ChartCard({
   requiredClosings?: number | null;
   requiredReservations?: number | null;
   requiredProfit?: number | null;
-  children: ReactNode;
+  reducedMotion: boolean;
+  children: (reveal: ChartReveal) => ReactNode;
 }) {
+  const [ref, inView] = useInViewOnce<HTMLDivElement>();
+  const [settled, setSettled] = useState(false);
+  const settle = useCallback(() => setSettled(true), []);
+  const reveal: ChartReveal = { animate: !reducedMotion && !settled, settle };
   return (
     <div
       className="parchment-card min-w-0 overflow-hidden p-4"
       data-testid={testId}
+      data-revealed={inView}
+      data-animating={reveal.animate}
       data-required-closings={requiredClosings ?? ""}
       data-required-reservations={requiredReservations ?? ""}
       data-required-profit={requiredProfit ?? ""}
     >
       <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">{title}</h2>
       <p className={cn("mt-1 text-[11px] text-muted-foreground")}>{legend}</p>
-      <div className="mt-2 h-56 w-full sm:h-72">{children}</div>
+      <div ref={ref} className="mt-2 h-56 w-full sm:h-72">
+        {inView && children(reveal)}
+      </div>
     </div>
   );
 }

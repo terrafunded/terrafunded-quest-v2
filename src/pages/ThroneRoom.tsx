@@ -16,6 +16,7 @@ import { Pulse } from "@/components/realm/Pulse";
 import { PulseCharts } from "@/components/realm/PulseCharts";
 import { AmbientParticles } from "@/components/realm/AmbientParticles";
 import { PipelinePanel } from "@/components/realm/PipelinePanel";
+import { Reveal } from "@/components/realm/Reveal";
 import { Stat } from "@/components/realm/Stat";
 import { EmptyState, ErrorState, LoadingState, TableErrorsBanner } from "@/components/realm/PageStates";
 import { date, money, moneyCompact, monthLabel, number, pct } from "@/lib/format";
@@ -220,108 +221,114 @@ export function ThroneRoom() {
         eraLabel={realm.era?.label ?? null}
       />
 
-      <PipelinePanel pipeline={realm.pipeline} />
+      <Reveal>
+        <PipelinePanel pipeline={realm.pipeline} />
+      </Reveal>
 
-      <section className="parchment-card p-4 sm:p-5" aria-label="Rotation" data-testid="rotation-strip">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">
-            <RefreshCw className="mr-2 inline h-4 w-4" />
-            Rotation · land capital turning
-          </h2>
-          <Link to="/warplan" className="touch-link text-xs text-muted-foreground hover:text-foreground">
-            the war plan →
-          </Link>
-        </div>
-        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="rounded-md bg-background/40 p-3">
-            <dt className="stat-label">Capital outstanding</dt>
-            <dd className="mt-1 font-heading text-xl tabular text-sponsor" data-testid="rotation-outstanding">
-              {money(rot.capitalOutstanding)}
-            </dd>
-            <dd className="text-[11px] text-muted-foreground">land capital still out with sponsors</dd>
+      <Reveal>
+        <section className="parchment-card p-4 sm:p-5" aria-label="Rotation" data-testid="rotation-strip">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">
+              <RefreshCw className="mr-2 inline h-4 w-4" />
+              Rotation · land capital turning
+            </h2>
+            <Link to="/warplan" className="touch-link text-xs text-muted-foreground hover:text-foreground">
+              the war plan →
+            </Link>
           </div>
-          <div className="rounded-md bg-background/40 p-3">
-            <dt className="stat-label">Benchmark turn</dt>
-            <dd className="mt-1 font-heading text-xl tabular" data-testid="rotation-benchmark">
-              {rot.cycleDays === null ? "—" : `${number(rot.cycleDays)} days`}
-            </dd>
-            <dd className="text-[11px] text-muted-foreground" data-testid="rotation-benchmark-hint">
-              {rot.benchmark ? `${rot.benchmark.farmName} · ${rot.benchmark.months.toFixed(1)} months${rot.benchmark.projected ? ", projected" : ""}` : "no farm freed, none projectable"}
-              {rot.sinceLabel && (
-                <>
-                  {" "}
-                  · farms funded {rot.sinceLabel}
-                  {rot.excludedCycles.length > 0 && ` (${rot.excludedCycles.map((c) => c.farmName).join(", ")} freed earlier, on record only)`}
-                </>
-              )}
-            </dd>
-          </div>
-          <div className="rounded-md bg-background/40 p-3">
-            <dt className="stat-label">Turns completed</dt>
-            <dd className="mt-1 font-heading text-xl tabular text-liberty" data-testid="rotation-turns-completed">
-              {rot.turnsCompleted}
-            </dd>
-            <dd className="text-[11px] text-muted-foreground">{rot.turnsCompleted === 1 ? "farm freed" : "farms freed"} — capital fully back</dd>
-          </div>
-          <div className="rounded-md bg-background/40 p-3">
-            <dt className="stat-label">Turns still needed</dt>
-            <dd className="mt-1 font-heading text-xl tabular text-gold" data-testid="rotation-turns-needed">
-              {turnsNeeded}
-            </dd>
-            <dd className="text-[11px] text-muted-foreground">
-              {plan.turnsNeeded === null ? "no capital has to turn" : `${money(plan.peakOutstanding)} rotating across ${plan.farms} ${plan.farms === 1 ? "farm" : "farms"}`}
-              {plan.turnsIncomplete > 0 && <span className="text-ember"> · {plan.turnsIncomplete} not back by the deadline</span>}
-            </dd>
-          </div>
-          <div className="rounded-md bg-background/40 p-3">
-            <dt className="stat-label">Next liberation</dt>
-            <dd className="mt-1 truncate font-heading text-xl" data-testid="rotation-next">
-              {rot.nextLiberation?.farmName ?? "—"}
-            </dd>
-            <dd className="text-[11px] text-muted-foreground tabular">
-              {rot.nextLiberation
-                ? rot.nextLiberation.daysToGo === null
-                  ? `${(100 - rot.nextLiberation.pctReturned).toFixed(0)}% of capital still to return`
-                  : rot.nextLiberation.daysToGo === 0
-                    ? "lots covered, awaiting payout"
-                    : `${number(rot.nextLiberation.daysToGo)} days to go · ${date(rot.nextLiberation.projectedLiberationDate)}`
-                : "every sponsor-funded farm is free"}
-            </dd>
-          </div>
-        </dl>
-      </section>
+          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="rounded-md bg-background/40 p-3">
+              <dt className="stat-label">Capital outstanding</dt>
+              <dd className="mt-1 font-heading text-xl tabular text-sponsor" data-testid="rotation-outstanding">
+                {money(rot.capitalOutstanding)}
+              </dd>
+              <dd className="text-[11px] text-muted-foreground">land capital still out with sponsors</dd>
+            </div>
+            <div className="rounded-md bg-background/40 p-3">
+              <dt className="stat-label">Benchmark turn</dt>
+              <dd className="mt-1 font-heading text-xl tabular" data-testid="rotation-benchmark">
+                {rot.cycleDays === null ? "—" : `${number(rot.cycleDays)} days`}
+              </dd>
+              <dd className="text-[11px] text-muted-foreground" data-testid="rotation-benchmark-hint">
+                {rot.benchmark ? `${rot.benchmark.farmName} · ${rot.benchmark.months.toFixed(1)} months${rot.benchmark.projected ? ", projected" : ""}` : "no farm freed, none projectable"}
+                {rot.sinceLabel && (
+                  <>
+                    {" "}
+                    · farms funded {rot.sinceLabel}
+                    {rot.excludedCycles.length > 0 && ` (${rot.excludedCycles.map((c) => c.farmName).join(", ")} freed earlier, on record only)`}
+                  </>
+                )}
+              </dd>
+            </div>
+            <div className="rounded-md bg-background/40 p-3">
+              <dt className="stat-label">Turns completed</dt>
+              <dd className="mt-1 font-heading text-xl tabular text-liberty" data-testid="rotation-turns-completed">
+                {rot.turnsCompleted}
+              </dd>
+              <dd className="text-[11px] text-muted-foreground">{rot.turnsCompleted === 1 ? "farm freed" : "farms freed"} — capital fully back</dd>
+            </div>
+            <div className="rounded-md bg-background/40 p-3">
+              <dt className="stat-label">Turns still needed</dt>
+              <dd className="mt-1 font-heading text-xl tabular text-gold" data-testid="rotation-turns-needed">
+                {turnsNeeded}
+              </dd>
+              <dd className="text-[11px] text-muted-foreground">
+                {plan.turnsNeeded === null ? "no capital has to turn" : `${money(plan.peakOutstanding)} rotating across ${plan.farms} ${plan.farms === 1 ? "farm" : "farms"}`}
+                {plan.turnsIncomplete > 0 && <span className="text-ember"> · {plan.turnsIncomplete} not back by the deadline</span>}
+              </dd>
+            </div>
+            <div className="rounded-md bg-background/40 p-3">
+              <dt className="stat-label">Next liberation</dt>
+              <dd className="mt-1 truncate font-heading text-xl" data-testid="rotation-next">
+                {rot.nextLiberation?.farmName ?? "—"}
+              </dd>
+              <dd className="text-[11px] text-muted-foreground tabular">
+                {rot.nextLiberation
+                  ? rot.nextLiberation.daysToGo === null
+                    ? `${(100 - rot.nextLiberation.pctReturned).toFixed(0)}% of capital still to return`
+                    : rot.nextLiberation.daysToGo === 0
+                      ? "lots covered, awaiting payout"
+                      : `${number(rot.nextLiberation.daysToGo)} days to go · ${date(rot.nextLiberation.projectedLiberationDate)}`
+                  : "every sponsor-funded farm is free"}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      </Reveal>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Key figures">
-        <Stat label="Cash realized" value={money(g.cashRealized)} hint="Down payments + note sales, money in the door" valueClassName="text-stage-closed" />
-        <Stat label="Profit on paper" value={money(g.profitOnPaper)} hint="Net profit recognized but not yet cash" />
-        <Stat
-          label="Pipeline profit"
-          value={money(g.netProfitInPipeline)}
-          hint={`${g.reservedLots} reserved lots, if every one closes as priced · ${money(x.committedNetProfit)} committed at ${pct(x.conversionPct, 0)} · ${money(realm.pipeline.netProfitTrapped)} stuck`}
-          valueClassName="text-stage-reserved"
-        />
-        <Stat
-          label="Capital outstanding"
-          value={
-            <span data-testid="key-capital-outstanding" data-value={realm.debt.capitalOwed}>
-              {money(realm.debt.capitalOwed)}
-            </span>
-          }
-          hint={
-            <span data-testid="key-capital-outstanding-hint">
-              Still owed to sponsors
-              {realm.debt.ownCapitalOutstanding > 0 ? (
-                <span data-testid="key-own-capital">
-                  {" · + "}
-                  {money(realm.debt.ownCapitalOutstanding)} own capital tied up
-                </span>
-              ) : null}
-            </span>
-          }
-          valueClassName="text-sponsor"
-          data-testid="key-capital-outstanding-stat"
-        />
-      </section>
+      <Reveal>
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Key figures">
+          <Stat label="Cash realized" value={money(g.cashRealized)} hint="Down payments + note sales, money in the door" valueClassName="text-stage-closed" />
+          <Stat label="Profit on paper" value={money(g.profitOnPaper)} hint="Net profit recognized but not yet cash" />
+          <Stat
+            label="Pipeline profit"
+            value={money(g.netProfitInPipeline)}
+            hint={`${g.reservedLots} reserved lots, if every one closes as priced · ${money(x.committedNetProfit)} committed at ${pct(x.conversionPct, 0)} · ${money(realm.pipeline.netProfitTrapped)} stuck`}
+            valueClassName="text-stage-reserved"
+          />
+          <Stat
+            label="Capital outstanding"
+            value={
+              <span data-testid="key-capital-outstanding" data-value={realm.debt.capitalOwed}>
+                {money(realm.debt.capitalOwed)}
+              </span>
+            }
+            hint={
+              <span data-testid="key-capital-outstanding-hint">
+                Still owed to sponsors
+                {realm.debt.ownCapitalOutstanding > 0 ? (
+                  <span data-testid="key-own-capital">
+                    {" · + "}
+                    {money(realm.debt.ownCapitalOutstanding)} own capital tied up
+                  </span>
+                ) : null}
+              </span>
+            }
+            valueClassName="text-sponsor"
+            data-testid="key-capital-outstanding-stat"
+          />
+        </section>
+      </Reveal>
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
         <div className="parchment-card min-w-0 p-5">
