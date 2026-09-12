@@ -800,7 +800,7 @@ function aggregateFunding(
 
 const monthFmt = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
 
-/** "Mar 2027" from an ISO date. */
+/** Month label from an ISO date (e.g. "Mar 2027"). The year is the date's year, not the exit horizon. */
 export function warPlanMonthLabel(iso: string): string {
   const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
   return Number.isNaN(d.getTime()) ? iso : monthFmt.format(d);

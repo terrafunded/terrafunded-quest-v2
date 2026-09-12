@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Plus, RotateCcw, Save, Trash2, X } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
+import { useHorizon } from "@/horizon/HorizonProvider";
 import {
   solveWarPlan,
   warPlanMonthLabel,
@@ -81,6 +82,7 @@ const turnsLabel = (n: number | null) => (n === null ? "—" : `${Number.isInteg
 
 export default function WarPlanPage() {
   const { data, isLoading, error, refetch } = useRealm();
+  const { deadline: horizonDeadline } = useHorizon();
   const defaults = data?.realm.warPlanDefaults;
   const [inputs, setInputs] = useState<WarPlanInputs | null>(null);
   const [farmCostTouched, setFarmCostTouched] = useState(false);
@@ -88,10 +90,19 @@ export default function WarPlanPage() {
   const [scenarios, setScenarios] = useState<SavedScenario[]>(() => loadScenarios());
   const [scenarioName, setScenarioName] = useState("");
   const [selectedScenario, setSelectedScenario] = useState("");
+  const seededFor = useRef<string | null>(null);
 
+  // First visit seeds from the real defaults. A global horizon change re-seeds (stale inputs
+  // from the old year are a bug). Loading a saved scenario does not write the global horizon.
   useEffect(() => {
-    if (defaults && !inputs) setInputs(defaults.inputs);
-  }, [defaults, inputs]);
+    if (!defaults) return;
+    if (seededFor.current !== horizonDeadline) {
+      seededFor.current = horizonDeadline;
+      setInputs(defaults.inputs);
+      setFarmCostTouched(false);
+      setSelectedScenario("");
+    }
+  }, [defaults, horizonDeadline]);
 
   const plan = useMemo(() => (data && inputs ? solveWarPlan(inputs, data.realm) : null), [data, inputs]);
 
@@ -155,7 +166,7 @@ export default function WarPlanPage() {
             <label htmlFor="wp-deadline" className="mb-1 block text-sm">
               Deadline
             </label>
-            <Input id="wp-deadline" type="date" className="tabular" value={inputs.deadline} min={plan.asOf} onChange={(e) => e.target.value && update({ deadline: e.target.value })} />
+            <Input id="wp-deadline" type="date" className="tabular" value={inputs.deadline} min={plan.asOf} onChange={(e) => e.target.value && update({ deadline: e.target.value })} data-testid="warplan-deadline" />
             <FieldFooter hint={`${number(plan.monthsToDeadline)} months from today`} real={date(real.deadline)} />
           </div>
           <div className="min-w-0">

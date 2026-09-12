@@ -1021,4 +1021,54 @@ test.describe("Navigation drawer", () => {
     await expect(drawer).toHaveCount(0);
     await expect(hamburger).toBeFocused();
   });
+
+  test("picking 2029 updates every deadline-derived surface and survives reload and logout", async ({ page }) => {
+    const email = process.env.QUEST_TEST_EMAIL;
+    const password = process.env.QUEST_TEST_PASSWORD;
+    if (!email || !password) throw new Error("QUEST_TEST_EMAIL / QUEST_TEST_PASSWORD must be set");
+
+    await page.goto("/");
+    await waitForRealm(page);
+
+    await openNavDrawer(page);
+    const drawer = page.getByTestId("nav-drawer");
+    await expect(drawer.getByTestId("horizon-toggle")).toBeVisible();
+    await drawer.getByTestId("horizon-2029").click();
+    await expect(drawer.getByTestId("horizon-2029")).toHaveAttribute("aria-checked", "true");
+    // Selecting a year must not close the drawer.
+    await expect(drawer).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await expect(page.getByTestId("topbar-horizon")).toHaveText("2029");
+    await expect(page.getByTestId("days-to-deadline")).toContainText("Dec 31, 2029");
+
+    await page.goto("/warplan");
+    await waitForRealm(page);
+    await expect(page.getByTestId("warplan-deadline")).toHaveValue("2029-12-31");
+
+    await page.goto("/exodus");
+    await waitForRealm(page);
+    await expect(page.getByTestId("exodus-deadline")).toHaveValue("2029-12-31");
+
+    await page.reload();
+    await waitForRealm(page);
+    await expect(page.getByTestId("topbar-horizon")).toHaveText("2029");
+    await expect(page.getByTestId("exodus-deadline")).toHaveValue("2029-12-31");
+
+    await openNavDrawer(page);
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/login/);
+
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(password);
+    await page.getByRole("button", { name: "Enter" }).click();
+    await expect(page).not.toHaveURL(/\/login/);
+    await page.goto("/");
+    await waitForRealm(page);
+    await expect(page.getByTestId("topbar-horizon")).toHaveText("2029");
+    await expect(page.getByTestId("days-to-deadline")).toContainText("Dec 31, 2029");
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem("quest.v2.exitHorizon")))
+      .toBe("2029");
+  });
 });

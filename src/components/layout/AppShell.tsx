@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Menu, Wind } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
+import { useHorizon } from "@/horizon/HorizonProvider";
 import { Button } from "@/components/ui/button";
 import { SinceLastVisit } from "@/components/realm/SinceLastVisit";
 import { PageTransition } from "@/components/layout/PageTransition";
@@ -17,6 +18,7 @@ const TOPBAR_HEIGHT_PX = 56;
 export function AppShell() {
   const location = useLocation();
   const { data } = useRealm();
+  const { horizon } = useHorizon();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -55,8 +57,11 @@ export function AppShell() {
           </Button>
 
           <div className="pointer-events-none absolute inset-x-0 flex items-center justify-center">
-            <span className="font-display text-sm uppercase tracking-[var(--brand-tracking)] text-gold" data-testid="topbar-realm-name">
-              Exodus
+            <span
+              className="font-display text-[13px] uppercase tracking-[0.08em] text-gold sm:text-sm sm:tracking-[var(--brand-tracking)]"
+              data-testid="topbar-realm-name"
+            >
+              Exodus · <span data-testid="topbar-horizon">{horizon}</span>
             </span>
           </div>
 

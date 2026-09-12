@@ -3,8 +3,27 @@
  */
 export const GOAL_NET_PROFIT = 10_000_000;
 
-/** ISO date (UTC). The fund must be paid out and closed by this day. */
-export const GOAL_DEADLINE = "2027-12-31";
+/** The three exit years the founder can switch the whole app between. No free date at the app level. */
+export type ExitHorizon = 2027 | 2028 | 2029;
+
+export const EXIT_HORIZONS: readonly ExitHorizon[] = [2027, 2028, 2029];
+export const DEFAULT_EXIT_HORIZON: ExitHorizon = 2027;
+
+export function isExitHorizon(v: unknown): v is ExitHorizon {
+  return typeof v === "number" && Number.isInteger(v) && (EXIT_HORIZONS as readonly number[]).includes(v);
+}
+
+/** ISO date (UTC) the fund must be paid out and closed by under this horizon. */
+export function deadlineForHorizon(h: ExitHorizon): string {
+  return `${h}-12-31`;
+}
+
+/**
+ * Default deadline (end of `DEFAULT_EXIT_HORIZON`). Runtime code must pass `deadline` through the
+ * realm (`buildRealm` → `computeGoal`); only `computeGoal` may read this as a fallback when no
+ * deadline was supplied.
+ */
+export const GOAL_DEADLINE = deadlineForHorizon(DEFAULT_EXIT_HORIZON);
 
 /**
  * Capital invested by the limited partners of Portafolio Diversificado Alpha LP, to be returned

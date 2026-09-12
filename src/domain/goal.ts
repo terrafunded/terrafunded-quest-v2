@@ -73,6 +73,8 @@ export function trailingClosedLots(lots: Lot[], asOf: Date, windowDays: number, 
 
 export function computeGoal(lots: Lot[], farms: FarmEconomics[], asOf: Date, opts: GoalOptions = {}): GoalStatus {
   const goal = opts.goal ?? GOAL_NET_PROFIT;
+  // GOAL_DEADLINE is the only runtime read of the constant — the fallback when the caller
+  // (buildRealm / a test) did not pass a deadline. Pages must not import GOAL_DEADLINE.
   const deadlineIso = opts.deadline ?? GOAL_DEADLINE;
   const windowDays = opts.trailingWindowDays ?? TRAILING_WINDOW_DAYS;
   const window = trailingWindow(asOf, windowDays, opts.eraStart);

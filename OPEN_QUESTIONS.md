@@ -1105,3 +1105,28 @@ trapped **$1,102,974** (was $1,103,375), and **"You need 8.46 lots/month"** (was
 date on the page is Sep 12; days left 475 (was 476). Capital outstanding Stat and Debt stayed
 **$4,145,355.48**, own capital **$800,000**. The 8.46 is still `lotsStillNeeded ÷ monthsToDeadline`
 (ledger average); it is not a math change. Not forced back to 8.44.
+
+## 106. Exit horizon: `farmsStillNeeded` does not move
+
+The request listed "farms still needed" with the deadline-derived figures that must change when
+the horizon switches. `computeGoal.farmsStillNeeded` is `ceil(inventoryGap / avgLotsPerFarm)` and
+does not read the deadline — `lotsStillNeeded` is remaining net profit ÷ average net profit per
+closed lot. The existing math is unchanged. The unit test therefore asserts the three horizons
+share the same `farmsStillNeeded` and that the War Plan's last purchase date and required
+lots/month are what move. Do not "fix" the formula to make the farm count depend on the year.
+
+## 107. Exit horizon: the On Track trophy can flip
+
+`computeTrophies` has a trophy earned when `goal.onTrack === true` (projected date on or before
+the deadline). A longer horizon can flip that flag without any new closing. Trophy *count* stays
+the same (the list is fixed); historically earned trophies (closings, notes, streaks) do not
+move. The unit test asserts count and leaves the on-track flag as deadline-derived, which it
+already was.
+
+## 108. Exit horizon: saved War Plan / Exodus scenarios do not write the global year
+
+Loading a named scenario from localStorage restores the deadline that scenario was saved with.
+That is correct — those pages are scenario tools with their own date fields. The loader must not
+call `setHorizon`, or picking an old 2027 scenario would silently move the whole app. Changing
+the global horizon while the page is open *does* re-seed the inputs from the new defaults
+(stale inputs from the previous year are a bug).

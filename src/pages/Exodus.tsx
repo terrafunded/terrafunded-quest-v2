@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { RotateCcw, Save, Trash2 } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
+import { useHorizon } from "@/horizon/HorizonProvider";
 import {
   deriveExodusDefaults,
   exodusMonthLabel,
@@ -85,17 +86,28 @@ export default function ExodusPage() {
 
 function ExodusBody({ realm, tableErrors, defaults }: { realm: Realm; tableErrors: PaymentsQueryError[]; defaults: ExodusDefaults }) {
   const [lang] = useLang();
+  const { deadline: horizonDeadline } = useHorizon();
   const t = EXODUS_UI[lang];
   const [inputs, setInputs] = useState<ExodusInputs>(defaults.inputs);
   const [codesText, setCodesText] = useState(defaults.inputs.excludedNoteCodes.join(", "));
   const [scenarios, setScenarios] = useState<SavedScenario[]>(() => loadScenarios());
   const [scenarioName, setScenarioName] = useState("");
   const [selectedScenario, setSelectedScenario] = useState("");
+  const seededFor = useRef<string | null>(null);
 
-  // The War Plan's inputs are inherited live; the rest of the state survives a realm refresh.
+  // A global horizon change re-seeds every input from the new defaults. A realm refresh at the
+  // same horizon only inherits the War Plan live. Loading a saved scenario does not write the
+  // global horizon — that scenario keeps the deadline it was saved with.
   useEffect(() => {
+    if (seededFor.current !== horizonDeadline) {
+      seededFor.current = horizonDeadline;
+      setInputs(defaults.inputs);
+      setCodesText(defaults.inputs.excludedNoteCodes.join(", "));
+      setSelectedScenario("");
+      return;
+    }
     setInputs((prev) => ({ ...prev, warPlan: defaults.inputs.warPlan }));
-  }, [defaults]);
+  }, [defaults, horizonDeadline]);
 
   // Expensive (solves the War Plan): only the deadline, the capital, the exclusions and the War Plan move it.
   const base = useMemo(

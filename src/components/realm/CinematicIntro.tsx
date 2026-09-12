@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import type { Story } from "@/domain";
+import { useHorizon } from "@/horizon/HorizonProvider";
 
 const KEY = "quest.intro.seen";
 const CARD_MS = 1600;
@@ -14,6 +15,7 @@ const CARD_MS = 1600;
  * page underneath from rendering and loading.
  */
 export function CinematicIntro({ story }: { story: Story }) {
+  const { horizon } = useHorizon();
   const [show, setShow] = useState(false);
   const [index, setIndex] = useState(-1);
 
@@ -46,7 +48,9 @@ export function CinematicIntro({ story }: { story: Story }) {
       window.removeEventListener("keydown", dismiss);
       window.removeEventListener("pointerdown", dismiss);
     };
-  }, [story]);
+    // Horizon changes rebuild `story` but must not replay the intro; sessionStorage is the gate,
+    // and the dependency is hasData (not the object) so a year click does not restart the timers.
+  }, [story.hasData]);
 
   const card = index >= 0 ? story.cards[index] : undefined;
 
@@ -74,7 +78,9 @@ export function CinematicIntro({ story }: { story: Story }) {
                   >
                     Exodus
                   </motion.div>
-                  <div className="mt-3 font-heading text-xs uppercase tracking-[0.35em] text-muted-foreground">Ten million by the last day of 2027</div>
+                  <div className="mt-3 font-heading text-xs uppercase tracking-[0.35em] text-muted-foreground">
+                    Ten million by the last day of {horizon}
+                  </div>
                 </motion.div>
               ) : (
                 <motion.div

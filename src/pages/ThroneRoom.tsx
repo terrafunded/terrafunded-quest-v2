@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, CalendarClock, Coins, Landmark, RefreshCw, Scroll } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
 import { latestEvents, type RealmEvent } from "@/domain";
-import { GOAL_DEADLINE, MILESTONE_STEP } from "@/config/goal";
+import { MILESTONE_STEP } from "@/config/goal";
 import { FitMoney } from "@/components/realm/FitMoney";
 import { ProgressRing } from "@/components/realm/ProgressRing";
 import { GrowthBurst } from "@/components/realm/GrowthBurst";
@@ -154,7 +154,9 @@ export function ThroneRoom() {
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground sm:justify-start">
               <span className="inline-flex items-center gap-1.5">
                 <CalendarClock className="h-4 w-4 text-gold" />
-                <strong className="text-foreground tabular">{number(g.daysToDeadline)}</strong> days to {date(GOAL_DEADLINE)}
+                <span data-testid="days-to-deadline">
+                  <strong className="text-foreground tabular">{number(g.daysToDeadline)}</strong> days to {date(g.deadline)}
+                </span>
               </span>
               <span>
                 <strong className="text-foreground tabular">{g.lotsStillNeeded ?? "—"}</strong> lots still needed ·{" "}

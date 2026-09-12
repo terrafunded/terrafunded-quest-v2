@@ -18,7 +18,8 @@ Last full verification (build · lint · 358 unit tests · 265 Playwright tests)
 by the labeling deploy and `verify:live` (Capital outstanding Stat **$4,145,355.48** = Debt, hint
 *"+ $800,000 own capital tied up"* · net profit $2,235,850 · trapped $1,102,974 · "You need 8.46
 lots/month from the ledger average; you are doing 4.73." · three themes persist) — see **"Labels —
-Capital outstanding and required-pace models"** at the end of the file.
+Capital outstanding and required-pace models"** at the end of the file. The **exit horizon** selector
+(2027 / 2028 / 2029) is the work after that; see **"Exit horizon — 2027 / 2028 / 2029"** below.
 
 Order of work, as requested: Phase 1 numbers verified → connection check → domain reproduces the
 verified numbers → **Phase 2: Epic** → **Pipeline layer** → **three visual themes + POLISH loops
@@ -851,3 +852,42 @@ Three labeling fixes; no domain math changed.
 8.46 lots/month from the ledger average; you are doing 4.73."* (8.46 not 8.44: as-of is now Sep 12
 and remaining net profit moved — OPEN_QUESTIONS #105). Committed sub-line ends *= this figure*.
 Throne Room: net profit **$2,235,850** · trapped **$1,102,974** · three themes persist.
+
+## Exit horizon — 2027 / 2028 / 2029
+
+The founder can switch the whole app between three exit years. No free date picker at the app
+level; War Plan and Exodus keep their own scenario deadline fields.
+
+**What it is.** `GOAL_DEADLINE` is no longer a single hard-wired day the pages read. It remains
+`deadlineForHorizon(2027)` (`"2027-12-31"`) as the fallback inside `computeGoal` only. The rest of
+the runtime reads `ctx.goal.deadline`, which `buildRealm` now accepts as `RealmOptions.deadline`.
+The three years are `ExitHorizon = 2027 | 2028 | 2029` in `src/config/goal.ts`.
+
+**Persistence.** `src/horizon/horizon.ts` + `HorizonProvider` follow the ThemeProvider pattern:
+storage key `quest.v2.exitHorizon`, `readStoredHorizon()` validates against `EXIT_HORIZONS` and
+falls back to 2027 on garbage, a `storage` listener for other tabs, try/catch around `setItem`.
+The choice survives route changes, reloads, and logout/login in the same browser. Sign-out does
+not clear it.
+
+**No Payments refetch.** `useRealm` caches the raw `PaymentsSnapshot` under `REALM_QUERY_KEY` and
+builds the realm in a `useMemo` keyed on `(snapshot, deadline)`. Switching years is instant and
+hits Supabase zero times. `asOf` stays the fetch-time clock.
+
+**What moves / what does not.** Required, projected, at-the-deadline and by-`<date>` figures
+recompute (days left, required lots/month, required reservations/month, net profit required per
+day, War Plan / Exodus defaults, Oracle before/after-deadline verdicts, capital owed at the
+deadline, Throne "days to" copy, cinematic intro year). Historical facts do not: net profit to
+date, cash realized, live reservations, capital owed *today*, interest accrued to date, trophy
+*count*, chronicle events. `goal.farmsStillNeeded` is inventory-gap ÷ avg lots and does not read
+the deadline (existing math, unchanged) — the War Plan's last purchase date is what slides later.
+Unit test: `src/domain/__tests__/horizon.test.ts`.
+
+**UI.** Drawer section **HORIZONTE · EXIT** at the top of the scrollable nav (above Throne Room),
+segmented 2027 | 2028 | 2029, gold border on the current year, caption in the current lang.
+Selecting a year does not close the drawer. Topbar reads `Exodus · <year>` (`data-testid="topbar-horizon"`),
+13px on a 380px viewport so it still fits next to the oxygen pill. Horizon changes do not replay
+the cinematic intro or SinceLastVisit celebrations.
+
+**War Plan / Exodus.** Their default/"real" deadline is the global horizon. Changing the horizon
+while the page is open re-seeds inputs from the new defaults. A saved scenario keeps the deadline
+it was saved with and does not write the global horizon.
