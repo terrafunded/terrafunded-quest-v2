@@ -899,10 +899,9 @@ oxygen above 110%. Still shown on the Debt card; this is a promotion, not a move
 copy: "today the realm produces $X of net profit per day" / "hoy el reino produce $X de
 utilidad neta al día"; heading is "cumulative days already gained".
 
-**Checks (2026-09-12).** `npm run build` clean · `npm run lint` clean · `npm test` **366** (358 + 8
-horizon: `readStoredHorizon` rejects garbage; fixture at 2027/2028/2029 keeps net profit, cash,
-capital owed *today*, live reservations and trophy count identical; days left / required lots/month
-/ War Plan last purchase / interest-to-deadline move in the expected direction) · `npm run e2e`
-**267** (265 + the new drawer test on desktop and mobile: pick 2029 → topbar and Throne "days to
-Dec 31, 2029" → `/warplan` and `/exodus` inputs `2029-12-31` → survives reload and logout/login).
-Manual at **380px**: `Exodus · 2029` still fits beside the oxygen pill; no horizontal scroll.
+**Checks (2026-09-12).** `npm run build` clean · `npm run lint` clean · `npm test` **369** (horizon
+suite plus Pulse: PRODUCING identical across 2027/2028/2029, NEEDED falls as the horizon
+lengthens, percentage = producing ÷ needed; band edges 90 / 110). Playwright `quest.spec`
+desktop + mobile green including Pulse on `/` and the 2029 horizon ratio line; one mobile
+`/sponsors` timeout reran clean. Manual: Pulse sits under the net-profit number; at 380px
+PRODUCING stays $9,169 while NEEDED moves $16,333 → $6,433 and the line reads 143% / 2029.
