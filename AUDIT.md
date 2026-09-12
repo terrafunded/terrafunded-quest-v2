@@ -774,7 +774,7 @@ Columns: label as shown · file:line · domain function · Payments fields / for
 
 `trophies.ts:185–197`. The detail reads “$4,916,355 still outstanding” using `goal.capitalOutstanding` (all farms incl. the own-capital farm Promised Valley), while `debt.ts` documents own capital as “shown separately, never blended” and every other screen shows sponsor capital owed = $4,116,355.48. The `repaid` filter and the progress “best sponsor” also admit the own-capital investor (Portafolio Diversificado), so selling out Promised Valley would award “Return all capital to a sponsor” for repaying ourselves.
 
-**Recommended action:** Fixed in PR `cursor/fix-sponsor-repaid-own-capital-7eee`: exclude `dealType === "own_capital"` investors from `repaid` and from the progress candidate, and compute “still outstanding” over sponsor investors only (= debt.capitalOwed, $4,116,355). Regression test with an own-capital investor fully repaid and a sponsor still owed. No headline number changes; the trophy detail moves from $4,916,355 to $4,116,355.
+**Recommended action:** Fixed in PR [#4](https://github.com/terrafunded/terrafunded-quest-v2/pull/4) (`cursor/fix-sponsor-repaid-own-capital-7eee`): exclude `dealType === "own_capital"` investors from `repaid` and from the progress candidate, and compute “still outstanding” over sponsor investors only (= debt.capitalOwed, $4,116,355). Regression test with an own-capital investor fully repaid and a sponsor still owed. No headline number changes; the trophy detail moves from $4,916,355 to $4,116,355.
 
 **Who decides:** Engineering (done, awaiting review).
 
@@ -782,7 +782,7 @@ Columns: label as shown · file:line · domain function · Payments fields / for
 
 `quality.ts:194` `const note = notes[0]` — the price / down-payment / reservation-date / active-case checks say “Quest uses the note” but pick the first note in query order, whereas `computeLot` uses `pickNote` (sold first, newest `start_date`). On a lot with two notes the flagged mismatch (and `summary.priceMismatchDollars`) can be computed against the wrong note. No such lot exists today (every lot with a file case has exactly one note; the multi-note lots are legacy farms without file cases), so no rendered figure is currently wrong.
 
-**Recommended action:** Fixed in PR `cursor/fix-quality-picknote-7eee`: use `pickNote(notes)`; regression test with two notes on one lot where only the non-picked note mismatches. Today's figures unchanged.
+**Recommended action:** Fixed in PR [#5](https://github.com/terrafunded/terrafunded-quest-v2/pull/5) (`cursor/fix-quality-picknote-7eee`): use `pickNote(notes)`; regression test with two notes on one lot where only the non-picked note mismatches. Today's figures unchanged.
 
 **Who decides:** Engineering (done, awaiting review).
 
@@ -937,6 +937,8 @@ Rony Schumann prefilled at 18 % while `farm_acquisitions.annual_interest_rate` i
 ## 8. Test coverage added with this audit
 
 See `src/domain/__tests__/audit_coverage.test.ts` (every exported domain function with hand-computed expectations and the listed edge cases: zero closings, single closing, null netProfit, reservation without reservationDate, farm without funding date, asOf before the first event, asOf after the deadline, horizon in the past) and `src/domain/__tests__/audit_properties.test.ts` (property tests over 200 seeded random ledgers: a longer horizon never increases `requiredLotsPerMonth` (goal and Oracle required-pace future); adding a closing never decreases `netProfitToDate`; adding a closing dated after every existing one never decreases oxygen or any existing lot's score — the unrestricted statement is false, see F19, and the two counter-examples are pinned as tests). Every exported function in `src/domain` is now exercised by at least one test; `npm test` runs 23 files / 468 tests.
+
+Gate run on 2026-09-12 (`npm run build`, `npm run lint`, `npx tsc -b`, `npm test`, `npm run e2e` against live Payments, read-only): this branch 468 unit / 269 Playwright, all green; PR [#4](https://github.com/terrafunded/terrafunded-quest-v2/pull/4) 378 unit / 268 Playwright + 1 cold-start failure of the Throne Room smoke test (Recharts bars counted before they were drawn — unrelated to the fix, passes on re-run); PR [#5](https://github.com/terrafunded/terrafunded-quest-v2/pull/5) 376 unit / 268 + the same flake, passes on re-run; PR [#6](https://github.com/terrafunded/terrafunded-quest-v2/pull/6) makes that assertion wait and runs 375 unit / 269 Playwright green.
 
 ## 9. Appendix — all checks (asOf 2026-09-12, deadline 2027-12-31)
 
