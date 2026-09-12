@@ -72,6 +72,12 @@ export interface Oxygen {
   latest: LotOxygen | null;
   /** Days gained by closings inside the trailing window (the "recent breath"). */
   trailingDaysGained: number;
+  /**
+   * Calendar days that window spans (`goal.trailingWindowDays`, never era-clipped here). The one
+   * figure `trailingDaysGained` can be read against: gaining more days than passed pulls the exit
+   * date closer, fewer lets it drift away.
+   */
+  trailingWindowDays: number;
   /** Sum of provisionalDays over every live reservation — shown next to the score, never added to it. */
   provisionalDaysGained: number;
   provisional: Map<string, ProvisionalOxygen>;
@@ -86,6 +92,23 @@ export interface OxygenOptions extends GoalOptions {
 }
 
 const DAYS_PER_YEAR = 365.25;
+
+/**
+ * How the trailing window reads: more days gained than passed and the exit date is coming closer
+ * ("ahead"); fewer and it is drifting away ("behind"); equal and it holds still.
+ */
+export type OxygenBand = "ahead" | "even" | "behind";
+
+export interface OxygenPace {
+  band: OxygenBand;
+  /** |trailingDaysGained − trailingWindowDays|: days the exit date moves per window, always ≥ 0. */
+  diff: number;
+}
+
+export function oxygenPace(o: Pick<Oxygen, "trailingDaysGained" | "trailingWindowDays">): OxygenPace {
+  const delta = o.trailingDaysGained - o.trailingWindowDays;
+  return { band: delta > 0 ? "ahead" : delta < 0 ? "behind" : "even", diff: Math.abs(delta) };
+}
 
 /** Dollars of net profit the realm books per calendar day at the given goal status' pace. */
 export function netProfitPerDayAtPace(goal: GoalStatus): number | null {
@@ -171,6 +194,7 @@ export function computeOxygen(lots: Lot[], farms: FarmEconomics[], asOf: Date, o
     best: ranked[0] ?? null,
     latest: dated[0] ?? null,
     trailingDaysGained: dated.filter((o) => (o.closeDate as string) > windowStart).reduce((s, o) => s + o.daysGained, 0),
+    trailingWindowDays: today.trailingWindowDays,
     provisionalDaysGained: provisionalRanked.reduce((s, o) => s + o.provisionalDays, 0),
     provisional,
     provisionalRanked,

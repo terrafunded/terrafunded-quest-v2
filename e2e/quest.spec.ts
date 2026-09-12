@@ -178,8 +178,12 @@ test.describe("Throne Room", () => {
 
     // The three Oxygen lines that used to be hard-coded English, now Spanish with real plurals.
     const confirmed = (await page.getByTestId("oxygen-confirmed").textContent()) ?? "";
-    expect(confirmed).toMatch(/^\d+ (cierre confirmado|cierres confirmados) · \d+ días en la ventana móvil$/);
-    expect(confirmed.startsWith("1 ")).toBe(confirmed.includes("cierre confirmado ·"));
+    expect(confirmed).toMatch(/^\d+ (cierre confirmado|cierres confirmados), cada uno puntuado el día de su propio cierre$/);
+    expect(confirmed.startsWith("1 ")).toBe(confirmed.includes("cierre confirmado,"));
+    await expect(page.getByTestId("oxygen-trailing")).toContainText(/días ganados en los últimos \d+$/);
+    await expect(page.getByTestId("oxygen-verdict")).toHaveText(/a este ritmo la fecha de salida (se aleja \d+ días? cada \d+|se acerca \d+ días? cada \d+|no se mueve)$/);
+    await expect(page.getByTestId("oxygen-cumulative")).toHaveText(/^Marcador histórico acumulado · [\d,]+ días$/);
+    await expect(page.getByTestId("topbar-oxygen")).toHaveAttribute("aria-label", /^Oxígeno — \d+ días ganados en los últimos \d+\. /);
     const provisional = (await page.getByTestId("oxygen-reservations-provisional").textContent()) ?? "";
     expect(provisional).toMatch(/^\d+ (reserva provisional|reservas provisionales) al \d+(\.\d+)?% de conversión$/);
     expect(provisional.startsWith("1 ")).toBe(provisional.includes("reserva provisional al"));
@@ -188,7 +192,10 @@ test.describe("Throne Room", () => {
     // English marker strings from every realm component that renders on the Throne Room.
     const markers = [
       "closings confirmed",
-      "days in the trailing window",
+      "days gained in the last",
+      "days passed",
+      "Cumulative historical score",
+      "closing day",
       "provisional at",
       "of net profit per day",
       "Latest breath",
@@ -298,6 +305,52 @@ test.describe("Throne Room", () => {
     await expect(provisionalScore).toHaveAttribute("data-value", String(provisionalSum));
     await expect(provisionalScore).toHaveText(/^\+[\d,]+$/);
     await expect(page.getByTestId("oxygen")).toContainText(/\d+ (reservations? provisional at|reservas? provisionales? al) \d+(\.\d+)?% (conversion|de conversión)/);
+    // The cumulative total is a demoted line and still excludes the provisional days.
+    await expect(page.getByTestId("oxygen-cumulative")).toContainText(ledgerSum.toLocaleString("en-US"));
+  });
+
+  test("the Oxygen headline reads days gained in the trailing window against the window, states the difference and colours by band", async ({ page }) => {
+    await page.goto("/");
+    await waitForRealm(page);
+    const card = page.getByTestId("oxygen");
+    const headline = page.getByTestId("oxygen-trailing");
+    await headline.scrollIntoViewIfNeeded();
+    const gained = Number(await headline.getAttribute("data-value"));
+    const windowDays = Number(await headline.getAttribute("data-window"));
+    expect(windowDays).toBeGreaterThan(0);
+    expect(gained).toBeGreaterThanOrEqual(0);
+    await expect(page.getByTestId("oxygen-trailing-counter")).toHaveAttribute("data-target", String(gained));
+    await expect(headline).toContainText(new RegExp(`(days gained in the last|días ganados en los últimos) ${windowDays}$`));
+
+    // The arithmetic is explicit: |gained − window| days per window, direction by sign.
+    const diff = Math.abs(gained - windowDays);
+    const band = gained > windowDays ? "ahead" : gained < windowDays ? "behind" : "even";
+    await expect(card).toHaveAttribute("data-band", band);
+    const verdict = page.getByTestId("oxygen-verdict");
+    await expect(verdict).toHaveAttribute("data-diff", String(diff));
+    if (band === "behind") {
+      await expect(verdict).toHaveText(new RegExp(`^${windowDays} (days passed|días transcurridos) − ${gained} (gained|ganados): .*(moves away by|se aleja) ${diff} (days?|días?) (every|cada) ${windowDays}$`));
+      await expect(verdict).toHaveClass(/text-ember/);
+      await expect(headline).toHaveClass(/text-ember/);
+    } else if (band === "ahead") {
+      await expect(verdict).toHaveText(new RegExp(`^${gained} (gained|ganados) − ${windowDays} (days passed|días transcurridos): .*(comes ${diff} (days?) closer|se acerca ${diff} días?) (every|cada) ${windowDays}$`));
+      await expect(verdict).toHaveClass(/text-oxygen/);
+      await expect(headline).toHaveClass(/text-oxygen/);
+    } else {
+      await expect(verdict).toHaveText(/holds still|no se mueve/);
+    }
+
+    // The cumulative score is a small labelled line under it, with the per-lot method on hover.
+    const cumulative = page.getByTestId("oxygen-cumulative");
+    await expect(cumulative).toHaveText(/^(Cumulative historical score|Marcador histórico acumulado) · [\d,]+ (days|días)$/);
+    await expect(cumulative).toHaveAttribute("title", /(closing day|día de su propio cierre)/);
+    await expect(page.getByTestId("oxygen-deepest")).toHaveAttribute("title", /(bought more days when the realm was slower|compraba más días cuando el reino iba más lento)/);
+
+    // The topbar pill carries the same reading and the same band.
+    const pill = page.getByTestId("topbar-oxygen");
+    await expect(pill).toHaveText(`${gained}/${windowDays}d`);
+    await expect(pill).toHaveAttribute("data-band", band);
+    await expect(pill).toHaveAttribute("title", new RegExp(`${gained} (days gained in the last|días ganados en los últimos) ${windowDays}`));
   });
 
   test("the Committed counter shows the expected net profit from live reservations, when it lands, both paces and the This month strip", async ({ page }) => {

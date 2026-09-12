@@ -925,3 +925,50 @@ side by side after Debt/Oxygen; tooltip is month + counts only. At 380px: stacke
 months, no H-scroll, era note uses `era.label` (Mar 2026). Remaining `Exodus` hits in `src/`
 are the LP model (route, page, domain, i18n, nav item, 10M trophy).
 Live: https://terrafunded-quest-v2.vercel.app (`verify:live` 2026-09-12, $2,242,037 / $1,103,911 / 8.46).
+
+## Oxygen — the honest scoreboard (2026-09-12; `OxygenScore.tsx`, `AppShell.tsx` pill, `oxygenPace` in `src/domain/oxygen.ts`)
+
+**Why.** The card's headline was `oxygen.totalDaysGained` (**533**). Each lot's `daysGained` is
+`netProfit ÷ pace on its own closing day`, so the sum mixes 38 different denominators and there is
+no sentence a user can say about it — "533 days ahead" is ahead of nothing. The figure the card
+already computed and buried in grey, `oxygen.trailingDaysGained` (**53**), is comparable to one
+thing: the window it was measured over, `trailingWindowDays` (**90**), now also carried on
+`Oxygen` (`today.trailingWindowDays`, never era-clipped, the same value `windowStart` uses).
+No definition, threshold, window or conversion changed; `totalDaysGained`, `trailingDaysGained`
+and the per-lot method are untouched.
+
+**Card.** Headline in the largest type: **53** *days gained in the last 90*; under it the explicit
+arithmetic, by band (`oxygenPace` → `behind` / `even` / `ahead`, `diff = |gained − window|`):
+*"90 days passed − 53 gained: at this pace the exit date moves away by 37 days every 90"*
+(ember) · *"104 gained − 90 days passed: at this pace the exit date comes 14 days closer every
+90"* (oxygen blue) · *"… holds still"*. Spanish: *"90 días transcurridos − 53 ganados: a este
+ritmo la fecha de salida se aleja 37 días cada 90"* / *"se acerca … cada 90"* / *"no se mueve"*.
+Section carries `data-band`; the verdict `data-diff`; the headline `data-value` + `data-window`.
+The cumulative total is a small labelled line — *Cumulative historical score · 533 days* /
+*Marcador histórico acumulado · 533 días* — with a tooltip explaining the per-lot method, and
+keeps `data-testid="oxygen-score"` (`data-value` = Σ ledger, confirmed only) so the ledger
+equality test still holds. Provisional days stay beside the headline, never summed. Latest /
+deepest breath unchanged; the deepest-breath card's tooltip adds *"Days gained = net profit ÷
+that day's pace: the same dollar bought more days when the realm was slower."* The
+`oxygen-confirmed` line no longer repeats the trailing figure: *"38 closings confirmed, each
+scored on its own closing day"*. All new copy in `src/i18n/realm.ts` (EN/ES).
+
+**Topbar pill — decision: show the trailing figure.** The pill (`topbar-oxygen`) now reads
+**`53/90d`**, ember when behind, oxygen blue otherwise, `title`/`aria-label` = the full verdict
+sentence in the current language. Reasoning (also in a comment in `AppShell.tsx`): the pill is
+the one Oxygen reading visible on every page, and the cumulative sum has no sentence behind it;
+gained-over-passed is a ratio the eye reads at a glance and its colour tells the band, so the
+chrome tells the same truth as the card. Trade-off accepted: the pill no longer ticks up with
+every closing like a lifetime score; that reward now lives in the card's cumulative line and the
+Quests ledger.
+
+**Tests.** `src/components/realm/OxygenScore.test.ts` renders the card through
+`react-dom/server` (ThemeProvider + MemoryRouter; `tsconfig.node.json` gained `"jsx"` so tests may
+import `.tsx`): 53/90 → `data-band="behind"`, the exact Spanish "se aleja 37 días cada 90"
+sentence, ember classes, cumulative line keeps `oxygen-score` = 533, provisional 340 untouched;
+104/90 → "ahead", "se acerca 14 días cada 90", oxygen classes, no ember; 90/90 → "even";
+English copy, singular "1 day"/"1 día", pill text and title. e2e: the Oxygen headline test reads
+`data-value`/`data-window`, recomputes band and difference and checks the sentence, classes,
+cumulative line + tooltip, deepest-breath tooltip and the pill text/band/title; the Spanish
+marker test gained "days gained in the last", "days passed", "Cumulative historical score",
+"closing day". Live figures on the 2026-09-11 snapshot: 53 of 90 → behind by 37; pill `53/90d`.

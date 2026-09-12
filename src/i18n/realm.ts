@@ -1,4 +1,4 @@
-import type { LotStage, RealmEvent, Trophy } from "@/domain";
+import type { LotStage, OxygenBand, RealmEvent, Trophy } from "@/domain";
 import type { QualityLang } from "@/domain/quality_human";
 import { useLang } from "./lang";
 
@@ -16,13 +16,25 @@ export interface RealmUiStrings {
     title: string;
     perLot: string;
     days: string;
+    /** Headline suffix after the trailing count: "days gained in the last 90". */
+    gainedInLast: (windowDays: number) => string;
+    /** The arithmetic under the headline, by band. `diff` is |gained − window|, always ≥ 0. */
+    verdict: Record<OxygenBand, (gained: number, windowDays: number, diff: number) => string>;
+    /** Topbar pill: text and its tooltip. */
+    pill: (gained: number, windowDays: number) => string;
+    pillTitle: (gained: number, windowDays: number, verdict: string) => string;
+    pillLoading: string;
+    cumulative: string;
+    cumulativeTitle: string;
     provisional: string;
     provisionalTitle: (n: number, pct: number) => string;
-    confirmed: (closings: number, trailingDays: number) => string;
+    confirmed: (closings: number) => string;
     reservationsProvisional: (n: number, pct: number) => string;
     produces: (perDay: string) => string;
     latest: string;
     deepest: string;
+    /** Extra tooltip line on the deepest breath: why an old dollar bought more days. */
+    deepestWhy: string;
     net: (amount: string) => string;
     paceThatDay: (date: string, perDay: string) => string;
   };
@@ -169,17 +181,32 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
   en: {
     oxygen: {
       aria: "Oxygen",
-      title: "Oxygen · cumulative days already gained",
+      title: "Oxygen · days gained against days passed",
       perLot: "per lot in the ledger →",
       days: "days",
+      gainedInLast: (windowDays) => `days gained in the last ${windowDays}`,
+      verdict: {
+        behind: (gained, windowDays, diff) =>
+          `${windowDays} days passed − ${gained} gained: at this pace the exit date moves away by ${diff} ${diff === 1 ? "day" : "days"} every ${windowDays}`,
+        ahead: (gained, windowDays, diff) =>
+          `${gained} gained − ${windowDays} days passed: at this pace the exit date comes ${diff} ${diff === 1 ? "day" : "days"} closer every ${windowDays}`,
+        even: (gained, windowDays) => `${gained} gained in ${windowDays} days passed: at this pace the exit date holds still`,
+      },
+      pill: (gained, windowDays) => `${gained}/${windowDays}d`,
+      pillTitle: (gained, windowDays, verdict) => `Oxygen — ${gained} days gained in the last ${windowDays}. ${verdict}`,
+      pillLoading: "Oxygen loading",
+      cumulative: "Cumulative historical score",
+      cumulativeTitle:
+        "Sum of every closed lot's days gained, each measured at the realm's pace on its own closing day (net profit ÷ that day's net profit per day). Different days, different paces: a running tally of the game, not a distance from anything.",
       provisional: "provisional",
       provisionalTitle: (n, pct) =>
-        `Provisional: ${n} live ${n === 1 ? "reservation" : "reservations"} at ${pct}% conversion, measured at the pace of their reservation day. Confirmed at closing, forfeited at cancellation.`,
-      confirmed: (closings, trailingDays) => `${closings} ${closings === 1 ? "closing" : "closings"} confirmed · ${trailingDays} days in the trailing window`,
+        `Provisional: ${n} live ${n === 1 ? "reservation" : "reservations"} at ${pct}% conversion, measured at the pace of their reservation day. Confirmed at closing, forfeited at cancellation. Never added to any total.`,
+      confirmed: (closings) => `${closings} ${closings === 1 ? "closing" : "closings"} confirmed, each scored on its own closing day`,
       reservationsProvisional: (n, pct) => `${n} ${n === 1 ? "reservation" : "reservations"} provisional at ${pct}% conversion`,
       produces: (perDay) => `today the realm produces ${perDay} of net profit per day`,
       latest: "Latest breath",
       deepest: "Deepest breath",
+      deepestWhy: "Days gained = net profit ÷ that day's pace: the same dollar bought more days when the realm was slower.",
       net: (amount) => `net ${amount}`,
       paceThatDay: (date, perDay) => `${date} · when the realm earned ${perDay} a day`,
     },
@@ -331,17 +358,32 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
   es: {
     oxygen: {
       aria: "Oxígeno",
-      title: "Oxígeno · días acumulados ya ganados",
+      title: "Oxígeno · días ganados contra días transcurridos",
       perLot: "por lote en el libro →",
       days: "días",
+      gainedInLast: (windowDays) => `días ganados en los últimos ${windowDays}`,
+      verdict: {
+        behind: (gained, windowDays, diff) =>
+          `${windowDays} días transcurridos − ${gained} ganados: a este ritmo la fecha de salida se aleja ${diff} ${diff === 1 ? "día" : "días"} cada ${windowDays}`,
+        ahead: (gained, windowDays, diff) =>
+          `${gained} ganados − ${windowDays} días transcurridos: a este ritmo la fecha de salida se acerca ${diff} ${diff === 1 ? "día" : "días"} cada ${windowDays}`,
+        even: (gained, windowDays) => `${gained} ganados en ${windowDays} días transcurridos: a este ritmo la fecha de salida no se mueve`,
+      },
+      pill: (gained, windowDays) => `${gained}/${windowDays}d`,
+      pillTitle: (gained, windowDays, verdict) => `Oxígeno — ${gained} días ganados en los últimos ${windowDays}. ${verdict}`,
+      pillLoading: "Cargando el oxígeno",
+      cumulative: "Marcador histórico acumulado",
+      cumulativeTitle:
+        "Suma de los días ganados por cada lote cerrado, cada uno medido al ritmo del reino el día de su propio cierre (utilidad neta ÷ utilidad neta por día de ese día). Días distintos, ritmos distintos: un marcador acumulado del juego, no una distancia respecto a nada.",
       provisional: "provisional",
       provisionalTitle: (n, pct) =>
-        `Provisional: ${n} ${n === 1 ? "reserva viva" : "reservas vivas"} al ${pct}% de conversión, medidas al ritmo del día en que se reservaron. Se confirman al cierre y se pierden si se cancelan.`,
-      confirmed: (closings, trailingDays) => `${closings} ${closings === 1 ? "cierre confirmado" : "cierres confirmados"} · ${trailingDays} días en la ventana móvil`,
+        `Provisional: ${n} ${n === 1 ? "reserva viva" : "reservas vivas"} al ${pct}% de conversión, medidas al ritmo del día en que se reservaron. Se confirman al cierre y se pierden si se cancelan. Nunca se suman a ningún total.`,
+      confirmed: (closings) => `${closings} ${closings === 1 ? "cierre confirmado" : "cierres confirmados"}, cada uno puntuado el día de su propio cierre`,
       reservationsProvisional: (n, pct) => `${n} ${n === 1 ? "reserva provisional" : "reservas provisionales"} al ${pct}% de conversión`,
       produces: (perDay) => `hoy el reino produce ${perDay} de utilidad neta al día`,
       latest: "Último respiro",
       deepest: "Respiro más profundo",
+      deepestWhy: "Días ganados = utilidad neta ÷ ritmo de ese día: el mismo dólar compraba más días cuando el reino iba más lento.",
       net: (amount) => `neta ${amount}`,
       paceThatDay: (date, perDay) => `${date} · cuando el reino ganaba ${perDay} al día`,
     },

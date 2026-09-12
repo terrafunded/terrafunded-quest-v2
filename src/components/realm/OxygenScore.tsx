@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Wind } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { Oxygen } from "@/domain";
+import { oxygenPace, type Oxygen, type OxygenBand } from "@/domain";
 import { AnimatedCounter } from "./AnimatedCounter";
 import { date, money } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -9,17 +9,37 @@ import { useRealmStrings } from "@/i18n/realm";
 
 const daysFormat = (n: number) => `${Math.round(n).toLocaleString("en-US")}`;
 
+/** Behind = losing ground (ember, like the Debt); ahead or holding = oxygen blue. */
+const BAND_TONE: Record<OxygenBand, string> = {
+  behind: "text-ember",
+  even: "text-oxygen",
+  ahead: "text-oxygen",
+};
+
 /**
- * OXYGEN — the primary score of the game: days gained toward the exit date, summed over every
- * closed lot. Each lot's share is fixed on its closing day (see src/domain/oxygen.ts).
+ * OXYGEN — the scoreboard of the game, read the only way it can be read honestly.
+ *
+ * Headline: days gained by the closings inside the trailing window against the days that window
+ * spans. Gaining fewer days than pass means the exit date drifts away by the difference every
+ * window; gaining more pulls it closer. Both figures live on the same clock, so the comparison
+ * means something a user can say in one sentence.
+ *
+ * The cumulative total (every closed lot's days gained, each measured against a different day's
+ * pace — see src/domain/oxygen.ts) is a running tally with no single reference point, so it is
+ * kept, but demoted to a labelled small line. Provisional days from live reservations are shown
+ * beside the headline and never summed into anything.
  */
 export function OxygenScore({ oxygen, className }: { oxygen: Oxygen; className?: string }) {
   const t = useRealmStrings().oxygen;
+  const pace = oxygenPace(oxygen);
+  const tone = BAND_TONE[pace.band];
+  const verdict = t.verdict[pace.band](oxygen.trailingDaysGained, oxygen.trailingWindowDays, pace.diff);
   return (
     <section
       className={cn("relative overflow-hidden rounded-2xl border border-oxygen/30 bg-gradient-to-br from-oxygen/14 via-card to-card p-5 sm:p-6", className)}
       aria-label={t.aria}
       data-testid="oxygen"
+      data-band={pace.band}
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-oxygen">
@@ -32,9 +52,17 @@ export function OxygenScore({ oxygen, className }: { oxygen: Oxygen; className?:
       </div>
 
       <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }} className="font-display text-5xl leading-none text-oxygen sm:text-6xl">
-          <AnimatedCounter value={oxygen.totalDaysGained} format={daysFormat} data-testid="oxygen-score" />
-          <span className="ml-2 font-heading text-lg text-muted-foreground">{t.days}</span>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
+          className={cn("font-display text-5xl leading-none sm:text-6xl", tone)}
+          data-testid="oxygen-trailing"
+          data-value={oxygen.trailingDaysGained}
+          data-window={oxygen.trailingWindowDays}
+        >
+          <AnimatedCounter value={oxygen.trailingDaysGained} format={daysFormat} data-testid="oxygen-trailing-counter" />
+          <span className="ml-2 font-heading text-lg text-muted-foreground">{t.gainedInLast(oxygen.trailingWindowDays)}</span>
         </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -48,11 +76,22 @@ export function OxygenScore({ oxygen, className }: { oxygen: Oxygen; className?:
           </span>
           <span className="ml-1.5 font-heading text-sm text-muted-foreground/80">{t.provisional}</span>
         </motion.div>
-        <div className="text-xs text-muted-foreground">
-          <div data-testid="oxygen-confirmed">{t.confirmed(oxygen.perLot.size, oxygen.trailingDaysGained)}</div>
-          <div data-testid="oxygen-reservations-provisional">{t.reservationsProvisional(oxygen.provisional.size, oxygen.conversionPct)}</div>
-          {oxygen.netProfitPerDayAtPace !== null && <div data-testid="oxygen-produces">{t.produces(money(oxygen.netProfitPerDayAtPace))}</div>}
+      </div>
+      <p className={cn("mt-2 text-sm", tone)} data-testid="oxygen-verdict" data-diff={pace.diff}>
+        {verdict}
+      </p>
+
+      <div className="mt-3 space-y-0.5 text-xs text-muted-foreground">
+        <div data-testid="oxygen-cumulative" title={t.cumulativeTitle}>
+          {t.cumulative} ·{" "}
+          <span className="tabular text-foreground" data-testid="oxygen-score" data-value={oxygen.totalDaysGained} data-target={oxygen.totalDaysGained}>
+            {daysFormat(oxygen.totalDaysGained)}
+          </span>{" "}
+          {t.days}
         </div>
+        <div data-testid="oxygen-confirmed">{t.confirmed(oxygen.perLot.size)}</div>
+        <div data-testid="oxygen-reservations-provisional">{t.reservationsProvisional(oxygen.provisional.size, oxygen.conversionPct)}</div>
+        {oxygen.netProfitPerDayAtPace !== null && <div data-testid="oxygen-produces">{t.produces(money(oxygen.netProfitPerDayAtPace))}</div>}
       </div>
 
       <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
@@ -69,7 +108,11 @@ export function OxygenScore({ oxygen, className }: { oxygen: Oxygen; className?:
           </div>
         )}
         {oxygen.best && (
-          <div className="rounded-md bg-background/40 p-3">
+          <div
+            className="rounded-md bg-background/40 p-3"
+            title={`${t.paceThatDay(date(oxygen.best.closeDate), money(oxygen.best.paceThatDay))}\n${t.deepestWhy}`}
+            data-testid="oxygen-deepest"
+          >
             <div className="stat-label">{t.deepest}</div>
             <div className="mt-1 flex items-baseline justify-between gap-3">
               <span className="truncate">{oxygen.best.lotName}</span>

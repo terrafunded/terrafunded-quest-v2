@@ -3,7 +3,10 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { Menu, Wind } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
 import { useHorizon } from "@/horizon/HorizonProvider";
+import { oxygenPace } from "@/domain";
 import { useLang } from "@/i18n/lang";
+import { useRealmStrings } from "@/i18n/realm";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SinceLastVisit } from "@/components/realm/SinceLastVisit";
 import { PageTransition } from "@/components/layout/PageTransition";
@@ -21,6 +24,7 @@ export function AppShell() {
   const { data } = useRealm();
   const { horizon } = useHorizon();
   const [lang] = useLang();
+  const t = useRealmStrings().oxygen;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -29,9 +33,20 @@ export function AppShell() {
     setMenuOpen(false);
   }, [location.pathname]);
 
-  const oxygenDays = data?.realm.oxygen.totalDaysGained;
-  const oxygenLabel =
-    oxygenDays === undefined ? "…" : `${oxygenDays > 0 ? "+" : ""}${Math.round(oxygenDays).toLocaleString("en-US")}d`;
+  // The pill shows the trailing figure ("53/90d"), not the cumulative total it used to show. The
+  // pill is the one Oxygen reading visible on every page, and the cumulative sum has no sentence a
+  // user can say about it (each lot was measured against a different day's pace, so "+533d" is
+  // ahead of nothing — see OxygenScore). Days gained over days passed is a ratio the eye reads at
+  // a glance and it changes colour with the band, so the chrome tells the truth the card tells.
+  // Trade-off accepted: the pill no longer ticks up with every closing the way a lifetime score
+  // does; that reward now lives in the card's demoted cumulative line and the Quests ledger.
+  const oxygen = data?.realm.oxygen;
+  const pace = oxygen && oxygenPace(oxygen);
+  const oxygenLabel = oxygen ? t.pill(oxygen.trailingDaysGained, oxygen.trailingWindowDays) : "…";
+  const oxygenTitle =
+    oxygen && pace
+      ? t.pillTitle(oxygen.trailingDaysGained, oxygen.trailingWindowDays, t.verdict[pace.band](oxygen.trailingDaysGained, oxygen.trailingWindowDays, pace.diff))
+      : t.pillLoading;
 
   return (
     <div className="min-h-dvh">
@@ -70,12 +85,13 @@ export function AppShell() {
           </div>
 
           <div
-            className="justify-self-end tabular-nums text-oxygen"
+            className={cn("justify-self-end tabular-nums", pace?.band === "behind" ? "text-ember" : "text-oxygen")}
             data-testid="topbar-oxygen"
-            title="Oxygen — days gained toward the exit"
-            aria-label={oxygenDays === undefined ? "Oxygen loading" : `Oxygen ${oxygenLabel}`}
+            data-band={pace?.band}
+            title={oxygenTitle}
+            aria-label={oxygenTitle}
           >
-            <span className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-oxygen/10 px-2.5 py-1.5 text-sm font-medium">
+            <span className={cn("inline-flex min-h-11 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium", pace?.band === "behind" ? "bg-ember/10" : "bg-oxygen/10")}>
               <Wind className="h-3.5 w-3.5" aria-hidden />
               <span className="font-heading">{oxygenLabel}</span>
             </span>
