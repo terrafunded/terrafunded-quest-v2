@@ -1152,3 +1152,150 @@ The series is also capped at the last 24 calendar months. Older sold lots drop o
 Σ closings / Σ netProfit on the chart even though `goal.netProfitToDate` still includes them.
 The fixture's first closing is Oct 2025, so the fixture still reconciles; a longer history
 would not.
+
+## 111. Audit: farms dated in the future count as owned, owed and funded today
+
+Two `farm_acquisitions` rows have a `closing_date` in the future and `funding_date` null:
+Lakeview (2026-10-22, $495,000, 12 lots, Townson Family) and Franklin 2 (2026-10-02,
+$329,400, 5 lots, Julio Arriola). `computeFarm` dates a farm by `funding_date ?? closing_date`
+and nothing in the domain filters farms on `asOf`, so today they add **$824,400** to
+`debt.capitalOwed` ($4,116,355.48 → $3,291,955.48 without them), 17 unowned lots to the War
+Plan / Oracle start inventory (83 → 66), two captive hostages (9 → 7), tighten the farm
+cadence (1.26 → 1.18 months over 6 → 4 fundings), earn the *Nine Realms* trophy (10 farms →
+8), and put two `farm_acquired` events flagged `future` in the chronicle.
+
+**Exact question:** is a farm whose purchase has been signed but whose closing/funding date has
+not arrived "in the realm" for capital owed, inventory, hostages, cadence and trophies?
+**Recommendation:** count it, but label it *pending* on the Realm map and the Sponsors page and
+exclude it from the Nine Realms trophy until funded. Not changed; see AUDIT.md F3.
+Query: `select farm_name, closing_date, funding_date, investor_capital from farm_acquisitions
+where coalesce(funding_date, closing_date) > current_date;`
+
+## 112. Audit: which window for the average net profit per closed lot
+
+`goal.avgNetProfitPerClosedLot` = $59,000.98 over all 38 sold lots. Since ERA_START (30 lots)
+it is $64,922.44; last 6 months the same 30 lots; last 12 months the same 38. The choice moves
+"lots still needed" 132 → 120 and the required pace 8.46 → 7.69 lots/month. The Debt card's
+*actual* pace is already era-scoped, so the app measures the numerator and the denominator of
+"are we on pace" over different windows. **Recommendation:** keep all-sold for the goal
+arithmetic (the conservative choice) and show the era average beside it. Not changed (F4).
+
+## 113. Audit: the rotation benchmark has zero completed cycles in the era
+
+220.5 days is the median of four *projected* cycles (Freestone 151, Wichita 201, Avery 240,
+Franklin 326). The only completed cycle, Lamar (271 d), is pre-era and excluded. The card says
+"projected" and the War Plan says "median of 4 freed/projected cycles", so the code is honest,
+but every farm grade compares a farm against a forecast of itself. Capital effect today: none
+(no planned farm turns before the 2027 deadline either way). **Recommendation:** show "no
+completed cycle since the era" and grade against Lamar with an explicit pre-era tag. Not
+changed (F5).
+
+## 114. Audit: three "required pace" figures (8.46 / 8.8 / 8.47) and two "months to deadline" (15.61 / 15.6)
+
+Throne Room: 132 ÷ 15.61 (days ÷ 30.4375) = 8.46. Oracle required-pace future: 132 ÷ 15 whole
+months = 8.8. War Plan: bisection on the calendar-month grid (15.6 months) = 8.47. Each is
+right on its own time grid. **Recommendation:** keep the grids (each page already labels its
+model, see #104) and add a one-line footnote on the Oracle card explaining the whole-month
+grid. Not changed (F6).
+
+## 115. Audit: a campaign is "conquered" on contract value, not on cash
+
+`campaigns.ts` recovers Σ salePrice on closed / note_sold lots. Eastland is conquered with
+$565,000 of capital still outstanding (0 % returned) and Freestone with $373,520; Lamar is the
+only conquered farm whose sponsor is actually repaid. **Recommendation:** two bars — sold vs
+cashed — or rename the state. Not changed (F7).
+
+## 116. Audit: interest accrued on unsold lots of fixed-interest farms is not counted anywhere on the Throne Room
+
+Eastland accrued $118,572.60, counted as take on sold lots $97,013.97; Titus $64,425.19 vs
+$21,475.06; Avery $25,234.45 vs $0; Franklin $11,511.66 vs $0. The unsold lots' share
+(~$100,000) is in the War Plan ledger's `owedToday` (unpaid take) but not in
+`netProfitToDate` / `investorTakeToDate`. **Recommendation:** keep the per-lot attribution and
+show "interest accruing on unsold lots" on the farm sheet. Not changed (F8).
+
+## 117. Audit: the Oracle sliders start at 5.32 lots/month next to "real: 4.73"
+
+`Oracle.tsx` seeds the sliders from `futures.current.params` (reservations 7.1/mo × 75 % =
+5.32) since the futures feature; the hint "Trailing 90-day pace" and the `real:` figure describe
+`oracleDefaults.lotsPerMonth` = 4.73. Both numbers are correct; the page does not say why the
+slider starts above real. **Recommendation:** append "seeded from the current-pace future" to
+the hint, or seed from `oracleDefaults`. Not changed (F9).
+
+## 118. Audit: "18 farms bought along the way" on the Oracle
+
+`runOracle` stops at month max(floor(monthsToDeadline) + 2, monthsToGoal + 1) = 23 and reports
+the farms bought so far (18). By the goal month (22) it would be 17; by the deadline (15
+months) 12. The figure sits under "Net at deadline". **Recommendation:** count farms bought
+through the goal month, or through the deadline to match the tile. Not changed (F10).
+
+## 119. Audit: no cancelled file case is visible to the viewer role
+
+The viewer sees 71 `file_cases`, statuses `completed` and `active` only. Every cancellation
+figure — cancellation rate 0.0 %, conversion incl. cancellations 75.0 %, cancelled reservations
+0, cancellation chronicle events 0, the "reservations made" streaks — is therefore computed
+over a set that may be filtered by RLS rather than empty, and the conversion denominator (48 =
+36 closed + 12 still reserved) cannot be checked against resolved cases. **Exact question:** do
+cancelled file cases exist in Payments, and should the viewer policy expose them read-only?
+Run as an admin: `select status, count(*) from file_cases group by status;` Not patched in the
+app (F14).
+
+## 120. Audit: `property_costs` exceed `investor_capital` on Lamar and Wichita; `discount_from_upb` is negative on TIT-L01
+
+Lamar costs $484,000 vs capital $475,000 (+$9,000); Wichita $1,217,000 vs $1,197,000
+(+$20,000). The app's capital basis is `investor_capital` (documented in payments_schema.md), so
+the extra costs are in no figure; if closing costs belong in the basis, gross/net on those farms
+would fall by $29,000 in total. TIT-L01 was sold 2026-05-06 for $136,990 against a UPB of
+$135,646.93 with `discount_from_upb = -0.99` (above par); the Exodus ratio treats it as a
+percent and the combined ratio (0.8092) is unaffected, but a negative discount is unexpected.
+Queries in AUDIT.md F15/F16. Payments-side decisions; nothing changed in the app.
+
+## 121. Audit: `information_schema` is not reachable through PostgREST
+
+The brief says to introspect `information_schema.columns` before any SQL. The Supabase REST
+endpoint the app uses returns `PGRST106: schema information_schema is not exposed`, and the
+GraphQL endpoint is disabled for the anon role. The audit therefore introspected every table by
+per-column probes (`select <column> limit 1`) and by the keys of the rows the app's own selects
+return; the confirmed column lists are in AUDIT.md §1.1. No column name was assumed. If a
+service-role or SQL-editor session is available, `select table_name, column_name, data_type
+from information_schema.columns where table_schema = 'public' order by 1, 2;` would confirm the
+same lists and reveal any column the viewer role cannot see.
+
+## 122. Audit: the $4,145,355.48 of #105 is $29,000 of `investor_capital` that Payments changed overnight
+
+#105 and the pinned fixture (`payments.json`, snapshot 2026-09-11 21:31 UTC) read capital owed
+**$4,145,355.48**; the audit snapshot (2026-09-12 04:30 UTC) and a read-only re-read of Payments
+today both give **$4,116,355.48** (14 farm rows, 32 distributions, Σ capital_return
+$618,248.52, Σ sponsor capital $4,734,604). The whole difference is two `farm_acquisitions`
+rows: Lamar `investor_capital` 484,000 → 475,000 and Wichita 1,217,000 → 1,197,000, i.e. both
+were reduced by exactly their closing costs while `property_costs` still sums to 484,000 /
+1,217,000 (#120, AUDIT.md F16). Effect on the numbers: capital owed −$29,000; land cost per
+lot −$1,000 on Lamar and −$625 on Wichita, so gross on those farms +$29,000 spread over their
+lots. Nothing in Quest changed; the app's arithmetic is the same on both snapshots.
+`farm_acquisitions` has no `updated_at`, so Quest cannot see who changed it or when.
+**Exact question:** was the reduction of `investor_capital` on Lamar and Wichita on 2026-09-11/12
+intentional (closing costs out of the capital basis), and if so should `property_costs` be the
+only home of those $29,000? **Recommendation:** ask the Payments admin; leave the app's basis
+as `investor_capital` either way. Query (read-only):
+`select farm_name, investor_capital, (select sum(amount) from property_costs pc where
+pc.farm_acquisition_id = fa.id) as costs from farm_acquisitions fa where farm_name in ('Lamar',
+'Wichita');`
+
+## 123. Audit: Oxygen re-scores earlier closings when a closing is entered out of order
+
+`oxygen.ts` measures a closing's pace on "closings dated on or before it" and says the score
+"is fixed at the closing date, so the chronicle line never changes later". Both hold only under
+chronological entry: the day's ledger is built from every row dated ≤ that day, including rows
+created later, so a backdated closing changes the pace (and the days) of every later-dated
+lot, and a second closing on the same day changes the first one's score. Pinned as tests in
+`audit_properties.test.ts`: [90, 48, 14] = 152 days become [90, 17, 16, 7] = 130 when a
+$300,000 closing dated between them is added; a $100,000 closing alone scores 90, with a
+$10,000 closing on the same day it scores 81. A lone closing always scores 90 days whatever its
+size (one closing in the window is 0.34 lots/month → 365.25 ÷ (0.34 × 12) = 89.5). Live: 18 of
+the 37 closings with a file case were entered after a later-dated closing existed (the
+2026-04-15 initial load and the 2026-09-05..08 back-entry of the 2025 Lamar/Eastland
+closings), and 21 closings share a close date with another one. Today's 533 days are
+deterministic from the rows and reproduce independently (AUDIT.md O2), so nothing rendered is
+wrong; the "never decreases" invariant is therefore tested only for closings dated after every
+existing one. **Exact question:** should a lot's oxygen be a pure function of the rows (today)
+or frozen at the moment it was first computed? **Recommendation:** keep the pure function and
+reword the comment to "fixed given the rows". Not changed (F19).
