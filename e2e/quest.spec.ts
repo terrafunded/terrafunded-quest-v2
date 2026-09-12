@@ -51,8 +51,9 @@ test.describe("Throne Room", () => {
     await expect(page.getByTestId("pulse-needed")).toBeVisible();
     await expect(page.getByTestId("pulse-chart-pace")).toBeVisible();
     await expect(page.getByTestId("pulse-chart-profit")).toBeVisible();
-    expect(await page.locator("[data-testid='pulse-chart-pace'] .recharts-rectangle").count()).toBeGreaterThan(0);
-    expect(await page.locator("[data-testid='pulse-chart-profit'] .recharts-rectangle").count()).toBeGreaterThan(0);
+    // Recharts draws the bars only after ResponsiveContainer has measured its box (async), so poll instead of counting once.
+    await expect.poll(() => page.locator("[data-testid='pulse-chart-pace'] .recharts-rectangle").count()).toBeGreaterThan(0);
+    await expect.poll(() => page.locator("[data-testid='pulse-chart-profit'] .recharts-rectangle").count()).toBeGreaterThan(0);
     expect(errors).toEqual([]);
   });
 
@@ -1072,8 +1073,8 @@ test.describe("Navigation drawer", () => {
     await expect(page.getByTestId("pulse-chart-pace")).not.toHaveAttribute("data-required-closings", requiredClosingsBefore ?? "");
     await expect(page.getByTestId("pulse-chart-profit")).not.toHaveAttribute("data-required-profit", requiredProfitBefore ?? "");
     expect(Number(await page.getByTestId("pulse-chart-pace").getAttribute("data-required-closings"))).toBeLessThan(Number(requiredClosingsBefore));
-    expect(await page.locator("[data-testid='pulse-chart-pace'] .recharts-rectangle").count()).toBeGreaterThan(0);
-    expect(await page.locator("[data-testid='pulse-chart-profit'] .recharts-rectangle").count()).toBeGreaterThan(0);
+    await expect.poll(() => page.locator("[data-testid='pulse-chart-pace'] .recharts-rectangle").count()).toBeGreaterThan(0);
+    await expect.poll(() => page.locator("[data-testid='pulse-chart-profit'] .recharts-rectangle").count()).toBeGreaterThan(0);
 
     await page.goto("/warplan");
     await waitForRealm(page);
