@@ -19,7 +19,7 @@ function collectConsoleErrors(page: Page): string[] {
 
 /** Waits until the realm query has resolved on the current page (skeletons gone). */
 async function waitForRealm(page: Page) {
-  await expect(page.getByRole("status", { name: "Loading realm data" })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByRole("status", { name: /Loading realm data|Cargando los datos del reino/ })).toHaveCount(0, { timeout: 30_000 });
 }
 
 type BarGeometry = { x: number; width: number; height: number };
@@ -124,8 +124,8 @@ test.describe("Throne Room", () => {
             hovered.push({ month: ticks[i] as string, value, barHeight: bar?.height ?? 0 });
             if (value === 0) await expect(profit).toHaveText("$0");
           } else {
-            await expect(tip.getByTestId("pulse-tooltip-reservations")).toHaveText(/^Reservations \d+$/);
-            await expect(tip.getByTestId("pulse-tooltip-closings")).toHaveText(/^Closings \d+$/);
+            await expect(tip.getByTestId("pulse-tooltip-reservations")).toHaveText(/^(Reservations|Reservas) \d+$/);
+            await expect(tip.getByTestId("pulse-tooltip-closings")).toHaveText(/^(Closings|Cierres) \d+$/);
           }
         }
         await page.mouse.move(0, 0);
@@ -148,6 +148,70 @@ test.describe("Throne Room", () => {
       }
     });
   }
+
+  test("in Spanish, the Throne Room's realm cards carry no English copy and pluralise reserva/reservas", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("quest.lang", "es");
+      sessionStorage.setItem("quest.intro.seen", "1");
+    });
+    await page.goto("/");
+    await waitForRealm(page);
+    await expect(page.getByTestId("oxygen")).toHaveAttribute("aria-label", "Oxígeno");
+    await expect(page.getByTestId("debt")).toHaveAttribute("aria-label", "La Deuda");
+    await expect(page.getByTestId("pulse")).toHaveAttribute("aria-label", "El Pulso");
+    await expect(page.getByTestId("pulse-charts")).toHaveAttribute("aria-label", "Gráficas del Pulso");
+    await expect(page.getByTestId("pipeline")).toHaveAttribute("aria-label", "Pipeline");
+
+    // The three Oxygen lines that used to be hard-coded English, now Spanish with real plurals.
+    const confirmed = (await page.getByTestId("oxygen-confirmed").textContent()) ?? "";
+    expect(confirmed).toMatch(/^\d+ (cierre confirmado|cierres confirmados) · \d+ días en la ventana móvil$/);
+    expect(confirmed.startsWith("1 ")).toBe(confirmed.includes("cierre confirmado ·"));
+    const provisional = (await page.getByTestId("oxygen-reservations-provisional").textContent()) ?? "";
+    expect(provisional).toMatch(/^\d+ (reserva provisional|reservas provisionales) al \d+(\.\d+)?% de conversión$/);
+    expect(provisional.startsWith("1 ")).toBe(provisional.includes("reserva provisional al"));
+    await expect(page.getByTestId("oxygen-produces")).toHaveText(/^hoy el reino produce \$[\d,]+ de utilidad neta al día$/);
+
+    // English marker strings from every realm component that renders on the Throne Room.
+    const markers = [
+      "closings confirmed",
+      "days in the trailing window",
+      "provisional at",
+      "of net profit per day",
+      "Latest breath",
+      "Deepest breath",
+      "per lot in the ledger",
+      "Capital still owed to sponsors",
+      "Days left",
+      "Net profit required per day",
+      "actual pace per day",
+      "you have averaged",
+      "of interest accrues",
+      "the deadline has passed",
+      "Producing",
+      "Needed",
+      "at the trailing pace",
+      "remaining ÷ days left",
+      "of the pace the",
+      "Reservations lead, closings pay",
+      "Net profit per month",
+      "Fainter bars",
+      "Profit trapped in reservations",
+      "the stuck list",
+      "the only pace that counts",
+      "Median to close",
+      "Reservations / mo",
+      "Closings / mo",
+      "reservations waiting",
+      "incl. cancellations",
+      "still waiting",
+    ];
+    // textContent, not innerText: `.stat-label` is CSS-uppercased, which would hide "Latest breath" as "LATEST BREATH".
+    const text = await page.locator("[data-testid='oxygen'], [data-testid='debt'], [data-testid='pulse'], [data-testid='pulse-charts'], [data-testid='pipeline']").allTextContents();
+    const rendered = text.join("\n");
+    expect(rendered.length).toBeGreaterThan(200);
+    const found = markers.filter((m) => rendered.includes(m));
+    expect(found, `English copy rendered in Spanish mode: ${found.join(" | ")}`).toEqual([]);
+  });
 
   test("Key figures Capital outstanding equals Debt/Rotation sponsor-owed and discloses own capital", async ({ page }) => {
     await page.goto("/");
@@ -216,7 +280,7 @@ test.describe("Throne Room", () => {
     await expect(provisionalScore).toBeVisible();
     await expect(provisionalScore).toHaveAttribute("data-value", String(provisionalSum));
     await expect(provisionalScore).toHaveText(/^\+[\d,]+$/);
-    await expect(page.getByTestId("oxygen")).toContainText(/\d+ reservations? provisional at \d+(\.\d+)?% conversion/);
+    await expect(page.getByTestId("oxygen")).toContainText(/\d+ (reservations? provisional at|reservas? provisionales? al) \d+(\.\d+)?% (conversion|de conversión)/);
   });
 
   test("the Committed counter shows the expected net profit from live reservations, when it lands, both paces and the This month strip", async ({ page }) => {
@@ -512,12 +576,12 @@ test.describe("Page specifics", () => {
     expect(await page.getByTestId("trophy-card").count()).toBeGreaterThanOrEqual(15);
     expect(await page.locator("[data-rarity='legendary']").count()).toBeGreaterThan(0);
     await expect(page.getByTestId("streaks")).toBeVisible();
-    await expect(page.getByTestId("streak-current")).toContainText(/\d+ weeks?/);
+    await expect(page.getByTestId("streak-current")).toContainText(/\d+ (weeks?|semanas?)/);
     // Reservation streaks sit beside the closing streaks, with trophies of their own.
     const pledges = page.getByTestId("reservation-streaks");
     await expect(pledges).toBeVisible();
-    await expect(pledges.getByTestId("reservation-streak-current")).toContainText(/\d+ weeks?/);
-    await expect(pledges).toContainText(/\d+ reservations?/);
+    await expect(pledges.getByTestId("reservation-streak-current")).toContainText(/\d+ (weeks?|semanas?)/);
+    await expect(pledges).toContainText(/\d+ (reservations?|reservas?)/);
     await expect(page.getByTestId("trophy-card").filter({ hasText: /Steady Pledges|Pledge After Pledge|The Long Line|Market Day/ }).first()).toBeVisible();
   });
 });
@@ -784,9 +848,9 @@ test.describe("Phase 2: Epic", () => {
     await expect(gallery).toBeVisible();
     const freed = hostages.locator("xpath=self::*[@data-freed='true']");
     const freedCount = await freed.count();
-    await expect(gallery).toContainText(`Liberated · ${freedCount}`);
+    await expect(gallery).toContainText(new RegExp(`(Liberated|Liberados) · ${freedCount}`));
     if (freedCount === 0) {
-      await expect(gallery).toContainText("Nobody has been freed yet");
+      await expect(gallery).toContainText(/Nobody has been freed yet|Nadie ha sido liberado aún/);
     } else {
       await expect(gallery.getByTestId("hostage")).toHaveCount(freedCount);
     }
@@ -1010,7 +1074,7 @@ test.describe("Phase 2: Epic", () => {
     await expect(strip.getByTestId("rotation-turns-completed")).toHaveText(/^\d+$/);
     await expect(strip.getByTestId("rotation-turns-needed")).toHaveText(/^(\d+(\.\d)?|—)$/);
     await expect(strip.getByTestId("rotation-outstanding")).toHaveText(/^\$[\d,]+$/);
-    await expect(page.getByTestId("pipeline-cancellation-rate")).toContainText(/\d+(\.\d)?% cancelled/);
+    await expect(page.getByTestId("pipeline-cancellation-rate")).toContainText(/\d+(\.\d)?% (cancelled|canceladas)/);
 
     await page.goto("/pipeline");
     await waitForRealm(page);
@@ -1023,8 +1087,8 @@ test.describe("Phase 2: Epic", () => {
     await page.goto("/");
     await waitForRealm(page);
     await expect(page.getByTestId("debt-actual-pace-label")).toContainText("since Mar 2026");
-    await expect(page.getByTestId("debt-actual-pace-hint")).toContainText(/since Mar 2026 \(\d+ days\)/);
-    await expect(page.getByTestId("debt-actual-pace-hint")).toContainText("over the full history");
+    await expect(page.getByTestId("debt-actual-pace-hint")).toContainText(/since Mar 2026 \(\d+ (days|días)\)/);
+    await expect(page.getByTestId("debt-actual-pace-hint")).toContainText(/over the full history|en toda la historia/);
     await expect(page.getByTestId("rotation-benchmark-hint")).toContainText("farms funded since Mar 2026");
     // 90-day windows sit inside the era today, so the pace line is not clipped.
     await expect(page.getByTestId("pace-window")).toContainText("trailing 90 days");
@@ -1160,7 +1224,7 @@ test.describe("Navigation drawer", () => {
 
     await expect(page.getByTestId("topbar-horizon")).toHaveText("2029");
     await expect(page.getByTestId("days-to-deadline")).toContainText("Dec 31, 2029");
-    await expect(page.getByTestId("pulse-ratio")).toContainText("2029 horizon");
+    await expect(page.getByTestId("pulse-ratio")).toContainText(/2029 horizon|horizonte 2029/);
     await expect(page.getByTestId("debt-per-day")).toBeVisible();
     await expect(page.getByTestId("pulse-chart-pace")).not.toHaveAttribute("data-required-closings", requiredClosingsBefore ?? "");
     await expect(page.getByTestId("pulse-chart-profit")).not.toHaveAttribute("data-required-profit", requiredProfitBefore ?? "");

@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Crown } from "lucide-react";
 import { GrowthBurst } from "./GrowthBurst";
 import { money } from "@/lib/format";
+import { useRealmStrings } from "@/i18n/realm";
 
 interface MilestoneCelebrationProps {
   amount: number;
@@ -11,6 +12,7 @@ interface MilestoneCelebrationProps {
 
 /** A chronicle entry that celebrates a $1M line being crossed. */
 export function MilestoneCelebration({ amount, date, caption }: MilestoneCelebrationProps) {
+  const t = useRealmStrings().milestone;
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.92, y: 12 }}
@@ -28,9 +30,9 @@ export function MilestoneCelebration({ amount, date, caption }: MilestoneCelebra
       >
         <Crown className="h-6 w-6" />
       </motion.div>
-      <div className="stat-label">Milestone · {date}</div>
+      <div className="stat-label">{t.title(date)}</div>
       <div className="mt-1 font-display text-2xl text-gold sm:text-3xl">{money(amount)}</div>
-      <div className="mt-1 text-sm text-muted-foreground">{caption ?? "of net profit chronicled"}</div>
+      <div className="mt-1 text-sm text-muted-foreground">{caption ?? t.caption}</div>
     </motion.div>
   );
 }

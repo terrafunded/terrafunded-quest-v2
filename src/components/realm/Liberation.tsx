@@ -3,12 +3,14 @@ import { Lock, Unlock } from "lucide-react";
 import type { Hostage, Liberation as LiberationModel } from "@/domain";
 import { date, money, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useRealmStrings } from "@/i18n/realm";
 
 /**
  * INVESTOR LIBERATION — every sponsor position is a hostage with a capital-returned bar built
  * from `investor_distributions`; at 100 % it moves to the Liberated gallery.
  */
 export function HostageBar({ h, index = 0 }: { h: Hostage; index?: number }) {
+  const t = useRealmStrings().liberation;
   return (
     <motion.li
       initial={{ opacity: 0, y: 8 }}
@@ -26,9 +28,9 @@ export function HostageBar({ h, index = 0 }: { h: Hostage; index?: number }) {
             <span className="truncate text-xs text-muted-foreground">· {h.farmName}</span>
           </div>
           <div className="mt-0.5 text-[11px] text-muted-foreground">
-            {money(h.capitalReturned)} of {money(h.capital)} returned
-            {h.freed && h.freedAt ? ` · freed ${date(h.freedAt)}${h.daysHeld !== null ? ` after ${h.daysHeld} days` : ""}` : ` · ${money(h.capitalOutstanding)} to go`}
-            {h.paidOnTop > 0 ? ` · ${money(h.paidOnTop)} paid on top` : ""}
+            {t.returnedOf(money(h.capitalReturned), money(h.capital))}
+            {h.freed && h.freedAt ? `${t.freed(date(h.freedAt))}${h.daysHeld !== null ? t.afterDays(h.daysHeld) : ""}` : t.toGo(money(h.capitalOutstanding))}
+            {h.paidOnTop > 0 ? t.paidOnTop(money(h.paidOnTop)) : ""}
           </div>
         </div>
         <span className={cn("shrink-0 font-heading tabular", h.freed ? "text-liberty" : "text-foreground")}>{pct(h.pctReturned, h.pctReturned === 100 ? 0 : 1)}</span>
@@ -46,20 +48,21 @@ export function HostageBar({ h, index = 0 }: { h: Hostage; index?: number }) {
 }
 
 export function LiberationBoard({ liberation }: { liberation: LiberationModel }) {
+  const t = useRealmStrings().liberation;
   return (
     <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-      <section className="parchment-card p-5" aria-label="Hostages of the realm">
+      <section className="parchment-card p-5" aria-label={t.hostagesAria}>
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
           <h2 className="whitespace-nowrap font-heading text-sm uppercase tracking-[0.2em] text-sponsor sm:shrink-0">
             <Lock className="mr-2 inline h-4 w-4" />
-            Hostages of the realm · {liberation.captiveHostages.length}
+            {t.hostages(liberation.captiveHostages.length)}
           </h2>
           <span className="text-xs text-muted-foreground tabular sm:text-right">
-            {money(liberation.totalReturned)} of {money(liberation.totalCapital)} returned · {pct(liberation.pctReturned, 1)}
+            {t.totalReturned(money(liberation.totalReturned), money(liberation.totalCapital), pct(liberation.pctReturned, 1))}
           </span>
         </div>
         {liberation.captiveHostages.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No sponsor is owed anything. The realm is free.</p>
+          <p className="text-sm text-muted-foreground">{t.nobodyOwed}</p>
         ) : (
           <ul className="space-y-2">
             {liberation.captiveHostages.map((h, i) => (
@@ -69,13 +72,13 @@ export function LiberationBoard({ liberation }: { liberation: LiberationModel })
         )}
       </section>
 
-      <section className="parchment-card border-liberty/30 p-5" aria-label="Liberated" data-testid="liberated-gallery">
+      <section className="parchment-card border-liberty/30 p-5" aria-label={t.liberatedAria} data-testid="liberated-gallery">
         <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-liberty">
           <Unlock className="mr-2 inline h-4 w-4" />
-          Liberated · {liberation.freedHostages.length}
+          {t.liberated(liberation.freedHostages.length)}
         </h2>
         {liberation.freedHostages.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nobody has been freed yet. The first farm to return 100% of its capital opens this gallery.</p>
+          <p className="text-sm text-muted-foreground">{t.nobodyFreed}</p>
         ) : (
           <ul className="space-y-2">
             {liberation.freedHostages.map((h, i) => (
@@ -84,7 +87,7 @@ export function LiberationBoard({ liberation }: { liberation: LiberationModel })
           </ul>
         )}
         {liberation.freedSponsors.length > 0 && (
-          <p className="mt-3 text-xs text-muted-foreground">Free sponsors (every position repaid): {liberation.freedSponsors.map((s) => s.name).join(", ")}.</p>
+          <p className="mt-3 text-xs text-muted-foreground">{t.freeSponsors(liberation.freedSponsors.map((s) => s.name).join(", "))}</p>
         )}
       </section>
     </div>

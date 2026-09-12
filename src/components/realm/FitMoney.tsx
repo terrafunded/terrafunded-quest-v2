@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { money, moneyCompact } from "@/lib/format";
 import { AnimatedCounter } from "./AnimatedCounter";
+import { useRealmStrings } from "@/i18n/realm";
 
 /**
  * Hero money that stays on one line. Tries the full `$2,272,304` form first; if that overflows
@@ -56,6 +57,7 @@ export function FitMoney({
 
 /** Ellipsized name that reveals the full value on tap/focus. */
 export function Ellipsize({ children, className }: { children: ReactNode; className?: string }) {
+  const t = useRealmStrings().fitMoney;
   const text = typeof children === "string" ? children : undefined;
   const [open, setOpen] = useState(false);
   if (!text) {
@@ -68,7 +70,7 @@ export function Ellipsize({ children, className }: { children: ReactNode; classN
       className={cn("ellipsize-tap", open ? "whitespace-normal break-words" : "truncate", className)}
       title={text}
       aria-expanded={open}
-      aria-label={open ? text : `Show full name: ${text}`}
+      aria-label={open ? text : t.showFullName(text)}
       onClick={() => setOpen((v) => !v)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {

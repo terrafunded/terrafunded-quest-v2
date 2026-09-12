@@ -1,6 +1,7 @@
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { pulseBand, pulseRatioPct } from "@/domain";
+import { useRealmStrings } from "@/i18n/realm";
 
 const BAND_CLASS = {
   ember: "text-ember",
@@ -22,14 +23,15 @@ export function Pulse({
   needed: number | null;
   horizonYear: number;
 }) {
+  const t = useRealmStrings().pulse;
   const ratio = pulseRatioPct(producing, needed);
   const band = ratio === null ? null : pulseBand(ratio);
 
   return (
-    <section className="mt-6" aria-label="The Pulse" data-testid="pulse">
+    <section className="mt-6" aria-label={t.aria} data-testid="pulse">
       <div className="grid grid-cols-2 gap-3">
         <figure className="min-w-0 text-center sm:text-left">
-          <figcaption className="stat-label">Producing</figcaption>
+          <figcaption className="stat-label">{t.producing}</figcaption>
           <div
             className="mt-1 font-display text-[clamp(1.35rem,5vw,2.25rem)] leading-none tabular text-foreground"
             data-testid="pulse-producing"
@@ -37,10 +39,10 @@ export function Pulse({
           >
             {producing === null ? "—" : money(producing)}
           </div>
-          <div className="mt-1 text-[11px] text-muted-foreground">net profit per day at the trailing pace</div>
+          <div className="mt-1 text-[11px] text-muted-foreground">{t.producingHint}</div>
         </figure>
         <figure className="min-w-0 text-center sm:text-left">
-          <figcaption className="stat-label">Needed</figcaption>
+          <figcaption className="stat-label">{t.needed}</figcaption>
           <div
             className="mt-1 font-display text-[clamp(1.35rem,5vw,2.25rem)] leading-none tabular text-foreground"
             data-testid="pulse-needed"
@@ -48,12 +50,12 @@ export function Pulse({
           >
             {needed === null ? "—" : money(needed)}
           </div>
-          <div className="mt-1 text-[11px] text-muted-foreground">remaining ÷ days left</div>
+          <div className="mt-1 text-[11px] text-muted-foreground">{t.neededHint}</div>
         </figure>
       </div>
       {ratio !== null && band !== null && (
         <p className={cn("mt-3 text-sm", BAND_CLASS[band])} data-testid="pulse-ratio" data-value={ratio} data-band={band}>
-          you are at {Math.round(ratio)}% of the pace the {horizonYear} horizon requires
+          {t.ratio(Math.round(ratio), horizonYear)}
         </p>
       )}
     </section>

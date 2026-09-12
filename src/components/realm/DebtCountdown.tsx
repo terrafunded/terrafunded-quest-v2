@@ -5,6 +5,7 @@ import type { Debt } from "@/domain";
 import { AnimatedCounter } from "./AnimatedCounter";
 import { date, money, number } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useRealmStrings } from "@/i18n/realm";
 
 /**
  * THE DEBT — capital still owed to sponsors, days left, and the net profit the realm must earn
@@ -12,34 +13,35 @@ import { cn } from "@/lib/utils";
  * daily because it is remaining ÷ daysLeft as of `asOf`.
  */
 export function DebtCountdown({ debt, className }: { debt: Debt; className?: string }) {
+  const t = useRealmStrings().debt;
   const behind = debt.actualNetProfitPerDay !== null && debt.requiredNetProfitPerDay !== null && debt.actualNetProfitPerDay < debt.requiredNetProfitPerDay;
   // The pace is measured from the era start (config ERA_START) when closings predate it; the all-time figure stays for the record.
   const paceHint =
     debt.actualNetProfitPerDay === null
-      ? "no closings yet"
+      ? t.noClosings
       : debt.actualEraClipped
-        ? `you have averaged ${money(debt.actualNetProfitPerDay)} / day ${debt.actualSinceLabel} (${number(debt.actualDays)} days)` +
-          (debt.actualNetProfitPerDayAllTime !== null ? ` · ${money(debt.actualNetProfitPerDayAllTime)} / day over the full history since ${date(debt.firstCloseDate ?? debt.asOf)}` : "")
-        : `you have averaged ${money(debt.actualNetProfitPerDay)} / day since the first closing`;
+        ? t.averagedSince(money(debt.actualNetProfitPerDay), debt.actualSinceLabel ?? "", number(debt.actualDays)) +
+          (debt.actualNetProfitPerDayAllTime !== null ? t.averagedAllTime(money(debt.actualNetProfitPerDayAllTime), date(debt.firstCloseDate ?? debt.asOf)) : "")
+        : t.averagedFirstClosing(money(debt.actualNetProfitPerDay));
   return (
     <section
       className={cn("relative overflow-hidden rounded-2xl border border-ember/18 bg-gradient-to-br from-ember/14 via-card to-card p-5 sm:p-6", className)}
-      aria-label="The Debt"
+      aria-label={t.aria}
       data-testid="debt"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-ember">
           <Skull className="mr-2 inline h-4 w-4" />
-          The Debt
+          {t.title}
         </h2>
-        <span className="text-xs text-muted-foreground">as of {date(debt.asOf)} · deadline {date(debt.deadline)}</span>
+        <span className="text-xs text-muted-foreground">{t.asOf(date(debt.asOf), date(debt.deadline))}</span>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-[1.35fr_0.75fr_1.15fr]">
-        <Cell label="Capital still owed to sponsors" hint={`${debt.openPositions} open position${debt.openPositions === 1 ? "" : "s"} · ${money(debt.interestPerDay)} of interest accrues per day`}>
+        <Cell label={t.capitalOwed} hint={t.capitalOwedHint(debt.openPositions, money(debt.interestPerDay))}>
           <AnimatedCounter value={debt.capitalOwed} className="text-ember" data-testid="debt-capital-owed" />
         </Cell>
-        <Cell label="Days left" hint={debt.daysLeft > 0 ? `to ${date(debt.deadline)}` : "the deadline has passed"}>
+        <Cell label={t.daysLeft} hint={debt.daysLeft > 0 ? t.daysLeftTo(date(debt.deadline)) : t.deadlinePassed}>
           <span className="inline-flex items-baseline gap-2">
             <Hourglass className="h-5 w-5 self-center text-gold" />
             <span className="tabular" data-testid="debt-days-left" data-value={debt.daysLeft}>
@@ -47,7 +49,7 @@ export function DebtCountdown({ debt, className }: { debt: Debt; className?: str
             </span>
           </span>
         </Cell>
-        <Cell label="Net profit required per day" hint={paceHint} hintTestId="debt-actual-pace-hint">
+        <Cell label={t.requiredPerDay} hint={paceHint} hintTestId="debt-actual-pace-hint">
           {debt.requiredNetProfitPerDay === null ? (
             <span className="text-muted-foreground" data-testid="debt-per-day" data-value={0}>
               —
@@ -64,8 +66,11 @@ export function DebtCountdown({ debt, className }: { debt: Debt; className?: str
       {debt.requiredNetProfitPerDay !== null && debt.actualNetProfitPerDay !== null && (
         <div className="mt-4">
           <div className="flex justify-between text-[11px] uppercase tracking-wider text-muted-foreground">
-            <span data-testid="debt-actual-pace-label">actual pace per day{debt.actualSinceLabel ? ` · ${debt.actualSinceLabel}` : ""}</span>
-            <span>required</span>
+            <span data-testid="debt-actual-pace-label">
+              {t.actualPace}
+              {debt.actualSinceLabel ? ` · ${debt.actualSinceLabel}` : ""}
+            </span>
+            <span>{t.required}</span>
           </div>
           <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
             <motion.div

@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Check, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moneyCompact } from "@/lib/format";
+import { useRealmStrings } from "@/i18n/realm";
 
 export interface QuestNode {
   id: string;
@@ -23,6 +24,7 @@ interface QuestTreeProps {
  * chain never overflows the viewport.
  */
 export function QuestTree({ nodes, current, className }: QuestTreeProps) {
+  const t = useRealmStrings().questTree;
   const nextIndex = nodes.findIndex((n) => !n.reached);
   return (
     <ol
@@ -30,7 +32,7 @@ export function QuestTree({ nodes, current, className }: QuestTreeProps) {
         "flex max-w-full gap-1 overflow-x-auto overscroll-x-contain pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         className,
       )}
-      aria-label="Quest chain"
+      aria-label={t.aria}
     >
       {nodes.map((n, i) => {
         const prevTarget = i === 0 ? 0 : (nodes[i - 1]?.target ?? 0);
@@ -55,7 +57,7 @@ export function QuestTree({ nodes, current, className }: QuestTreeProps) {
                       ? "border-gold/60 bg-card text-foreground"
                       : "border-border bg-card text-muted-foreground",
                 )}
-                title={n.reachedAt ? `Reached ${n.reachedAt}` : `${within.toFixed(0)}% toward ${moneyCompact(n.target)}`}
+                title={n.reachedAt ? t.reached(n.reachedAt) : t.toward(within.toFixed(0), moneyCompact(n.target))}
               >
                 {n.reached ? <Check className="h-4 w-4" /> : i === nextIndex ? `${Math.round(within)}%` : <Lock className="h-3.5 w-3.5" />}
                 {i === nextIndex && (

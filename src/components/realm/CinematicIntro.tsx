@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import type { Story } from "@/domain";
 import { useHorizon } from "@/horizon/HorizonProvider";
+import { useRealmStrings } from "@/i18n/realm";
 
 const KEY = "quest.intro.seen";
 const CARD_MS = 1600;
@@ -16,6 +17,7 @@ const CARD_MS = 1600;
  */
 export function CinematicIntro({ story }: { story: Story }) {
   const { horizon } = useHorizon();
+  const t = useRealmStrings().intro;
   const [show, setShow] = useState(false);
   const [index, setIndex] = useState(-1);
 
@@ -79,7 +81,7 @@ export function CinematicIntro({ story }: { story: Story }) {
                     Quest
                   </motion.div>
                   <div className="mt-3 font-heading text-xs uppercase tracking-[0.35em] text-muted-foreground">
-                    Ten million by the last day of {horizon}
+                    {t.tagline(horizon)}
                   </div>
                 </motion.div>
               ) : (

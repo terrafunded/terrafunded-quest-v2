@@ -6,6 +6,7 @@ import { GrowthBurst } from "./GrowthBurst";
 import { Button } from "@/components/ui/button";
 import { date, money } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useRealmStrings } from "@/i18n/realm";
 
 interface CelebrationProps {
   events: RealmEvent[];
@@ -14,14 +15,13 @@ interface CelebrationProps {
   onDone: () => void;
 }
 
-const KIND_LABEL: Record<string, string> = { closing: "A lot was claimed", note_sale: "A note was sold", liberation: "A sponsor walks free" };
-
 /**
  * Full-screen fanfare for the real closings, note sales and liberations that happened since the
  * last visit (Phase 2 §9), or for a liberation the first time it is seen. Dismissible; never
  * rendered under `prefers-reduced-motion`-hostile conditions because it is a plain dialog.
  */
 export function Celebration({ events, narrative, onDone }: CelebrationProps) {
+  const t = useRealmStrings().celebration;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onDone();
     window.addEventListener("keydown", onKey);
@@ -30,7 +30,7 @@ export function Celebration({ events, narrative, onDone }: CelebrationProps) {
 
   if (events.length === 0) return null;
   const liberation = events.some((e) => e.kind === "liberation");
-  const headline = events.length === 1 ? KIND_LABEL[events[0]?.kind ?? ""] ?? "Since your last visit" : `${events.length} things happened since your last visit`;
+  const headline = events.length === 1 ? (events[0] ? t.kind[events[0].kind] : undefined) ?? t.sinceLastVisit : t.thingsHappened(events.length);
 
   return (
     <AnimatePresence>
@@ -38,7 +38,7 @@ export function Celebration({ events, narrative, onDone }: CelebrationProps) {
         key="celebration"
         role="dialog"
         aria-modal="true"
-        aria-label="Celebration"
+        aria-label={t.aria}
         className="fixed inset-0 z-[70] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -57,7 +57,7 @@ export function Celebration({ events, narrative, onDone }: CelebrationProps) {
           )}
         >
           <GrowthBurst trigger={events[0]?.id ?? "x"} particles={20} className="pointer-events-none absolute inset-0 left-1/2 top-1/3" />
-          <Button variant="ghost" size="icon" className="absolute right-2 top-2" onClick={onDone} aria-label="Close celebration">
+          <Button variant="ghost" size="icon" className="absolute right-2 top-2" onClick={onDone} aria-label={t.close}>
             <X />
           </Button>
           <motion.div
@@ -78,7 +78,7 @@ export function Celebration({ events, narrative, onDone }: CelebrationProps) {
                 className="rounded-md bg-background/50 p-3"
               >
                 <div className="flex items-baseline justify-between gap-3 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <span>{KIND_LABEL[e.kind] ?? e.kind}</span>
+                  <span>{t.kind[e.kind] ?? e.kind}</span>
                   <span>
                     {date(e.date)}
                     {e.amount !== null ? ` · ${money(e.amount)}` : ""}
@@ -89,7 +89,7 @@ export function Celebration({ events, narrative, onDone }: CelebrationProps) {
             ))}
           </ol>
           <Button className="mt-5" onClick={onDone}>
-            Onward
+            {t.onward}
           </Button>
         </motion.div>
       </motion.div>

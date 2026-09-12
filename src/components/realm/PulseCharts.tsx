@@ -5,6 +5,7 @@ import { DAYS_PER_MONTH } from "@/config/goal";
 import { useTheme } from "@/theme/ThemeProvider";
 import { money, moneyCompact } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useRealmStrings, type RealmUiStrings } from "@/i18n/realm";
 
 const EMBER = "hsl(var(--ember))";
 const GREEN = "hsl(var(--stage-closed))";
@@ -49,46 +50,46 @@ function fillOpacity(p: MonthlyPoint): number {
   return 1;
 }
 
-type TooltipProps = { active?: boolean; payload?: { payload: MonthlyPoint }[] };
+type TooltipProps = { active?: boolean; payload?: { payload: MonthlyPoint }[]; t: RealmUiStrings["pulseCharts"] };
 
 /**
  * Tooltip header: the month exactly as the X axis tick prints it (`MonthlyPoint.label`, the axis
  * dataKey). Inline `textTransform` because Neon Kingdom uppercases `.font-heading`, which would
  * make the tooltip say "MAR 26" under a "Mar 26" tick.
  */
-function TooltipMonth({ p }: { p: MonthlyPoint }) {
+function TooltipMonth({ p, t }: { p: MonthlyPoint; t: RealmUiStrings["pulseCharts"] }) {
   return (
     <div className="font-heading text-gold">
       <span data-testid="pulse-tooltip-month" style={{ textTransform: "none" }}>
         {p.label}
       </span>
-      {p.partial && <span className="text-muted-foreground"> · month in progress</span>}
+      {p.partial && <span className="text-muted-foreground"> · {t.monthInProgress}</span>}
     </div>
   );
 }
 
-function PaceTooltip({ active, payload }: TooltipProps) {
+function PaceTooltip({ active, payload, t }: TooltipProps) {
   if (!active || !payload?.[0]) return null;
   const p = payload[0].payload;
   return (
     <div className="rounded-md border px-3 py-2 text-xs shadow-md" style={{ background: POPOVER, borderColor: BORDER }}>
-      <TooltipMonth p={p} />
+      <TooltipMonth p={p} t={t} />
       <div className="mt-1 tabular" data-testid="pulse-tooltip-reservations">
-        Reservations {p.reservations}
+        {t.tooltipReservations(p.reservations)}
       </div>
       <div className="tabular" data-testid="pulse-tooltip-closings">
-        Closings {p.closings}
+        {t.tooltipClosings(p.closings)}
       </div>
     </div>
   );
 }
 
-function ProfitTooltip({ active, payload }: TooltipProps) {
+function ProfitTooltip({ active, payload, t }: TooltipProps) {
   if (!active || !payload?.[0]) return null;
   const p = payload[0].payload;
   return (
     <div className="rounded-md border px-3 py-2 text-xs shadow-md" style={{ background: POPOVER, borderColor: BORDER }}>
-      <TooltipMonth p={p} />
+      <TooltipMonth p={p} t={t} />
       <div className="mt-1 tabular" data-testid="pulse-tooltip-profit" data-value={p.netProfit}>
         {money(p.netProfit)}
       </div>
@@ -115,6 +116,7 @@ export function PulseCharts({
   eraLabel: string | null;
 }) {
   const { d, reducedMotion } = useTheme();
+  const t = useRealmStrings().pulseCharts;
   const wide = useWideViewport();
   const points = useMemo(() => (wide ? history : history.slice(-12)), [history, wide]);
   const duration = Math.round(d(0.5) * 1000);
@@ -124,11 +126,11 @@ export function PulseCharts({
   if (points.length === 0) return null;
 
   return (
-    <section className="space-y-3" aria-label="The Pulse charts" data-testid="pulse-charts">
+    <section className="space-y-3" aria-label={t.aria} data-testid="pulse-charts">
       <div className="grid min-w-0 gap-4 md:grid-cols-2">
         <ChartCard
-          title="Reservations lead, closings pay"
-          legend="Reservations · Closings · required"
+          title={t.paceTitle}
+          legend={t.paceLegend}
           testId="pulse-chart-pace"
           requiredClosings={requiredClosings}
           requiredReservations={requiredReservations}
@@ -145,14 +147,14 @@ export function PulseCharts({
                 axisLine={false}
                 width={32}
               />
-              <ChartTooltip content={<PaceTooltip />} cursor={CURSOR} />
+              <ChartTooltip content={<PaceTooltip t={t} />} cursor={CURSOR} />
               {requiredReservations !== null && (
                 <ReferenceLine
                   y={requiredReservations}
                   stroke={EMBER}
                   strokeDasharray="4 4"
                   ifOverflow="extendDomain"
-                  label={{ value: "required", fill: EMBER, fontSize: 11, position: "insideTopLeft" }}
+                  label={{ value: t.required, fill: EMBER, fontSize: 11, position: "insideTopLeft" }}
                 />
               )}
               {requiredClosings !== null && (
@@ -161,15 +163,15 @@ export function PulseCharts({
                   stroke={GREEN}
                   strokeDasharray="4 4"
                   ifOverflow="extendDomain"
-                  label={{ value: "required", fill: GREEN, fontSize: 11, position: "insideTopRight" }}
+                  label={{ value: t.required, fill: GREEN, fontSize: 11, position: "insideTopRight" }}
                 />
               )}
-              <Bar dataKey="reservations" name="Reservations" fill={EMBER} radius={[3, 3, 0, 0]} isAnimationActive={!reducedMotion} animationDuration={duration}>
+              <Bar dataKey="reservations" name={t.reservations} fill={EMBER} radius={[3, 3, 0, 0]} isAnimationActive={!reducedMotion} animationDuration={duration}>
                 {points.map((p) => (
                   <Cell key={`r-${p.month}`} fill={EMBER} fillOpacity={fillOpacity(p)} />
                 ))}
               </Bar>
-              <Bar dataKey="closings" name="Closings" fill={GREEN} radius={[3, 3, 0, 0]} isAnimationActive={!reducedMotion} animationDuration={duration}>
+              <Bar dataKey="closings" name={t.closings} fill={GREEN} radius={[3, 3, 0, 0]} isAnimationActive={!reducedMotion} animationDuration={duration}>
                 {points.map((p) => (
                   <Cell key={`c-${p.month}`} fill={GREEN} fillOpacity={fillOpacity(p)} />
                 ))}
@@ -179,8 +181,8 @@ export function PulseCharts({
         </ChartCard>
 
         <ChartCard
-          title="Net profit per month"
-          legend="Net profit · required"
+          title={t.profitTitle}
+          legend={t.profitLegend}
           testId="pulse-chart-profit"
           requiredProfit={requiredProfit}
         >
@@ -196,17 +198,17 @@ export function PulseCharts({
                 axisLine={false}
                 width={40}
               />
-              <ChartTooltip content={<ProfitTooltip />} cursor={CURSOR} />
+              <ChartTooltip content={<ProfitTooltip t={t} />} cursor={CURSOR} />
               {requiredProfit !== null && (
                 <ReferenceLine
                   y={requiredProfit}
                   stroke={GOLD}
                   strokeDasharray="4 4"
                   ifOverflow="extendDomain"
-                  label={{ value: "required", fill: GOLD, fontSize: 11, position: "insideTopRight" }}
+                  label={{ value: t.required, fill: GOLD, fontSize: 11, position: "insideTopRight" }}
                 />
               )}
-              <Bar dataKey="netProfit" name="Net profit" fill={GOLD} radius={[3, 3, 0, 0]} isAnimationActive={!reducedMotion} animationDuration={duration}>
+              <Bar dataKey="netProfit" name={t.netProfit} fill={GOLD} radius={[3, 3, 0, 0]} isAnimationActive={!reducedMotion} animationDuration={duration}>
                 {points.map((p) => (
                   <Cell key={`p-${p.month}`} fill={GOLD} fillOpacity={fillOpacity(p)} />
                 ))}
@@ -217,7 +219,7 @@ export function PulseCharts({
       </div>
       {hasBeforeEra && eraLabel && (
         <p className="text-sm text-muted-foreground" data-testid="pulse-charts-era-note">
-          Fainter bars are months that ended before sales operations started in earnest in {eraLabel}.
+          {t.eraNote(eraLabel)}
         </p>
       )}
     </section>

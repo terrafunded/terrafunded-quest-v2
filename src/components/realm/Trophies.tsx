@@ -3,23 +3,25 @@ import { Award, Crown, Gem, Lock, Medal } from "lucide-react";
 import type { Trophy } from "@/domain";
 import { cn } from "@/lib/utils";
 import { date } from "@/lib/format";
+import { useRealmStrings } from "@/i18n/realm";
 
-const TIER_STYLE: Record<Trophy["tier"], { ring: string; icon: typeof Award; label: string }> = {
-  bronze: { ring: "from-siege/30 to-siege/10 text-siege", icon: Medal, label: "Bronze" },
-  silver: { ring: "from-steel/40 to-steel/20 text-steel", icon: Award, label: "Silver" },
-  gold: { ring: "from-gold/50 to-gold-dim/30 text-gold", icon: Crown, label: "Gold" },
-  legendary: { ring: "from-sponsor/40 to-accent/40 text-sponsor", icon: Gem, label: "Legendary" },
+const TIER_STYLE: Record<Trophy["tier"], { ring: string; icon: typeof Award }> = {
+  bronze: { ring: "from-siege/30 to-siege/10 text-siege", icon: Medal },
+  silver: { ring: "from-steel/40 to-steel/20 text-steel", icon: Award },
+  gold: { ring: "from-gold/50 to-gold-dim/30 text-gold", icon: Crown },
+  legendary: { ring: "from-sponsor/40 to-accent/40 text-sponsor", icon: Gem },
 };
 
-/** Rarity tiers (Phase 2 §5): how hard a trophy is to earn. */
-const RARITY_STYLE: Record<Trophy["rarity"], { label: string; className: string }> = {
-  common: { label: "Common", className: "border-steel/40 text-steel" },
-  rare: { label: "Rare", className: "border-oxygen/40 text-oxygen" },
-  epic: { label: "Epic", className: "border-sponsor/50 text-sponsor" },
-  legendary: { label: "Legendary", className: "border-gold/60 text-gold" },
+/** Rarity tiers (Phase 2 §5): how hard a trophy is to earn. Labels live in the realm strings. */
+const RARITY_STYLE: Record<Trophy["rarity"], string> = {
+  common: "border-steel/40 text-steel",
+  rare: "border-oxygen/40 text-oxygen",
+  epic: "border-sponsor/50 text-sponsor",
+  legendary: "border-gold/60 text-gold",
 };
 
 export function TrophyCard({ trophy, index = 0 }: { trophy: Trophy; index?: number }) {
+  const t = useRealmStrings().trophies;
   const style = TIER_STYLE[trophy.tier];
   const Icon = style.icon;
   return (
@@ -41,10 +43,10 @@ export function TrophyCard({ trophy, index = 0 }: { trophy: Trophy; index?: numb
         <div className="flex items-start justify-between gap-x-3">
           <h3 className={cn("min-w-0 font-heading text-base leading-tight", trophy.earned ? "text-gold" : "text-foreground")}>{trophy.title}</h3>
           <span
-            className={cn("mt-0.5 shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-widest", RARITY_STYLE[trophy.rarity].className)}
+            className={cn("mt-0.5 shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-widest", RARITY_STYLE[trophy.rarity])}
             data-rarity={trophy.rarity}
           >
-            {RARITY_STYLE[trophy.rarity].label}
+            {t.rarity[trophy.rarity]}
           </span>
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">{trophy.description}</p>
@@ -58,7 +60,7 @@ export function TrophyCard({ trophy, index = 0 }: { trophy: Trophy; index?: numb
         </div>
         <div className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground">
           <span className="tabular">{trophy.detail}</span>
-          {trophy.earned && trophy.earnedAt && <span>Earned {date(trophy.earnedAt)}</span>}
+          {trophy.earned && trophy.earnedAt && <span>{t.earnedOn(date(trophy.earnedAt))}</span>}
         </div>
       </div>
     </motion.article>
@@ -66,14 +68,15 @@ export function TrophyCard({ trophy, index = 0 }: { trophy: Trophy; index?: numb
 }
 
 export function Trophies({ trophies }: { trophies: Trophy[] }) {
+  const t = useRealmStrings().trophies;
   const earned = trophies.filter((t) => t.earned);
   const locked = trophies.filter((t) => !t.earned);
   return (
     <div className="space-y-8">
       <section>
-        <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-gold">Earned · {earned.length}</h2>
+        <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-gold">{t.earned(earned.length)}</h2>
         {earned.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No trophies yet. The first closing earns First Blood.</p>
+          <p className="text-sm text-muted-foreground">{t.noneYet}</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {earned.map((t, i) => (
@@ -83,7 +86,7 @@ export function Trophies({ trophies }: { trophies: Trophy[] }) {
         )}
       </section>
       <section>
-        <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-muted-foreground">Still to earn · {locked.length}</h2>
+        <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-muted-foreground">{t.stillToEarn(locked.length)}</h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {locked.map((t, i) => (
             <TrophyCard key={t.id} trophy={t} index={i} />
