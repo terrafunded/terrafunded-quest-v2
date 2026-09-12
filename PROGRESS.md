@@ -910,11 +910,10 @@ bars do not. `beforeEra` months are fainter; the current month is partial (light
 "month in progress") and is not extrapolated. Era note under the pair uses `era.label`, not a
 hard-coded date.
 
-**Checks (2026-09-12).** `npm run build` clean · `npm run lint` clean · `npm test` **369** (horizon
-suite plus Pulse: PRODUCING identical across 2027/2028/2029, NEEDED falls as the horizon
-lengthens, percentage = producing ÷ needed; band edges 90 / 110). Pulse-charts history tests
-assert Σ closings = sold-lot count and Σ netProfit = `goal.netProfitToDate` on the fixture.
-Playwright `quest.spec` desktop + mobile green including Pulse on `/` and the 2029 horizon
-ratio line; one mobile `/sponsors` timeout reran clean. Manual: Pulse sits under the
-net-profit number; at 380px PRODUCING stays $9,169 while NEEDED moves $16,333 → $6,433 and
-the line reads 143% / 2029.
+**Checks (2026-09-12).** `npm run build` clean · `npm run lint` clean · `npm test` **375** (horizon
+suite, Pulse, and six `history` tests: Σ closings = sold-lot count and Σ netProfit =
+`goal.netProfitToDate` on the fixture; current month partial; 24-month cap; cancelled-case
+dates are not invented). Playwright for the two new charts is still to run with the next
+pass. Prior `quest.spec` desktop + mobile was green including Pulse on `/` and the 2029
+horizon ratio line. Manual: Pulse sits under the net-profit number; at 380px PRODUCING
+stays $9,169 while NEEDED moves $16,333 → $6,433 and the line reads 143% / 2029.
