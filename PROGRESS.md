@@ -883,7 +883,7 @@ Unit test: `src/domain/__tests__/horizon.test.ts`.
 
 **UI.** Drawer section **HORIZONTE · EXIT** at the top of the scrollable nav (above Throne Room),
 segmented 2027 | 2028 | 2029, gold border on the current year, caption in the current lang.
-Selecting a year does not close the drawer. Topbar reads `Exodus · <year>` (`data-testid="topbar-horizon"`),
+Selecting a year does not close the drawer. Topbar reads `Quest · <year>` (`data-testid="topbar-horizon"`),
 13px on a 380px viewport so it still fits next to the oxygen pill. Horizon changes do not replay
 the cinematic intro or SinceLastVisit celebrations.
 
@@ -910,10 +910,15 @@ bars do not. `beforeEra` months are fainter; the current month is partial (light
 "month in progress") and is not extrapolated. Era note under the pair uses `era.label`, not a
 hard-coded date.
 
+**Brand.** The app wordmark is **Quest** (topbar `Quest · <year>`, login, intro, `index.html`
+title and boot shell). The LP capital-return model on `/exodus` keeps the name Exodus — route,
+page, domain, i18n, nav item and the 10M trophy are unchanged. The topbar wordmark is a
+`<Link to="/">` (pointer-events only on the link) back to the Throne Room.
+
 **Checks (2026-09-12).** `npm run build` clean · `npm run lint` clean · `npm test` **375** (horizon
 suite, Pulse, and six `history` tests: Σ closings = sold-lot count and Σ netProfit =
 `goal.netProfitToDate` on the fixture; current month partial; 24-month cap; cancelled-case
-dates are not invented). Playwright for the two new charts is still to run with the next
-pass. Prior `quest.spec` desktop + mobile was green including Pulse on `/` and the 2029
+dates are not invented). Playwright for the two new charts and the wordmark home link is in
+this pass. Prior `quest.spec` desktop + mobile was green including Pulse on `/` and the 2029
 horizon ratio line. Manual: Pulse sits under the net-profit number; at 380px PRODUCING
 stays $9,169 while NEEDED moves $16,333 → $6,433 and the line reads 143% / 2029.

@@ -987,7 +987,7 @@ test.describe("Navigation drawer", () => {
     await page.goto("/");
     await waitForRealm(page);
     await expect(page.getByTestId("topbar")).toBeVisible();
-    await expect(page.getByTestId("topbar-realm-name")).toHaveText(/Exodus/i);
+    await expect(page.getByTestId("topbar-realm-name")).toHaveText(/Quest/i);
     await expect(page.getByTestId("nav-drawer")).toHaveCount(0);
 
     await openNavDrawer(page);
@@ -1001,6 +1001,21 @@ test.describe("Navigation drawer", () => {
     await drawer.getByRole("link", { name: "Pipeline" }).click();
     await expect(page).toHaveURL(/\/pipeline$/);
     await expect(page.getByTestId("nav-drawer")).toHaveCount(0);
+  });
+
+  test("wordmark returns to the Throne Room from the War Plan", async ({ page }) => {
+    await page.goto("/warplan");
+    await waitForRealm(page);
+    await expect(page.getByTestId("warplan-deadline")).toBeVisible();
+    const wordmark = page.getByTestId("topbar-realm-name");
+    await expect(wordmark).toBeVisible();
+    const box = await wordmark.boundingBox();
+    expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
+    await wordmark.click();
+    await expect(page).toHaveURL("/");
+    await waitForRealm(page);
+    await expect(page.getByTestId("net-profit-counter")).toBeVisible();
+    await expect(page.getByTestId("verdict")).toBeVisible();
   });
 
   test("traps focus inside the drawer and returns it to the hamburger on close", async ({ page }) => {

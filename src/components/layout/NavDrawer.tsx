@@ -166,7 +166,7 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
           >
             <div className="flex min-h-14 shrink-0 items-center justify-between border-b border-border/70 px-4 pt-[env(safe-area-inset-top)]">
               <h2 id={titleId} className="font-display text-sm uppercase tracking-[var(--brand-tracking)] text-gold">
-                Exodus
+                Quest
               </h2>
               <Button type="button" variant="ghost" size="icon" aria-label="Close menu" data-drawer-close onClick={close}>
                 <X />

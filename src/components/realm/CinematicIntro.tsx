@@ -76,7 +76,7 @@ export function CinematicIntro({ story }: { story: Story }) {
                     transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
                     className="font-display text-3xl uppercase text-gold sm:text-5xl"
                   >
-                    Exodus
+                    Quest
                   </motion.div>
                   <div className="mt-3 font-heading text-xs uppercase tracking-[0.35em] text-muted-foreground">
                     Ten million by the last day of {horizon}
