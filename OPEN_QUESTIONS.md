@@ -1097,3 +1097,11 @@ deal terms" would have put two different numbers under the same model. Copy only
 Throne verdict (when it is a "You need") and the required-pace line read **"from the ledger
 average"**; `/warplan` verdict and the required / +1-buffer "Lots / month" cells read **"per the
 War Plan's real deal terms"**; the Oracle required-pace card reads **"replaying today's mix"**.
+
+## 105. Live Throne numbers moved overnight (2026-09-11 → 2026-09-12)
+
+`verify:live` after the labeling deploy read net profit **$2,235,850** (was $2,236,378 at 22:08 UTC),
+trapped **$1,102,974** (was $1,103,375), and **"You need 8.46 lots/month"** (was 8.44). The as-of
+date on the page is Sep 12; days left 475 (was 476). Capital outstanding Stat and Debt stayed
+**$4,145,355.48**, own capital **$800,000**. The 8.46 is still `lotsStillNeeded ÷ monthsToDeadline`
+(ledger average); it is not a math change. Not forced back to 8.44.

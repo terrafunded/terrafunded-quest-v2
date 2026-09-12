@@ -14,11 +14,11 @@ Branch `v2`. Snapshot of live Payments taken **2026-09-11 02:07 UTC** and **refr
 19:17 UTC and again 21:31 UTC** (`npm run snapshot`; every pinned number re-pinned each time — see
 **"Snapshot 2026-09-11 refresh"** and its "Second refresh the same day" near the end of the file;
 the sections in between quote the 02:07 figures).
-Last full verification (build · lint · 358 unit tests · 263 Playwright tests): **2026-09-11**, followed
-by the Payments-staff-only deploy and `verify:live` (gate refuses a staged non-admin live · net profit
-$2,236,378 · trapped $1,103,375 · "You need 8.44 lots/month; you are doing 4.73." · three themes
-persist) — the live Exodus figures are in **"Exodus — status"** and the gate in **"Access — Payments
-staff only"** at the end of the file.
+Last full verification (build · lint · 358 unit tests · 265 Playwright tests): **2026-09-11**, followed
+by the labeling deploy and `verify:live` (Capital outstanding Stat **$4,145,355.48** = Debt, hint
+*"+ $800,000 own capital tied up"* · net profit $2,235,850 · trapped $1,102,974 · "You need 8.46
+lots/month from the ledger average; you are doing 4.73." · three themes persist) — see **"Labels —
+Capital outstanding and required-pace models"** at the end of the file.
 
 Order of work, as requested: Phase 1 numbers verified → connection check → domain reproduces the
 verified numbers → **Phase 2: Epic** → **Pipeline layer** → **three visual themes + POLISH loops
@@ -846,4 +846,8 @@ Three labeling fixes; no domain math changed.
 3. **Committed sub-line** ends *"= this figure"* so "$X at stake × 75% conversion" cannot be read as
    the big number being the at-stake amount.
 
-**Live (filled after the deploy below).**
+**Live (deploy 2026-09-11 ≈23:50 UTC, `verify:live` exit 0).** Capital outstanding Stat **$4,145,355.48
+(= Debt)** · hint *"Still owed to sponsors · + $800,000 own capital tied up"*. Verdict *"You need
+8.46 lots/month from the ledger average; you are doing 4.73."* (8.46 not 8.44: as-of is now Sep 12
+and remaining net profit moved — OPEN_QUESTIONS #105). Committed sub-line ends *= this figure*.
+Throne Room: net profit **$2,235,850** · trapped **$1,102,974** · three themes persist.
