@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 
 /**
  * Ledger contract-price total: $8,986,794.30 in GOAL.md until Payments re-priced Titus Lot 6's file case from $141,802 to its
@@ -20,6 +20,32 @@ function collectConsoleErrors(page: Page): string[] {
 /** Waits until the realm query has resolved on the current page (skeletons gone). */
 async function waitForRealm(page: Page) {
   await expect(page.getByRole("status", { name: "Loading realm data" })).toHaveCount(0, { timeout: 30_000 });
+}
+
+type BarGeometry = { x: number; width: number; height: number };
+
+/**
+ * Geometry of every drawn bar in a Pulse chart, read once the entry animation has finished
+ * (recharts grows the bars from the baseline, so two identical consecutive reads mean settled).
+ */
+async function settledBars(card: Locator): Promise<BarGeometry[]> {
+  const read = () =>
+    card.locator(".recharts-bar-rectangle path").evaluateAll((els) =>
+      els.map((el) => ({ x: Number(el.getAttribute("x")), width: Number(el.getAttribute("width")), height: Number(el.getAttribute("height")) })),
+    );
+  let previous = JSON.stringify(await read());
+  await expect
+    .poll(
+      async () => {
+        const current = JSON.stringify(await read());
+        const settled = current === previous;
+        previous = current;
+        return settled;
+      },
+      { intervals: [250, 250, 250, 500, 500, 1000], timeout: 15_000 },
+    )
+    .toBe(true);
+  return JSON.parse(previous) as BarGeometry[];
 }
 
 /** Opens the hamburger drawer (same chrome on every viewport). */
@@ -55,6 +81,73 @@ test.describe("Throne Room", () => {
     expect(await page.locator("[data-testid='pulse-chart-profit'] .recharts-rectangle").count()).toBeGreaterThan(0);
     expect(errors).toEqual([]);
   });
+
+  for (const theme of ["iron-crown", "gilded-realm", "neon-kingdom"] as const) {
+    test(`${theme}: hovering a Pulse month shows that month's tick label and the value its bar encodes`, async ({ page }) => {
+      await page.addInitScript((t) => {
+        localStorage.setItem("quest.theme", t);
+        sessionStorage.setItem("quest.intro.seen", "1");
+      }, theme);
+      await page.goto("/");
+      await waitForRealm(page);
+      await page.getByTestId("pulse-charts").scrollIntoViewIfNeeded();
+
+      for (const chartId of ["pulse-chart-profit", "pulse-chart-pace"] as const) {
+        const card = page.getByTestId(chartId);
+        await expect.poll(() => card.locator(".recharts-bar-rectangle path").count()).toBeGreaterThan(0);
+        const bars = await settledBars(card);
+        // Every month owns a tick, so the tick under a bar is that bar's month.
+        const ticks = await card.locator(".recharts-xAxis .recharts-cartesian-axis-tick-value").allTextContents();
+        expect(ticks.length).toBeGreaterThan(1);
+        expect(new Set(ticks).size).toBe(ticks.length);
+        const grid = (await card.locator(".recharts-cartesian-grid").boundingBox()) as { x: number; y: number; width: number; height: number };
+        const surface = (await card.locator(".recharts-surface").boundingBox()) as { x: number };
+        const bandWidth = grid.width / ticks.length;
+        const bandOf = (b: BarGeometry) => Math.floor((b.x + b.width / 2 + surface.x - grid.x) / bandWidth);
+        const tallest = Math.max(...bars.map((b) => b.height));
+        expect(tallest).toBeGreaterThan(0);
+
+        const hovered: { month: string; value: number; barHeight: number }[] = [];
+        for (let i = 0; i < ticks.length; i++) {
+          await page.mouse.move(grid.x + bandWidth * (i + 0.5), grid.y + grid.height / 2);
+          const tip = card.locator(".recharts-tooltip-wrapper");
+          await expect(tip.getByTestId("pulse-tooltip-month")).toHaveText(ticks[i] as string, { useInnerText: true });
+          const cursor = card.locator(".recharts-tooltip-cursor");
+          await expect(cursor).toHaveAttribute("fill", "hsl(var(--foreground))");
+          await expect(cursor).toHaveAttribute("opacity", "0.06");
+
+          if (chartId === "pulse-chart-profit") {
+            const profit = tip.getByTestId("pulse-tooltip-profit");
+            await expect(profit).toHaveText(/^-?\$[\d,]+$/);
+            const value = Number(await profit.getAttribute("data-value"));
+            const bar = bars.find((b) => bandOf(b) === i);
+            hovered.push({ month: ticks[i] as string, value, barHeight: bar?.height ?? 0 });
+            if (value === 0) await expect(profit).toHaveText("$0");
+          } else {
+            await expect(tip.getByTestId("pulse-tooltip-reservations")).toHaveText(/^Reservations \d+$/);
+            await expect(tip.getByTestId("pulse-tooltip-closings")).toHaveText(/^Closings \d+$/);
+          }
+        }
+        await page.mouse.move(0, 0);
+
+        if (chartId === "pulse-chart-profit") {
+          // A bar's height encodes its month's net profit on a linear axis from $0, so the tooltip
+          // must report the value the bar was drawn from: $0 exactly when no bar is drawn, and the
+          // same share of the tallest bar as the value is of the largest value.
+          const maxValue = Math.max(...hovered.map((h) => h.value));
+          expect(maxValue).toBeGreaterThan(0);
+          for (const h of hovered) {
+            if (h.barHeight === 0) {
+              expect(h.value, `${h.month} has no bar but its tooltip says ${h.value}`).toBe(0);
+            } else {
+              expect(h.value, `${h.month} has a bar but its tooltip says $0`).toBeGreaterThan(0);
+              expect(Math.abs(h.barHeight / tallest - h.value / maxValue), `${h.month}: bar height share vs tooltip value share`).toBeLessThan(0.02);
+            }
+          }
+        }
+      }
+    });
+  }
 
   test("Key figures Capital outstanding equals Debt/Rotation sponsor-owed and discloses own capital", async ({ page }) => {
     await page.goto("/");

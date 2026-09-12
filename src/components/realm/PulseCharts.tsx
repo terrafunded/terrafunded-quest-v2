@@ -13,6 +13,22 @@ const MUTED = "hsl(var(--muted-foreground))";
 const BORDER = "hsl(var(--border))";
 const POPOVER = "hsl(var(--popover))";
 
+/**
+ * Hover cursor: recharts' default is an opaque #ccc rectangle over the hovered band, which reads
+ * as a white slab on the dark skins. A 6% wash of the skin's own foreground marks the band on
+ * all three (light on Iron Crown / Neon Kingdom, dark on Gilded Realm's parchment).
+ */
+const CURSOR = { fill: "hsl(var(--foreground))", opacity: 0.06 };
+
+/**
+ * Every bar gets its own tick. With `minTickGap` recharts dropped alternate months, so a bar in an
+ * unlabelled month sat next to another month's label and was read as that month (an Apr 26 bar
+ * beside the "Mar 26" tick looked like Mar 26 having profit while its tooltip said $0). Rotated
+ * labels fit the narrowest band (12 months at 390px ≈ 23px) without overlapping.
+ */
+const X_TICK = { fill: MUTED, fontSize: 10 };
+const X_AXIS_HEIGHT = 34;
+
 const SM = "(min-width: 640px)";
 
 function useWideViewport(): boolean {
@@ -33,31 +49,49 @@ function fillOpacity(p: MonthlyPoint): number {
   return 1;
 }
 
-function PaceTooltip({ active, payload }: { active?: boolean; payload?: { payload: MonthlyPoint }[] }) {
-  if (!active || !payload?.[0]) return null;
-  const p = payload[0].payload;
+type TooltipProps = { active?: boolean; payload?: { payload: MonthlyPoint }[] };
+
+/**
+ * Tooltip header: the month exactly as the X axis tick prints it (`MonthlyPoint.label`, the axis
+ * dataKey). Inline `textTransform` because Neon Kingdom uppercases `.font-heading`, which would
+ * make the tooltip say "MAR 26" under a "Mar 26" tick.
+ */
+function TooltipMonth({ p }: { p: MonthlyPoint }) {
   return (
-    <div className="rounded-md border px-3 py-2 text-xs shadow-md" style={{ background: POPOVER, borderColor: BORDER }}>
-      <div className="font-heading text-gold">
+    <div className="font-heading text-gold">
+      <span data-testid="pulse-tooltip-month" style={{ textTransform: "none" }}>
         {p.label}
-        {p.partial ? " · month in progress" : ""}
-      </div>
-      <div className="mt-1 tabular">Reservations {p.reservations}</div>
-      <div className="tabular">Closings {p.closings}</div>
+      </span>
+      {p.partial && <span className="text-muted-foreground"> · month in progress</span>}
     </div>
   );
 }
 
-function ProfitTooltip({ active, payload }: { active?: boolean; payload?: { payload: MonthlyPoint }[] }) {
+function PaceTooltip({ active, payload }: TooltipProps) {
   if (!active || !payload?.[0]) return null;
   const p = payload[0].payload;
   return (
     <div className="rounded-md border px-3 py-2 text-xs shadow-md" style={{ background: POPOVER, borderColor: BORDER }}>
-      <div className="font-heading text-gold">
-        {p.label}
-        {p.partial ? " · month in progress" : ""}
+      <TooltipMonth p={p} />
+      <div className="mt-1 tabular" data-testid="pulse-tooltip-reservations">
+        Reservations {p.reservations}
       </div>
-      <div className="mt-1 tabular">{money(p.netProfit)}</div>
+      <div className="tabular" data-testid="pulse-tooltip-closings">
+        Closings {p.closings}
+      </div>
+    </div>
+  );
+}
+
+function ProfitTooltip({ active, payload }: TooltipProps) {
+  if (!active || !payload?.[0]) return null;
+  const p = payload[0].payload;
+  return (
+    <div className="rounded-md border px-3 py-2 text-xs shadow-md" style={{ background: POPOVER, borderColor: BORDER }}>
+      <TooltipMonth p={p} />
+      <div className="mt-1 tabular" data-testid="pulse-tooltip-profit" data-value={p.netProfit}>
+        {money(p.netProfit)}
+      </div>
     </div>
   );
 }
@@ -102,7 +136,7 @@ export function PulseCharts({
           <ResponsiveContainer>
             <BarChart data={points} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={BORDER} vertical={false} />
-              <XAxis dataKey="label" tick={{ fill: MUTED, fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={12} />
+              <XAxis dataKey="label" interval={0} angle={-45} textAnchor="end" height={X_AXIS_HEIGHT} tick={X_TICK} tickLine={false} axisLine={false} />
               <YAxis
                 allowDecimals={false}
                 domain={[0, (max: number) => Math.max(max, requiredClosings ?? 0, requiredReservations ?? 0, 1)]}
@@ -111,7 +145,7 @@ export function PulseCharts({
                 axisLine={false}
                 width={32}
               />
-              <ChartTooltip content={<PaceTooltip />} />
+              <ChartTooltip content={<PaceTooltip />} cursor={CURSOR} />
               {requiredReservations !== null && (
                 <ReferenceLine
                   y={requiredReservations}
@@ -153,7 +187,7 @@ export function PulseCharts({
           <ResponsiveContainer>
             <BarChart data={points} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={BORDER} vertical={false} />
-              <XAxis dataKey="label" tick={{ fill: MUTED, fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={12} />
+              <XAxis dataKey="label" interval={0} angle={-45} textAnchor="end" height={X_AXIS_HEIGHT} tick={X_TICK} tickLine={false} axisLine={false} />
               <YAxis
                 domain={[0, (max: number) => Math.max(max, requiredProfit ?? 0, 1)]}
                 tickFormatter={(v: number) => moneyCompact(v)}
@@ -162,7 +196,7 @@ export function PulseCharts({
                 axisLine={false}
                 width={40}
               />
-              <ChartTooltip content={<ProfitTooltip />} />
+              <ChartTooltip content={<ProfitTooltip />} cursor={CURSOR} />
               {requiredProfit !== null && (
                 <ReferenceLine
                   y={requiredProfit}
