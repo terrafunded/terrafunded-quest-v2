@@ -7,7 +7,7 @@ import type { InvestorSummary } from "./investors";
 import { isSold } from "./lot";
 import type { Streaks } from "./streaks";
 import type { Liberation } from "./liberation";
-import { groupBy, round2 } from "./math";
+import { groupBy, round2, sum } from "./math";
 import { monthKey, parseDate } from "./dates";
 
 export type TrophyTier = "bronze" | "silver" | "gold" | "legendary";
@@ -182,7 +182,22 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     detail: `${money(i.treasury.totalCashIn)} / $1,000,000`,
   });
 
-  const repaid = i.investors.filter((inv) => inv.capitalDeployed > 0 && inv.capitalOutstanding === 0);
+  // Terrafunded's own capital (deal_type own_capital) is not a debt to anyone: Debt keeps it in
+  // `ownCapitalOutstanding`, "shown separately, never blended". The trophy measures sponsors only,
+  // so an investor is graded on its sponsor positions and "still outstanding" is Debt.capitalOwed.
+  const sponsors = i.investors
+    .map((inv) => {
+      const positions = inv.farms.filter((p) => p.dealType !== "own_capital");
+      return {
+        name: inv.name,
+        deployed: round2(sum(positions.map((p) => p.capitalDeployed))),
+        returned: round2(sum(positions.map((p) => p.capitalReturned))),
+        outstanding: round2(sum(positions.map((p) => p.capitalOutstanding))),
+      };
+    })
+    .filter((s) => s.deployed > 0);
+  const repaid = sponsors.filter((s) => s.outstanding === 0);
+  const sponsorCapitalOwed = round2(sum(i.farms.filter((f) => f.dealType !== "own_capital").map((f) => f.capitalOutstanding)));
   trophies.push({
     id: "sponsor_repaid",
     title: "Debt of Honor",
@@ -191,10 +206,10 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: repaid.length > 0,
     earnedAt: null,
     progress: (() => {
-      const best = [...i.investors].filter((v) => v.capitalDeployed > 0).sort((a, b) => b.capitalReturned / b.capitalDeployed - a.capitalReturned / a.capitalDeployed)[0];
-      return best ? pct(best.capitalReturned, best.capitalDeployed) : 0;
+      const best = [...sponsors].sort((a, b) => b.returned / b.deployed - a.returned / a.deployed)[0];
+      return best ? pct(best.returned, best.deployed) : 0;
     })(),
-    detail: repaid.length > 0 ? repaid.map((r) => r.name).join(", ") : `${money(i.goal.capitalOutstanding)} still outstanding`,
+    detail: repaid.length > 0 ? repaid.map((r) => r.name).join(", ") : `${money(sponsorCapitalOwed)} still outstanding`,
   });
 
   const noteSoldCount = i.lots.filter((l) => l.stage === "note_sold").length;
