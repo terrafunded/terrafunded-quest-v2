@@ -20,7 +20,7 @@ Datos del repo:
 - Repo local: `~/repos/terrafunded-quest-v2`. Remote: `github.com/terrafunded/terrafunded-quest-v2`.
 - **`main` solo tiene la especificación** (`README.md`, `GOAL.md`, `payments_schema.md`, `CHECKLIST_ESTA_NOCHE.md`). **El código vive en la rama `v2`.** El PR #1 (`v2` → `main`) sigue abierto.
 - El código lo escribió el **Cursor Agent** (Cloud Agents). Trabaja en ramas `cursor/<tema>-7eee` y abre PRs contra `v2`.
-- Producción: **https://terrafunded-quest-v2.vercel.app** (Vercel). Según `PROGRESS.md`, se despliega desde `v2` con la CLI de Vercel (`npm run deploy`).
+- **Quest v1** es el repo `terrafunded/quest-realm-conquer` (hecho en Lovable). `GOAL.md` lo esperaba copiado en `reference/quest-v1/`, pero esa carpeta no existe.
 - Las versiones de `GOAL.md` y `payments_schema.md` en `main` están desactualizadas respecto a `v2`. Usa las de `v2`.
 
 ## Dominio de Quest
@@ -43,7 +43,7 @@ Vocabulario de pantallas: Throne Room (`/`), War Plan, Exodus, Realm (mapa), Que
 
 ## Reglas no negociables
 
-1. **Nunca hagas `git push` a `main` sin aprobación explícita de Rodrigo.**
+1. **Nunca hagas `git push` a `main` sin aprobación explícita de Rodrigo.** Los push a `v2` y a ramas `cursor/*` no necesitan aprobación.
 2. **Solo npm.** El lockfile es `package-lock.json` y Vercel instala con `npm ci`.
 3. **Commits en inglés, con prefijo.** Prefijos usados en el historial: `feat:`, `fix:`, `docs:`, `test:`, `chore:`, `refactor:`, `perf:`, `deploy:`, con scope opcional (`feat(domain):`, `fix(quality):`).
 4. **Solo lectura contra Payments.**
@@ -64,6 +64,7 @@ Vocabulario de pantallas: Throne Room (`/`), War Plan, Exodus, Realm (mapa), Que
 10. **`npm run build`, `npm run lint` y `npm test` deben pasar.** Son parte de la Definition of Done de `GOAL.md`. Al 2026-09-12 los tres pasan limpios en `v2`.
 11. **`npm run deploy` y `npm run check` requieren aprobación explícita de Rodrigo.** `deploy` publica a producción; `check` intenta un `insert` real en Payments.
 12. **Los fixtures nunca llevan datos reales de clientes.** Esto incluye `src/domain/__fixtures__/` y cualquier JSON que generen los scripts.
+13. **Ante la duda, pregunta a Rodrigo.** No supongas ni sigas adelante con una interpretación propia.
 
 ## Comandos
 

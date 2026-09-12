@@ -2,7 +2,7 @@
 
 You are building a brand-new web app from scratch in this repo. Work autonomously until every
 item under **Definition of Done** passes. When something is ambiguous, write the question in
-`OPEN_QUESTIONS.md`, pick the most conservative interpretation, and keep going. Never stop to ask.
+`OPEN_QUESTIONS.md`, pick the most conservative interpretation, and keep going.
 
 ## What this is
 
