@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/crown.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#14161a" />
+    <meta name="description" content="Terrafunded Quest v2 — the founder's war room for $10M net profit by 2027-12-31." />
+    <title>Quest</title>
+    <script>
+      // Apply the persisted theme before the first paint so there is no flash of the default skin.
+      (function () {
+        var themes = { "iron-crown": "#14161a", "gilded-realm": "#efe6d2", "neon-kingdom": "#07070d" };
+        var id = "iron-crown";
+        try {
+          var stored = localStorage.getItem("quest.theme");
+          if (stored && themes[stored]) id = stored;
+        } catch (e) {}
+        var root = document.documentElement;
+        root.setAttribute("data-theme", id);
+        var light = id === "gilded-realm";
+        root.classList.toggle("dark", !light);
+        root.classList.toggle("light", light);
+        root.style.colorScheme = light ? "light" : "dark";
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", themes[id]);
+      })();
+    </script>
+  </head>
+  <body class="bg-background text-foreground">
+    <div id="root">
+      <!-- Painted before the bundle runs; React replaces it on mount. Uses the theme tokens from the stylesheet. -->
+      <div class="boot-shell" aria-hidden="true">
+        <div class="boot-shell__brand">Quest</div>
+        <div class="boot-shell__hint">Entering the war room…</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

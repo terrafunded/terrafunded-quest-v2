@@ -179,3 +179,99 @@ small amount when you run, note it in PROGRESS.md; a large gap means your query 
 - If Supabase returns a permission error on any table, record the exact table and error in
   OPEN_QUESTIONS.md and keep working with the fixture so the rest of the app progresses.
 - Do not touch `/reference/quest-v1/` beyond reading and copying components.
+
+## Phase 2: Epic
+
+Only after the connection check passes and the domain layer reproduces the verified numbers.
+Everything below is computed from real Payments data in `src/domain/`; nothing is decorative,
+nothing is hard-coded, and every module has unit tests. Numbers first, epic second.
+
+1. **THE DEBT** (`src/domain/debt.ts`) — on the Throne Room, a permanent countdown of
+   - capital still owed to investors (`investor_capital − capital_return distributions`, over
+     subdivided farms whose deal is not `own_capital`),
+   - days left to `GOAL_DEADLINE`,
+   - required net profit **per day** from today: `remaining ÷ daysLeft`. It takes `asOf` as an
+     input so it recomputes every day without a deploy.
+2. **OXYGEN** (`src/domain/oxygen.ts`) — every closed lot is scored as **days gained** toward the
+   exit date: the shift of the projected goal date computed with the ledger *without* that closing
+   versus *with* it (same `asOf`, same trailing window, so pace and remaining both move). Shown on
+   each sale row and, summed, as the primary score of the game on the Throne Room.
+3. **INVESTOR LIBERATION** (`src/domain/liberation.ts`) — each sponsor is a hostage of the realm
+   with a capital-returned bar from `investor_distributions` (`kind = 'capital_return'`). When a
+   farm has returned 100 % of its capital, that position is *freed* (full-screen animation the
+   first time it is seen, then a Liberated gallery). A sponsor with every position freed is a free
+   sponsor.
+4. **FARM CAMPAIGNS** (`src/domain/campaigns.ts`) — each territory on the map has its own goal:
+   lots left to sell to cover `investor_capital` plus accrued interest (at the farm's average sale
+   price, falling back to the realm average), and a state: `conquered` (covered or sold out),
+   `losing_ground` (interest accruing on outstanding capital with no closing in 60 days),
+   otherwise `under_siege`.
+5. **STREAKS** (`src/domain/streaks.ts`) — consecutive ISO weeks with at least one closing from
+   real closing dates (current and best), best week and best month; trophies gain rarity tiers
+   (`common`, `rare`, `epic`, `legendary`).
+6. **ORACLE** — three futures side by side, all starting from the real 90-day averages: current
+   pace, required pace, and current pace plus one more farm; each with its exit date.
+7. **NARRATED CHRONICLE** (`src/domain/narrative.ts`) — every real event gets one line of
+   medieval-chronicle prose from templates in code (no external API), e.g. "On May 30, Diego Reyes
+   claimed Lot 14 of Wichita for $137,780. The realm gained 9 days."
+8. **CINEMATIC INTRO** — `CinematicIntro` tells the real story with real numbers (farms, lots,
+   net profit, days gained, days left) computed by `src/domain/story.ts`.
+9. **CELEBRATIONS** — on app open, if any closing or note sale is dated on or after the last visit
+   (a `localStorage` timestamp) and has not been celebrated yet, celebrate it. First visit only
+   records the timestamp.
+
+Definition of Done additions:
+
+- [ ] `npm run e2e` also asserts the Debt counter (capital owed > 0, days left > 0, per-day > 0)
+      and the Oxygen score (a number of days ≥ 0 that equals the sum of the ledger rows).
+- [ ] Every Phase 2 module in `src/domain/` has tests, including fixture-based ones.
+
+## Phase 2b: Pipeline layer
+
+A "Pipeline" layer sits alongside the closings-based numbers. **Closings remain the only source
+of net profit and pace for the $10M goal**; nothing below changes `netProfitToDate`, the pace,
+oxygen or the goal date. All of it lives in `src/domain/pipeline.ts` and is computed from real
+`file_cases` dates.
+
+1. **Reservations per month** over the trailing 90 days — reservations (`file_cases.reservation_date`,
+   status `active`, no `closing_date`, no note) — shown on the Throne Room next to closings per
+   month as the leading indicator.
+2. **Reservation-to-closing conversion** — of reservations made 90+ days ago, the share that has
+   closed, from real dates.
+3. **Stuck pipeline** — every reserved lot with no closing after 60 days, with days waiting, buyer,
+   farm, lot, sale price and net profit at stake; total dollars stuck; sorted by days waiting. The
+   total is its own Throne Room counter ("profit trapped in reservations"); the full list is on
+   `/quests` behind a filter and on a dedicated `/pipeline` route.
+4. **Median days from reservation to closing** for closed lots, overall and per farm, shown on the
+   farm drawer of the map.
+5. A **reserved ring** on the map tiles, distinct from closed.
+
+Definition of Done additions:
+
+- [ ] Unit tests with the fixture for every pipeline number.
+- [ ] `npm run e2e` asserts the stuck-pipeline counter renders.
+
+## Phase 3: Three visual themes
+
+Three switchable skins for the whole app, selectable from a small menu on `/login` and persisted
+in `localStorage`, each with its own colour tokens, type pairing, textures, motion language and
+iconography. **Same data, same layouts; only the skin changes.**
+
+- **A · Iron Crown** — dark stone, cold steel, ember accents, heavy serif, slow deliberate motion.
+- **B · Gilded Realm** — parchment, warm gold, forest green, illuminated-manuscript flourishes,
+  ornamental borders.
+- **C · Neon Kingdom** — black glass, electric gold and violet, sharp geometry, fast HUD-style
+  motion, monospace numbers.
+
+Every theme must feel like a AAA fantasy strategy game, not a dashboard: ambient particle motion
+on the Throne Room, page transitions with Framer Motion, hover states on every tile, gold glow on
+every counter.
+
+Definition of Done additions:
+
+- [x] Theme menu on `/login`; choice persisted (`quest.theme`) and applied before first paint.
+- [x] One POLISH RULE loop per theme (`POLISH_LOG.md`), screenshot set per theme under
+      `docs/screenshots/<theme>/`.
+- [x] Per theme: first paint under 2 s on throttled 4G, no layout shift, every page thumb-usable at
+      390 px, animations respect `prefers-reduced-motion` (`scripts/perf.ts`, Playwright).
+- [x] `PROGRESS.md` ranks the three themes with one paragraph of reasoning each.

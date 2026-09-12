@@ -1,0 +1,512 @@
+/*
+ * Theme tokens and skins. Every colour in the app resolves through these variables, so a theme is
+ * a `[data-theme]` block: palette, type pairing, radius, glow, motion scale, textures and the
+ * ornament language. Layouts and data never change between themes.
+ *
+ * Semantic accents (used instead of raw Tailwind palette colours):
+ *   --ember    danger / debt / losing ground        --siege    pipeline / reserved / streak fire
+ *   --oxygen   days gained                          --liberty  liberation / conquered / cash
+ *   --sponsor  investors / distributions            --steel    neutral secondary accent
+ *   --arcane   violet accent (deadline, notes)
+ */
+
+/* ---------------------------------------------------------------------------------------------
+ * A · IRON CROWN — dark stone, cold steel, ember accents, heavy serif, slow deliberate motion
+ * ------------------------------------------------------------------------------------------- */
+:root,
+[data-theme="iron-crown"] {
+  --background: 220 12% 6%;
+  --foreground: 210 16% 88%;
+  --card: 218 12% 10%;
+  --card-foreground: 210 16% 88%;
+  --popover: 218 12% 11%;
+  --popover-foreground: 210 16% 90%;
+  --primary: 36 70% 55%;
+  --primary-foreground: 220 14% 8%;
+  --secondary: 216 12% 16%;
+  --secondary-foreground: 210 16% 90%;
+  --muted: 218 10% 14%;
+  --muted-foreground: 210 10% 60%;
+  --accent: 214 14% 20%;
+  --accent-foreground: 210 20% 94%;
+  --destructive: 8 70% 42%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 215 10% 20%;
+  --input: 215 10% 22%;
+  --ring: 22 92% 58%;
+  --radius: 0.375rem;
+
+  --gold: 38 68% 56%;
+  --gold-bright: 42 85% 72%;
+  --gold-dim: 36 45% 36%;
+
+  --ember: 22 92% 58%;
+  --siege: 30 90% 58%;
+  --oxygen: 200 62% 64%;
+  --liberty: 150 42% 50%;
+  --sponsor: 330 45% 64%;
+  --steel: 210 14% 64%;
+  --arcane: 262 40% 66%;
+
+  --stage-available: 215 10% 40%;
+  --stage-reserved: 28 85% 56%;
+  --stage-closed: 150 40% 44%;
+  --stage-note-sold: 40 75% 56%;
+  --territory-from: 214 12% 15%;
+  --territory-to: 36 48% 26%;
+
+  --font-display: "Cinzel", "Georgia", serif;
+  --font-heading: "Cinzel", "Georgia", serif;
+  --font-body: "Crimson Pro", "Georgia", "Times New Roman", serif;
+  --font-numeric: "Crimson Pro", "Georgia", serif;
+
+  --motion-scale: 1.5;
+  --glow-color: var(--ember);
+  --glow-radius: 22px;
+  --glow-alpha: 0.35;
+  --card-bg-alpha: 0.86;
+  --brand-tracking: 0.25em;
+  --map-label: var(--gold);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * B · GILDED REALM — parchment, warm gold, forest green, illuminated-manuscript flourishes
+ * ------------------------------------------------------------------------------------------- */
+[data-theme="gilded-realm"] {
+  --background: 40 42% 89%;
+  --foreground: 28 35% 14%;
+  --card: 40 48% 95%;
+  --card-foreground: 28 35% 14%;
+  --popover: 40 50% 97%;
+  --popover-foreground: 28 35% 14%;
+  --primary: 38 78% 40%;
+  --primary-foreground: 42 45% 97%;
+  --secondary: 38 36% 84%;
+  --secondary-foreground: 28 35% 16%;
+  --muted: 38 32% 85%;
+  --muted-foreground: 30 22% 36%;
+  --accent: 150 28% 86%;
+  --accent-foreground: 150 38% 18%;
+  --destructive: 6 68% 40%;
+  --destructive-foreground: 40 45% 97%;
+  --border: 35 32% 70%;
+  --input: 35 32% 66%;
+  --ring: 38 78% 40%;
+  --radius: 0.5rem;
+
+  --gold: 38 78% 40%;
+  --gold-bright: 42 88% 56%;
+  --gold-dim: 34 60% 30%;
+
+  --ember: 8 72% 40%;
+  --siege: 26 86% 40%;
+  --oxygen: 205 60% 34%;
+  --liberty: 150 38% 28%;
+  --sponsor: 322 48% 38%;
+  --steel: 220 12% 42%;
+  --arcane: 266 42% 42%;
+
+  --stage-available: 35 16% 58%;
+  --stage-reserved: 26 82% 44%;
+  --stage-closed: 150 40% 32%;
+  --stage-note-sold: 40 82% 40%;
+  --territory-from: 40 30% 82%;
+  --territory-to: 42 72% 60%;
+
+  --font-display: "Cinzel Decorative", "Cinzel", "Georgia", serif;
+  --font-heading: "Cormorant Garamond", "Georgia", serif;
+  --font-body: "EB Garamond", "Georgia", "Times New Roman", serif;
+  --font-numeric: "EB Garamond", "Georgia", serif;
+
+  --motion-scale: 1;
+  --glow-color: var(--gold-bright);
+  --glow-radius: 14px;
+  --glow-alpha: 0.45;
+  --card-bg-alpha: 0.82;
+  --brand-tracking: 0.1em;
+  --map-label: var(--foreground);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * C · NEON KINGDOM — black glass, electric gold and violet, sharp geometry, HUD motion, mono numbers
+ * ------------------------------------------------------------------------------------------- */
+[data-theme="neon-kingdom"] {
+  --background: 240 22% 4%;
+  --foreground: 210 22% 92%;
+  --card: 242 20% 8%;
+  --card-foreground: 210 22% 92%;
+  --popover: 242 20% 9%;
+  --popover-foreground: 210 22% 94%;
+  --primary: 48 100% 56%;
+  --primary-foreground: 240 22% 6%;
+  --secondary: 250 22% 14%;
+  --secondary-foreground: 210 22% 94%;
+  --muted: 246 16% 12%;
+  --muted-foreground: 222 14% 64%;
+  --accent: 275 60% 22%;
+  --accent-foreground: 275 90% 92%;
+  --destructive: 350 90% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 265 30% 22%;
+  --input: 265 30% 26%;
+  --ring: 275 95% 66%;
+  --radius: 0.125rem;
+
+  --gold: 48 100% 58%;
+  --gold-bright: 52 100% 74%;
+  --gold-dim: 45 80% 40%;
+
+  --ember: 350 95% 64%;
+  --siege: 36 100% 60%;
+  --oxygen: 190 100% 62%;
+  --liberty: 155 90% 52%;
+  --sponsor: 300 90% 68%;
+  --steel: 220 16% 66%;
+  --arcane: 275 95% 66%;
+
+  --stage-available: 245 12% 36%;
+  --stage-reserved: 36 100% 60%;
+  --stage-closed: 155 90% 52%;
+  --stage-note-sold: 48 100% 58%;
+  --territory-from: 250 22% 10%;
+  --territory-to: 48 70% 24%;
+
+  --font-display: "Orbitron", "Rajdhani", system-ui, sans-serif;
+  --font-heading: "Rajdhani", "Orbitron", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-numeric: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --motion-scale: 0.55;
+  --glow-color: var(--gold);
+  --glow-radius: 18px;
+  --glow-alpha: 0.6;
+  --card-bg-alpha: 0.62;
+  --brand-tracking: 0.3em;
+  --map-label: var(--gold);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Shared skin machinery
+ * ------------------------------------------------------------------------------------------- */
+/* Textures: a fixed layer painted behind the content (body isolates its own stacking context). */
+body {
+  isolation: isolate;
+  position: relative;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* A — wet stone: fractal noise, a cold steel cast at the top, embers glowing from below. */
+[data-theme="iron-crown"] body {
+  background-image:
+    radial-gradient(ellipse at 50% -10%, hsl(212 18% 22% / 0.55), transparent 55%),
+    radial-gradient(ellipse at 80% 110%, hsl(22 90% 30% / 0.22), transparent 50%),
+    linear-gradient(180deg, hsl(220 12% 7%), hsl(222 12% 5%));
+}
+[data-theme="iron-crown"] body::before {
+  opacity: 0.16;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.55  0 0 0 0 0.58  0 0 0 0 0.62  0 0 0 0.9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  mix-blend-mode: soft-light;
+}
+
+/* B — parchment: warm fibre grain multiplied over the page, a faint foxing vignette at the edges. */
+[data-theme="gilded-realm"] body {
+  background-image:
+    radial-gradient(ellipse at 50% 0%, hsl(42 60% 96% / 0.9), transparent 60%),
+    radial-gradient(ellipse at 100% 100%, hsl(30 45% 70% / 0.35), transparent 55%),
+    radial-gradient(ellipse at 0% 100%, hsl(150 30% 70% / 0.18), transparent 50%),
+    linear-gradient(180deg, hsl(40 44% 90%), hsl(38 40% 86%));
+}
+[data-theme="gilded-realm"] body::before {
+  opacity: 0.55;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.72  0 0 0 0 0.6  0 0 0 0 0.42  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+/* C — black glass: a faint perspective grid, scanlines, violet and gold light bleeding in. */
+[data-theme="neon-kingdom"] body {
+  background-image:
+    radial-gradient(ellipse at 15% 0%, hsl(275 80% 30% / 0.35), transparent 50%),
+    radial-gradient(ellipse at 100% 100%, hsl(48 100% 40% / 0.14), transparent 45%),
+    linear-gradient(180deg, hsl(240 22% 5%), hsl(245 24% 3%));
+}
+[data-theme="neon-kingdom"] body::before {
+  opacity: 0.5;
+  background-image:
+    repeating-linear-gradient(0deg, hsl(0 0% 100% / 0.035) 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, hsl(275 80% 60% / 0.07) 1px, transparent 1px),
+    linear-gradient(0deg, hsl(275 80% 60% / 0.07) 1px, transparent 1px);
+  background-size:
+    100% 3px,
+    48px 48px,
+    48px 48px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 85%);
+}
+
+/* Iconography: the same lucide glyphs speak three dialects. */
+[data-theme="iron-crown"] .lucide {
+  stroke-width: 2.25;
+  stroke-linecap: square;
+}
+[data-theme="gilded-realm"] .lucide {
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+[data-theme="neon-kingdom"] .lucide {
+  stroke-width: 1.75;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+/* Counter glow: every headline number carries the theme's light. */
+.counter-glow {
+  text-shadow: 0 0 var(--glow-radius) hsl(var(--glow-color) / var(--glow-alpha));
+}
+[data-theme="neon-kingdom"] .counter-glow {
+  text-shadow:
+    0 0 var(--glow-radius) hsl(var(--gold) / var(--glow-alpha)),
+    0 0 calc(var(--glow-radius) * 2.2) hsl(var(--arcane) / 0.35);
+}
+[data-theme="gilded-realm"] .counter-glow {
+  text-shadow:
+    0 1px 0 hsl(42 90% 80% / 0.9),
+    0 0 var(--glow-radius) hsl(var(--glow-color) / var(--glow-alpha));
+}
+/* Gradient-clipped text is transparent, so a text-shadow would show through the glyphs and wash
+ * them out; the glow moves to a drop-shadow filter, which follows the painted pixels instead. */
+.gold-shimmer.counter-glow,
+.gold-text.counter-glow {
+  text-shadow: none;
+  filter: drop-shadow(0 0 var(--glow-radius) hsl(var(--glow-color) / var(--glow-alpha)));
+}
+[data-theme="gilded-realm"] .gold-shimmer.counter-glow,
+[data-theme="gilded-realm"] .gold-text.counter-glow {
+  filter: drop-shadow(0 1px 0 hsl(var(--gold-dim) / 0.55)) drop-shadow(0 0 var(--glow-radius) hsl(var(--glow-color) / 0.3));
+}
+
+/* Monospace numbers belong to the HUD only. */
+[data-theme="neon-kingdom"] .tabular {
+  font-family: var(--font-numeric);
+  letter-spacing: -0.01em;
+}
+
+/* Type tuning per pairing. */
+[data-theme="iron-crown"] .font-display {
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+[data-theme="gilded-realm"] .font-heading {
+  font-weight: 700;
+}
+[data-theme="gilded-realm"] .stat-label {
+  letter-spacing: 0.14em;
+}
+[data-theme="neon-kingdom"] .font-heading {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+[data-theme="neon-kingdom"] .stat-label {
+  letter-spacing: 0.16em;
+}
+/* Rajdhani is condensed with a low x-height; small headings need a nudge to read at HUD scale. */
+[data-theme="neon-kingdom"] .font-heading.text-sm {
+  font-size: 0.95rem;
+}
+[data-theme="neon-kingdom"] .font-heading.text-base {
+  font-size: 1.1rem;
+}
+
+/* Cards: three constructions of the same box. */
+.parchment-card {
+  position: relative;
+  transition-property: transform, box-shadow, border-color, background-color;
+  transition-duration: calc(220ms * var(--motion-scale));
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) {
+  .parchment-card:hover {
+    border-color: hsl(var(--gold) / 0.45);
+    box-shadow:
+      0 0 0 1px hsl(var(--gold) / 0.12),
+      0 18px 50px -28px hsl(var(--gold) / 0.55);
+  }
+  [data-theme="gilded-realm"] .parchment-card:hover {
+    transform: translateY(-2px);
+  }
+  [data-theme="neon-kingdom"] .parchment-card:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 0 0 1px hsl(var(--gold) / 0.35),
+      0 0 24px -6px hsl(var(--arcane) / 0.45),
+      0 0 40px -12px hsl(var(--gold) / 0.5);
+  }
+}
+
+/* A — steel-edged stone: a cold highlight along the top edge, heavy shadow underneath. */
+[data-theme="iron-crown"] .parchment-card {
+  background-image: linear-gradient(180deg, hsl(216 12% 13% / 0.6), transparent 40%);
+  box-shadow:
+    inset 0 1px 0 hsl(var(--steel) / 0.22),
+    0 14px 40px -24px hsl(220 20% 2% / 0.9);
+}
+
+/* B — illuminated frame: a double rule inset from the edge and a fleuron in each corner. */
+[data-theme="gilded-realm"] .parchment-card {
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--gold) / 0.18),
+    0 10px 30px -22px hsl(30 40% 20% / 0.35);
+}
+[data-theme="gilded-realm"] .parchment-card::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid hsl(var(--gold) / 0.35);
+  border-radius: calc(var(--radius) - 3px);
+  pointer-events: none;
+}
+[data-theme="gilded-realm"] .parchment-card::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: 18px 18px;
+  background-position:
+    left 2px top 2px,
+    right 2px top 2px,
+    left 2px bottom 2px,
+    right 2px bottom 2px;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M2 18 C2 8 8 2 18 2 M6 14 C6 10 10 6 14 6' fill='none' stroke='%23a0762a' stroke-width='1.1' stroke-linecap='round'/><circle cx='3' cy='3' r='1.4' fill='%23a0762a'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><g transform='rotate(90 10 10)'><path d='M2 18 C2 8 8 2 18 2 M6 14 C6 10 10 6 14 6' fill='none' stroke='%23a0762a' stroke-width='1.1' stroke-linecap='round'/><circle cx='3' cy='3' r='1.4' fill='%23a0762a'/></g></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><g transform='rotate(-90 10 10)'><path d='M2 18 C2 8 8 2 18 2 M6 14 C6 10 10 6 14 6' fill='none' stroke='%23a0762a' stroke-width='1.1' stroke-linecap='round'/><circle cx='3' cy='3' r='1.4' fill='%23a0762a'/></g></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><g transform='rotate(180 10 10)'><path d='M2 18 C2 8 8 2 18 2 M6 14 C6 10 10 6 14 6' fill='none' stroke='%23a0762a' stroke-width='1.1' stroke-linecap='round'/><circle cx='3' cy='3' r='1.4' fill='%23a0762a'/></g></svg>");
+}
+
+/* C — HUD panel: glass with bracket corners in gold and violet. */
+[data-theme="neon-kingdom"] .parchment-card {
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  background-image: linear-gradient(135deg, hsl(275 60% 40% / 0.08), transparent 45%, hsl(48 100% 50% / 0.05));
+  box-shadow:
+    inset 0 0 0 1px hsl(0 0% 100% / 0.03),
+    0 0 30px -18px hsl(var(--arcane) / 0.5);
+}
+[data-theme="neon-kingdom"] .parchment-card::before,
+[data-theme="neon-kingdom"] .parchment-card::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+[data-theme="neon-kingdom"] .parchment-card::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid hsl(var(--gold) / 0.9);
+  border-left: 2px solid hsl(var(--gold) / 0.9);
+}
+[data-theme="neon-kingdom"] .parchment-card::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 2px solid hsl(var(--arcane) / 0.9);
+  border-bottom: 2px solid hsl(var(--arcane) / 0.9);
+}
+
+/* Page titles: the manuscript gets an illuminated initial; the HUD gets a tracking rule. */
+[data-theme="gilded-realm"] .page-title::first-letter {
+  color: hsl(var(--ember));
+  font-size: 1.28em;
+  text-shadow: 0 1px 0 hsl(42 90% 80% / 0.9);
+}
+[data-theme="neon-kingdom"] .page-title {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Gold gradients follow the theme's gold. */
+.gold-text {
+  background: linear-gradient(120deg, hsl(var(--gold-bright)), hsl(var(--gold)) 45%, hsl(var(--gold-dim)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.gold-shimmer {
+  background: linear-gradient(110deg, hsl(var(--gold)) 20%, hsl(var(--gold-bright)) 50%, hsl(var(--gold)) 80%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer calc(5s * var(--motion-scale)) linear infinite;
+}
+
+[data-theme="gilded-realm"] .gold-shimmer {
+  background-image: linear-gradient(110deg, hsl(var(--gold-dim)) 20%, hsl(var(--gold)) 50%, hsl(var(--gold-dim)) 80%);
+}
+[data-theme="gilded-realm"] .gold-text {
+  background-image: linear-gradient(120deg, hsl(var(--gold)), hsl(var(--gold-dim)) 60%, hsl(var(--gold)));
+}
+
+/* Interactive rows and tiles: every hover answers. */
+@media (hover: hover) {
+  tbody tr {
+    transition: background-color calc(160ms * var(--motion-scale));
+  }
+  [data-theme="neon-kingdom"] tbody tr:hover {
+    box-shadow: inset 2px 0 0 hsl(var(--gold));
+  }
+  [data-theme="gilded-realm"] tbody tr:hover {
+    box-shadow: inset 2px 0 0 hsl(var(--gold) / 0.7);
+  }
+}
+
+/* Tap targets: always ≥ 44×44 for primary controls (phones + Playwright matrix). */
+button,
+[role="button"],
+select,
+input,
+textarea,
+a.nav-item,
+summary,
+.swatch-button {
+  min-height: 44px !important;
+}
+button,
+[role="button"],
+.swatch-button {
+  min-width: 44px !important;
+}
+.lot-tile-hit,
+.swatch-button,
+.slider-thumb {
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+/* Inline text links grow a thumb-sized hit box without moving the text around them. */
+.touch-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-block: -14px;
+  padding-inline: 0.25rem;
+  margin-inline: -0.25rem;
+}
+
+/* Reduced motion: no ambient layers, no shimmer, instant transitions. */
+@media (prefers-reduced-motion: reduce) {
+  .gold-shimmer {
+    animation: none;
+    background-position: 50% 0;
+  }
+  .parchment-card,
+  tbody tr {
+    transition: none;
+  }
+}
