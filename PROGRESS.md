@@ -14,12 +14,11 @@ Branch `v2`. Snapshot of live Payments taken **2026-09-11 02:07 UTC** and **refr
 19:17 UTC and again 21:31 UTC** (`npm run snapshot`; every pinned number re-pinned each time — see
 **"Snapshot 2026-09-11 refresh"** and its "Second refresh the same day" near the end of the file;
 the sections in between quote the 02:07 figures).
-Last full verification (build · lint · 358 unit tests · 265 Playwright tests): **2026-09-11**, followed
-by the labeling deploy and `verify:live` (Capital outstanding Stat **$4,145,355.48** = Debt, hint
-*"+ $800,000 own capital tied up"* · net profit $2,235,850 · trapped $1,102,974 · "You need 8.46
-lots/month from the ledger average; you are doing 4.73." · three themes persist) — see **"Labels —
-Capital outstanding and required-pace models"** at the end of the file. The **exit horizon** selector
-(2027 / 2028 / 2029) is the work after that; see **"Exit horizon — 2027 / 2028 / 2029"** below.
+Last full verification (build · lint · **366** unit tests · **267** Playwright tests): **2026-09-12**,
+on the exit-horizon branch — see **"Exit horizon — 2027 / 2028 / 2029"** below. The labeling deploy
+before that (`verify:live`: Capital outstanding Stat **$4,145,355.48** = Debt, hint *"+ $800,000 own
+capital tied up"* · net profit $2,235,850 · trapped $1,102,974 · "You need 8.46 lots/month from the
+ledger average; you are doing 4.73.") is in **"Labels — Capital outstanding and required-pace models"**.
 
 Order of work, as requested: Phase 1 numbers verified → connection check → domain reproduces the
 verified numbers → **Phase 2: Epic** → **Pipeline layer** → **three visual themes + POLISH loops
@@ -891,3 +890,11 @@ the cinematic intro or SinceLastVisit celebrations.
 **War Plan / Exodus.** Their default/"real" deadline is the global horizon. Changing the horizon
 while the page is open re-seeds inputs from the new defaults. A saved scenario keeps the deadline
 it was saved with and does not write the global horizon.
+
+**Checks (2026-09-12).** `npm run build` clean · `npm run lint` clean · `npm test` **366** (358 + 8
+horizon: `readStoredHorizon` rejects garbage; fixture at 2027/2028/2029 keeps net profit, cash,
+capital owed *today*, live reservations and trophy count identical; days left / required lots/month
+/ War Plan last purchase / interest-to-deadline move in the expected direction) · `npm run e2e`
+**267** (265 + the new drawer test on desktop and mobile: pick 2029 → topbar and Throne "days to
+Dec 31, 2029" → `/warplan` and `/exodus` inputs `2029-12-31` → survives reload and logout/login).
+Manual at **380px**: `Exodus · 2029` still fits beside the oxygen pill; no horizontal scroll.
