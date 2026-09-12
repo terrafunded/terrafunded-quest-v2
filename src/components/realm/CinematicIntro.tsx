@@ -48,9 +48,9 @@ export function CinematicIntro({ story }: { story: Story }) {
       window.removeEventListener("keydown", dismiss);
       window.removeEventListener("pointerdown", dismiss);
     };
-    // Horizon changes rebuild `story` but must not replay the intro; sessionStorage is the gate,
-    // and the dependency is hasData (not the object) so a year click does not restart the timers.
-  }, [story.hasData]);
+    // Horizon changes rebuild `story` but must not replay the intro; sessionStorage is the gate.
+    // Depend on hasData + card count, not the object identity, so a year click does not restart.
+  }, [story.hasData, story.cards.length]);
 
   const card = index >= 0 ? story.cards[index] : undefined;
 
