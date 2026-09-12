@@ -1270,7 +1270,12 @@ rows: Lamar `investor_capital` 484,000 → 475,000 and Wichita 1,217,000 → 1,1
 were reduced by exactly their closing costs while `property_costs` still sums to 484,000 /
 1,217,000 (#120, AUDIT.md F16). Effect on the numbers: capital owed −$29,000; land cost per
 lot −$1,000 on Lamar and −$625 on Wichita, so gross on those farms +$29,000 spread over their
-lots. Nothing in Quest changed; the app's arithmetic is the same on both snapshots.
+lots. It also flipped a state: Lamar has exactly $475,000 of `capital_return` distributions, so
+at $484,000 it was a captive position with $9,000 outstanding (`fixture.test.ts` asserts exactly
+that on the pinned fixture) and at $475,000 it is **freed** — the only freed position, the
+*Debt of Honor* trophy, the Liberation board's "walked free" line and the only completed
+rotation cycle (271 d, pre-era) all exist on the live page today because of that overnight
+edit. Nothing in Quest changed; the app's arithmetic is the same on both snapshots.
 `farm_acquisitions` has no `updated_at`, so Quest cannot see who changed it or when.
 **Exact question:** was the reduction of `investor_capital` on Lamar and Wichita on 2026-09-11/12
 intentional (closing costs out of the capital basis), and if so should `property_costs` be the
