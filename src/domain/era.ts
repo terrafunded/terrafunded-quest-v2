@@ -15,7 +15,7 @@ export interface Era {
   label: string;
   /** "since Mar 2026" — the tag every era-scoped number carries on screen. */
   since: string;
-  /** Whole calendar months from the era start to asOf (6 on 2026-09-11; 12 from 2027-03-01). */
+  /** Whole calendar months from the era start to asOf (6 on 2026-09-11; 12 from 2027-03-01, the era's first anniversary — not the exit deadline). */
   monthsOfHistory: number;
 }
 

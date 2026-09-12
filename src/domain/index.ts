@@ -28,4 +28,6 @@ export * from "./exodus";
 export * from "./narrative";
 export * from "./story";
 export * from "./visits";
+export * from "./pulse";
+export * from "./history";
 export * from "./realm";

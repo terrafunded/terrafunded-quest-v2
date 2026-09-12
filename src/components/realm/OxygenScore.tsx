@@ -5,6 +5,7 @@ import type { Oxygen } from "@/domain";
 import { AnimatedCounter } from "./AnimatedCounter";
 import { date, money } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/i18n/lang";
 
 const daysFormat = (n: number) => `${Math.round(n).toLocaleString("en-US")}`;
 
@@ -13,6 +14,7 @@ const daysFormat = (n: number) => `${Math.round(n).toLocaleString("en-US")}`;
  * closed lot. Each lot's share is fixed on its closing day (see src/domain/oxygen.ts).
  */
 export function OxygenScore({ oxygen, className }: { oxygen: Oxygen; className?: string }) {
+  const [lang] = useLang();
   return (
     <section
       className={cn("relative overflow-hidden rounded-2xl border border-oxygen/30 bg-gradient-to-br from-oxygen/14 via-card to-card p-5 sm:p-6", className)}
@@ -22,7 +24,7 @@ export function OxygenScore({ oxygen, className }: { oxygen: Oxygen; className?:
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-oxygen">
           <Wind className="mr-2 inline h-4 w-4" />
-          Oxygen · days gained
+          Oxygen · cumulative days already gained
         </h2>
         <Link to="/quests" className="touch-link text-xs text-muted-foreground hover:text-foreground">
           per lot in the ledger →
@@ -53,7 +55,13 @@ export function OxygenScore({ oxygen, className }: { oxygen: Oxygen; className?:
           <div>
             {oxygen.provisional.size} {oxygen.provisional.size === 1 ? "reservation" : "reservations"} provisional at {oxygen.conversionPct}% conversion
           </div>
-          {oxygen.netProfitPerDayAtPace !== null && <div>today one day costs {money(oxygen.netProfitPerDayAtPace)} of net profit</div>}
+          {oxygen.netProfitPerDayAtPace !== null && (
+            <div data-testid="oxygen-produces">
+              {lang === "es"
+                ? `hoy el reino produce ${money(oxygen.netProfitPerDayAtPace)} de utilidad neta al día`
+                : `today the realm produces ${money(oxygen.netProfitPerDayAtPace)} of net profit per day`}
+            </div>
+          )}
         </div>
       </div>
 
