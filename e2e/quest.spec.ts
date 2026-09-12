@@ -61,6 +61,21 @@ async function goViaDrawer(page: Page, name: string | RegExp) {
   await expect(page.getByTestId("nav-drawer")).toHaveCount(0);
 }
 
+/**
+ * The Pulse charts mount only once they scroll into view, so bars exist only after the section has
+ * been on screen (and ResponsiveContainer has measured it).
+ */
+async function expectChartsDrawn(page: Page) {
+  await page.getByTestId("pulse-charts").scrollIntoViewIfNeeded();
+  await expect.poll(() => page.locator("[data-testid='pulse-chart-pace'] .recharts-rectangle").count()).toBeGreaterThan(0);
+  await expect.poll(() => page.locator("[data-testid='pulse-chart-profit'] .recharts-rectangle").count()).toBeGreaterThan(0);
+}
+
+/** Heights of every bar in both Pulse charts, as currently painted. */
+function barHeights(page: Page): Promise<(string | null)[]> {
+  return page.locator("[data-testid='pulse-charts'] .recharts-bar-rectangle path").evaluateAll((els) => els.map((el) => el.getAttribute("height")));
+}
+
 test.describe("Throne Room", () => {
   test("renders the net-profit counter as a dollar amount greater than zero", async ({ page }) => {
     const errors = collectConsoleErrors(page);
@@ -77,8 +92,7 @@ test.describe("Throne Room", () => {
     await expect(page.getByTestId("pulse-needed")).toBeVisible();
     await expect(page.getByTestId("pulse-chart-pace")).toBeVisible();
     await expect(page.getByTestId("pulse-chart-profit")).toBeVisible();
-    expect(await page.locator("[data-testid='pulse-chart-pace'] .recharts-rectangle").count()).toBeGreaterThan(0);
-    expect(await page.locator("[data-testid='pulse-chart-profit'] .recharts-rectangle").count()).toBeGreaterThan(0);
+    await expectChartsDrawn(page);
     expect(errors).toEqual([]);
   });
 
@@ -237,6 +251,7 @@ test.describe("Throne Room", () => {
     await expect(debt).toBeVisible();
 
     const owed = page.getByTestId("debt-capital-owed");
+    await owed.scrollIntoViewIfNeeded();
     await expect(owed).toHaveText(/^\$[\d,]+$/);
     await expect.poll(async () => Number(await owed.getAttribute("data-value"))).toBeGreaterThan(0);
 
@@ -248,6 +263,7 @@ test.describe("Throne Room", () => {
     expect(daysLeft).toBe(expectedDays);
 
     const perDay = page.getByTestId("debt-per-day");
+    await perDay.scrollIntoViewIfNeeded();
     await expect.poll(async () => Number(await perDay.getAttribute("data-value"))).toBeGreaterThan(0);
     // The daily requirement is a fraction of what is owed, never the whole sum.
     await expect
@@ -274,6 +290,7 @@ test.describe("Throne Room", () => {
     await waitForRealm(page);
     const score = page.getByTestId("oxygen-score");
     await expect(score).toBeVisible();
+    await score.scrollIntoViewIfNeeded();
     await expect.poll(async () => Number(await score.getAttribute("data-value")), { timeout: 20_000 }).toBe(ledgerSum);
     expect(ledgerSum).toBeGreaterThanOrEqual(0);
     const provisionalScore = page.getByTestId("oxygen-provisional");
@@ -770,6 +787,76 @@ test.describe("Themes", () => {
     await expect(page.getByTestId("ambient-particles")).toHaveCount(0);
     await context.close();
   });
+
+  test("below-the-fold counters and charts reveal once, when scrolled to, and do not replay on a horizon change", async ({ page }) => {
+    await page.goto("/");
+    await waitForRealm(page);
+    const viewportHeight = page.viewportSize()?.height ?? 0;
+    const owed = page.getByTestId("debt-capital-owed");
+    const perDay = page.getByTestId("debt-per-day");
+    const paceChart = page.getByTestId("pulse-chart-pace");
+    const target = Number(await owed.getAttribute("data-target"));
+    expect(target).toBeGreaterThan(0);
+
+    // Not yet seen: the counter holds at zero and the charts have not mounted.
+    expect((await owed.boundingBox())?.y ?? 0).toBeGreaterThan(viewportHeight);
+    await expect(owed).toHaveAttribute("data-value", "0");
+    await expect(owed).toHaveText("$0");
+    await expect(paceChart).toHaveAttribute("data-revealed", "false");
+    expect(await paceChart.locator(".recharts-rectangle").count()).toBe(0);
+    await expect(page.locator("[data-revealed='true']")).toHaveCount(0);
+
+    // The observer fires as the element arrives: the count runs to its final value.
+    await owed.scrollIntoViewIfNeeded();
+    await expect(owed).toHaveAttribute("data-value", String(target), { timeout: 10_000 });
+    await expect(owed).toHaveText((await owed.getAttribute("data-final")) ?? "");
+    await expect(perDay).toHaveAttribute("data-value", (await perDay.getAttribute("data-target")) ?? "", { timeout: 10_000 });
+
+    // Each chart mounts on arrival, grows its bars once (under ~800ms) and then switches series
+    // animation off for good.
+    await expect(page.locator("[data-testid^='pulse-chart-'][data-animating='true']")).toHaveCount(2);
+    for (const chart of [paceChart, page.getByTestId("pulse-chart-profit")]) {
+      await chart.scrollIntoViewIfNeeded();
+      await expect(chart).toHaveAttribute("data-revealed", "true");
+      await expect.poll(() => chart.locator(".recharts-rectangle").count()).toBeGreaterThan(0);
+      await settledBars(chart);
+      await expect(chart).toHaveAttribute("data-animating", "false", { timeout: 1_000 });
+    }
+
+    // A new horizon changes the daily requirement and the pace chart's required lines; the figure
+    // snaps rather than counting up again, and the bars redraw in place (a replay would have them
+    // still moving a beat later).
+    const perDayBefore = Number(await perDay.getAttribute("data-target"));
+    const requiredBefore = await paceChart.getAttribute("data-required-closings");
+    await openNavDrawer(page);
+    await page.getByTestId("nav-drawer").getByTestId("horizon-2029").click();
+    await page.keyboard.press("Escape");
+    await expect(perDay).not.toHaveAttribute("data-target", String(perDayBefore));
+    await expect(paceChart).not.toHaveAttribute("data-required-closings", requiredBefore ?? "");
+    const barsRightAfter = await barHeights(page);
+    const perDayAfter = (await perDay.getAttribute("data-target")) ?? "";
+    await expect(perDay).toHaveAttribute("data-value", perDayAfter, { timeout: 500 });
+    await page.waitForTimeout(400);
+    expect(barsRightAfter.length).toBeGreaterThan(0);
+    expect(await barHeights(page)).toEqual(barsRightAfter);
+  });
+
+  test("reduced motion shows every counter at its final value immediately, without scrolling", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: "playwright/.auth/user.json", reducedMotion: "reduce" });
+    const page = await context.newPage();
+    await page.goto("/");
+    await waitForRealm(page);
+    const owed = page.getByTestId("debt-capital-owed");
+    const target = (await owed.getAttribute("data-target")) ?? "";
+    expect(Number(target)).toBeGreaterThan(0);
+    // Well inside any count-up duration (>= 1.2s on the fastest skin): the value must be there already.
+    await expect(owed).toHaveAttribute("data-value", target, { timeout: 500 });
+    await expect(owed).toHaveText((await owed.getAttribute("data-final")) ?? "");
+    await expect(page.locator("[data-revealed='false']")).toHaveCount(0);
+    await expect(page.locator("[data-animating='true']")).toHaveCount(0);
+    await expect.poll(() => page.locator("[data-testid='pulse-chart-pace'] .recharts-rectangle").count()).toBeGreaterThan(0);
+    await context.close();
+  });
 });
 
 test.describe("Pipeline layer", () => {
@@ -1229,8 +1316,7 @@ test.describe("Navigation drawer", () => {
     await expect(page.getByTestId("pulse-chart-pace")).not.toHaveAttribute("data-required-closings", requiredClosingsBefore ?? "");
     await expect(page.getByTestId("pulse-chart-profit")).not.toHaveAttribute("data-required-profit", requiredProfitBefore ?? "");
     expect(Number(await page.getByTestId("pulse-chart-pace").getAttribute("data-required-closings"))).toBeLessThan(Number(requiredClosingsBefore));
-    expect(await page.locator("[data-testid='pulse-chart-pace'] .recharts-rectangle").count()).toBeGreaterThan(0);
-    expect(await page.locator("[data-testid='pulse-chart-profit'] .recharts-rectangle").count()).toBeGreaterThan(0);
+    await expectChartsDrawn(page);
 
     await page.goto("/warplan");
     await waitForRealm(page);
