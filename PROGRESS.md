@@ -918,7 +918,9 @@ page, domain, i18n, nav item and the 10M trophy are unchanged. The topbar wordma
 **Checks (2026-09-12).** `npm run build` clean · `npm run lint` clean · `npm test` **375** (horizon
 suite, Pulse, and six `history` tests: Σ closings = sold-lot count and Σ netProfit =
 `goal.netProfitToDate` on the fixture; current month partial; 24-month cap; cancelled-case
-dates are not invented). Playwright for the two new charts and the wordmark home link is in
-this pass. Prior `quest.spec` desktop + mobile was green including Pulse on `/` and the 2029
-horizon ratio line. Manual: Pulse sits under the net-profit number; at 380px PRODUCING
-stays $9,169 while NEEDED moves $16,333 → $6,433 and the line reads 143% / 2029.
+dates are not invented). Playwright `quest.spec` desktop + mobile **113** passed: both Pulse
+charts render at least one bar; picking 2029 moves the required lines; from `/warplan` the
+Quest wordmark returns to `/` with the Throne Room (tap target ≥ 44px). Manual at 1280: charts
+side by side after Debt/Oxygen; tooltip is month + counts only. At 380px: stacked, last 12
+months, no H-scroll, era note uses `era.label` (Mar 2026). Remaining `Exodus` hits in `src/`
+are the LP model (route, page, domain, i18n, nav item, 10M trophy).
