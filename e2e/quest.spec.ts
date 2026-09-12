@@ -49,6 +49,10 @@ test.describe("Throne Room", () => {
     await expect(page.getByTestId("pulse")).toBeVisible();
     await expect(page.getByTestId("pulse-producing")).toBeVisible();
     await expect(page.getByTestId("pulse-needed")).toBeVisible();
+    await expect(page.getByTestId("pulse-chart-pace")).toBeVisible();
+    await expect(page.getByTestId("pulse-chart-profit")).toBeVisible();
+    expect(await page.locator("[data-testid='pulse-chart-pace'] .recharts-rectangle").count()).toBeGreaterThan(0);
+    expect(await page.locator("[data-testid='pulse-chart-profit'] .recharts-rectangle").count()).toBeGreaterThan(0);
     expect(errors).toEqual([]);
   });
 
@@ -1032,6 +1036,10 @@ test.describe("Navigation drawer", () => {
 
     await page.goto("/");
     await waitForRealm(page);
+    const requiredClosingsBefore = await page.getByTestId("pulse-chart-pace").getAttribute("data-required-closings");
+    const requiredProfitBefore = await page.getByTestId("pulse-chart-profit").getAttribute("data-required-profit");
+    expect(Number(requiredClosingsBefore)).toBeGreaterThan(0);
+    expect(Number(requiredProfitBefore)).toBeGreaterThan(0);
 
     await openNavDrawer(page);
     const drawer = page.getByTestId("nav-drawer");
@@ -1046,6 +1054,11 @@ test.describe("Navigation drawer", () => {
     await expect(page.getByTestId("days-to-deadline")).toContainText("Dec 31, 2029");
     await expect(page.getByTestId("pulse-ratio")).toContainText("2029 horizon");
     await expect(page.getByTestId("debt-per-day")).toBeVisible();
+    await expect(page.getByTestId("pulse-chart-pace")).not.toHaveAttribute("data-required-closings", requiredClosingsBefore ?? "");
+    await expect(page.getByTestId("pulse-chart-profit")).not.toHaveAttribute("data-required-profit", requiredProfitBefore ?? "");
+    expect(Number(await page.getByTestId("pulse-chart-pace").getAttribute("data-required-closings"))).toBeLessThan(Number(requiredClosingsBefore));
+    expect(await page.locator("[data-testid='pulse-chart-pace'] .recharts-rectangle").count()).toBeGreaterThan(0);
+    expect(await page.locator("[data-testid='pulse-chart-profit'] .recharts-rectangle").count()).toBeGreaterThan(0);
 
     await page.goto("/warplan");
     await waitForRealm(page);

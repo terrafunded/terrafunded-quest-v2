@@ -13,6 +13,7 @@ import { CinematicIntro } from "@/components/realm/CinematicIntro";
 import { DebtCountdown } from "@/components/realm/DebtCountdown";
 import { OxygenScore } from "@/components/realm/OxygenScore";
 import { Pulse } from "@/components/realm/Pulse";
+import { PulseCharts } from "@/components/realm/PulseCharts";
 import { AmbientParticles } from "@/components/realm/AmbientParticles";
 import { PipelinePanel } from "@/components/realm/PipelinePanel";
 import { Stat } from "@/components/realm/Stat";
@@ -210,6 +211,14 @@ export function ThroneRoom() {
         <DebtCountdown debt={realm.debt} />
         <OxygenScore oxygen={realm.oxygen} />
       </section>
+
+      <PulseCharts
+        history={realm.history}
+        requiredClosings={g.requiredLotsPerMonthToHitDeadline}
+        requiredReservations={x.requiredReservationsPerMonth}
+        requiredProfitPerDay={realm.debt.requiredNetProfitPerDay}
+        eraLabel={realm.era?.label ?? null}
+      />
 
       <PipelinePanel pipeline={realm.pipeline} />
 

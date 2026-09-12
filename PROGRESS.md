@@ -899,9 +899,22 @@ oxygen above 110%. Still shown on the Debt card; this is a promotion, not a move
 copy: "today the realm produces $X of net profit per day" / "hoy el reino produce $X de
 utilidad neta al día"; heading is "cumulative days already gained".
 
+**The Pulse charts.** After the Debt/Oxygen row, before the Pipeline: two Recharts bar charts
+(`src/components/realm/PulseCharts.tsx`) on `realm.history` from `computeMonthlyHistory` in
+`src/domain/history.ts`. One grouped-bar point per calendar month (first activity → as-of,
+capped at 24; last 12 below `sm`). Reservations use `--ember`, closings `--stage-closed`, net
+profit `--gold`. Dashed required lines are `goal.requiredLotsPerMonthToHitDeadline`, that figure
+÷ pipeline conversion (`expected.requiredReservationsPerMonth`), and
+`debt.requiredNetProfitPerDay × DAYS_PER_MONTH` — those three move with the exit horizon; the
+bars do not. `beforeEra` months are fainter; the current month is partial (lighter fill, tooltip
+"month in progress") and is not extrapolated. Era note under the pair uses `era.label`, not a
+hard-coded date.
+
 **Checks (2026-09-12).** `npm run build` clean · `npm run lint` clean · `npm test` **369** (horizon
 suite plus Pulse: PRODUCING identical across 2027/2028/2029, NEEDED falls as the horizon
-lengthens, percentage = producing ÷ needed; band edges 90 / 110). Playwright `quest.spec`
-desktop + mobile green including Pulse on `/` and the 2029 horizon ratio line; one mobile
-`/sponsors` timeout reran clean. Manual: Pulse sits under the net-profit number; at 380px
-PRODUCING stays $9,169 while NEEDED moves $16,333 → $6,433 and the line reads 143% / 2029.
+lengthens, percentage = producing ÷ needed; band edges 90 / 110). Pulse-charts history tests
+assert Σ closings = sold-lot count and Σ netProfit = `goal.netProfitToDate` on the fixture.
+Playwright `quest.spec` desktop + mobile green including Pulse on `/` and the 2029 horizon
+ratio line; one mobile `/sponsors` timeout reran clean. Manual: Pulse sits under the
+net-profit number; at 380px PRODUCING stays $9,169 while NEEDED moves $16,333 → $6,433 and
+the line reads 143% / 2029.

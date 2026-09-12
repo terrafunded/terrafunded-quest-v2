@@ -1139,3 +1139,16 @@ profit of era-scoped closings ÷ calendar days since the era start). Those are d
 and different dollars (fixture: $9,145.63 vs $10,025.56). The request named the Oxygen field
 explicitly. NEEDED is the Debt's `requiredNetProfitPerDay`. Do not blend the two "actual" paces
 under the same label.
+
+## 110. Pulse charts: reservations are `Lot.reservationDate` only
+
+`computeMonthlyHistory` counts a reservation when `Lot.reservationDate` falls in the month,
+including lots that later closed or cancelled *if that field is still set*. It does not walk
+`cancellations[]` or `cancelledReservationDate` — those are a richer count (`reservationsMade`
+in `expected.ts`) and the request said not to invent a source. Cancelled-only lots whose live
+`reservationDate` was cleared therefore do not appear on the reservations bars.
+
+The series is also capped at the last 24 calendar months. Older sold lots drop out of
+Σ closings / Σ netProfit on the chart even though `goal.netProfitToDate` still includes them.
+The fixture's first closing is Oct 2025, so the fixture still reconciles; a longer history
+would not.

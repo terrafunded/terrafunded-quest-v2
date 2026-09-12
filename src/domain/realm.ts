@@ -22,6 +22,7 @@ import { computePipeline, type Pipeline } from "./pipeline";
 import { computeExpected, reservationsMade, type Expected } from "./expected";
 import { deriveWarPlanDefaults, solveWarPlan, type RotationBenchmark, type WarPlan, type WarPlanDefaults } from "./warplan";
 import { computeSeasonality, type SeasonalProfile } from "./seasonality";
+import { computeMonthlyHistory, type MonthlyPoint } from "./history";
 import { startOfUtcDay, toIsoDate } from "./dates";
 
 /** Everything the pages render. Built once from a snapshot; pages never compute money. */
@@ -72,6 +73,8 @@ export interface Realm {
   eraStart: EraStart;
   /** How often a farm is bought — the Oracle's "new farm every N months", with the farms behind it. */
   farmCadence: FarmCadence;
+  /** Reservations, closings and net profit by calendar month — the Pulse charts. */
+  history: MonthlyPoint[];
   snapshot: PaymentsSnapshot;
 }
 
@@ -161,6 +164,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
   });
   const story = buildStory(goal, farms, debt, oxygen, liberation);
   const seasonality = computeSeasonality(lots, asOf, { eraStart });
+  const history = computeMonthlyHistory(lots, asOf, { eraStart });
   const warPlanContext = {
     asOf,
     lots,
@@ -209,6 +213,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
     era,
     eraStart,
     farmCadence: cadence,
+    history,
     snapshot,
   };
 }
