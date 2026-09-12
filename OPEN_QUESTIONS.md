@@ -1130,3 +1130,12 @@ That is correct — those pages are scenario tools with their own date fields. T
 call `setHorizon`, or picking an old 2027 scenario would silently move the whole app. Changing
 the global horizon while the page is open *does* re-seed the inputs from the new defaults
 (stale inputs from the previous year are a bug).
+
+## 109. Pulse: PRODUCING is the Oxygen pace, not the Debt's actual-per-day
+
+The Pulse's PRODUCING figure is `oxygen.netProfitPerDayAtPace` (avg net profit per closed lot ×
+trailing closings/month × 12 ÷ 365.25). The Debt card still shows `actualNetProfitPerDay` (net
+profit of era-scoped closings ÷ calendar days since the era start). Those are different models
+and different dollars (fixture: $9,145.63 vs $10,025.56). The request named the Oxygen field
+explicitly. NEEDED is the Debt's `requiredNetProfitPerDay`. Do not blend the two "actual" paces
+under the same label.

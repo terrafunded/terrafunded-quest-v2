@@ -7,6 +7,7 @@ import raw from "../__fixtures__/payments.json";
 import type { PaymentsSnapshot } from "../types";
 import { buildRealm } from "../realm";
 import { deadlineForHorizon, DEFAULT_EXIT_HORIZON, EXIT_HORIZONS, type ExitHorizon } from "../../config/goal";
+import { pulseRatioPct } from "../pulse";
 import { round2 } from "../math";
 
 const fixture = raw as unknown as PaymentsSnapshot;
@@ -89,5 +90,23 @@ describe("buildRealm at each exit horizon", () => {
     expect(owedAtDeadline(r2027)).not.toBe(r2027.debt.capitalOwed);
     expect(owedAtDeadline(r2027)).not.toBe(owedAtDeadline(r2028));
     expect(owedAtDeadline(r2028)).not.toBe(owedAtDeadline(r2029));
+  });
+
+  it("THE PULSE: PRODUCING is identical across horizons; NEEDED and the percentage move", () => {
+    // PRODUCING is today's trailing pace — historical, not a function of the deadline.
+    expect(r2027.oxygen.netProfitPerDayAtPace).not.toBeNull();
+    expect(r2028.oxygen.netProfitPerDayAtPace).toBe(r2027.oxygen.netProfitPerDayAtPace);
+    expect(r2029.oxygen.netProfitPerDayAtPace).toBe(r2027.oxygen.netProfitPerDayAtPace);
+
+    // NEEDED is remaining ÷ days left — a longer horizon lowers the daily requirement.
+    const needed = (r: typeof r2027) => r.debt.requiredNetProfitPerDay as number;
+    expect(needed(r2029)).toBeLessThan(needed(r2028));
+    expect(needed(r2028)).toBeLessThan(needed(r2027));
+
+    const producing = r2027.oxygen.netProfitPerDayAtPace as number;
+    for (const r of [r2027, r2028, r2029]) {
+      expect(pulseRatioPct(producing, needed(r))).toBe(round2((producing / needed(r)) * 100));
+    }
+    expect(pulseRatioPct(producing, needed(r2029))).toBeGreaterThan(pulseRatioPct(producing, needed(r2027)) as number);
   });
 });

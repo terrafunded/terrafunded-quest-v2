@@ -12,6 +12,7 @@ import { QuestTree, type QuestNode } from "@/components/realm/QuestTree";
 import { CinematicIntro } from "@/components/realm/CinematicIntro";
 import { DebtCountdown } from "@/components/realm/DebtCountdown";
 import { OxygenScore } from "@/components/realm/OxygenScore";
+import { Pulse } from "@/components/realm/Pulse";
 import { AmbientParticles } from "@/components/realm/AmbientParticles";
 import { PipelinePanel } from "@/components/realm/PipelinePanel";
 import { Stat } from "@/components/realm/Stat";
@@ -122,6 +123,12 @@ export function ThroneRoom() {
             </div>
           </motion.div>
         </div>
+
+        <Pulse
+          producing={realm.oxygen.netProfitPerDayAtPace}
+          needed={realm.debt.requiredNetProfitPerDay}
+          horizonYear={Number(g.deadline.slice(0, 4))}
+        />
 
         <div className="mt-8 grid items-center gap-6 sm:grid-cols-[auto_1fr] sm:text-left">
           <ProgressRing value={g.pctComplete} size={150} className="mx-auto">

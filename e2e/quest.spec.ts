@@ -46,6 +46,9 @@ test.describe("Throne Room", () => {
       .poll(async () => Number(await counter.getAttribute("data-value")), { timeout: 20_000 })
       .toBeGreaterThan(0);
     await expect(page.getByTestId("verdict")).toContainText(/lots\/month/);
+    await expect(page.getByTestId("pulse")).toBeVisible();
+    await expect(page.getByTestId("pulse-producing")).toBeVisible();
+    await expect(page.getByTestId("pulse-needed")).toBeVisible();
     expect(errors).toEqual([]);
   });
 
@@ -1041,6 +1044,8 @@ test.describe("Navigation drawer", () => {
 
     await expect(page.getByTestId("topbar-horizon")).toHaveText("2029");
     await expect(page.getByTestId("days-to-deadline")).toContainText("Dec 31, 2029");
+    await expect(page.getByTestId("pulse-ratio")).toContainText("2029 horizon");
+    await expect(page.getByTestId("debt-per-day")).toBeVisible();
 
     await page.goto("/warplan");
     await waitForRealm(page);

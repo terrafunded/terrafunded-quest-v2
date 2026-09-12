@@ -891,6 +891,14 @@ the cinematic intro or SinceLastVisit celebrations.
 while the page is open re-seeds inputs from the new defaults. A saved scenario keeps the deadline
 it was saved with and does not write the global horizon.
 
+**The Pulse.** Under the Throne Room net-profit number, above the pace line: PRODUCING =
+`oxygen.netProfitPerDayAtPace` (today's trailing pace — does not move with the horizon) and
+NEEDED = `debt.requiredNetProfitPerDay` (remaining ÷ days left — does). The ratio line reads
+"you are at N% of the pace the <year> horizon requires", ember under 90%, gold 90–110%,
+oxygen above 110%. Still shown on the Debt card; this is a promotion, not a move. Oxygen card
+copy: "today the realm produces $X of net profit per day" / "hoy el reino produce $X de
+utilidad neta al día"; heading is "cumulative days already gained".
+
 **Checks (2026-09-12).** `npm run build` clean · `npm run lint` clean · `npm test` **366** (358 + 8
 horizon: `readStoredHorizon` rejects garbage; fixture at 2027/2028/2029 keeps net profit, cash,
 capital owed *today*, live reservations and trophy count identical; days left / required lots/month
