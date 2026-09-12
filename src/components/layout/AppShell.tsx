@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { Menu, Wind } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
+import { useHorizon } from "@/horizon/HorizonProvider";
+import { useLang } from "@/i18n/lang";
 import { Button } from "@/components/ui/button";
 import { SinceLastVisit } from "@/components/realm/SinceLastVisit";
 import { PageTransition } from "@/components/layout/PageTransition";
@@ -10,13 +12,15 @@ import { NavDrawer } from "@/components/layout/NavDrawer";
 const TOPBAR_HEIGHT_PX = 56;
 
 /**
- * App chrome: a fixed top bar on every breakpoint (hamburger · Exodus · Oxygen) and a single
+ * App chrome: a fixed top bar on every breakpoint (hamburger · Quest · Oxygen) and a single
  * left drawer for navigation. No permanent sidebar, no bottom nav — phone and desktop share
  * the same layout. The drawer always mounts closed; open state is not persisted.
  */
 export function AppShell() {
   const location = useLocation();
   const { data } = useRealm();
+  const { horizon } = useHorizon();
+  const [lang] = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -55,9 +59,14 @@ export function AppShell() {
           </Button>
 
           <div className="pointer-events-none absolute inset-x-0 flex items-center justify-center">
-            <span className="font-display text-sm uppercase tracking-[var(--brand-tracking)] text-gold" data-testid="topbar-realm-name">
-              Exodus
-            </span>
+            <Link
+              to="/"
+              className="pointer-events-auto inline-flex min-h-11 items-center rounded-md px-2.5 font-display text-[13px] uppercase tracking-[0.08em] text-gold transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:text-sm sm:tracking-[var(--brand-tracking)]"
+              aria-label={lang === "es" ? "Quest — volver a la Sala del Trono" : "Quest — back to the Throne Room"}
+              data-testid="topbar-realm-name"
+            >
+              Quest · <span data-testid="topbar-horizon">{horizon}</span>
+            </Link>
           </div>
 
           <div

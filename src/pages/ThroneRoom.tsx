@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, CalendarClock, Coins, Landmark, RefreshCw, Scroll } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
 import { latestEvents, type RealmEvent } from "@/domain";
-import { GOAL_DEADLINE, MILESTONE_STEP } from "@/config/goal";
+import { MILESTONE_STEP } from "@/config/goal";
 import { FitMoney } from "@/components/realm/FitMoney";
 import { ProgressRing } from "@/components/realm/ProgressRing";
 import { GrowthBurst } from "@/components/realm/GrowthBurst";
@@ -12,6 +12,8 @@ import { QuestTree, type QuestNode } from "@/components/realm/QuestTree";
 import { CinematicIntro } from "@/components/realm/CinematicIntro";
 import { DebtCountdown } from "@/components/realm/DebtCountdown";
 import { OxygenScore } from "@/components/realm/OxygenScore";
+import { Pulse } from "@/components/realm/Pulse";
+import { PulseCharts } from "@/components/realm/PulseCharts";
 import { AmbientParticles } from "@/components/realm/AmbientParticles";
 import { PipelinePanel } from "@/components/realm/PipelinePanel";
 import { Stat } from "@/components/realm/Stat";
@@ -123,6 +125,12 @@ export function ThroneRoom() {
           </motion.div>
         </div>
 
+        <Pulse
+          producing={realm.oxygen.netProfitPerDayAtPace}
+          needed={realm.debt.requiredNetProfitPerDay}
+          horizonYear={Number(g.deadline.slice(0, 4))}
+        />
+
         <div className="mt-8 grid items-center gap-6 sm:grid-cols-[auto_1fr] sm:text-left">
           <ProgressRing value={g.pctComplete} size={150} className="mx-auto">
             <div className="font-heading text-3xl text-gold tabular">{g.pctComplete.toFixed(1)}%</div>
@@ -154,7 +162,9 @@ export function ThroneRoom() {
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground sm:justify-start">
               <span className="inline-flex items-center gap-1.5">
                 <CalendarClock className="h-4 w-4 text-gold" />
-                <strong className="text-foreground tabular">{number(g.daysToDeadline)}</strong> days to {date(GOAL_DEADLINE)}
+                <span data-testid="days-to-deadline">
+                  <strong className="text-foreground tabular">{number(g.daysToDeadline)}</strong> days to {date(g.deadline)}
+                </span>
               </span>
               <span>
                 <strong className="text-foreground tabular">{g.lotsStillNeeded ?? "—"}</strong> lots still needed ·{" "}
@@ -201,6 +211,14 @@ export function ThroneRoom() {
         <DebtCountdown debt={realm.debt} />
         <OxygenScore oxygen={realm.oxygen} />
       </section>
+
+      <PulseCharts
+        history={realm.history}
+        requiredClosings={g.requiredLotsPerMonthToHitDeadline}
+        requiredReservations={x.requiredReservationsPerMonth}
+        requiredProfitPerDay={realm.debt.requiredNetProfitPerDay}
+        eraLabel={realm.era?.label ?? null}
+      />
 
       <PipelinePanel pipeline={realm.pipeline} />
 

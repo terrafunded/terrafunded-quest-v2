@@ -66,7 +66,7 @@ export interface Oxygen {
   totalDaysGained: number;
   perLot: Map<string, LotOxygen>;
   ranked: LotOxygen[];
-  /** Net profit that buys one day at today's pace. */
+  /** Net profit the realm produces per calendar day at today's trailing pace. Does not read the deadline. */
   netProfitPerDayAtPace: number | null;
   best: LotOxygen | null;
   latest: LotOxygen | null;

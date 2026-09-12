@@ -46,6 +46,13 @@ test.describe("Throne Room", () => {
       .poll(async () => Number(await counter.getAttribute("data-value")), { timeout: 20_000 })
       .toBeGreaterThan(0);
     await expect(page.getByTestId("verdict")).toContainText(/lots\/month/);
+    await expect(page.getByTestId("pulse")).toBeVisible();
+    await expect(page.getByTestId("pulse-producing")).toBeVisible();
+    await expect(page.getByTestId("pulse-needed")).toBeVisible();
+    await expect(page.getByTestId("pulse-chart-pace")).toBeVisible();
+    await expect(page.getByTestId("pulse-chart-profit")).toBeVisible();
+    expect(await page.locator("[data-testid='pulse-chart-pace'] .recharts-rectangle").count()).toBeGreaterThan(0);
+    expect(await page.locator("[data-testid='pulse-chart-profit'] .recharts-rectangle").count()).toBeGreaterThan(0);
     expect(errors).toEqual([]);
   });
 
@@ -980,7 +987,7 @@ test.describe("Navigation drawer", () => {
     await page.goto("/");
     await waitForRealm(page);
     await expect(page.getByTestId("topbar")).toBeVisible();
-    await expect(page.getByTestId("topbar-realm-name")).toHaveText(/Exodus/i);
+    await expect(page.getByTestId("topbar-realm-name")).toHaveText(/Quest/i);
     await expect(page.getByTestId("nav-drawer")).toHaveCount(0);
 
     await openNavDrawer(page);
@@ -994,6 +1001,21 @@ test.describe("Navigation drawer", () => {
     await drawer.getByRole("link", { name: "Pipeline" }).click();
     await expect(page).toHaveURL(/\/pipeline$/);
     await expect(page.getByTestId("nav-drawer")).toHaveCount(0);
+  });
+
+  test("wordmark returns to the Throne Room from the War Plan", async ({ page }) => {
+    await page.goto("/warplan");
+    await waitForRealm(page);
+    await expect(page.getByTestId("warplan-deadline")).toBeVisible();
+    const wordmark = page.getByTestId("topbar-realm-name");
+    await expect(wordmark).toBeVisible();
+    const box = await wordmark.boundingBox();
+    expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
+    await wordmark.click();
+    await expect(page).toHaveURL("/");
+    await waitForRealm(page);
+    await expect(page.getByTestId("net-profit-counter")).toBeVisible();
+    await expect(page.getByTestId("verdict")).toBeVisible();
   });
 
   test("traps focus inside the drawer and returns it to the hamburger on close", async ({ page }) => {
@@ -1020,5 +1042,66 @@ test.describe("Navigation drawer", () => {
     await page.keyboard.press("Escape");
     await expect(drawer).toHaveCount(0);
     await expect(hamburger).toBeFocused();
+  });
+
+  test("picking 2029 updates every deadline-derived surface and survives reload and logout", async ({ page }) => {
+    const email = process.env.QUEST_TEST_EMAIL;
+    const password = process.env.QUEST_TEST_PASSWORD;
+    if (!email || !password) throw new Error("QUEST_TEST_EMAIL / QUEST_TEST_PASSWORD must be set");
+
+    await page.goto("/");
+    await waitForRealm(page);
+    const requiredClosingsBefore = await page.getByTestId("pulse-chart-pace").getAttribute("data-required-closings");
+    const requiredProfitBefore = await page.getByTestId("pulse-chart-profit").getAttribute("data-required-profit");
+    expect(Number(requiredClosingsBefore)).toBeGreaterThan(0);
+    expect(Number(requiredProfitBefore)).toBeGreaterThan(0);
+
+    await openNavDrawer(page);
+    const drawer = page.getByTestId("nav-drawer");
+    await expect(drawer.getByTestId("horizon-toggle")).toBeVisible();
+    await drawer.getByTestId("horizon-2029").click();
+    await expect(drawer.getByTestId("horizon-2029")).toHaveAttribute("aria-checked", "true");
+    // Selecting a year must not close the drawer.
+    await expect(drawer).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await expect(page.getByTestId("topbar-horizon")).toHaveText("2029");
+    await expect(page.getByTestId("days-to-deadline")).toContainText("Dec 31, 2029");
+    await expect(page.getByTestId("pulse-ratio")).toContainText("2029 horizon");
+    await expect(page.getByTestId("debt-per-day")).toBeVisible();
+    await expect(page.getByTestId("pulse-chart-pace")).not.toHaveAttribute("data-required-closings", requiredClosingsBefore ?? "");
+    await expect(page.getByTestId("pulse-chart-profit")).not.toHaveAttribute("data-required-profit", requiredProfitBefore ?? "");
+    expect(Number(await page.getByTestId("pulse-chart-pace").getAttribute("data-required-closings"))).toBeLessThan(Number(requiredClosingsBefore));
+    expect(await page.locator("[data-testid='pulse-chart-pace'] .recharts-rectangle").count()).toBeGreaterThan(0);
+    expect(await page.locator("[data-testid='pulse-chart-profit'] .recharts-rectangle").count()).toBeGreaterThan(0);
+
+    await page.goto("/warplan");
+    await waitForRealm(page);
+    await expect(page.getByTestId("warplan-deadline")).toHaveValue("2029-12-31");
+
+    await page.goto("/exodus");
+    await waitForRealm(page);
+    await expect(page.getByTestId("exodus-deadline")).toHaveValue("2029-12-31");
+
+    await page.reload();
+    await waitForRealm(page);
+    await expect(page.getByTestId("topbar-horizon")).toHaveText("2029");
+    await expect(page.getByTestId("exodus-deadline")).toHaveValue("2029-12-31");
+
+    await openNavDrawer(page);
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/login/);
+
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(password);
+    await page.getByRole("button", { name: "Enter" }).click();
+    await expect(page).not.toHaveURL(/\/login/);
+    await page.goto("/");
+    await waitForRealm(page);
+    await expect(page.getByTestId("topbar-horizon")).toHaveText("2029");
+    await expect(page.getByTestId("days-to-deadline")).toContainText("Dec 31, 2029");
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem("quest.v2.exitHorizon")))
+      .toBe("2029");
   });
 });

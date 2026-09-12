@@ -10,6 +10,8 @@ import { ThemeMenu } from "@/theme/ThemeMenu";
 import { useTheme } from "@/theme/ThemeProvider";
 import { themeIcon, type IconName } from "@/theme/icons";
 import { useLang } from "@/i18n/lang";
+import { EXIT_HORIZONS } from "@/config/goal";
+import { useHorizon } from "@/horizon/HorizonProvider";
 import type { QualityLang } from "@/domain/quality_human";
 
 const LANG_OPTIONS: readonly { id: QualityLang; label: string; name: string }[] = [
@@ -51,6 +53,7 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
   const { session, signOut } = useAuth();
   const { themeId, d } = useTheme();
   const [lang, setLang] = useLang();
+  const { horizon, setHorizon } = useHorizon();
   const reduceMotion = useReducedMotion();
   const panelRef = useRef<HTMLElement>(null);
   const titleId = useId();
@@ -163,7 +166,7 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
           >
             <div className="flex min-h-14 shrink-0 items-center justify-between border-b border-border/70 px-4 pt-[env(safe-area-inset-top)]">
               <h2 id={titleId} className="font-display text-sm uppercase tracking-[var(--brand-tracking)] text-gold">
-                Exodus
+                Quest
               </h2>
               <Button type="button" variant="ghost" size="icon" aria-label="Close menu" data-drawer-close onClick={close}>
                 <X />
@@ -171,6 +174,41 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
             </div>
 
             <nav className="flex-1 space-y-0.5 overflow-y-auto overscroll-contain px-3 py-3" aria-label="Primary">
+              <div className="mb-3">
+                <div className="stat-label mb-2">Horizonte · Exit</div>
+                <div
+                  role="radiogroup"
+                  aria-label="Exit horizon"
+                  className="grid grid-cols-3 gap-2"
+                  data-testid="horizon-toggle"
+                  data-horizon={horizon}
+                >
+                  {EXIT_HORIZONS.map((year) => (
+                    <button
+                      key={year}
+                      type="button"
+                      role="radio"
+                      aria-checked={horizon === year}
+                      aria-label={`Exit ${year}`}
+                      data-testid={`horizon-${year}`}
+                      onClick={() => setHorizon(year)}
+                      className={cn(
+                        "flex min-h-11 items-center justify-center rounded-md border px-3 text-sm transition-colors",
+                        horizon === year
+                          ? "border-gold/60 bg-secondary/70 text-gold"
+                          : "border-border/70 text-muted-foreground hover:border-gold/40 hover:bg-secondary/40 hover:text-foreground",
+                      )}
+                    >
+                      <span className="font-heading">{year}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground" data-testid="horizon-caption">
+                  {lang === "es"
+                    ? `Toda cifra requerida en cada pantalla se mide contra el 31 dic ${horizon}.`
+                    : `Every required figure on every page is measured against Dec 31, ${horizon}.`}
+                </p>
+              </div>
               {NAV_ITEMS.map((item) => {
                 const Icon = themeIcon(themeId, item.icon);
                 return (

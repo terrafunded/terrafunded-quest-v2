@@ -22,7 +22,7 @@ import { solveWarPlan, usdCompact, warPlanMonthLabel, type WarPlan, type WarPlan
 import { accruedOn, computeLotLedgers, outstandingAt, type LotLedgerLot } from "./lotLedger";
 import { addDays, addMonths, daysBetween, monthsBetween, parseDate, toIsoDate } from "./dates";
 import { mean, round2, sum } from "./math";
-import { DAYS_PER_MONTH, GOAL_DEADLINE, LP_CAPITAL_TO_RETURN } from "../config/goal";
+import { DAYS_PER_MONTH, LP_CAPITAL_TO_RETURN } from "../config/goal";
 import { EXODUS_DEFAULT_EXCLUDED_NOTE_CODES, EXODUS_DEFAULT_NOTES_PCT, EXODUS_DEFAULT_STARTING_CASH, EXODUS_NOTES_PCT_MAX } from "../config/exodus";
 
 // ———————————————————————————————————————————————————————————————————————————————————————————————
@@ -1581,7 +1581,7 @@ export type ExodusLang = "en" | "es";
 
 const MONTHS_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-/** "Mar 2027" / "mar 2027" from an ISO date. */
+/** Month label from an ISO date (e.g. "Mar 2027" / "mar 2027"). The year is the date's year, not the exit horizon. */
 export function exodusMonthLabel(iso: string, lang: ExodusLang): string {
   if (lang === "en") return warPlanMonthLabel(iso);
   const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
@@ -1692,12 +1692,13 @@ export function solveExodus(inputs: ExodusInputs, ctx: ExodusContext, prepared: 
 /** The inputs /exodus starts from, each next to the real figure it came from. */
 export function deriveExodusDefaults(ctx: ExodusContext, warPlan: WarPlanInputs): ExodusDefaults {
   const ratio = noteSaleRatioReal(ctx.snapshot.notes, ctx.snapshot.noteSales, ctx.oracleDefaults.noteSalePct / 100);
-  const plan = solveWarPlan({ ...warPlan, target: LP_CAPITAL_TO_RETURN, deadline: GOAL_DEADLINE, targetMode: "cash_in_bank" }, ctx);
+  const deadline = ctx.goal.deadline;
+  const plan = solveWarPlan({ ...warPlan, target: LP_CAPITAL_TO_RETURN, deadline, targetMode: "cash_in_bank" }, ctx);
   return {
     inputs: {
       lpCapital: LP_CAPITAL_TO_RETURN,
       notesPct: EXODUS_DEFAULT_NOTES_PCT,
-      deadline: GOAL_DEADLINE,
+      deadline,
       noteSaleRatio: ratio.used,
       excludedNoteCodes: [...EXODUS_DEFAULT_EXCLUDED_NOTE_CODES],
       startingCash: EXODUS_DEFAULT_STARTING_CASH,
@@ -1705,7 +1706,7 @@ export function deriveExodusDefaults(ctx: ExodusContext, warPlan: WarPlanInputs)
     },
     real: {
       lpCapital: LP_CAPITAL_TO_RETURN,
-      deadline: GOAL_DEADLINE,
+      deadline,
       noteSaleRatio: ratio,
       cashKeptToday: plan.ledger.cashKept,
       owedToday: plan.ledger.owedToday,

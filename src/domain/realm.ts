@@ -22,6 +22,7 @@ import { computePipeline, type Pipeline } from "./pipeline";
 import { computeExpected, reservationsMade, type Expected } from "./expected";
 import { deriveWarPlanDefaults, solveWarPlan, type RotationBenchmark, type WarPlan, type WarPlanDefaults } from "./warplan";
 import { computeSeasonality, type SeasonalProfile } from "./seasonality";
+import { computeMonthlyHistory, type MonthlyPoint } from "./history";
 import { startOfUtcDay, toIsoDate } from "./dates";
 
 /** Everything the pages render. Built once from a snapshot; pages never compute money. */
@@ -72,12 +73,20 @@ export interface Realm {
   eraStart: EraStart;
   /** How often a farm is bought — the Oracle's "new farm every N months", with the farms behind it. */
   farmCadence: FarmCadence;
+  /** Reservations, closings and net profit by calendar month — the Pulse charts. */
+  history: MonthlyPoint[];
   snapshot: PaymentsSnapshot;
 }
 
 export interface RealmOptions {
   /** Era start (ISO) for every rate and trend; `null` measures over the whole history. Default: config ERA_START. */
   eraStart?: EraStart;
+  /**
+   * ISO deadline the goal, debt, War Plan defaults, Exodus defaults and Oracle futures run against.
+   * Default: `computeGoal`'s `GOAL_DEADLINE` fallback (end of 2027). Not a free date at the app
+   * level — the HorizonProvider only ever passes one of the three `deadlineForHorizon` values.
+   */
+  deadline?: string;
 }
 
 export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), opts: RealmOptions = {}): Realm {
@@ -103,7 +112,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
   });
 
   const farms = computeFarms(snapshot.farmAcquisitions, lots, snapshot.propertyCosts, snapshot.investors, interestByFarm, asOf);
-  const goal = withVerdict(computeGoal(lots, farms, asOf, { eraStart }));
+  const goal = withVerdict(computeGoal(lots, farms, asOf, { eraStart, deadline: opts.deadline }));
   // The reservations layer reads the same lots the goal reads and never feeds back into it.
   const pipeline = computePipeline(lots, asOf, { closedLotsPerMonth: goal.closedLotsPerMonth, eraStart });
   const expected = computeExpected(lots, pipeline, goal, asOf, { eraStart });
@@ -155,6 +164,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
   });
   const story = buildStory(goal, farms, debt, oxygen, liberation);
   const seasonality = computeSeasonality(lots, asOf, { eraStart });
+  const history = computeMonthlyHistory(lots, asOf, { eraStart });
   const warPlanContext = {
     asOf,
     lots,
@@ -203,6 +213,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
     era,
     eraStart,
     farmCadence: cadence,
+    history,
     snapshot,
   };
 }
