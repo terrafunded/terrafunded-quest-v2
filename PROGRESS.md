@@ -972,3 +972,118 @@ English copy, singular "1 day"/"1 día", pill text and title. e2e: the Oxygen he
 cumulative line + tooltip, deepest-breath tooltip and the pill text/band/title; the Spanish
 marker test gained "days gained in the last", "days passed", "Cumulative historical score",
 "closing day". Live figures on the 2026-09-11 snapshot: 53 of 90 → behind by 37; pill `53/90d`.
+
+## The Realm — parcel maps and the hover flicker (2026-09-13; `FarmParcelMap.tsx`, `FarmGridMap.tsx`, `FarmCard.tsx`, `src/domain/parcels.ts`, `src/data/useFarmGeometry.ts`)
+
+**What happened to the earlier task.** The first parcel-map task stopped at its own STEP 1: the
+probe found that the geometry is not in any Payments table and left three data-source options
+open for a decision; no component was written. The findings were kept under `/tmp/audit` (probe
+scripts, the ten geometry files, the Payments `AvailabilityMap` and `lotGeometry` bundles) and
+are re-run and recorded here.
+
+**Where the Availability map's data really lives (re-probed 2026-09-13 04:03 UTC as the
+questbot, role `authenticated`).**
+
+- `information_schema.columns` is not reachable from Quest's credentials: PostgREST answers
+  `PGRST205` for it and the OpenAPI root (`/rest/v1/`) is `service_role`-only (HTTP 401). The
+  column inventory below comes from `select *` on each table, the only introspection the role has.
+- `farm_acquisitions` (14 rows): `id, county, farm_name, closing_date, total_lots,
+  annual_interest_rate, notes, created_at, updated_at, investor_id, terrafunded_property_id,
+  deal_type, investor_capital, funding_date, profit_share_pct, total_acres, maturity_months,
+  extension_months, addendum_signed_at, ledger_start_date, owner_entity_id, effective_date,
+  option_expires_on, survey_due_on, earnest_amount, option_fee, title_company_id,
+  capital_returned_on, capital_returned_amount`. **No geometry column.**
+- `properties` (141 rows): `id, name, county, state, acres, subdivision, deed_reference,
+  created_at, updated_at, lot_number, farm_acquisition_id, investor_id`. **No geometry column.**
+- `farm_images` (readable, **0 rows**): `id, farm_acquisition_id, file_path, is_sales_map,
+  sort_order`; bucket `farm-images` (public URLs). Payments' map uses it only as a plat picture
+  next to the map, and it is empty.
+- No table named `lot_geometry`, `lot_geometries`, `farm_geometry`, `parcels`, `lot_parcels`,
+  `farm_maps`, `lot_maps`, `farm_media`, `property_media` or `terrafunded_properties` exists
+  (`PGRST205` for each). PostGIS is not involved anywhere.
+- **The polygons are static files in the Payments frontend**, one per farm at
+  `https://payments.terrafunded.com/lots/<slug>.json` (slug = `farm_name` lower-cased, accents and
+  non-alphanumerics stripped — `lotGeometry-*.js`). Format: `{ farm, source, viewBox:[x,y,w,h],
+  tract:"<svg points>", lots:[{ lot, code, acres, points:[[x,y]…], label_point:[x,y],
+  tile:{x,y,width,height,src} }] }` — **SVG-style pixel coordinates in the plat/satellite image's
+  space, not lat-lng, not GeoJSON, not PostGIS.** The `source` field names the trace ("raster
+  trace of visible lot boundaries; coordinates in source-image pixels … Aerial: USDA NAIP,
+  auto-aligned by feature matching").
+- **Imagery is per lot, not per farm**: `tile.src` is a public JPEG at
+  `https://payments.terrafunded.com/lots/<Farm>/<CODE>.jpg` (e.g. `Lamar/LAM-L01.jpg`, 339×1954,
+  100 KB), a NAIP crop covering the tile box; Payments clips each one with its polygon. No bucket,
+  no signed URL, no auth. The farm-level `lot_map_plat` / `lot_map_satellite` pictures Payments
+  shows beside the map come from a **different Supabase project** (`properties` in
+  `tdcnxvehznnafbzbqled.supabase.co`, joined on `terrafunded_property_id`) with its own anon key
+  baked into the Payments bundle; Quest has no credential for it and does not need it.
+- **Reachability from Quest**: the JSON and the tiles are public and unauthenticated, but the
+  JSON carries **no `Access-Control-Allow-Origin` header**, so a browser on Quest's origin cannot
+  fetch it directly. Resolved without touching Payments: `vercel.json` rewrites `/lots/:path*` to
+  `https://payments.terrafunded.com/lots/:path*` and `vite.config.ts` proxies the same path in
+  dev and preview, so Quest fetches `/lots/<slug>.json` same-origin (read-only, static). Tiles
+  load cross-origin as plain images (no CORS needed) straight from Payments.
+- **Coverage**: 10 of 14 farms have a geometry file, and all 10 have a tile for every polygon.
+  Ben White, Franklin 2, Lakeview and Sharps Rd have none (HTTP 404).
+
+**Which farms got real maps and which fell back, and why** (the Realm's 10 subdivided farms;
+`reconcileParcels` requires polygon count = Quest lot count and every lot number to have its
+parcel):
+
+| Farm | Lots (Quest) | Parcels in file | Result |
+|---|---|---|---|
+| Wichita | 32 | 32 | real map |
+| Promised Valley | 19 | 19 | real map |
+| Avery | 14 | 14 | real map |
+| Lamar | 9 | 9 | real map |
+| Freestone | 7 | 7 | real map |
+| Titus | 6 | 6 | real map |
+| Franklin | 6 | 6 | real map |
+| **Eastland** | 11 | 10 | **schematic** — the 11th `properties` row is "Eastland County" with `lot_number` NULL (the parent parcel counted as a lot); `total_lots` is also 11 so `lot_count_mismatch` never fires. Raised as `parcel_geometry_mismatch` on the Data Quality page ("no parcel for Eastland County"). Not corrected in Quest — a ledger question for Payments. |
+| **Lakeview** | 12 | — | **schematic** — no `/lots/lakeview.json` (404); the farm was added 2026-09-11 |
+| **Franklin 2** | 5 | — | **schematic** — no `/lots/franklin2.json` (404); its lots are numbered 7–11, continuing Franklin |
+
+Not on the Realm (legacy/one-off, `LEGACY_FARM_NAMES`): Olney has a 13-parcel file against 1
+property row and Red River 1 a 5-parcel file against 2 rows — both would fall back if they were
+ever counted.
+
+**The hover flicker** (`RealmMap.tsx` line 214 before). The lot rect scaled on hover while owning
+`onMouseEnter/Leave`; its edge moved under a still cursor and re-fired leave/enter in a loop. Now:
+lot shapes never change geometry on hover — the highlight is a stroke drawn on top; in the
+schematic the pointer targets are invisible hit rects that also cover half the gutter, so sliding
+across a seam lands on the neighbour; the surveyed polygons abut, so they are their own hit
+areas. One `onMouseMove` on the realm grid resolves `[data-lot-id]` under the pointer and
+retargets the tooltip instead of closing it. `PointerTooltip` measures itself and
+`document.documentElement.clientWidth/Height` in a layout effect (never `window.*` in render),
+flips/clamps through the pure `placeTooltip` (unit-tested), re-places on resize, and is portalled
+to `<body>` — the page-transition wrapper animates `filter`, which had been turning
+`position: fixed` into "fixed to the wrapper" (the previous tooltip drifted by the scroll offset
+on any page taller than the viewport). Also fixed on the way: `bg-popover` is not a Tailwind
+colour in this project, so the tooltip had no background; it now paints `hsl(var(--popover))`.
+
+**The maps.** One `FarmCard` per farm (sorted by lot count, farms ≥ 16 lots take two columns,
+`grid-flow-dense`), the campaign framing unchanged (badge, border colour, long/short dash). Every
+map box is 4:3, so the skeleton shown while `/lots/<slug>.json` loads is exactly the size of the
+map that replaces it; the geometry is fitted with `meet` on the farm's ground colour
+(`territoryFill`). `FarmParcelMap`: the tract in the ground colour, each lot's NAIP tile clipped by
+its polygon (dimmed `saturate(.55) brightness(.72)` so the tints carry the colour), the polygon
+tinted with the theme's `--stage-*` tokens — available 0.14 (mostly aerial: nothing has happened
+there), reserved 0.3 with the hollow reserved ring, stuck 60+ a dashed siege ring, closed 0.58,
+note sold 0.62 with the glow — and the Payments lot number at `label_point` (11 px target, sized
+per farm from a ResizeObserver, hidden when the parcel is too small). Strokes are non-scaling.
+Imagery mounts only once the card has been seen (`useInViewOnce`); the lot stagger (`motion.g`)
+runs from the same signal. `FarmGridMap`: a numbered plat on survey paper, minimum 4×3 plate so a
+5-lot farm's tiles are not three times the size of a 12-lot farm's, same rings and numbers, and
+one line under it stating why ("no survey drawing" / "the survey drawing has 10 parcels, the
+ledger 11 lots — see Data Quality" with the link). Hover shows `LotEconomics`; click opens the
+farm sheet.
+
+**Tests.** `parcels.test.ts`: slug rule, parser, ok/no_geometry/mismatch (Olney 13 vs 1, Eastland
+11 vs 10, equal counts with wrong numbers, null lot number), the finding in ES/EN with the two
+counts side by side. `tooltipPlacement.test.ts`: below-right, flip left, flip above, clamp on a
+380-px screen, re-placement after a resize. e2e `realm.spec.ts`: two-second still hover with
+zero tooltip toggles and no geometry change on the hovered element; seam crossing without a
+close; in-viewport placement before and after a resize; the seven real maps and the three
+fallbacks with their reasons; per real map polygon count = lot count = numbered labels, every fill
+a `--stage-*` token; lazy tiles (none below the fold, all after scrolling, box size unchanged);
+every box 4:3 and every tile from `payments.terrafunded.com`; hover + click on a parcel; the
+gutter rule on the schematic; the Eastland card on `/quality` in Spanish.
