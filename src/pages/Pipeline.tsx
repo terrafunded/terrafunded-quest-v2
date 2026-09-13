@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { Stat } from "@/components/realm/Stat";
 import { Ellipsize } from "@/components/realm/FitMoney";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
+import { ReverseFunnel } from "@/components/realm/ReverseFunnel";
 import { date, money, moneyExact, monthLabel, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +52,8 @@ export default function Pipeline() {
       </PageHeader>
 
       <TableErrorsBanner errors={data.tableErrors} />
+
+      <ReverseFunnel goal={data.realm.goal} expected={data.realm.expected} />
 
       <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" aria-label="Pipeline figures">
         <Stat
