@@ -8,7 +8,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin, ViteDevServer } from "vite";
 import { loadEnv } from "vite";
-import { handleNodeWeeklyCouncil } from "./api/weeklyCouncil/node";
+import { handleNodeWeeklyCouncil } from "./api/_weeklyCouncil/node";
 
 function applyServerEnv(mode: string): void {
   const env = loadEnv(mode, process.cwd(), "");

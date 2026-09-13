@@ -5,6 +5,12 @@
   "outputDirectory": "dist",
   "installCommand": "npm ci",
   "cleanUrls": true,
+  "functions": {
+    "api/weekly-council.js": {
+      "maxDuration": 30,
+      "includeFiles": "api/_weeklyCouncil/dist/**"
+    }
+  },
   "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index" }],
   "headers": [
     {

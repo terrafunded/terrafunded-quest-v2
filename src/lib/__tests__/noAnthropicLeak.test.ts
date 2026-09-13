@@ -15,9 +15,10 @@ function rg(pattern: string, root: string, extra: string[] = []): string {
 
 describe("the Anthropic key never reaches the client", () => {
   it("client source has no provider key, env name, or api.anthropic.com", () => {
-    expect(rg("sk-ant", "src")).toBe("");
-    expect(rg("ANTHROPIC_API_KEY", "src")).toBe("");
-    expect(rg("api.anthropic.com", "src")).toBe("");
+    const extra = ["-g", "!**/__tests__/**", "-g", "!**/*.test.ts"];
+    expect(rg("sk-ant", "src", extra)).toBe("");
+    expect(rg("ANTHROPIC_API_KEY", "src", extra)).toBe("");
+    expect(rg("api.anthropic.com", "src", extra)).toBe("");
   });
 
   it("the built client bundle has zero sk-ant matches", () => {

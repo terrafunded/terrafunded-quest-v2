@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { handleWeeklyCouncil } from "./handle";
-import { memoryStore } from "./cache";
-import { WEEKLY_COUNCIL_REGENERATE_DAILY_LIMIT } from "./types";
-import type { WeeklyFacts } from "../../src/domain/weeklyCouncil";
+import { handleWeeklyCouncil } from "../../../api/_weeklyCouncil/handle";
+import { memoryStore } from "../../../api/_weeklyCouncil/cache";
+import { WEEKLY_COUNCIL_REGENERATE_DAILY_LIMIT } from "../../../api/_weeklyCouncil/types";
+import type { WeeklyFacts } from "../weeklyCouncil";
 
 const NOW = new Date("2026-09-13T15:40:00Z");
 
