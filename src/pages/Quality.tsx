@@ -1,10 +1,13 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ClipboardCheck, Copy, Eye, EyeOff } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
+import { useFarmGeometries } from "@/data/useFarmGeometry";
 import {
   groupIssuesByLot,
   humanDate,
   humanMoney,
+  parcelGeometryIssues,
+  reconcileParcels,
   severityLabel,
   summarizeQuality,
   valuesLine,
@@ -81,7 +84,13 @@ export default function Quality() {
   const [allStatus, copyAll] = useCopy();
 
   const asOf = data?.realm.goal.asOf ?? new Date().toISOString().slice(0, 10);
-  const cards = useMemo(() => groupIssuesByLot(data?.realm.quality ?? [], lang), [data, lang]);
+  // The Realm's parcel maps are asserted against the ledger per farm; a drawing that disagrees is
+  // reported here from the same reconcile function the Realm uses to decide on its fallback.
+  const farms = useMemo(() => data?.realm.farms ?? [], [data]);
+  const farmNames = useMemo(() => farms.map((f) => f.name), [farms]);
+  const geometries = useFarmGeometries(farmNames);
+  const parcelIssues = useMemo(() => parcelGeometryIssues(farms.map((farm, i) => reconcileParcels(farm, geometries[i]?.status === "ready" ? geometries[i].geometry : null))), [farms, geometries]);
+  const cards = useMemo(() => groupIssuesByLot([...(data?.realm.quality ?? []), ...parcelIssues], lang), [data, parcelIssues, lang]);
   const summary = useMemo(() => summarizeQuality(cards, asOf, reviewed), [cards, asOf, reviewed]);
   const counts = useMemo(() => {
     const c: Record<QualitySeverity, number> = { error: 0, warning: 0, info: 0 };

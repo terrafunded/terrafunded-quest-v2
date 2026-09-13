@@ -86,6 +86,7 @@ const KIND_ORDER: readonly QualityKind[] = [
   "test_client_on_real_case",
   "legacy_farm_with_lots",
   "cash_deal_missing_down_payment",
+  "parcel_geometry_mismatch",
 ];
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -257,6 +258,14 @@ const T: Record<QualityLang, Record<QualityKind, (c: Ctx) => Texts>> = {
       values: { left: { label: "Precio", value: c.money("salePrice") }, right: { label: "Enganche", value: c.money("downPayment") } },
       using: "Quest cuenta el precio completo como efectivo recibido.",
     }),
+    parcel_geometry_mismatch: (c) => ({
+      title: "El mapa de parcelas no coincide con los lotes",
+      explanation: `El mapa de disponibilidad dibuja ${c.num("polygons") ?? "?"} parcelas para ${c.farm}, pero Quest tiene ${c.num("lotRows") ?? "?"} lotes en el libro${c.str("lotsWithoutPolygon") ? ` (sin parcela: ${c.str("lotsWithoutPolygon")})` : ""}${c.str("polygonsWithoutLot") ? ` (parcelas sin lote: ${c.str("polygonsWithoutLot")})` : ""}.`,
+      check: "El plano de subdivisión: cuántos lotes son y con qué número aparece cada uno.",
+      fix: `Properties → ${c.farm} → agregar los lotes que faltan o corregir sus números (o actualizar el mapa de disponibilidad de ${c.farm} en Payments)`,
+      values: { left: { label: "Mapa", value: `${c.num("polygons") ?? "?"} parcelas` }, right: { label: "Libro", value: `${c.num("lotRows") ?? "?"} lotes` } },
+      using: "Quest muestra la cuadrícula en lugar del mapa para esta finca hasta que coincidan.",
+    }),
   },
   en: {
     price_mismatch: (c) => ({
@@ -378,6 +387,14 @@ const T: Record<QualityLang, Record<QualityKind, (c: Ctx) => Texts>> = {
       fix: `File Cases → ${c.lot} → Down payment (if there was one)`,
       values: { left: { label: "Price", value: c.money("salePrice") }, right: { label: "Down payment", value: c.money("downPayment") } },
       using: "Quest counts the full price as cash received.",
+    }),
+    parcel_geometry_mismatch: (c) => ({
+      title: "Parcel map does not match the lots",
+      explanation: `The availability map draws ${c.num("polygons") ?? "?"} parcels for ${c.farm}, but Quest has ${c.num("lotRows") ?? "?"} lots on the ledger${c.str("lotsWithoutPolygon") ? ` (no parcel for ${c.str("lotsWithoutPolygon")})` : ""}${c.str("polygonsWithoutLot") ? ` (parcels without a lot: ${c.str("polygonsWithoutLot")})` : ""}.`,
+      check: "The subdivision plat: how many lots there are and which number each one carries.",
+      fix: `Properties → ${c.farm} → add the missing lots or correct their numbers (or update the ${c.farm} availability map in Payments)`,
+      values: { left: { label: "Map", value: `${c.num("polygons") ?? "?"} parcels` }, right: { label: "Ledger", value: `${c.num("lotRows") ?? "?"} lots` } },
+      using: "Quest shows the grid instead of the map for this farm until they agree.",
     }),
   },
 };

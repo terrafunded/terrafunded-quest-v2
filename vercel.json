@@ -5,7 +5,10 @@
   "outputDirectory": "dist",
   "installCommand": "npm ci",
   "cleanUrls": true,
-  "rewrites": [{ "source": "/(.*)", "destination": "/index" }],
+  "rewrites": [
+    { "source": "/lots/:path*", "destination": "https://payments.terrafunded.com/lots/:path*" },
+    { "source": "/(.*)", "destination": "/index" }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",

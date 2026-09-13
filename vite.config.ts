@@ -41,6 +41,15 @@ function themeFontPreload(): Plugin {
   };
 }
 
+/**
+ * The Realm's parcel maps read Payments' static geometry files (`/lots/<slug>.json`) same-origin;
+ * in production vercel.json rewrites that path to payments.terrafunded.com, and locally the dev
+ * and preview servers proxy it the same way (Payments sends no CORS header). Read-only, static.
+ */
+const LOTS_PROXY = {
+  "/lots": { target: "https://payments.terrafunded.com", changeOrigin: true },
+};
+
 export default defineConfig({
   plugins: [react(), themeFontPreload()],
   // Besides VITE_*, exactly one more variable reaches the browser bundle: QUEST_ALLOWED_TEST_EMAIL,
@@ -55,6 +64,10 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    proxy: LOTS_PROXY,
+  },
+  preview: {
+    proxy: LOTS_PROXY,
   },
   build: {
     // recharts is only loaded by the Treasury and Oracle routes (lazy chunks).

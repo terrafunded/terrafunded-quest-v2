@@ -20,7 +20,9 @@ export type QualityKind =
   | "legacy_farm_with_lots"
   | "lot_count_mismatch"
   | "note_before_farm_purchase"
-  | "cash_deal_missing_down_payment";
+  | "cash_deal_missing_down_payment"
+  /** Raised by `parcels.ts`, not here: the Availability map's parcels disagree with the ledger's lots. */
+  | "parcel_geometry_mismatch";
 
 export interface QualityIssue {
   id: string;

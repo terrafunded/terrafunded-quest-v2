@@ -1,12 +1,15 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { placeTooltip, type Placement } from "@/lib/tooltipPlacement";
 import { cn } from "@/lib/utils";
 
 /**
  * A pointer-anchored tooltip that never owns pointer events and never reads the viewport during
- * render. It measures itself and the document's client box in a layout effect (so SSR renders
- * nothing position-dependent), re-places itself on resize, and stays hidden until it has been
- * measured so it never flashes at a wrong corner.
+ * render. It is portalled to <body>: the page-transition wrapper animates `filter`/`transform`,
+ * which turns any `position: fixed` descendant into one positioned against that wrapper (and so
+ * wrong as soon as the page scrolls). It measures itself and the document's client box in a layout
+ * effect (SSR renders nothing), re-places itself on resize, and stays hidden until measured so it
+ * never flashes at a wrong corner.
  */
 export function PointerTooltip({ x, y, children, className, ...rest }: { x: number; y: number; children: ReactNode; className?: string; "data-testid"?: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -27,16 +30,20 @@ export function PointerTooltip({ x, y, children, className, ...rest }: { x: numb
     setPlacement(placeTooltip({ x, y, width, height, viewportWidth: viewport.w, viewportHeight: viewport.h }));
   }, [x, y, viewport, children]);
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       ref={ref}
       role="tooltip"
-      className={cn("pointer-events-none fixed z-50 w-64 rounded-md border border-border bg-popover p-3 text-xs shadow-2xl", className)}
+      // --popover is a theme token but not a Tailwind colour, so the background is set from the variable directly (bg-popover would silently do nothing).
+      className={cn("pointer-events-none fixed z-50 w-64 rounded-md border border-border bg-[hsl(var(--popover))] p-3 text-xs text-[hsl(var(--popover-foreground))] shadow-2xl", className)}
       style={placement ? { left: placement.left, top: placement.top } : { left: x, top: y, visibility: "hidden" }}
       data-side={placement ? `${placement.side.vertical}-${placement.side.horizontal}` : undefined}
       {...rest}
     >
       {children}
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,119 +1,48 @@
 import { useMemo, useState, type MouseEvent } from "react";
 import { motion } from "framer-motion";
 import { useRealm } from "@/data/useRealm";
-import type { Campaign, CampaignState, FarmEconomics, FarmPipeline, Lot, LotStage } from "@/domain";
+import { useFarmGeometries } from "@/data/useFarmGeometry";
+import { reconcileParcels, type Campaign, type CampaignState, type FarmEconomics, type FarmPipeline, type Lot, type LotStage } from "@/domain";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { StageBadge } from "@/components/realm/StageBadge";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { PointerTooltip } from "@/components/realm/PointerTooltip";
+import { FarmCard } from "@/components/realm/FarmCard";
+import { CAMPAIGN_META, RING_STROKE, STAGE_FILL } from "@/components/realm/realmTokens";
 import { DEAL_LABEL, STAGE_LABEL, date, money, moneyExact, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const TILE = 26;
-const GAP = 6;
-const PAD = 16;
-const TITLE_H = 56;
-const MIN_W = 190;
-const MAP_W = 1000;
-
-const DEAL_SHORT: Record<string, string> = { fixed_interest: "Fixed", profit_share: "Share", own_capital: "Own" };
-
-const CAMPAIGN_META: Record<CampaignState, { label: string; stroke: string; text: string; badge: string }> = {
-  conquered: { label: "Conquered", stroke: "hsl(var(--stage-closed))", text: "text-stage-closed", badge: "bg-stage-closed/15 text-stage-closed border-stage-closed/40" },
-  under_siege: { label: "Under siege", stroke: "hsl(var(--gold))", text: "text-gold", badge: "bg-gold/15 text-gold border-gold/40" },
-  closing_pending: { label: "Closing pending", stroke: "hsl(var(--stage-reserved))", text: "text-stage-reserved", badge: "bg-stage-reserved/15 text-stage-reserved border-stage-reserved/40" },
-  losing_ground: { label: "Losing ground", stroke: "hsl(var(--ember))", text: "text-ember", badge: "bg-ember/15 text-ember border-ember/40" },
-};
-
-/** Losing ground is a long dash; closing pending a short one — both mean "no closing for a while", only one means nothing is in the works. */
-const CAMPAIGN_DASH: Partial<Record<CampaignState, string>> = { losing_ground: "6 4", closing_pending: "2 4" };
-
-function campaignTag(c: Campaign): string {
-  if (c.state === "closing_pending") return ` · ${c.reservedLots} pending`;
-  if (c.state !== "conquered" && c.lotsLeftToCover !== null) return ` · ${c.lotsLeftToCover} to cover`;
-  return "";
-}
-
-/** Reserved lots are drawn as a hollow ring so they never read as closed; stuck reservations get a dashed amber ring. */
-const RING_STROKE = { reserved: "hsl(var(--stage-reserved))", stuck: "hsl(var(--siege))" } as const;
-
-const STAGE_FILL: Record<LotStage, string> = {
-  available: "hsl(var(--stage-available))",
-  reserved: "hsl(var(--stage-reserved))",
-  closed: "hsl(var(--stage-closed))",
-  note_sold: "hsl(var(--stage-note-sold))",
-};
-
-interface Territory {
-  farm: FarmEconomics;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  cols: number;
-  tiles: { lot: Lot; x: number; y: number }[];
-}
-
-/** Flow-packs one rounded territory per farm; area scales with lot count. */
-function layoutTerritories(farms: FarmEconomics[]): { territories: Territory[]; height: number } {
-  const sorted = [...farms].sort((a, b) => b.totalLots - a.totalLots);
-  const territories: Territory[] = [];
-  let cursorX = 0;
-  let cursorY = 0;
-  let rowH = 0;
-
-  for (const farm of sorted) {
-    const n = Math.max(farm.lots.length, 1);
-    const cols = Math.max(2, Math.ceil(Math.sqrt(n * 1.7)));
-    const rows = Math.ceil(n / cols);
-    const w = Math.max(MIN_W, cols * (TILE + GAP) - GAP + PAD * 2);
-    const h = rows * (TILE + GAP) - GAP + PAD * 2 + TITLE_H;
-    if (cursorX + w > MAP_W && cursorX > 0) {
-      cursorX = 0;
-      cursorY += rowH + 18;
-      rowH = 0;
-    }
-    const lots = [...farm.lots].sort((a, b) => Number(a.lotNumber ?? 0) - Number(b.lotNumber ?? 0));
-    const tiles = lots.map((lot, i) => ({
-      lot,
-      x: cursorX + PAD + (i % cols) * (TILE + GAP),
-      y: cursorY + TITLE_H + PAD + Math.floor(i / cols) * (TILE + GAP),
-    }));
-    territories.push({ farm, x: cursorX, y: cursorY, w, h, cols, tiles });
-    cursorX += w + 18;
-    rowH = Math.max(rowH, h);
-  }
-  return { territories, height: cursorY + rowH + 4 };
-}
-
-function territoryFill(pctClosed: number): string {
-  // From the theme's untouched ground to its gold as the farm sells out (tokens: --territory-from/--territory-to).
-  const t = Math.max(0, Math.min(1, pctClosed / 100));
-  return `color-mix(in oklab, hsl(var(--territory-to)) ${Math.round(t * 100)}%, hsl(var(--territory-from)))`;
-}
+/** Farms with at least this many lots take two columns so a 32-lot plat is not drawn at the size of a 6-lot one. */
+const WIDE_FROM_LOTS = 16;
 
 export default function RealmMap() {
   const { data, isLoading, error, refetch } = useRealm();
   const [hover, setHover] = useState<{ lot: Lot; x: number; y: number } | null>(null);
   const [openFarm, setOpenFarm] = useState<FarmEconomics | null>(null);
 
-  const layout = useMemo(() => (data ? layoutTerritories(data.realm.farms) : null), [data]);
-  const lotById = useMemo(() => new Map((data?.realm.farms ?? []).flatMap((f) => f.lots).map((l) => [l.propertyId, l])), [data]);
+  const farms = useMemo(() => [...(data?.realm.farms ?? [])].sort((a, b) => b.totalLots - a.totalLots), [data]);
+  const farmNames = useMemo(() => farms.map((f) => f.name), [farms]);
+  const geometries = useFarmGeometries(farmNames);
+  // The assertion runs per farm on every render input change: a polygon count that does not equal
+  // the lot count Quest computes (or wrong numbers) sends the farm to the schematic.
+  const reconciliations = useMemo(() => farms.map((farm, i) => reconcileParcels(farm, geometries[i]?.status === "ready" ? geometries[i].geometry : null)), [farms, geometries]);
+  const lotById = useMemo(() => new Map(farms.flatMap((f) => f.lots).map((l) => [l.propertyId, l])), [farms]);
+  const farmById = useMemo(() => new Map(farms.map((f) => [f.farmId, f])), [farms]);
   const campaignByFarm = data?.realm.campaignByFarm;
   const pipeline = data?.realm.pipeline;
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
-  if (!data || !layout) return null;
-  if (layout.territories.length === 0) return <EmptyState title="No territories" body="No subdivided farms were found." />;
+  if (!data) return null;
+  if (farms.length === 0) return <EmptyState title="No territories" body="No subdivided farms were found." />;
 
   /**
-   * One move handler on the whole map, not enter/leave per lot: the tooltip follows whichever lot
-   * is under the pointer and simply retargets when the pointer crosses into a neighbour, so it
-   * never closes and reopens at the seam. The lot rects never change geometry on hover, so the
-   * element under a still pointer stays put and no enter/leave loop can start.
+   * One move handler for the whole realm, not enter/leave per lot: the tooltip follows whichever
+   * lot is under the pointer and retargets when the pointer crosses into a neighbour, so it never
+   * closes and reopens at a seam. Lot shapes never change geometry on hover, so the element under
+   * a still pointer stays put and no enter/leave loop can start.
    */
-  const onMapMove = (e: MouseEvent<SVGSVGElement>) => {
+  const onRealmMove = (e: MouseEvent<HTMLDivElement>) => {
     const id = (e.target as Element).closest<SVGElement>("[data-lot-id]")?.dataset.lotId;
     const lot = id ? lotById.get(id) : undefined;
     if (!lot) {
@@ -123,9 +52,14 @@ export default function RealmMap() {
     setHover({ lot, x: e.clientX, y: e.clientY });
   };
 
+  const realMaps = reconciliations.filter((r) => r.status === "ok").length;
+
   return (
     <div>
-      <PageHeader title="The Realm" subtitle="One territory per farm, sized by lots and tinted by how much has closed. Each farm fights its own campaign: sell enough lots to cover its capital and accrued interest. A farm with reservations waiting is never losing ground — its closing is pending. Hover a lot for its economics; click a territory for the farm.">
+      <PageHeader
+        title="The Realm"
+        subtitle={`One card per farm on its surveyed parcel map — the same drawing Payments' availability map uses, over the aerial it serves — with every lot tinted by its Quest state. Farms whose drawing is missing or disagrees with the ledger get a schematic plat instead (${realMaps} of ${farms.length} mapped). Each farm fights its own campaign: sell enough lots to cover its capital and accrued interest. Hover a lot for its economics; click a farm for the campaign.`}
+      >
         <ul className="flex flex-wrap gap-3 text-xs text-muted-foreground" aria-label="Legend">
           {(Object.keys(STAGE_FILL) as LotStage[]).map((s) => (
             <li key={s} className="inline-flex items-center gap-1.5">
@@ -151,115 +85,21 @@ export default function RealmMap() {
       </PageHeader>
       <TableErrorsBanner errors={data.tableErrors} />
 
-      <div className="parchment-card relative p-3 sm:p-5">
-        <div className="w-full">
-          <svg
-            viewBox={`0 0 ${MAP_W} ${layout.height}`}
-            className="mx-auto block h-auto w-full max-w-full"
-            role="img"
-            aria-label="Map of the realm"
-            data-testid="realm-map"
-            onMouseMove={onMapMove}
-            onMouseLeave={() => setHover(null)}
-          >
-            <defs>
-              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="3" result="b" />
-                <feMerge>
-                  <feMergeNode in="b" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-            {layout.territories.map((t, i) => {
-              const campaign = campaignByFarm?.get(t.farm.farmId);
-              const meta = campaign ? CAMPAIGN_META[campaign.state] : null;
-              return (
-              <motion.g
-                key={t.farm.farmId}
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.05, duration: 0.5 }}
-                style={{ transformOrigin: `${t.x + t.w / 2}px ${t.y + t.h / 2}px` }}
-              >
-                <rect
-                  x={t.x}
-                  y={t.y}
-                  width={t.w}
-                  height={t.h}
-                  rx={22}
-                  fill={territoryFill(t.farm.pctClosed)}
-                  stroke={meta?.stroke ?? "hsl(var(--gold) / 0.35)"}
-                  strokeWidth={campaign?.state === "losing_ground" || campaign?.state === "closing_pending" ? 2 : 1.4}
-                  strokeDasharray={campaign ? CAMPAIGN_DASH[campaign.state] : undefined}
-                  className="cursor-pointer transition-[stroke-width] hover:[stroke-width:3]"
-                  onClick={() => setOpenFarm(t.farm)}
-                  role="button"
-                  aria-label={`${t.farm.name} territory${meta ? `, ${meta.label}` : ""}`}
-                  data-testid="territory"
-                  data-campaign={campaign?.state}
-                />
-                {campaign && meta && (
-                  <text x={t.x + PAD} y={t.y + TITLE_H + 6} fontSize={9} fontWeight={600} className="pointer-events-none uppercase" style={{ fill: meta.stroke, letterSpacing: "0.08em" }}>
-                    {meta.label}
-                    {campaignTag(campaign)}
-                  </text>
-                )}
-                <text x={t.x + PAD} y={t.y + 22} className="pointer-events-none fill-[hsl(var(--map-label))] font-heading" fontSize={14} fontWeight={600}>
-                  {t.farm.name}
-                </text>
-                <text x={t.x + PAD} y={t.y + 37} className="pointer-events-none fill-[hsl(var(--muted-foreground))]" fontSize={10}>
-                  {t.farm.soldLots}/{t.farm.totalLots} closed · {pct(t.farm.pctClosed, 0)} · {DEAL_SHORT[t.farm.dealType ?? ""] ?? t.farm.dealType}
-                </text>
-                {t.tiles.map(({ lot, x, y }) => {
-                  const ring = lot.stage !== "reserved" ? null : pipeline?.stuckIds.has(lot.propertyId) ? "stuck" : "reserved";
-                  const hovered = hover?.lot.propertyId === lot.propertyId;
-                  return (
-                    <rect
-                      key={lot.propertyId}
-                      x={x}
-                      y={y}
-                      width={TILE}
-                      height={TILE}
-                      rx={4}
-                      fill={STAGE_FILL[lot.stage]}
-                      // Hover brightens the fill and draws a gold edge; the rect's geometry never changes.
-                      fillOpacity={hovered ? 1 : lot.stage === "available" ? 0.45 : ring ? 0.2 : 0.95}
-                      stroke={hovered ? "hsl(var(--gold))" : ring ? RING_STROKE[ring] : undefined}
-                      strokeWidth={hovered ? 2.5 : ring ? 2.5 : undefined}
-                      strokeDasharray={!hovered && ring === "stuck" ? "4 3" : undefined}
-                      data-ring={ring ?? undefined}
-                      data-hovered={hovered || undefined}
-                      filter={lot.stage === "note_sold" ? "url(#glow)" : undefined}
-                      className="pointer-events-none transition-[fill-opacity,stroke] duration-150"
-                      aria-label={`${lot.name}: ${STAGE_LABEL[lot.stage]}${ring === "stuck" ? ", stuck reservation" : ""}`}
-                      data-testid="lot-tile"
-                    />
-                  );
-                })}
-                {/* Hit areas: stable invisible rects that also cover half the gap around each tile, drawn after every visual so crossing a seam always lands on a lot. */}
-                {t.tiles.map(({ lot, x, y }) => (
-                  <rect
-                    key={`hit-${lot.propertyId}`}
-                    x={x - GAP / 2}
-                    y={y - GAP / 2}
-                    width={TILE + GAP}
-                    height={TILE + GAP}
-                    fill="transparent"
-                    className="cursor-pointer"
-                    data-lot-id={lot.propertyId}
-                    data-lot-hit
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenFarm(t.farm);
-                    }}
-                  />
-                ))}
-              </motion.g>
-              );
-            })}
-          </svg>
-        </div>
+      <div className="grid grid-flow-dense gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="realm-map" onMouseMove={onRealmMove} onMouseLeave={() => setHover(null)}>
+        {farms.map((farm, i) => (
+          <FarmCard
+            key={farm.farmId}
+            farm={farm}
+            campaign={campaignByFarm?.get(farm.farmId)}
+            pipeline={pipeline}
+            geometry={geometries[i] ?? { status: "loading" }}
+            reconciliation={reconciliations[i] ?? { status: "no_geometry" }}
+            hoveredLotId={hover?.lot.farmId === farm.farmId ? hover.lot.propertyId : null}
+            index={i}
+            wide={farm.totalLots >= WIDE_FROM_LOTS}
+            onOpen={() => setOpenFarm(farmById.get(farm.farmId) ?? farm)}
+          />
+        ))}
       </div>
 
       {hover && (
