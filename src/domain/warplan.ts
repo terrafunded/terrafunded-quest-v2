@@ -880,7 +880,7 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
     targetMode: inputs.targetMode,
     ...(cycleMonths !== null ? { capitalCycleMonths: cycleMonths } : {}),
   };
-  const opts: OracleRunOptions = { calendarMonths: true, cashStart: ledger.cashKept, owedStart: ledger.owedToday };
+  const opts: OracleRunOptions = { calendarMonths: true, cashStart: ledger.cashKept, owedStart: ledger.owedToday, grid };
   // In cash mode a closing only pays off once its note sells, so farms are sized for the closings
   // that can still do that before the deadline, and the plan stops closing lots after that month.
   const lastUsefulMonth = cashMode ? Math.max(0, k - noteLag) : k;

@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { useRealm } from "@/data/useRealm";
 import { useFarmGeometries } from "@/data/useFarmGeometry";
@@ -15,9 +15,51 @@ import { cn } from "@/lib/utils";
 /** Farms with at least this many lots take two columns so a 32-lot plat is not drawn at the size of a 6-lot one. */
 const WIDE_FROM_LOTS = 16;
 
+/**
+ * One move handler for the whole realm, not enter/leave per lot. The lot id is React state and
+ * only updates when the pointer crosses a boundary (same id → bail-out, no farm-card render).
+ * Tooltip coordinates live in a child that listens to `window` mousemove, so they never climb
+ * the tree.
+ */
+function RealmPointer({
+  lotById,
+  children,
+}: {
+  lotById: Map<string, Lot>;
+  children: (hoveredLotId: string | null) => ReactNode;
+}) {
+  const [lotId, setLotId] = useState<string | null>(null);
+  const origin = useRef({ x: 0, y: 0 });
+  const onMove = (e: MouseEvent<HTMLDivElement>) => {
+    origin.current = { x: e.clientX, y: e.clientY };
+    const id = (e.target as Element).closest<SVGElement>("[data-lot-id]")?.dataset.lotId ?? null;
+    setLotId((prev) => (prev === id ? prev : id));
+  };
+  const lot = lotId ? lotById.get(lotId) : undefined;
+  return (
+    <div onMouseMove={onMove} onMouseLeave={() => setLotId(null)}>
+      {children(lotId)}
+      {lot && <FollowTooltip lot={lot} origin={origin.current} />}
+    </div>
+  );
+}
+
+function FollowTooltip({ lot, origin }: { lot: Lot; origin: { x: number; y: number } }) {
+  const [pos, setPos] = useState(origin);
+  useEffect(() => {
+    const move = (e: globalThis.MouseEvent) => setPos({ x: e.clientX, y: e.clientY });
+    window.addEventListener("mousemove", move);
+    return () => window.removeEventListener("mousemove", move);
+  }, []);
+  return (
+    <PointerTooltip x={pos.x} y={pos.y} data-testid="lot-tooltip">
+      <LotEconomics lot={lot} />
+    </PointerTooltip>
+  );
+}
+
 export default function RealmMap() {
   const { data, isLoading, error, refetch } = useRealm();
-  const [hover, setHover] = useState<{ lot: Lot; x: number; y: number } | null>(null);
   const [openFarm, setOpenFarm] = useState<FarmEconomics | null>(null);
 
   const farms = useMemo(() => [...(data?.realm.farms ?? [])].sort((a, b) => b.totalLots - a.totalLots), [data]);
@@ -35,22 +77,6 @@ export default function RealmMap() {
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
   if (!data) return null;
   if (farms.length === 0) return <EmptyState title="No territories" body="No subdivided farms were found." />;
-
-  /**
-   * One move handler for the whole realm, not enter/leave per lot: the tooltip follows whichever
-   * lot is under the pointer and retargets when the pointer crosses into a neighbour, so it never
-   * closes and reopens at a seam. Lot shapes never change geometry on hover, so the element under
-   * a still pointer stays put and no enter/leave loop can start.
-   */
-  const onRealmMove = (e: MouseEvent<HTMLDivElement>) => {
-    const id = (e.target as Element).closest<SVGElement>("[data-lot-id]")?.dataset.lotId;
-    const lot = id ? lotById.get(id) : undefined;
-    if (!lot) {
-      if (hover) setHover(null);
-      return;
-    }
-    setHover({ lot, x: e.clientX, y: e.clientY });
-  };
 
   const realMaps = reconciliations.filter((r) => r.status === "ok").length;
 
@@ -85,28 +111,26 @@ export default function RealmMap() {
       </PageHeader>
       <TableErrorsBanner errors={data.tableErrors} />
 
-      <div className="grid grid-flow-dense gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="realm-map" onMouseMove={onRealmMove} onMouseLeave={() => setHover(null)}>
-        {farms.map((farm, i) => (
-          <FarmCard
-            key={farm.farmId}
-            farm={farm}
-            campaign={campaignByFarm?.get(farm.farmId)}
-            pipeline={pipeline}
-            geometry={geometries[i] ?? { status: "loading" }}
-            reconciliation={reconciliations[i] ?? { status: "no_geometry" }}
-            hoveredLotId={hover?.lot.farmId === farm.farmId ? hover.lot.propertyId : null}
-            index={i}
-            wide={farm.totalLots >= WIDE_FROM_LOTS}
-            onOpen={() => setOpenFarm(farmById.get(farm.farmId) ?? farm)}
-          />
-        ))}
-      </div>
-
-      {hover && (
-        <PointerTooltip x={hover.x} y={hover.y} data-testid="lot-tooltip">
-          <LotEconomics lot={hover.lot} />
-        </PointerTooltip>
-      )}
+      <RealmPointer lotById={lotById}>
+        {(hoveredLotId) => (
+          <div className="grid grid-flow-dense gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="realm-map">
+            {farms.map((farm, i) => (
+              <FarmCard
+                key={farm.farmId}
+                farm={farm}
+                campaign={campaignByFarm?.get(farm.farmId)}
+                pipeline={pipeline}
+                geometry={geometries[i] ?? { status: "loading" }}
+                reconciliation={reconciliations[i] ?? { status: "no_geometry" }}
+                hoveredLotId={hoveredLotId && lotById.get(hoveredLotId)?.farmId === farm.farmId ? hoveredLotId : null}
+                index={i}
+                wide={farm.totalLots >= WIDE_FROM_LOTS}
+                onOpen={() => setOpenFarm(farmById.get(farm.farmId) ?? farm)}
+              />
+            ))}
+          </div>
+        )}
+      </RealmPointer>
 
       <Sheet open={!!openFarm} onOpenChange={(o) => !o && setOpenFarm(null)}>
         {openFarm && (

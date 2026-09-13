@@ -72,12 +72,13 @@ export default defineConfig({
     proxy: LOTS_PROXY,
   },
   build: {
-    // recharts is only loaded by the Treasury and Oracle routes (lazy chunks).
+    // recharts must not be a manual chunk: forcing it out pulled React into that file, so the
+    // entry imported React from `charts-*.js` and the 581 kB file was modulepreloaded on first
+    // paint. It now ships only with the lazy chart/route chunks (Pulse, Goal Curve, Treasury…).
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
-          charts: ["recharts"],
           motion: ["framer-motion"],
           supabase: ["@supabase/supabase-js"],
         },

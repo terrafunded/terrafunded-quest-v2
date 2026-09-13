@@ -1108,3 +1108,99 @@ fallbacks with their reasons; per real map polygon count = lot count = numbered 
 a `--stage-*` token; lazy tiles (none below the fold, all after scrolling, box size unchanged);
 every box 4:3 and every tile from `payments.terrafunded.com`; hover + click on a parcel; the
 gutter rule on the schematic; the Eastland card on `/quality` in Spanish.
+
+## Lag — build the realm once (2026-09-13)
+
+`buildRealm` on the real fixture (141 properties, 71 file cases, 56 notes) was ~16 ms in
+Node on this machine, ~64 ms under the 4× CPU throttle the phone profile uses. `useRealm()`
+memoized **inside the hook**, so AppShell + ThroneRoom + SinceLastVisit each rebuilt it —
+**~210 ms of blocked main thread** on every Throne Room render (hover, scroll reveal, horizon
+switch). The react-query snapshot cache was already correct (`staleTime` 5 min, `gcTime` 30 min,
+`refetchOnWindowFocus: false`); the waste was recomputing the realm.
+
+### Fix 1 — one `buildRealm` for the tree
+
+`RealmProvider` (mounted inside `AuthProvider`, above the router) runs the snapshot query and
+the `buildRealm` memo once. `useRealm()` reads that context and returns the same
+`{ ...query, data: { realm, tableErrors, fetchedAt } }` shape. A tree of three consumers calls
+`buildRealm` exactly once (`RealmProvider.test.ts`).
+
+### Fix 2 — stage timings, then cut (fixture, median of 9 runs after warmup)
+
+Named stages from the brief, plus the ones that actually dominated (†):
+
+| Stage | Before (ms) | After (ms) |
+|---|---|---|
+| solveWarPlan † | 9.74 | 4.61 |
+| computeOxygen † | 2.37 | 1.64 |
+| computeFutures † | 0.63 | 0.66 |
+| computeQualityIssues | 0.52 | 0.54 |
+| computeLots | 0.40 | 0.41 |
+| computeExpected | 0.23 | 0.18 |
+| computePipeline | 0.19 | 0.14 |
+| computeEvents | 0.13 | 0.12 |
+| computeGoal | 0.07 | 0.06 |
+| computeTreasury | 0.07 | 0.05 |
+| deriveOracleDefaults | 0.07 | 0.05 |
+| computeFarms | 0.06 | 0.06 |
+| computeInvestors | 0.03 | 0.03 |
+| computeLiberation | 0.02 | 0.02 |
+| computeCapitalComposition | 0.03 | 0.03 |
+| farmCadence | 0.01 | 0.01 |
+| **total (every stage)** | **15.73** | **10.36** |
+| **Throne Room path** (lazy stages not touched) | 15.73 | **7.34** |
+| **three consumers on the Throne Room** | **47.2** (3 × 15.73) | **7.34** (once) |
+
+What was actually slow: `solveWarPlan` bisects through tens of `runOracle` calls, and each call
+rebuilt a 120-month date grid and scanned every planned farm every month. The grid is now built
+once and reused; farms are indexed by purchase/land month. `computeOxygen` called `computeGoal`
+once per sold/reserved lot; many lots share a date, so that day's goal is cached. `parseDate`
+caches the `Date` for a given ISO string.
+
+Target was the whole of `buildRealm` under 20 ms. Full build **10.36 ms**; the Throne Room pays
+**7.34 ms**. Under 4× CPU throttle that is ~29 ms once, down from ~189 ms three times.
+
+### Fix 3 — lazy stages the first screen does not need
+
+`quality`, `futures`, `trophies`, `capitalComposition`, `farmCadence`, `streaks` and
+`reservationStreaks` are getters. The public `Realm` type is unchanged. Oracle / Quality /
+Trophies / Council still see the same objects on first access. Liberation, oracle defaults and
+campaigns stay eager because the War Plan (which the Throne Room reads) needs them.
+
+### Fix 4 — recharts out of the first paint
+
+The Throne Room statically imported `PulseCharts` and `GoalCurve`, which imported recharts.
+`manualChunks: { charts: ["recharts"] }` then put React *inside* that 581 kB file, so
+`index.html` modulepreloaded it on every first paint.
+
+| | Before | After |
+|---|---|---|
+| Entry JS (`index-*.js`) | 420 kB | 558 kB (React lives here now, not inside charts) |
+| `charts-*.js` on first paint | **581 kB, modulepreloaded** | **not loaded** |
+| motion | 123 kB | 123 kB |
+| supabase | 227 kB | 227 kB |
+| **Initial JS (preloaded)** | **1,351 kB** | **908 kB** |
+
+Pulse / Goal Curve download recharts only after they scroll into view (`PulseChartsLoaded`,
+`GoalCurveLoaded`). Treasury, Oracle, Sponsors and War Plan still load it with their route
+chunks.
+
+### Fix 5 — cheap wins that measured
+
+- AmbientParticles already paused on hidden tabs. Count is capped at 16 when
+  `hardwareConcurrency ≤ 4` or `deviceMemory ≤ 4` (Iron Crown's recipe is 36).
+- Realm tooltip: `onMouseMove` used to `setState` on the page (x/y + lot) every pixel, which
+  re-rendered every `FarmCard`. Lot id now updates only on a boundary crossing; coordinates live
+  in a child that listens to `window`.
+
+### Interaction latency (Throne Room, horizon switch)
+
+The horizon click is the interaction that used to rebuild the realm three times. Measured as
+`buildRealm` main-thread work on this fixture (the paint cannot start until that returns):
+
+| | Node | 4× CPU (phone profile) |
+|---|---|---|
+| Before (3 consumers) | 47.2 ms | ~189 ms |
+| After (1 shared build, Throne path) | 7.34 ms | ~29 ms |
+
+`scripts/time-realm.ts` reprints the stage table. 452 unit tests.

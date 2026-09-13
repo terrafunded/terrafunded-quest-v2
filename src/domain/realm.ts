@@ -81,6 +81,9 @@ export interface Realm {
   snapshot: PaymentsSnapshot;
 }
 
+/** Milliseconds per `buildRealm` stage. Filled when `RealmOptions.timings` is passed. */
+export type RealmStageTimings = Record<string, number>;
+
 export interface RealmOptions {
   /** Era start (ISO) for every rate and trend; `null` measures over the whole history. Default: config ERA_START. */
   eraStart?: EraStart;
@@ -90,85 +93,151 @@ export interface RealmOptions {
    * level — the HorizonProvider only ever passes one of the three `deadlineForHorizon` values.
    */
   deadline?: string;
+  /** When set, each named stage writes its elapsed milliseconds here. Production callers omit this. */
+  timings?: RealmStageTimings;
+}
+
+function stage<T>(timings: RealmStageTimings | undefined, name: string, fn: () => T): T {
+  if (!timings) return fn();
+  const t0 = performance.now();
+  try {
+    return fn();
+  } finally {
+    timings[name] = performance.now() - t0;
+  }
+}
+
+/** Compute now when profiling; otherwise on first property access so the Throne Room skips Oracle/Quality/trophy math. */
+function defer<T>(timings: RealmStageTimings | undefined, name: string, fn: () => T): () => T {
+  if (timings) {
+    const value = stage(timings, name, fn);
+    return () => value;
+  }
+  let value: T | undefined;
+  let ready = false;
+  return () => {
+    if (!ready) {
+      value = fn();
+      ready = true;
+    }
+    return value as T;
+  };
 }
 
 export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), opts: RealmOptions = {}): Realm {
+  const timings = opts.timings;
+  const t0 = timings ? performance.now() : 0;
   const asOf = startOfUtcDay(now);
   const eraStart = opts.eraStart;
   const era = resolveEra(asOf, eraStart);
-  const interestByFarm = new Map<string, InterestLedger>();
-  for (const farm of snapshot.farmAcquisitions) {
-    interestByFarm.set(farm.id, buildInterestLedger(farm, snapshot.investorDistributions, asOf));
-  }
-
-  const lots = computeLots({
-    farms: snapshot.farmAcquisitions,
-    properties: snapshot.properties,
-    fileCases: snapshot.fileCases,
-    notes: snapshot.notes,
-    noteSales: snapshot.noteSales,
-    propertyCosts: snapshot.propertyCosts,
-    clients: snapshot.clients,
-    investors: snapshot.investors,
-    interestByFarm,
-    asOf,
+  const interestByFarm = stage(timings, "buildInterestLedgers", () => {
+    const map = new Map<string, InterestLedger>();
+    for (const farm of snapshot.farmAcquisitions) {
+      map.set(farm.id, buildInterestLedger(farm, snapshot.investorDistributions, asOf));
+    }
+    return map;
   });
 
-  const farms = computeFarms(snapshot.farmAcquisitions, lots, snapshot.propertyCosts, snapshot.investors, interestByFarm, asOf);
-  const goal = withVerdict(computeGoal(lots, farms, asOf, { eraStart, deadline: opts.deadline }));
+  const lots = stage(timings, "computeLots", () =>
+    computeLots({
+      farms: snapshot.farmAcquisitions,
+      properties: snapshot.properties,
+      fileCases: snapshot.fileCases,
+      notes: snapshot.notes,
+      noteSales: snapshot.noteSales,
+      propertyCosts: snapshot.propertyCosts,
+      clients: snapshot.clients,
+      investors: snapshot.investors,
+      interestByFarm,
+      asOf,
+    }),
+  );
+
+  const farms = stage(timings, "computeFarms", () =>
+    computeFarms(snapshot.farmAcquisitions, lots, snapshot.propertyCosts, snapshot.investors, interestByFarm, asOf),
+  );
+  const goal = stage(timings, "computeGoal", () => withVerdict(computeGoal(lots, farms, asOf, { eraStart, deadline: opts.deadline })));
   // The reservations layer reads the same lots the goal reads and never feeds back into it.
-  const pipeline = computePipeline(lots, asOf, { closedLotsPerMonth: goal.closedLotsPerMonth, eraStart });
-  const expected = computeExpected(lots, pipeline, goal, asOf, { eraStart });
-  const quality = computeQualityIssues({
-    farms: snapshot.farmAcquisitions,
-    properties: snapshot.properties,
-    fileCases: snapshot.fileCases,
-    notes: snapshot.notes,
-    noteSales: snapshot.noteSales,
-    clients: snapshot.clients,
-  });
-  const investors = computeInvestors(snapshot.investors, farms, snapshot.investorDistributions);
-  const treasury = computeTreasury(lots, snapshot.investorDistributions, snapshot.noteSales);
-  const oracleDefaults = deriveOracleDefaults(lots, farms, goal, { eraStart });
-  const cadence = farmCadence(farms, asOf, eraStart);
+  const pipeline = stage(timings, "computePipeline", () =>
+    computePipeline(lots, asOf, { closedLotsPerMonth: goal.closedLotsPerMonth, eraStart }),
+  );
+  const expected = stage(timings, "computeExpected", () => computeExpected(lots, pipeline, goal, asOf, { eraStart }));
+  const getQuality = defer(timings, "computeQualityIssues", () =>
+    computeQualityIssues({
+      farms: snapshot.farmAcquisitions,
+      properties: snapshot.properties,
+      fileCases: snapshot.fileCases,
+      notes: snapshot.notes,
+      noteSales: snapshot.noteSales,
+      clients: snapshot.clients,
+    }),
+  );
+  const investors = stage(timings, "computeInvestors", () => computeInvestors(snapshot.investors, farms, snapshot.investorDistributions));
+  const treasury = stage(timings, "computeTreasury", () => computeTreasury(lots, snapshot.investorDistributions, snapshot.noteSales));
+  const oracleDefaults = stage(timings, "deriveOracleDefaults", () => deriveOracleDefaults(lots, farms, goal, { eraStart }));
+  const getCadence = defer(timings, "farmCadence", () => farmCadence(farms, asOf, eraStart));
 
   // Phase 2
-  const liberation = computeLiberation(farms, investors, snapshot.investorDistributions);
-  const capitalComposition = computeCapitalComposition(investors);
-  const events = withLiberationEvents(
-    computeEvents(lots, snapshot.farmAcquisitions, snapshot.investorDistributions, snapshot.investors, asOf),
-    liberation.moments,
-    asOf,
+  const liberation = stage(timings, "computeLiberation", () => computeLiberation(farms, investors, snapshot.investorDistributions));
+  const getCapitalComposition = defer(timings, "computeCapitalComposition", () => computeCapitalComposition(investors));
+  const events = stage(timings, "computeEvents", () =>
+    withLiberationEvents(
+      computeEvents(lots, snapshot.farmAcquisitions, snapshot.investorDistributions, snapshot.investors, asOf),
+      liberation.moments,
+      asOf,
+    ),
   );
-  const debt = computeDebt(farms, goal, lots, { eraStart });
-  const oxygen = computeOxygen(lots, farms, asOf, { conversionPct: expected.conversionPct, eraStart });
-  const campaigns = computeCampaigns(farms, lots, asOf);
-  const streaks = computeStreaks(
-    lots.filter((l) => isSold(l) && l.closeDate).map((l) => ({ date: l.closeDate as string, netProfit: l.netProfit ?? 0 })),
-    asOf,
-    eraStart,
+  const debt = stage(timings, "computeDebt", () => computeDebt(farms, goal, lots, { eraStart }));
+  const oxygen = stage(timings, "computeOxygen", () => computeOxygen(lots, farms, asOf, { conversionPct: expected.conversionPct, eraStart }));
+  const campaigns = stage(timings, "computeCampaigns", () => computeCampaigns(farms, lots, asOf));
+  const getStreaks = defer(timings, "computeStreaks", () =>
+    computeStreaks(
+      lots.filter((l) => isSold(l) && l.closeDate).map((l) => ({ date: l.closeDate as string, netProfit: l.netProfit ?? 0 })),
+      asOf,
+      eraStart,
+    ),
   );
   // Reservation streaks count every pledge made — live, closed since, or cancelled — by its reservation date.
-  const reservationStreaks = computeStreaks(
-    reservationsMade(lots).map((r) => ({ date: r.date, netProfit: r.netProfitAtStake })),
-    asOf,
-    eraStart,
+  const getReservationStreaks = defer(timings, "computeReservationStreaks", () =>
+    computeStreaks(
+      reservationsMade(lots).map((r) => ({ date: r.date, netProfit: r.netProfitAtStake })),
+      asOf,
+      eraStart,
+    ),
   );
   const activeFarms = farms.filter((f) => f.monthsSinceFunding !== null && f.soldLots < f.totalLots).length;
-  const futures = computeFutures(oracleDefaults, goal, goal.availableLots + goal.reservedLots, asOf, activeFarms, expected, { cadenceSince: cadence.sinceLabel });
-  const trophies = computeTrophies({ lots, farms, goal, events, treasury, investors, streaks, reservationStreaks, liberation });
-  const narrative = narrateAll(events, {
-    lotsById: new Map(lots.map((l) => [l.propertyId, l])),
-    oxygenByLot: oxygen.perLot,
-    provisionalByLot: oxygen.provisional,
-    expectedByLot: expected.byId,
-    farmDealTypeByName: new Map(snapshot.farmAcquisitions.map((f) => [f.farm_name ?? "", f.deal_type])),
-    currentYear: asOf.getUTCFullYear(),
-    asOf: toIsoDate(asOf),
-  });
-  const story = buildStory(goal, farms, debt, oxygen, liberation);
-  const seasonality = computeSeasonality(lots, asOf, { eraStart });
-  const history = computeMonthlyHistory(lots, asOf, { eraStart });
+  const getFutures = defer(timings, "computeFutures", () =>
+    computeFutures(oracleDefaults, goal, goal.availableLots + goal.reservedLots, asOf, activeFarms, expected, {
+      cadenceSince: getCadence().sinceLabel,
+    }),
+  );
+  const getTrophies = defer(timings, "computeTrophies", () =>
+    computeTrophies({
+      lots,
+      farms,
+      goal,
+      events,
+      treasury,
+      investors,
+      streaks: getStreaks(),
+      reservationStreaks: getReservationStreaks(),
+      liberation,
+    }),
+  );
+  const narrative = stage(timings, "narrateAll", () =>
+    narrateAll(events, {
+      lotsById: new Map(lots.map((l) => [l.propertyId, l])),
+      oxygenByLot: oxygen.perLot,
+      provisionalByLot: oxygen.provisional,
+      expectedByLot: expected.byId,
+      farmDealTypeByName: new Map(snapshot.farmAcquisitions.map((f) => [f.farm_name ?? "", f.deal_type])),
+      currentYear: asOf.getUTCFullYear(),
+      asOf: toIsoDate(asOf),
+    }),
+  );
+  const story = stage(timings, "buildStory", () => buildStory(goal, farms, debt, oxygen, liberation));
+  const seasonality = stage(timings, "computeSeasonality", () => computeSeasonality(lots, asOf, { eraStart }));
+  const history = stage(timings, "computeMonthlyHistory", () => computeMonthlyHistory(lots, asOf, { eraStart }));
   const warPlanContext = {
     asOf,
     lots,
@@ -183,8 +252,9 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
     seasonality,
     eraStart,
   };
-  const warPlanDefaults = deriveWarPlanDefaults(warPlanContext);
-  const warPlan = solveWarPlan(warPlanDefaults.inputs, warPlanContext);
+  const warPlanDefaults = stage(timings, "deriveWarPlanDefaults", () => deriveWarPlanDefaults(warPlanContext));
+  const warPlan = stage(timings, "solveWarPlan", () => solveWarPlan(warPlanDefaults.inputs, warPlanContext));
+  if (timings) timings.total = performance.now() - t0;
 
   return {
     asOf,
@@ -192,21 +262,33 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
     farms,
     interestByFarm,
     goal,
-    quality,
+    get quality() {
+      return getQuality();
+    },
     events,
     investors,
     treasury,
-    trophies,
+    get trophies() {
+      return getTrophies();
+    },
     oracleDefaults,
     debt,
     oxygen,
     liberation,
-    capitalComposition,
+    get capitalComposition() {
+      return getCapitalComposition();
+    },
     campaigns,
     campaignByFarm: new Map(campaigns.map((c) => [c.farmId, c])),
-    streaks,
-    reservationStreaks,
-    futures,
+    get streaks() {
+      return getStreaks();
+    },
+    get reservationStreaks() {
+      return getReservationStreaks();
+    },
+    get futures() {
+      return getFutures();
+    },
     narrative,
     story,
     pipeline,
@@ -217,7 +299,9 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
     seasonality,
     era,
     eraStart,
-    farmCadence: cadence,
+    get farmCadence() {
+      return getCadence();
+    },
     history,
     snapshot,
   };

@@ -5,14 +5,23 @@
 
 const MS_PER_DAY = 86_400_000;
 
+const PARSE_CACHE = new Map<string, Date | null>();
+
 /** Parses "YYYY-MM-DD" or an ISO timestamp into a UTC-midnight Date. Returns null for bad input. */
 export function parseDate(value: string | null | undefined): Date | null {
   if (!value) return null;
+  const hit = PARSE_CACHE.get(value);
+  if (hit !== undefined) return hit;
   const head = value.slice(0, 10);
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(head);
-  if (!m) return null;
+  if (!m) {
+    PARSE_CACHE.set(value, null);
+    return null;
+  }
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-  return Number.isNaN(d.getTime()) ? null : d;
+  const parsed = Number.isNaN(d.getTime()) ? null : d;
+  PARSE_CACHE.set(value, parsed);
+  return parsed;
 }
 
 /** Truncates any Date to UTC midnight. */

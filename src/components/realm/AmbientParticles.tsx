@@ -51,7 +51,8 @@ export function AmbientParticles({ className }: { className?: string }) {
 
     const particles: Particle[] = [];
     const spawn = (fresh: boolean): Particle => makeParticle(recipe, width, height, fresh);
-    for (let i = 0; i < recipe.count; i++) particles.push(spawn(false));
+    const count = particleBudget(recipe.count);
+    for (let i = 0; i < count; i++) particles.push(spawn(false));
 
     let last = performance.now();
     let frame = 0;
@@ -101,6 +102,15 @@ export function AmbientParticles({ className }: { className?: string }) {
 
   if (reducedMotion) return null;
   return <canvas ref={canvasRef} className={cn("pointer-events-none absolute inset-0 h-full w-full", className)} aria-hidden data-testid="ambient-particles" data-kind={recipe.kind} />;
+}
+
+/** Cap the rAF particle list on phones / low-core machines. Hidden-tab pause is already in the tick. */
+function particleBudget(requested: number): number {
+  if (typeof navigator === "undefined") return requested;
+  const cores = navigator.hardwareConcurrency || 8;
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  const lowEnd = cores <= 4 || (memory !== undefined && memory <= 4);
+  return lowEnd ? Math.min(requested, 16) : requested;
 }
 
 function rand(min: number, max: number) {

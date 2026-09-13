@@ -105,6 +105,12 @@ export interface OracleRunOptions {
   cashStart?: number;
   /** Capital and accrued take owed to sponsors today; cash mode subtracts it. Default 0. */
   owedStart?: number;
+  /**
+   * Reuse a month grid already built for this asOf/deadline/calendar. `solveWarPlan` bisects
+   * through tens of `runOracle` calls; rebuilding 120 months of dates each time was the
+   * dominant cost of `buildRealm`.
+   */
+  grid?: OracleMonthGrid;
 }
 
 export interface FarmFundingSlice {
@@ -447,7 +453,7 @@ export function runOracle(params: OracleParams, goal: GoalStatus, startInventory
   const cashMode = targetMode === "cash_in_bank";
   const deadline = parseDate(goal.deadline) ?? asOf;
   const legacyMonthsToDeadline = Math.max(0, monthsBetween(asOf, deadline));
-  const grid = buildMonthGrid(asOf, deadline, calendar);
+  const grid = opts.grid && opts.grid.calendar === calendar ? opts.grid : buildMonthGrid(asOf, deadline, calendar);
   const deadlineIndex = grid.deadlineIndex;
 
   const grossPerLot = params.avgSalePrice - params.avgLandCost;
@@ -473,6 +479,16 @@ export function runOracle(params: OracleParams, goal: GoalStatus, startInventory
     : [];
   const cycleMonths = params.capitalCycleMonths !== undefined && params.capitalCycleMonths > 0 ? Math.max(1, Math.round(params.capitalCycleMonths)) : null;
   const farms = fundSchedule(schedule, farmCost, lotsPerFarm, landLag, mix, cycleMonths, deadlineIndex);
+  const farmsByPurchase = new Map<number, OracleFarm[]>();
+  const farmsByLand = new Map<number, OracleFarm[]>();
+  for (const f of farms) {
+    const bought = farmsByPurchase.get(f.purchaseMonth);
+    if (bought) bought.push(f);
+    else farmsByPurchase.set(f.purchaseMonth, [f]);
+    const landed = farmsByLand.get(f.landMonth);
+    if (landed) landed.push(f);
+    else farmsByLand.set(f.landMonth, [f]);
+  }
   const seasonality = calendar && params.seasonality && params.seasonality.length === 12 ? params.seasonality : null;
   const fundedOf = (f: OracleFarm) => f.funding.filter((s) => s.dealType !== "own_capital").reduce((a, s) => a + s.amount, 0);
 
@@ -534,13 +550,17 @@ export function runOracle(params: OracleParams, goal: GoalStatus, startInventory
         nextFarmAt += farmEvery;
       }
     } else {
-      for (const f of farms) {
-        if (f.purchaseMonth === m) {
+      const bought = farmsByPurchase.get(m);
+      if (bought) {
+        for (const f of bought) {
           farmsBoughtNow += 1;
           capitalNow += f.cost;
           owed += fundedOf(f);
         }
-        if (f.landMonth === m) farmBatches.push({ farm: f, lots: f.lots, closedByMonth: [] });
+      }
+      const landed = farmsByLand.get(m);
+      if (landed) {
+        for (const f of landed) farmBatches.push({ farm: f, lots: f.lots, closedByMonth: [] });
       }
       farmsBought += farmsBoughtNow;
     }
