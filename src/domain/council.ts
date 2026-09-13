@@ -9,7 +9,8 @@ import { money, moneyExact, number, pct } from "../lib/format";
  * flags. Same third as the Sponsors page's named constant (one sponsor past this removes more
  * than a third of the funding base). Declared here because the Council is the reader.
  */
-export const SPONSOR_CONCENTRATION_WARN_PCT = 33.33;
+import { SPONSOR_CONCENTRATION_WARN_PCT } from "./sponsorCapital";
+export { SPONSOR_CONCENTRATION_WARN_PCT };
 
 /**
  * THE COUNCIL (point 13) — a deterministic rule engine.
