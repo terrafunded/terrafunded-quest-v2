@@ -96,72 +96,67 @@ test.describe("Throne Room", () => {
     expect(errors).toEqual([]);
   });
 
-  for (const theme of ["iron-crown", "gilded-realm", "neon-kingdom"] as const) {
-    test(`${theme}: hovering a Pulse month shows that month's tick label and the value its bar encodes`, async ({ page }) => {
-      await page.addInitScript((t) => {
-        localStorage.setItem("quest.theme", t);
-        sessionStorage.setItem("quest.intro.seen", "1");
-      }, theme);
-      await page.goto("/");
-      await waitForRealm(page);
-      await page.getByTestId("pulse-charts").scrollIntoViewIfNeeded();
+  test("hovering a Pulse month shows that month's tick label and the value its bar encodes", async ({ page }) => {
+    await page.addInitScript(() => sessionStorage.setItem("quest.intro.seen", "1"));
+    await page.goto("/");
+    await waitForRealm(page);
+    await page.getByTestId("pulse-charts").scrollIntoViewIfNeeded();
 
-      for (const chartId of ["pulse-chart-profit", "pulse-chart-pace"] as const) {
-        const card = page.getByTestId(chartId);
-        await expect.poll(() => card.locator(".recharts-bar-rectangle path").count()).toBeGreaterThan(0);
-        const bars = await settledBars(card);
-        // Every month owns a tick, so the tick under a bar is that bar's month.
-        const ticks = await card.locator(".recharts-xAxis .recharts-cartesian-axis-tick-value").allTextContents();
-        expect(ticks.length).toBeGreaterThan(1);
-        expect(new Set(ticks).size).toBe(ticks.length);
-        const grid = (await card.locator(".recharts-cartesian-grid").boundingBox()) as { x: number; y: number; width: number; height: number };
-        const surface = (await card.locator(".recharts-surface").boundingBox()) as { x: number };
-        const bandWidth = grid.width / ticks.length;
-        const bandOf = (b: BarGeometry) => Math.floor((b.x + b.width / 2 + surface.x - grid.x) / bandWidth);
-        const tallest = Math.max(...bars.map((b) => b.height));
-        expect(tallest).toBeGreaterThan(0);
+    for (const chartId of ["pulse-chart-profit", "pulse-chart-pace"] as const) {
+      const card = page.getByTestId(chartId);
+      await expect.poll(() => card.locator(".recharts-bar-rectangle path").count()).toBeGreaterThan(0);
+      const bars = await settledBars(card);
+      // Every month owns a tick, so the tick under a bar is that bar's month.
+      const ticks = await card.locator(".recharts-xAxis .recharts-cartesian-axis-tick-value").allTextContents();
+      expect(ticks.length).toBeGreaterThan(1);
+      expect(new Set(ticks).size).toBe(ticks.length);
+      const grid = (await card.locator(".recharts-cartesian-grid").boundingBox()) as { x: number; y: number; width: number; height: number };
+      const surface = (await card.locator(".recharts-surface").boundingBox()) as { x: number };
+      const bandWidth = grid.width / ticks.length;
+      const bandOf = (b: BarGeometry) => Math.floor((b.x + b.width / 2 + surface.x - grid.x) / bandWidth);
+      const tallest = Math.max(...bars.map((b) => b.height));
+      expect(tallest).toBeGreaterThan(0);
 
-        const hovered: { month: string; value: number; barHeight: number }[] = [];
-        for (let i = 0; i < ticks.length; i++) {
-          await page.mouse.move(grid.x + bandWidth * (i + 0.5), grid.y + grid.height / 2);
-          const tip = card.locator(".recharts-tooltip-wrapper");
-          await expect(tip.getByTestId("pulse-tooltip-month")).toHaveText(ticks[i] as string, { useInnerText: true });
-          const cursor = card.locator(".recharts-tooltip-cursor");
-          await expect(cursor).toHaveAttribute("fill", "hsl(var(--foreground))");
-          await expect(cursor).toHaveAttribute("opacity", "0.06");
-
-          if (chartId === "pulse-chart-profit") {
-            const profit = tip.getByTestId("pulse-tooltip-profit");
-            await expect(profit).toHaveText(/^-?\$[\d,]+$/);
-            const value = Number(await profit.getAttribute("data-value"));
-            const bar = bars.find((b) => bandOf(b) === i);
-            hovered.push({ month: ticks[i] as string, value, barHeight: bar?.height ?? 0 });
-            if (value === 0) await expect(profit).toHaveText("$0");
-          } else {
-            await expect(tip.getByTestId("pulse-tooltip-reservations")).toHaveText(/^(Reservations|Reservas) \d+$/);
-            await expect(tip.getByTestId("pulse-tooltip-closings")).toHaveText(/^(Closings|Cierres) \d+$/);
-          }
-        }
-        await page.mouse.move(0, 0);
+      const hovered: { month: string; value: number; barHeight: number }[] = [];
+      for (let i = 0; i < ticks.length; i++) {
+        await page.mouse.move(grid.x + bandWidth * (i + 0.5), grid.y + grid.height / 2);
+        const tip = card.locator(".recharts-tooltip-wrapper");
+        await expect(tip.getByTestId("pulse-tooltip-month")).toHaveText(ticks[i] as string, { useInnerText: true });
+        const cursor = card.locator(".recharts-tooltip-cursor");
+        await expect(cursor).toHaveAttribute("fill", "hsl(var(--foreground))");
+        await expect(cursor).toHaveAttribute("opacity", "0.06");
 
         if (chartId === "pulse-chart-profit") {
-          // A bar's height encodes its month's net profit on a linear axis from $0, so the tooltip
-          // must report the value the bar was drawn from: $0 exactly when no bar is drawn, and the
-          // same share of the tallest bar as the value is of the largest value.
-          const maxValue = Math.max(...hovered.map((h) => h.value));
-          expect(maxValue).toBeGreaterThan(0);
-          for (const h of hovered) {
-            if (h.barHeight === 0) {
-              expect(h.value, `${h.month} has no bar but its tooltip says ${h.value}`).toBe(0);
-            } else {
-              expect(h.value, `${h.month} has a bar but its tooltip says $0`).toBeGreaterThan(0);
-              expect(Math.abs(h.barHeight / tallest - h.value / maxValue), `${h.month}: bar height share vs tooltip value share`).toBeLessThan(0.02);
-            }
+          const profit = tip.getByTestId("pulse-tooltip-profit");
+          await expect(profit).toHaveText(/^-?\$[\d,]+$/);
+          const value = Number(await profit.getAttribute("data-value"));
+          const bar = bars.find((b) => bandOf(b) === i);
+          hovered.push({ month: ticks[i] as string, value, barHeight: bar?.height ?? 0 });
+          if (value === 0) await expect(profit).toHaveText("$0");
+        } else {
+          await expect(tip.getByTestId("pulse-tooltip-reservations")).toHaveText(/^(Reservations|Reservas) \d+$/);
+          await expect(tip.getByTestId("pulse-tooltip-closings")).toHaveText(/^(Closings|Cierres) \d+$/);
+        }
+      }
+      await page.mouse.move(0, 0);
+
+      if (chartId === "pulse-chart-profit") {
+        // A bar's height encodes its month's net profit on a linear axis from $0, so the tooltip
+        // must report the value the bar was drawn from: $0 exactly when no bar is drawn, and the
+        // same share of the tallest bar as the value is of the largest value.
+        const maxValue = Math.max(...hovered.map((h) => h.value));
+        expect(maxValue).toBeGreaterThan(0);
+        for (const h of hovered) {
+          if (h.barHeight === 0) {
+            expect(h.value, `${h.month} has no bar but its tooltip says ${h.value}`).toBe(0);
+          } else {
+            expect(h.value, `${h.month} has a bar but its tooltip says $0`).toBeGreaterThan(0);
+            expect(Math.abs(h.barHeight / tallest - h.value / maxValue), `${h.month}: bar height share vs tooltip value share`).toBeLessThan(0.02);
           }
         }
       }
-    });
-  }
+    }
+  });
 
   test("in Spanish, the Throne Room's realm cards carry no English copy and pluralise reserva/reservas", async ({ page }) => {
     await page.addInitScript(() => {
@@ -788,41 +783,47 @@ test.describe("Data Quality for operations", () => {
 });
 
 test.describe("Themes", () => {
-  test("the login menu switches the skin and the choice persists in localStorage", async ({ browser }) => {
+  test("the login page no longer offers a skin, and a stored skin is overridden before the first paint", async ({ browser }) => {
     const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const page = await context.newPage();
-    const errors = collectConsoleErrors(page);
+    await page.addInitScript(() => localStorage.setItem("quest.theme", "neon-kingdom"));
+
+    // First paint: with the bundle blocked only index.html's boot script runs, and it must already
+    // ignore the stored skin — otherwise the page flashes Neon Kingdom until React mounts.
+    await page.route(/\.(js|mjs|tsx?)(\?.*)?$/, (route) => route.abort());
     await page.goto("/login");
-    await expect(page.getByTestId("theme-menu")).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "iron-crown");
-
-    await page.locator("[data-theme-option='neon-kingdom']").first().click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "neon-kingdom");
     expect(await page.evaluate(() => localStorage.getItem("quest.theme"))).toBe("neon-kingdom");
-    // The HUD uses monospace numbers; the other two do not.
-    const mono = await page.locator("html").evaluate((el) => el.ownerDocument.defaultView!.getComputedStyle(el).getPropertyValue("--font-numeric"));
-    expect(mono).toContain("JetBrains Mono");
+    await page.unroute(/\.(js|mjs|tsx?)(\?.*)?$/);
+    const errors = collectConsoleErrors(page);
 
-    await page.reload();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "neon-kingdom");
-
-    await page.locator("[data-theme-option='gilded-realm']").first().click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "gilded-realm");
-    await expect(page.locator("html")).toHaveClass(/light/);
+    // Full app: no selector anywhere on the login page, Iron Crown applied, storage rewritten.
+    await page.goto("/login");
+    await expect(page.getByTestId("login-footer")).toBeVisible();
+    await expect(page.getByTestId("theme-menu")).toHaveCount(0);
+    await expect(page.getByTestId("theme-menu-compact")).toHaveCount(0);
+    await expect(page.locator("[data-theme-option]")).toHaveCount(0);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "iron-crown");
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("quest.theme"))).toBe("iron-crown");
     expect(errors).toEqual([]);
     await context.close();
   });
 
-  for (const theme of ["iron-crown", "gilded-realm", "neon-kingdom"] as const) {
-    test(`${theme}: the Throne Room renders its ambient layer, glowing counter and themed nav without console errors`, async ({ page }) => {
+  // The skin selector is hidden and everyone is held to Iron Crown; the other skins stay in the
+  // code. A browser that saved another skin before the control went away must not be stuck in it.
+  for (const stored of ["iron-crown", "gilded-realm", "neon-kingdom", "not-a-theme"] as const) {
+    test(`stored skin "${stored}" resolves to Iron Crown, is written back, and the Throne Room renders without console errors`, async ({ page }) => {
       const errors = collectConsoleErrors(page);
-      await page.addInitScript((t) => localStorage.setItem("quest.theme", t), theme);
+      await page.addInitScript((t) => localStorage.setItem("quest.theme", t), stored);
       await page.goto("/");
       await waitForRealm(page);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "iron-crown");
+      await expect(page.locator("html")).toHaveClass(/dark/);
+      expect(await page.evaluate(() => localStorage.getItem("quest.theme"))).toBe("iron-crown");
       await expect(page.getByTestId("ambient-particles")).toBeAttached();
       await expect(page.getByTestId("net-profit-counter")).toHaveClass(/counter-glow/);
-      await expect(page.getByTestId("page-transition")).toBeVisible();
+      await expect(page.getByTestId("page-transition")).toHaveAttribute("data-preset", "rise");
       await goViaDrawer(page, "Quests");
       await expect(page).toHaveURL(/\/quests$/);
       await waitForRealm(page);
@@ -1292,7 +1293,11 @@ test.describe("Navigation drawer", () => {
     for (const label of ["Throne Room", "War Plan", "Exodus", "The Realm", "Quests", "Pipeline", "Sponsors", "Treasury", "Oracle", "Chronicle", "Trophies", "Data Quality"]) {
       await expect(drawer.getByRole("link", { name: label })).toBeVisible();
     }
-    await expect(drawer.getByTestId("theme-menu")).toBeVisible();
+    // The skin selector is hidden (everyone is held to Iron Crown); the footer keeps language + account.
+    await expect(drawer.getByTestId("theme-menu")).toHaveCount(0);
+    await expect(drawer.getByText("Skin", { exact: true })).toHaveCount(0);
+    await expect(drawer.getByTestId("lang-toggle")).toBeVisible();
+    await expect(drawer.getByTestId("horizon-toggle")).toBeVisible();
     await expect(drawer.getByTestId("nav-user-email")).not.toBeEmpty();
 
     await drawer.getByRole("link", { name: "Pipeline" }).click();

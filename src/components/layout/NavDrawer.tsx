@@ -6,7 +6,6 @@ import { LogOut, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/data/auth";
 import { Button } from "@/components/ui/button";
-import { ThemeMenu } from "@/theme/ThemeMenu";
 import { useTheme } from "@/theme/ThemeProvider";
 import { themeIcon, type IconName } from "@/theme/icons";
 import { useLang } from "@/i18n/lang";
@@ -232,10 +231,6 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
             </nav>
 
             <div className="shrink-0 space-y-3 border-t border-border/70 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              <div>
-                <div className="stat-label mb-2">Skin</div>
-                <ThemeMenu />
-              </div>
               <div>
                 <div className="stat-label mb-2">Idioma · Language</div>
                 <div role="radiogroup" aria-label="Language" className="grid grid-cols-2 gap-2" data-testid="lang-toggle" data-lang={lang}>

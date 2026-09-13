@@ -8,12 +8,16 @@
     <meta name="description" content="Terrafunded Quest v2 — the founder's war room for $10M net profit by 2027-12-31." />
     <title>Quest</title>
     <script>
-      // Apply the persisted theme before the first paint so there is no flash of the default skin.
+      // Apply the theme before the first paint so there is no flash of another skin. Mirrors
+      // LOCKED_THEME in src/theme/themes.ts: while the skin selector is hidden every user is held
+      // to Iron Crown and a previously stored skin is ignored (React overwrites it on mount). Set
+      // `locked` to null here and LOCKED_THEME to null there to honour the stored choice again.
       (function () {
         var themes = { "iron-crown": "#14161a", "gilded-realm": "#efe6d2", "neon-kingdom": "#07070d" };
+        var locked = "iron-crown";
         var id = "iron-crown";
         try {
-          var stored = localStorage.getItem("quest.theme");
+          var stored = locked || localStorage.getItem("quest.theme");
           if (stored && themes[stored]) id = stored;
         } catch (e) {}
         var root = document.documentElement;

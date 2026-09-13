@@ -5,13 +5,12 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/data/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ThemeMenu } from "@/theme/ThemeMenu";
 import { useTheme } from "@/theme/ThemeProvider";
 import { themeIcon } from "@/theme/icons";
 
 export function Login() {
   const { session, ready, configured, access, refusal, signIn } = useAuth();
-  const { themeId, theme } = useTheme();
+  const { themeId } = useTheme();
   const Brand = themeIcon(themeId, "brand");
   const location = useLocation();
   const [email, setEmail] = useState("");
@@ -93,14 +92,6 @@ export function Login() {
             </p>
           </form>
         )}
-
-        <div className="mt-6 border-t border-border/60 pt-4">
-          <div className="mb-2 flex items-baseline justify-between">
-            <span className="stat-label">Choose your realm's skin</span>
-            <span className="text-[11px] text-muted-foreground">{theme.name}</span>
-          </div>
-          <ThemeMenu />
-        </div>
       </motion.div>
     </div>
   );

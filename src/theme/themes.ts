@@ -82,7 +82,16 @@ export function isThemeId(v: unknown): v is ThemeId {
   return typeof v === "string" && (THEME_IDS as readonly string[]).includes(v);
 }
 
-/** Reads the persisted theme; never throws (private mode, disabled storage). */
+/**
+ * The skin every user is held to while the selector is hidden. `null` re-enables user choice.
+ * The other themes stay defined and `setTheme` keeps working — this is a UI removal, not a
+ * feature deletion. The selector used to live in the NavDrawer footer ("Skin") and under the
+ * Login form ("Choose your realm's skin"); `index.html`'s boot script mirrors this lock so the
+ * first paint never flashes a stored skin.
+ */
+export const LOCKED_THEME: ThemeId | null = "iron-crown";
+
+/** Reads the persisted theme as written; never throws (private mode, disabled storage). */
 export function readStoredTheme(): ThemeId {
   try {
     const v = localStorage.getItem(THEME_STORAGE_KEY);
@@ -90,6 +99,22 @@ export function readStoredTheme(): ThemeId {
   } catch {
     return DEFAULT_THEME;
   }
+}
+
+/**
+ * The theme to apply on load. While `LOCKED_THEME` is set, whatever is stored is ignored and
+ * overwritten with the lock — a browser that saved "neon-kingdom" before the selector went away
+ * would otherwise be stuck in it with no control left to leave. Never throws.
+ */
+export function resolveStoredTheme(): ThemeId {
+  const stored = readStoredTheme();
+  if (LOCKED_THEME === null) return stored;
+  try {
+    if (localStorage.getItem(THEME_STORAGE_KEY) !== LOCKED_THEME) localStorage.setItem(THEME_STORAGE_KEY, LOCKED_THEME);
+  } catch {
+    /* storage unavailable: the lock still applies for this session */
+  }
+  return LOCKED_THEME;
 }
 
 /** Applies the theme to <html> so CSS tokens, fonts and textures switch at once. */

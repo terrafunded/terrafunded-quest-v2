@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MotionConfig } from "framer-motion";
-import { applyThemeToDocument, readStoredTheme, THEME_STORAGE_KEY, THEMES, type ThemeId, type ThemeMeta } from "./themes";
+import { applyThemeToDocument, resolveStoredTheme, THEME_STORAGE_KEY, THEMES, type ThemeId, type ThemeMeta } from "./themes";
 
 interface ThemeContextValue {
   theme: ThemeMeta;
@@ -18,7 +18,7 @@ function prefersReducedMotion(): boolean {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [themeId, setThemeId] = useState<ThemeId>(() => readStoredTheme());
+  const [themeId, setThemeId] = useState<ThemeId>(() => resolveStoredTheme());
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion);
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Follow changes made in another tab (or by the login page while the shell is open elsewhere).
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === THEME_STORAGE_KEY) setThemeId(readStoredTheme());
+      if (e.key === THEME_STORAGE_KEY) setThemeId(resolveStoredTheme());
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
