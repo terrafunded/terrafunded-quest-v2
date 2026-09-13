@@ -60,6 +60,7 @@ export const MATRIX_DEVICES: MatrixDevice[] = PHONES.flatMap((d) => {
 
 export const APP_ROUTES = [
   "/",
+  "/council",
   "/warplan",
   "/exodus",
   "/realm",
@@ -77,6 +78,7 @@ export type AppRoute = (typeof APP_ROUTES)[number];
 
 export const ROUTE_SLUG: Record<AppRoute, string> = {
   "/": "throne",
+  "/council": "council",
   "/warplan": "warplan",
   "/exodus": "exodus",
   "/realm": "realm",

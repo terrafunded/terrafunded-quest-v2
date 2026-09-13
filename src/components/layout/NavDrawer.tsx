@@ -20,6 +20,7 @@ const LANG_OPTIONS: readonly { id: QualityLang; label: string; name: string }[] 
 
 const NAV_ITEMS: readonly { to: string; label: string; icon: IconName }[] = [
   { to: "/", label: "Throne Room", icon: "throne" },
+  { to: "/council", label: "Council", icon: "council" },
   { to: "/warplan", label: "War Plan", icon: "warplan" },
   { to: "/exodus", label: "Exodus", icon: "exodus" },
   { to: "/realm", label: "The Realm", icon: "realm" },

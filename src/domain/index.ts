@@ -33,4 +33,7 @@ export * from "./visits";
 export * from "./pulse";
 export * from "./history";
 export * from "./forecast";
+export * from "./isoWeek";
+export * from "./council";
+export * from "./weeklyCouncil";
 export * from "./realm";

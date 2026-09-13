@@ -17,6 +17,7 @@ const Oracle = lazy(() => import("@/pages/Oracle"));
 const Chronicle = lazy(() => import("@/pages/Chronicle"));
 const TrophiesPage = lazy(() => import("@/pages/TrophiesPage"));
 const Quality = lazy(() => import("@/pages/Quality"));
+const Council = lazy(() => import("@/pages/Council"));
 
 const wrap = (el: React.ReactNode) => <Suspense fallback={<LoadingState />}>{el}</Suspense>;
 
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { path: "/", element: <ThroneRoom /> },
+          { path: "/council", element: wrap(<Council />) },
           { path: "/warplan", element: wrap(<WarPlan />) },
           { path: "/exodus", element: wrap(<Exodus />) },
           { path: "/realm", element: wrap(<RealmMap />) },

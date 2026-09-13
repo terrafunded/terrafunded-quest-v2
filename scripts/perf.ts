@@ -18,7 +18,7 @@ loadDotenv();
 const BASE = process.argv.includes("--base") ? process.argv[process.argv.indexOf("--base") + 1]! : "http://localhost:4173";
 const ONLY = process.argv.includes("--theme") ? process.argv[process.argv.indexOf("--theme") + 1] : undefined;
 const THEMES = ONLY ? [ONLY] : ["iron-crown", "gilded-realm", "neon-kingdom"];
-const ROUTES = ["/", "/warplan", "/exodus", "/realm", "/quests", "/pipeline", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"];
+const ROUTES = ["/", "/council", "/warplan", "/exodus", "/realm", "/quests", "/pipeline", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"];
 
 const SLOW_4G = { offline: false, downloadThroughput: (1.6 * 1024 * 1024) / 8, uploadThroughput: (750 * 1024) / 8, latency: 150 };
 

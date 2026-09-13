@@ -6,7 +6,7 @@ import { expect, test, type Locator, type Page, type Route } from "@playwright/t
  */
 const VERIFIED_LEDGER_TOTAL = "$8,984,992.30";
 
-const ROUTES = ["/", "/warplan", "/exodus", "/realm", "/quests", "/pipeline", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"] as const;
+const ROUTES = ["/", "/council", "/warplan", "/exodus", "/realm", "/quests", "/pipeline", "/sponsors", "/treasury", "/oracle", "/chronicle", "/trophies", "/quality"] as const;
 
 function collectConsoleErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -1296,7 +1296,7 @@ test.describe("Navigation drawer", () => {
 
     await openNavDrawer(page);
     const drawer = page.getByTestId("nav-drawer");
-    for (const label of ["Throne Room", "War Plan", "Exodus", "The Realm", "Quests", "Pipeline", "Sponsors", "Treasury", "Oracle", "Chronicle", "Trophies", "Data Quality"]) {
+    for (const label of ["Throne Room", "Council", "War Plan", "Exodus", "The Realm", "Quests", "Pipeline", "Sponsors", "Treasury", "Oracle", "Chronicle", "Trophies", "Data Quality"]) {
       await expect(drawer.getByRole("link", { name: label })).toBeVisible();
     }
     // The skin selector is hidden (everyone is held to Iron Crown); the footer keeps language + account.

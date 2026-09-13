@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 import type { ThemeId } from "./themes";
 
-export type IconName = "brand" | "throne" | "warplan" | "exodus" | "realm" | "quests" | "pipeline" | "sponsors" | "treasury" | "oracle" | "chronicle" | "trophies" | "quality";
+export type IconName = "brand" | "throne" | "council" | "warplan" | "exodus" | "realm" | "quests" | "pipeline" | "sponsors" | "treasury" | "oracle" | "chronicle" | "trophies" | "quality";
 
 /**
  * Iconography per theme. Iron Crown speaks in war and stone, Gilded Realm in scribes and heraldry,
@@ -47,6 +47,7 @@ const ICONS: Record<ThemeId, Record<IconName, LucideIcon>> = {
   "iron-crown": {
     brand: Castle,
     throne: Crown,
+    council: Scroll,
     warplan: Target,
     exodus: Footprints,
     realm: Map,
@@ -62,6 +63,7 @@ const ICONS: Record<ThemeId, Record<IconName, LucideIcon>> = {
   "gilded-realm": {
     brand: Landmark,
     throne: Crown,
+    council: ScrollText,
     warplan: Compass,
     exodus: Sailboat,
     realm: Map,
@@ -77,6 +79,7 @@ const ICONS: Record<ThemeId, Record<IconName, LucideIcon>> = {
   "neon-kingdom": {
     brand: Hexagon,
     throne: Zap,
+    council: Sparkles,
     warplan: Crosshair,
     exodus: ArrowRightFromLine,
     realm: Radar,

@@ -5,9 +5,15 @@
   "outputDirectory": "dist",
   "installCommand": "npm ci",
   "cleanUrls": true,
+  "functions": {
+    "api/weekly-council.js": {
+      "maxDuration": 30,
+      "includeFiles": "api/_weeklyCouncil/dist/**"
+    }
+  },
   "rewrites": [
     { "source": "/lots/:path*", "destination": "https://payments.terrafunded.com/lots/:path*" },
-    { "source": "/(.*)", "destination": "/index" }
+    { "source": "/((?!api/|lots/).*)", "destination": "/index" }
   ],
   "headers": [
     {
