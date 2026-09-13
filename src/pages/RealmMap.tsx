@@ -5,6 +5,7 @@ import type { Campaign, CampaignState, FarmEconomics, FarmPipeline, Lot, LotStag
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { StageBadge } from "@/components/realm/StageBadge";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
+import { PointerTooltip } from "@/components/realm/PointerTooltip";
 import { DEAL_LABEL, STAGE_LABEL, date, money, moneyExact, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -97,6 +98,7 @@ export default function RealmMap() {
   const [openFarm, setOpenFarm] = useState<FarmEconomics | null>(null);
 
   const layout = useMemo(() => (data ? layoutTerritories(data.realm.farms) : null), [data]);
+  const lotById = useMemo(() => new Map((data?.realm.farms ?? []).flatMap((f) => f.lots).map((l) => [l.propertyId, l])), [data]);
   const campaignByFarm = data?.realm.campaignByFarm;
   const pipeline = data?.realm.pipeline;
 
@@ -105,7 +107,21 @@ export default function RealmMap() {
   if (!data || !layout) return null;
   if (layout.territories.length === 0) return <EmptyState title="No territories" body="No subdivided farms were found." />;
 
-  const onMove = (e: MouseEvent, lot: Lot) => setHover({ lot, x: e.clientX, y: e.clientY });
+  /**
+   * One move handler on the whole map, not enter/leave per lot: the tooltip follows whichever lot
+   * is under the pointer and simply retargets when the pointer crosses into a neighbour, so it
+   * never closes and reopens at the seam. The lot rects never change geometry on hover, so the
+   * element under a still pointer stays put and no enter/leave loop can start.
+   */
+  const onMapMove = (e: MouseEvent<SVGSVGElement>) => {
+    const id = (e.target as Element).closest<SVGElement>("[data-lot-id]")?.dataset.lotId;
+    const lot = id ? lotById.get(id) : undefined;
+    if (!lot) {
+      if (hover) setHover(null);
+      return;
+    }
+    setHover({ lot, x: e.clientX, y: e.clientY });
+  };
 
   return (
     <div>
@@ -143,6 +159,7 @@ export default function RealmMap() {
             role="img"
             aria-label="Map of the realm"
             data-testid="realm-map"
+            onMouseMove={onMapMove}
             onMouseLeave={() => setHover(null)}
           >
             <defs>
@@ -196,35 +213,48 @@ export default function RealmMap() {
                 </text>
                 {t.tiles.map(({ lot, x, y }) => {
                   const ring = lot.stage !== "reserved" ? null : pipeline?.stuckIds.has(lot.propertyId) ? "stuck" : "reserved";
+                  const hovered = hover?.lot.propertyId === lot.propertyId;
                   return (
+                    <rect
+                      key={lot.propertyId}
+                      x={x}
+                      y={y}
+                      width={TILE}
+                      height={TILE}
+                      rx={4}
+                      fill={STAGE_FILL[lot.stage]}
+                      // Hover brightens the fill and draws a gold edge; the rect's geometry never changes.
+                      fillOpacity={hovered ? 1 : lot.stage === "available" ? 0.45 : ring ? 0.2 : 0.95}
+                      stroke={hovered ? "hsl(var(--gold))" : ring ? RING_STROKE[ring] : undefined}
+                      strokeWidth={hovered ? 2.5 : ring ? 2.5 : undefined}
+                      strokeDasharray={!hovered && ring === "stuck" ? "4 3" : undefined}
+                      data-ring={ring ?? undefined}
+                      data-hovered={hovered || undefined}
+                      filter={lot.stage === "note_sold" ? "url(#glow)" : undefined}
+                      className="pointer-events-none transition-[fill-opacity,stroke] duration-150"
+                      aria-label={`${lot.name}: ${STAGE_LABEL[lot.stage]}${ring === "stuck" ? ", stuck reservation" : ""}`}
+                      data-testid="lot-tile"
+                    />
+                  );
+                })}
+                {/* Hit areas: stable invisible rects that also cover half the gap around each tile, drawn after every visual so crossing a seam always lands on a lot. */}
+                {t.tiles.map(({ lot, x, y }) => (
                   <rect
-                    key={lot.propertyId}
-                    x={x}
-                    y={y}
-                    width={TILE}
-                    height={TILE}
-                    rx={4}
-                    fill={STAGE_FILL[lot.stage]}
-                    fillOpacity={lot.stage === "available" ? 0.45 : ring ? 0.2 : 0.95}
-                    stroke={ring ? RING_STROKE[ring] : undefined}
-                    strokeWidth={ring ? 2.5 : undefined}
-                    strokeDasharray={ring === "stuck" ? "4 3" : undefined}
-                    data-ring={ring ?? undefined}
-                    filter={lot.stage === "note_sold" ? "url(#glow)" : undefined}
-                    className="cursor-pointer transition-transform hover:scale-110"
-                    style={{ transformOrigin: `${x + TILE / 2}px ${y + TILE / 2}px`, transformBox: "fill-box" }}
-                    onMouseEnter={(e) => onMove(e, lot)}
-                    onMouseMove={(e) => onMove(e, lot)}
-                    onMouseLeave={() => setHover(null)}
+                    key={`hit-${lot.propertyId}`}
+                    x={x - GAP / 2}
+                    y={y - GAP / 2}
+                    width={TILE + GAP}
+                    height={TILE + GAP}
+                    fill="transparent"
+                    className="cursor-pointer"
+                    data-lot-id={lot.propertyId}
+                    data-lot-hit
                     onClick={(e) => {
                       e.stopPropagation();
                       setOpenFarm(t.farm);
                     }}
-                    aria-label={`${lot.name}: ${STAGE_LABEL[lot.stage]}${ring === "stuck" ? ", stuck reservation" : ""}`}
-                    data-testid="lot-tile"
                   />
-                  );
-                })}
+                ))}
               </motion.g>
               );
             })}
@@ -233,13 +263,9 @@ export default function RealmMap() {
       </div>
 
       {hover && (
-        <div
-          className="pointer-events-none fixed z-50 w-64 rounded-md border border-border bg-popover p-3 text-xs shadow-2xl"
-          style={{ left: Math.min(hover.x + 14, window.innerWidth - 270), top: Math.min(hover.y + 14, window.innerHeight - 240) }}
-          role="tooltip"
-        >
+        <PointerTooltip x={hover.x} y={hover.y} data-testid="lot-tooltip">
           <LotEconomics lot={hover.lot} />
-        </div>
+        </PointerTooltip>
       )}
 
       <Sheet open={!!openFarm} onOpenChange={(o) => !o && setOpenFarm(null)}>
