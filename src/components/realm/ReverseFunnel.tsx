@@ -316,7 +316,7 @@ export function ReverseFunnel({ goal, expected }: { goal: GoalStatus; expected: 
             placeholder="e.g. 40"
             value={costText}
             onChange={(e) => onCost(e.target.value)}
-            className="h-10 w-28 text-base"
+            className="w-28"
             aria-label="Cost per conversation in dollars"
             data-testid="funnel-cost-input"
           />
