@@ -1,0 +1,667 @@
+import type { LotStage, OxygenBand, RealmEvent, Trophy } from "@/domain";
+import type { QualityLang } from "@/domain/quality_human";
+import { dateIn } from "@/lib/format";
+import { useLang } from "./lang";
+
+/**
+ * UI strings for the realm components (`src/components/realm`). Every user-visible word a realm
+ * component prints lives here, in both languages, so the Throne Room never mixes them. Values the
+ * domain produces (money, dates, `actualSinceLabel`, story cards, trophy titles) are passed in
+ * already formatted and are not translated here.
+ *
+ * Plural forms are functions of the count so Spanish gets "reserva"/"reservas" instead of an "s".
+ */
+export interface RealmUiStrings {
+  /** An ISO date in the page language: "May 19, 2026" / "19 may 2026". */
+  date: (iso: string | null | undefined) => string;
+  oxygen: {
+    aria: string;
+    title: string;
+    perLot: string;
+    days: string;
+    /** Headline suffix after the trailing count: "days gained in the last 90". */
+    gainedInLast: (windowDays: number) => string;
+    /** The arithmetic under the headline, by band. `diff` is |gained − window|, always ≥ 0. */
+    verdict: Record<OxygenBand, (gained: number, windowDays: number, diff: number) => string>;
+    /** Topbar pill: text and its tooltip. */
+    pill: (gained: number, windowDays: number) => string;
+    pillTitle: (gained: number, windowDays: number, verdict: string) => string;
+    pillLoading: string;
+    cumulative: string;
+    cumulativeTitle: string;
+    provisional: string;
+    provisionalTitle: (n: number, pct: number) => string;
+    confirmed: (closings: number) => string;
+    reservationsProvisional: (n: number, pct: number) => string;
+    produces: (perDay: string) => string;
+    latest: string;
+    deepest: string;
+    /** Extra tooltip line on the deepest breath: why an old dollar bought more days. */
+    deepestWhy: string;
+    net: (amount: string) => string;
+    paceThatDay: (date: string, perDay: string) => string;
+  };
+  debt: {
+    aria: string;
+    title: string;
+    asOf: (asOf: string, deadline: string) => string;
+    capitalOwed: string;
+    capitalOwedHint: (openPositions: number, interestPerDay: string) => string;
+    daysLeft: string;
+    daysLeftTo: (deadline: string) => string;
+    deadlinePassed: string;
+    requiredPerDay: string;
+    noClosings: string;
+    averagedSince: (perDay: string, sinceLabel: string, days: string) => string;
+    averagedAllTime: (perDay: string, firstClose: string) => string;
+    averagedFirstClosing: (perDay: string) => string;
+    actualPace: string;
+    required: string;
+  };
+  pulse: {
+    aria: string;
+    producing: string;
+    producingHint: string;
+    needed: string;
+    neededHint: string;
+    ratio: (pct: number, horizonYear: number) => string;
+  };
+  pulseCharts: {
+    aria: string;
+    paceTitle: string;
+    paceLegend: string;
+    profitTitle: string;
+    profitLegend: string;
+    reservations: string;
+    closings: string;
+    netProfit: string;
+    required: string;
+    monthInProgress: string;
+    eraNote: (eraLabel: string) => string;
+    tooltipReservations: (n: number) => string;
+    tooltipClosings: (n: number) => string;
+  };
+  goalCurve: {
+    aria: string;
+    title: string;
+    /** Legend under the title; `eraMonth` is the era's first month ("Mar 2026") or null without one. */
+    legend: (eraMonth: string | null) => string;
+    today: string;
+    /** Deadline marker: the horizon year. */
+    deadline: (year: number) => string;
+    actual: string;
+    required: string;
+    /** Projection at the all-sold average: "projected · ledger average $58,852/lot". */
+    projectedLifetime: (avgPerLot: string, lots: number) => string;
+    projectedRecent: (avgPerLot: string, lots: number, eraMonth: string) => string;
+    /** Marker under the crossing dot: "Jan 8, 2029 · misses the deadline by 12.3 months". */
+    misses: (date: string, months: string) => string;
+    beats: (date: string, months: string) => string;
+    onTheDay: (date: string) => string;
+    /** Marker when the crossing lies past the axis: "not before Dec 2029 at this pace". */
+    beyond: (edgeDate: string) => string;
+    /** Second marker's tag. */
+    atRecentAverage: (eraMonth: string) => string;
+    noPace: string;
+    noHistory: string;
+    met: string;
+    behind: string;
+    ahead: string;
+    /** Tooltip row labels. */
+    tooltipActual: string;
+    tooltipRequired: string;
+    tooltipProjected: string;
+    tooltipProjectedRecent: string;
+  };
+  gauge: {
+    aria: string;
+    /** The one sentence: pace, horizon year, then the three units. */
+    sentence: (pace: string, year: number, lots: string, dollars: string, days: string, side: "ahead" | "behind" | "even") => string;
+    /** Days part when there is no pace to divide by. */
+    noPaceDays: string;
+    noPace: (pace: string, year: number, lots: string, dollars: string) => string;
+    noHistory: string;
+    met: string;
+    hint: (eraMonth: string | null) => string;
+  };
+  pipeline: {
+    aria: string;
+    title: string;
+    stuckList: string;
+    trapped: string;
+    waiting: (stuckAfterDays: number, sales: string) => string;
+    reservationsPerMonth: string;
+    sinceWaiting: (n: number, since: string, days: number) => string;
+    inDaysWaiting: (n: number, windowDays: number) => string;
+    closingsPerMonth: string;
+    onlyPace: string;
+    conversion: string;
+    conversionHint: (closed: number, cohort: number, maturityDays: number) => string;
+    cancelled: (pct: string) => string;
+    inclCancellations: (pct: string) => string;
+    medianToClose: string;
+    medianHint: (lots: number) => string;
+  };
+  liberation: {
+    hostagesAria: string;
+    hostages: (n: number) => string;
+    returnedOf: (returned: string, capital: string) => string;
+    totalReturned: (returned: string, capital: string, pct: string) => string;
+    freed: (date: string) => string;
+    afterDays: (days: number) => string;
+    toGo: (amount: string) => string;
+    paidOnTop: (amount: string) => string;
+    nobodyOwed: string;
+    liberatedAria: string;
+    liberated: (n: number) => string;
+    nobodyFreed: string;
+    freeSponsors: (names: string) => string;
+  };
+  celebration: {
+    aria: string;
+    close: string;
+    kind: Partial<Record<RealmEvent["kind"], string>>;
+    sinceLastVisit: string;
+    thingsHappened: (n: number) => string;
+    onward: string;
+  };
+  intro: {
+    tagline: (horizon: number) => string;
+  };
+  milestone: {
+    title: (date: string) => string;
+    caption: string;
+  };
+  pageStates: {
+    loading: string;
+    errorTitle: string;
+    retry: string;
+    partialTables: string;
+    error: string;
+  };
+  questTree: {
+    aria: string;
+    reached: (date: string) => string;
+    toward: (pct: string, target: string) => string;
+  };
+  stage: Record<LotStage, string>;
+  fitMoney: {
+    showFullName: (text: string) => string;
+  };
+  streaks: {
+    closing: StreakWording;
+    reservation: StreakWording;
+    current: string;
+    weeks: (n: number) => string;
+    daysLeftToKeep: (n: number) => string;
+    best: string;
+    endedOn: (date: string) => string;
+    bestWeek: string;
+    bestMonth: string;
+    since: (label: string) => string;
+    weekOf: (date: string, money: string, moneyLabel: string) => string;
+    noneSince: (label: string) => string;
+    bestMonthHint: (month: string, money: string, moneyLabel: string, bestMonths: number) => string;
+  };
+  trophies: {
+    rarity: Record<Trophy["rarity"], string>;
+    earnedOn: (date: string) => string;
+    earned: (n: number) => string;
+    noneYet: string;
+    stillToEarn: (n: number) => string;
+  };
+}
+
+export interface StreakWording {
+  title: string;
+  noun: (n: number) => string;
+  lit: string;
+  none: string;
+  noneYet: string;
+  moneyLabel: string;
+  leftOut: (n: number) => string;
+  lastWeeks: (n: number) => string;
+}
+
+export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
+  en: {
+    date: (iso) => dateIn("en", iso),
+    oxygen: {
+      aria: "Oxygen",
+      title: "Oxygen · days gained against days passed",
+      perLot: "per lot in the ledger →",
+      days: "days",
+      gainedInLast: (windowDays) => `days gained in the last ${windowDays}`,
+      verdict: {
+        behind: (gained, windowDays, diff) =>
+          `${windowDays} days passed − ${gained} gained: at this pace the exit date moves away by ${diff} ${diff === 1 ? "day" : "days"} every ${windowDays}`,
+        ahead: (gained, windowDays, diff) =>
+          `${gained} gained − ${windowDays} days passed: at this pace the exit date comes ${diff} ${diff === 1 ? "day" : "days"} closer every ${windowDays}`,
+        even: (gained, windowDays) => `${gained} gained in ${windowDays} days passed: at this pace the exit date holds still`,
+      },
+      pill: (gained, windowDays) => `${gained}/${windowDays}d`,
+      pillTitle: (gained, windowDays, verdict) => `Oxygen — ${gained} days gained in the last ${windowDays}. ${verdict}`,
+      pillLoading: "Oxygen loading",
+      cumulative: "Cumulative historical score",
+      cumulativeTitle:
+        "Sum of every closed lot's days gained, each measured at the realm's pace on its own closing day (net profit ÷ that day's net profit per day). Different days, different paces: a running tally of the game, not a distance from anything.",
+      provisional: "provisional",
+      provisionalTitle: (n, pct) =>
+        `Provisional: ${n} live ${n === 1 ? "reservation" : "reservations"} at ${pct}% conversion, measured at the pace of their reservation day. Confirmed at closing, forfeited at cancellation. Never added to any total.`,
+      confirmed: (closings) => `${closings} ${closings === 1 ? "closing" : "closings"} confirmed, each scored on its own closing day`,
+      reservationsProvisional: (n, pct) => `${n} ${n === 1 ? "reservation" : "reservations"} provisional at ${pct}% conversion`,
+      produces: (perDay) => `today the realm produces ${perDay} of net profit per day`,
+      latest: "Latest breath",
+      deepest: "Deepest breath",
+      deepestWhy: "Days gained = net profit ÷ that day's pace: the same dollar bought more days when the realm was slower.",
+      net: (amount) => `net ${amount}`,
+      paceThatDay: (date, perDay) => `${date} · when the realm earned ${perDay} a day`,
+    },
+    debt: {
+      aria: "The Debt",
+      title: "The Debt",
+      asOf: (asOf, deadline) => `as of ${asOf} · deadline ${deadline}`,
+      capitalOwed: "Capital still owed to sponsors",
+      capitalOwedHint: (open, interest) => `${open} open ${open === 1 ? "position" : "positions"} · ${interest} of interest accrues per day`,
+      daysLeft: "Days left",
+      daysLeftTo: (deadline) => `to ${deadline}`,
+      deadlinePassed: "the deadline has passed",
+      requiredPerDay: "Net profit required per day",
+      noClosings: "no closings yet",
+      averagedSince: (perDay, sinceLabel, days) => `you have averaged ${perDay} / day ${sinceLabel} (${days} days)`,
+      averagedAllTime: (perDay, firstClose) => ` · ${perDay} / day over the full history since ${firstClose}`,
+      averagedFirstClosing: (perDay) => `you have averaged ${perDay} / day since the first closing`,
+      actualPace: "actual pace per day",
+      required: "required",
+    },
+    pulse: {
+      aria: "The Pulse",
+      producing: "Producing",
+      producingHint: "net profit per day at the trailing pace",
+      needed: "Needed",
+      neededHint: "remaining ÷ days left",
+      ratio: (pct, year) => `you are at ${pct}% of the pace the ${year} horizon requires`,
+    },
+    pulseCharts: {
+      aria: "The Pulse charts",
+      paceTitle: "Reservations lead, closings pay",
+      paceLegend: "Reservations · Closings · required",
+      profitTitle: "Net profit per month",
+      profitLegend: "Net profit · required",
+      reservations: "Reservations",
+      closings: "Closings",
+      netProfit: "Net profit",
+      required: "required",
+      monthInProgress: "month in progress",
+      eraNote: (era) => `Fainter bars are months that ended before sales operations started in earnest in ${era}.`,
+      tooltipReservations: (n) => `Reservations ${n}`,
+      tooltipClosings: (n) => `Closings ${n}`,
+    },
+    goalCurve: {
+      aria: "The Curve — cumulative net profit against the required line",
+      title: "The Curve · are we above or below",
+      legend: (era) =>
+        `Booked net profit by month · the straight line the deadline requires · where today's pace lands, at the ledger average and${era ? ` at the since-${era} average` : " (no era average yet)"}`,
+      today: "today",
+      deadline: (year) => `${year} deadline`,
+      actual: "Booked",
+      required: "Required",
+      projectedLifetime: (avg, lots) => `Projected · ledger average ${avg}/lot (${lots} closings)`,
+      projectedRecent: (avg, lots, era) => `Projected · since-${era} average ${avg}/lot (${lots} closings)`,
+      misses: (date, months) => `${date} · misses the deadline by ${months} months`,
+      beats: (date, months) => `${date} · beats the deadline by ${months} months`,
+      onTheDay: (date) => `${date} · on the deadline`,
+      beyond: (edge) => `not before ${edge} at this pace`,
+      atRecentAverage: (era) => `at the since-${era} average`,
+      noPace: "No closing in the trailing window: today's pace projects nowhere. Only the required line is drawn.",
+      noHistory: "No closed lot yet: there is no average to project with. Only the required line is drawn.",
+      met: "The goal is met; every line rests on $10M.",
+      behind: "behind the required line",
+      ahead: "ahead of the required line",
+      tooltipActual: "Booked",
+      tooltipRequired: "Required",
+      tooltipProjected: "Projected · ledger average",
+      tooltipProjectedRecent: "Projected · era average",
+    },
+    gauge: {
+      aria: "The Gauge — deviation at the deadline in lots, dollars and days",
+      sentence: (pace, year, lots, dollars, days, side) =>
+        side === "even"
+          ? `At today's pace of ${pace} lots/month, the ${year} deadline lands exactly on the goal.`
+          : `At today's pace of ${pace} lots/month, the ${year} deadline lands ${lots} lots · ${dollars} · ${days} days ${side}.`,
+      noPaceDays: "no pace to count the days",
+      noPace: (pace, year, lots, dollars) => `No closing in the trailing window (${pace} lots/month): by ${year} every remaining lot is behind — ${lots} lots · ${dollars} · no pace to count the days.`,
+      noHistory: "No closed lot yet — there is no average to measure the deadline against.",
+      met: "The goal is met. Nothing is behind.",
+      hint: (era) =>
+        `Lots the trailing pace closes by the deadline minus the lots still needed at the ledger average; those lots in dollars; those dollars at today's net profit per day. Same root as the Curve's marker${era ? `; the since-${era} average is the dotted line above` : ""}.`,
+    },
+    pipeline: {
+      aria: "Pipeline",
+      title: "Pipeline · reservations lead, closings pay",
+      stuckList: "the stuck list →",
+      trapped: "Profit trapped in reservations",
+      waiting: (days, sales) => `reservations waiting ${days}+ days · ${sales} of sales`,
+      reservationsPerMonth: "Reservations / mo",
+      sinceWaiting: (n, since, days) => `${n} since ${since} (${days} days), still waiting`,
+      inDaysWaiting: (n, window) => `${n} in ${window} days, still waiting`,
+      closingsPerMonth: "Closings / mo",
+      onlyPace: "the only pace that counts",
+      conversion: "Conversion",
+      conversionHint: (closed, cohort, maturity) => `${closed} of ${cohort} reserved ${maturity}+ days ago closed`,
+      cancelled: (pct) => `${pct} cancelled`,
+      inclCancellations: (pct) => `, ${pct} incl. cancellations`,
+      medianToClose: "Median to close",
+      medianHint: (lots) => `reservation → closing, ${lots} ${lots === 1 ? "lot" : "lots"}`,
+    },
+    liberation: {
+      hostagesAria: "Hostages of the realm",
+      hostages: (n) => `Hostages of the realm · ${n}`,
+      returnedOf: (returned, capital) => `${returned} of ${capital} returned`,
+      totalReturned: (returned, capital, pct) => `${returned} of ${capital} returned · ${pct}`,
+      freed: (date) => ` · freed ${date}`,
+      afterDays: (days) => ` after ${days} ${days === 1 ? "day" : "days"}`,
+      toGo: (amount) => ` · ${amount} to go`,
+      paidOnTop: (amount) => ` · ${amount} paid on top`,
+      nobodyOwed: "No sponsor is owed anything. The realm is free.",
+      liberatedAria: "Liberated",
+      liberated: (n) => `Liberated · ${n}`,
+      nobodyFreed: "Nobody has been freed yet. The first farm to return 100% of its capital opens this gallery.",
+      freeSponsors: (names) => `Free sponsors (every position repaid): ${names}.`,
+    },
+    celebration: {
+      aria: "Celebration",
+      close: "Close celebration",
+      kind: { closing: "A lot was claimed", note_sale: "A note was sold", liberation: "A sponsor walks free" },
+      sinceLastVisit: "Since your last visit",
+      thingsHappened: (n) => `${n} things happened since your last visit`,
+      onward: "Onward",
+    },
+    intro: {
+      tagline: (horizon) => `Ten million by the last day of ${horizon}`,
+    },
+    milestone: {
+      title: (date) => `Milestone · ${date}`,
+      caption: "of net profit chronicled",
+    },
+    pageStates: {
+      loading: "Loading realm data",
+      errorTitle: "The chronicle could not be read",
+      retry: "Try again",
+      partialTables: "Some tables could not be read; numbers below are partial.",
+      error: "error",
+    },
+    questTree: {
+      aria: "Quest chain",
+      reached: (date) => `Reached ${date}`,
+      toward: (pct, target) => `${pct}% toward ${target}`,
+    },
+    stage: { available: "Available", reserved: "Reserved", closed: "Closed", note_sold: "Note sold" },
+    fitMoney: {
+      showFullName: (text) => `Show full name: ${text}`,
+    },
+    streaks: {
+      closing: {
+        title: "Closing streaks",
+        noun: (n) => (n === 1 ? "closing" : "closings"),
+        lit: "a lot closed this week — the flame is lit",
+        none: "no closing last week or this week",
+        noneYet: "no closings yet",
+        moneyLabel: "net",
+        leftOut: (n) => ` · ${n} earlier ${n === 1 ? "closing" : "closings"} left out`,
+        lastWeeks: (n) => `Last ${n} weeks with a closing`,
+      },
+      reservation: {
+        title: "Reservation streaks",
+        noun: (n) => (n === 1 ? "reservation" : "reservations"),
+        lit: "a lot was reserved this week — the line is unbroken",
+        none: "no reservation last week or this week",
+        noneYet: "no reservations yet",
+        moneyLabel: "net at stake",
+        leftOut: (n) => ` · ${n} earlier ${n === 1 ? "reservation" : "reservations"} left out`,
+        lastWeeks: (n) => `Last ${n} weeks with a reservation`,
+      },
+      current: "Current streak",
+      weeks: (n) => `${n} ${n === 1 ? "week" : "weeks"}`,
+      daysLeftToKeep: (n) => `${n} ${n === 1 ? "day" : "days"} left this week to keep it alive`,
+      best: "Best streak",
+      endedOn: (date) => `ended ${date}`,
+      bestWeek: "Best week",
+      bestMonth: "Best month",
+      since: (label) => ` · ${label}`,
+      weekOf: (date, money, moneyLabel) => `week of ${date} · ${money} ${moneyLabel}`,
+      noneSince: (label) => `none ${label}`,
+      bestMonthHint: (month, money, moneyLabel, bestMonths) => `${month} · ${money} ${moneyLabel} · best run ${bestMonths} ${bestMonths === 1 ? "month" : "months"}`,
+    },
+    trophies: {
+      rarity: { common: "Common", rare: "Rare", epic: "Epic", legendary: "Legendary" },
+      earnedOn: (date) => `Earned ${date}`,
+      earned: (n) => `Earned · ${n}`,
+      noneYet: "No trophies yet. The first closing earns First Blood.",
+      stillToEarn: (n) => `Still to earn · ${n}`,
+    },
+  },
+  es: {
+    date: (iso) => dateIn("es", iso),
+    oxygen: {
+      aria: "Oxígeno",
+      title: "Oxígeno · días ganados contra días transcurridos",
+      perLot: "por lote en el libro →",
+      days: "días",
+      gainedInLast: (windowDays) => `días ganados en los últimos ${windowDays}`,
+      verdict: {
+        behind: (gained, windowDays, diff) =>
+          `${windowDays} días transcurridos − ${gained} ganados: a este ritmo la fecha de salida se aleja ${diff} ${diff === 1 ? "día" : "días"} cada ${windowDays}`,
+        ahead: (gained, windowDays, diff) =>
+          `${gained} ganados − ${windowDays} días transcurridos: a este ritmo la fecha de salida se acerca ${diff} ${diff === 1 ? "día" : "días"} cada ${windowDays}`,
+        even: (gained, windowDays) => `${gained} ganados en ${windowDays} días transcurridos: a este ritmo la fecha de salida no se mueve`,
+      },
+      pill: (gained, windowDays) => `${gained}/${windowDays}d`,
+      pillTitle: (gained, windowDays, verdict) => `Oxígeno — ${gained} días ganados en los últimos ${windowDays}. ${verdict}`,
+      pillLoading: "Cargando el oxígeno",
+      cumulative: "Marcador histórico acumulado",
+      cumulativeTitle:
+        "Suma de los días ganados por cada lote cerrado, cada uno medido al ritmo del reino el día de su propio cierre (utilidad neta ÷ utilidad neta por día de ese día). Días distintos, ritmos distintos: un marcador acumulado del juego, no una distancia respecto a nada.",
+      provisional: "provisional",
+      provisionalTitle: (n, pct) =>
+        `Provisional: ${n} ${n === 1 ? "reserva viva" : "reservas vivas"} al ${pct}% de conversión, medidas al ritmo del día en que se reservaron. Se confirman al cierre y se pierden si se cancelan. Nunca se suman a ningún total.`,
+      confirmed: (closings) => `${closings} ${closings === 1 ? "cierre confirmado" : "cierres confirmados"}, cada uno puntuado el día de su propio cierre`,
+      reservationsProvisional: (n, pct) => `${n} ${n === 1 ? "reserva provisional" : "reservas provisionales"} al ${pct}% de conversión`,
+      produces: (perDay) => `hoy el reino produce ${perDay} de utilidad neta al día`,
+      latest: "Último respiro",
+      deepest: "Respiro más profundo",
+      deepestWhy: "Días ganados = utilidad neta ÷ ritmo de ese día: el mismo dólar compraba más días cuando el reino iba más lento.",
+      net: (amount) => `neta ${amount}`,
+      paceThatDay: (date, perDay) => `${date} · cuando el reino ganaba ${perDay} al día`,
+    },
+    debt: {
+      aria: "La Deuda",
+      title: "La Deuda",
+      asOf: (asOf, deadline) => `al ${asOf} · fecha límite ${deadline}`,
+      capitalOwed: "Capital que aún se debe a los sponsors",
+      capitalOwedHint: (open, interest) => `${open} ${open === 1 ? "posición abierta" : "posiciones abiertas"} · ${interest} de interés se acumulan por día`,
+      daysLeft: "Días restantes",
+      daysLeftTo: (deadline) => `hasta el ${deadline}`,
+      deadlinePassed: "la fecha límite ya pasó",
+      requiredPerDay: "Utilidad neta requerida por día",
+      noClosings: "aún no hay cierres",
+      averagedSince: (perDay, sinceLabel, days) => `has promediado ${perDay} / día ${sinceLabel} (${days} días)`,
+      averagedAllTime: (perDay, firstClose) => ` · ${perDay} / día en toda la historia desde el ${firstClose}`,
+      averagedFirstClosing: (perDay) => `has promediado ${perDay} / día desde el primer cierre`,
+      actualPace: "ritmo real por día",
+      required: "requerido",
+    },
+    pulse: {
+      aria: "El Pulso",
+      producing: "Produciendo",
+      producingHint: "utilidad neta por día al ritmo móvil",
+      needed: "Necesario",
+      neededHint: "restante ÷ días restantes",
+      ratio: (pct, year) => `vas al ${pct}% del ritmo que exige el horizonte ${year}`,
+    },
+    pulseCharts: {
+      aria: "Gráficas del Pulso",
+      paceTitle: "Las reservas abren, los cierres pagan",
+      paceLegend: "Reservas · Cierres · requerido",
+      profitTitle: "Utilidad neta por mes",
+      profitLegend: "Utilidad neta · requerido",
+      reservations: "Reservas",
+      closings: "Cierres",
+      netProfit: "Utilidad neta",
+      required: "requerido",
+      monthInProgress: "mes en curso",
+      eraNote: (era) => `Las barras más tenues son meses que terminaron antes de que las ventas arrancaran en serio en ${era}.`,
+      tooltipReservations: (n) => `Reservas ${n}`,
+      tooltipClosings: (n) => `Cierres ${n}`,
+    },
+    goalCurve: {
+      aria: "La Curva — utilidad neta acumulada frente a la línea requerida",
+      title: "La Curva · ¿vamos arriba o abajo?",
+      legend: (era) =>
+        `Utilidad neta registrada por mes · la recta que exige la fecha límite · dónde aterriza el ritmo de hoy, al promedio del libro y${era ? ` al promedio desde ${era}` : " (aún sin promedio de la era)"}`,
+      today: "hoy",
+      deadline: (year) => `límite ${year}`,
+      actual: "Registrado",
+      required: "Requerido",
+      projectedLifetime: (avg, lots) => `Proyectado · promedio del libro ${avg}/lote (${lots} cierres)`,
+      projectedRecent: (avg, lots, era) => `Proyectado · promedio desde ${era} ${avg}/lote (${lots} cierres)`,
+      misses: (date, months) => `${date} · llega ${months} meses después del límite`,
+      beats: (date, months) => `${date} · llega ${months} meses antes del límite`,
+      onTheDay: (date) => `${date} · justo en el límite`,
+      beyond: (edge) => `no antes de ${edge} a este ritmo`,
+      atRecentAverage: (era) => `al promedio desde ${era}`,
+      noPace: "Ningún cierre en la ventana: el ritmo de hoy no proyecta a ninguna fecha. Solo se dibuja la línea requerida.",
+      noHistory: "Aún no hay lotes cerrados: no hay promedio con qué proyectar. Solo se dibuja la línea requerida.",
+      met: "La meta está cumplida; todas las líneas descansan en $10M.",
+      behind: "por debajo de la línea requerida",
+      ahead: "por encima de la línea requerida",
+      tooltipActual: "Registrado",
+      tooltipRequired: "Requerido",
+      tooltipProjected: "Proyectado · promedio del libro",
+      tooltipProjectedRecent: "Proyectado · promedio de la era",
+    },
+    gauge: {
+      aria: "El Medidor — desvío en la fecha límite en lotes, dólares y días",
+      sentence: (pace, year, lots, dollars, days, side) =>
+        side === "even"
+          ? `Al ritmo de hoy, ${pace} lotes/mes, el límite ${year} cae exactamente en la meta.`
+          : `Al ritmo de hoy, ${pace} lotes/mes, el límite ${year} queda ${lots} lotes · ${dollars} · ${days} días ${side === "behind" ? "atrás" : "adelante"}.`,
+      noPaceDays: "sin ritmo para contar los días",
+      noPace: (pace, year, lots, dollars) => `Ningún cierre en la ventana (${pace} lotes/mes): para ${year} todo lote pendiente queda atrás — ${lots} lotes · ${dollars} · sin ritmo para contar los días.`,
+      noHistory: "Aún no hay lotes cerrados: no hay promedio con qué medir la fecha límite.",
+      met: "La meta está cumplida. Nada queda atrás.",
+      hint: (era) =>
+        `Lotes que el ritmo actual cierra hasta el límite menos los lotes que aún faltan al promedio del libro; esos lotes en dólares; esos dólares al ritmo de utilidad neta por día de hoy. Misma raíz que el marcador de la Curva${era ? `; el promedio desde ${era} es la línea punteada de arriba` : ""}.`,
+    },
+    pipeline: {
+      aria: "Pipeline",
+      title: "Pipeline · las reservas abren, los cierres pagan",
+      stuckList: "la lista de atascados →",
+      trapped: "Utilidad atrapada en reservas",
+      waiting: (days, sales) => `reservas esperando ${days}+ días · ${sales} en ventas`,
+      reservationsPerMonth: "Reservas / mes",
+      sinceWaiting: (n, since, days) => `${n} desde ${since} (${days} días), aún en espera`,
+      inDaysWaiting: (n, window) => `${n} en ${window} días, aún en espera`,
+      closingsPerMonth: "Cierres / mes",
+      onlyPace: "el único ritmo que cuenta",
+      conversion: "Conversión",
+      conversionHint: (closed, cohort, maturity) => `${closed} de ${cohort} reservados hace ${maturity}+ días cerraron`,
+      cancelled: (pct) => `${pct} canceladas`,
+      inclCancellations: (pct) => `, ${pct} incl. cancelaciones`,
+      medianToClose: "Mediana hasta el cierre",
+      medianHint: (lots) => `reserva → cierre, ${lots} ${lots === 1 ? "lote" : "lotes"}`,
+    },
+    liberation: {
+      hostagesAria: "Rehenes del reino",
+      hostages: (n) => `Rehenes del reino · ${n}`,
+      returnedOf: (returned, capital) => `${returned} de ${capital} devueltos`,
+      totalReturned: (returned, capital, pct) => `${returned} de ${capital} devueltos · ${pct}`,
+      freed: (date) => ` · liberado el ${date}`,
+      afterDays: (days) => ` tras ${days} ${days === 1 ? "día" : "días"}`,
+      toGo: (amount) => ` · faltan ${amount}`,
+      paidOnTop: (amount) => ` · ${amount} pagados de más`,
+      nobodyOwed: "No se le debe nada a ningún sponsor. El reino es libre.",
+      liberatedAria: "Liberados",
+      liberated: (n) => `Liberados · ${n}`,
+      nobodyFreed: "Nadie ha sido liberado aún. La primera finca que devuelva el 100% de su capital abre esta galería.",
+      freeSponsors: (names) => `Sponsors libres (todas sus posiciones pagadas): ${names}.`,
+    },
+    celebration: {
+      aria: "Celebración",
+      close: "Cerrar la celebración",
+      kind: { closing: "Un lote fue conquistado", note_sale: "Se vendió un pagaré", liberation: "Un sponsor queda libre" },
+      sinceLastVisit: "Desde tu última visita",
+      thingsHappened: (n) => `${n} cosas pasaron desde tu última visita`,
+      onward: "Adelante",
+    },
+    intro: {
+      tagline: (horizon) => `Diez millones para el último día de ${horizon}`,
+    },
+    milestone: {
+      title: (date) => `Hito · ${date}`,
+      caption: "de utilidad neta en la crónica",
+    },
+    pageStates: {
+      loading: "Cargando los datos del reino",
+      errorTitle: "No se pudo leer la crónica",
+      retry: "Reintentar",
+      partialTables: "Algunas tablas no se pudieron leer; las cifras de abajo son parciales.",
+      error: "error",
+    },
+    questTree: {
+      aria: "Cadena de misiones",
+      reached: (date) => `Alcanzado el ${date}`,
+      toward: (pct, target) => `${pct}% hacia ${target}`,
+    },
+    stage: { available: "Disponible", reserved: "Reservado", closed: "Cerrado", note_sold: "Pagaré vendido" },
+    fitMoney: {
+      showFullName: (text) => `Mostrar el nombre completo: ${text}`,
+    },
+    streaks: {
+      closing: {
+        title: "Rachas de cierres",
+        noun: (n) => (n === 1 ? "cierre" : "cierres"),
+        lit: "un lote cerró esta semana — la llama está encendida",
+        none: "sin cierres la semana pasada ni esta",
+        noneYet: "aún no hay cierres",
+        moneyLabel: "neta",
+        leftOut: (n) => ` · ${n} ${n === 1 ? "cierre anterior" : "cierres anteriores"} fuera del conteo`,
+        lastWeeks: (n) => `Últimas ${n} semanas con un cierre`,
+      },
+      reservation: {
+        title: "Rachas de reservas",
+        noun: (n) => (n === 1 ? "reserva" : "reservas"),
+        lit: "un lote se reservó esta semana — la línea sigue intacta",
+        none: "sin reservas la semana pasada ni esta",
+        noneYet: "aún no hay reservas",
+        moneyLabel: "neta en juego",
+        leftOut: (n) => ` · ${n} ${n === 1 ? "reserva anterior" : "reservas anteriores"} fuera del conteo`,
+        lastWeeks: (n) => `Últimas ${n} semanas con una reserva`,
+      },
+      current: "Racha actual",
+      weeks: (n) => `${n} ${n === 1 ? "semana" : "semanas"}`,
+      daysLeftToKeep: (n) => `${n === 1 ? "queda 1 día" : `quedan ${n} días`} esta semana para mantenerla viva`,
+      best: "Mejor racha",
+      endedOn: (date) => `terminó el ${date}`,
+      bestWeek: "Mejor semana",
+      bestMonth: "Mejor mes",
+      since: (label) => ` · ${label}`,
+      weekOf: (date, money, moneyLabel) => `semana del ${date} · ${money} ${moneyLabel}`,
+      noneSince: (label) => `ninguna ${label}`,
+      bestMonthHint: (month, money, moneyLabel, bestMonths) => `${month} · ${money} ${moneyLabel} · mejor tramo ${bestMonths} ${bestMonths === 1 ? "mes" : "meses"}`,
+    },
+    trophies: {
+      rarity: { common: "Común", rare: "Raro", epic: "Épico", legendary: "Legendario" },
+      earnedOn: (date) => `Obtenido el ${date}`,
+      earned: (n) => `Obtenidos · ${n}`,
+      noneYet: "Aún no hay trofeos. El primer cierre gana First Blood.",
+      stillToEarn: (n) => `Por obtener · ${n}`,
+    },
+  },
+};
+
+/** The realm strings for the language chosen in the drawer. */
+export function useRealmStrings(): RealmUiStrings {
+  const [lang] = useLang();
+  return REALM_UI[lang];
+}

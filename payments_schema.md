@@ -97,6 +97,9 @@ Ben White, Sharps Rd, Olney, Red River 1 are legacy/one-off properties with no l
 
 Verified totals (2026-09-10): **71 file cases on subdivided farms · $8,986,794.30 sale_price ·
 32 completed · 39 active · 7 cash · 64 financed.** (The other rows are houses / other lines.)
+Since 2026-09-11 (snapshots 19:17 and 21:31 UTC): still 71 · **$8,984,992.30** (Titus Lot 6 re-priced
+from $141,802 to its note's $140,000) · **37 completed · 34 active** (Lamar 5, 6, 7 and Eastland 4, 8
+closed) · 7 cash · 64 financed — see PROGRESS.md "Snapshot 2026-09-11 refresh".
 
 ## notes  (promissory note created at closing of a financed sale)
 
@@ -183,13 +186,19 @@ Verified: **32 distributions · $793,990.46 paid out.**
 | property_id | uuid | FK → properties.id (nullable) |
 | cost_date | date | |
 | amount | numeric | |
-| category | text | observed: `purchase` |
+| category | text | observed: `purchase`, `survey` (surveys added 2026-09-11) |
 | cost_class | text | observed: `mandatory` |
 | description | text | |
 | created_by | uuid | |
 | created_at | timestamptz | |
 
-Verified: 13 rows · $5,797,147.50 total (purchase cost of the 13 farms).
+Verified (snapshot 2026-09-11 02:07 UTC): 13 rows · $5,797,147.50 total (purchase cost of the 13 farms).
+Refreshed 2026-09-11 19:17 UTC: **24 rows · $5,901,906** — the 13 purchases plus **11 `survey` rows
+totalling $104,758.50** (Avery 9,500 · Eastland 15,000 · Franklin 7,361 · Freestone 9,000 · Lamar
+9,000 · Olney 8,443.50 · Promised Valley 10,000 · Red River 1 3,897 + 6,062 · Titus 6,495 · Wichita
+20,000), each dated on its farm's funding day (Red River 1's two on 2026-09-02), all with
+`property_id` null (farm-level, so the lot ledger splits them equally across the unreleased lots).
+`farm_acquisitions.investor_capital` was set to purchase + survey on the same 10 farms.
 
 ## investors
 
@@ -223,6 +232,23 @@ Portafolio Diversificado · (one more).
 id uuid · legal_name text · trade_name text · tax_id text · address · phone · email · logo_url ·
 is_default bool · is_active bool · created_at · updated_at.
 
+## profiles  (one row per Payments login; decides who may enter Quest)
+
+Not introspected on 2026-09-10; the two columns below were confirmed by reading them on
+2026-09-11 (`select id, role from profiles where id = auth.uid()` as the questbot viewer — 1 row,
+role `viewer`). No other column of this table has been looked at or is used.
+
+| column | type | notes |
+|---|---|---|
+| id | uuid | PK = `auth.users.id` of the login |
+| role | text | observed values: `admin` (7 rows), `investor` (5), `viewer` (1, the questbot). `note_buyer` is a role Payments uses but no row carried it that day |
+
+Quest reads **only the signed-in user's own row** (`.eq("id", <auth user id>).limit(1)`, columns
+`id, role`) right after sign-in and admits the user only when `role = 'admin'` — or when the e-mail
+is the one in `QUEST_ALLOWED_TEST_EMAIL` (the questbot). Under the current RLS policy the viewer
+login can in fact `select` every profiles row (13 on 2026-09-11); Quest does not, and this is
+recorded as a question for Payments in OPEN_QUESTIONS.md, not something Quest works around.
+
 ---
 
 ## Known data-quality issues (surface them, do not "fix" them)
@@ -233,10 +259,37 @@ Quest v2 must show them in a Data Quality panel and apply the price rule from GO
 - Titus Lot 6: file_case $141,802 / $7,090.10 vs note $140,000 / $5,000
 - Lamar Lot 5, 6, 7: file_case $118,506.75 or $133,641 / $5,000 vs note $113,507 or $128,641 / $4,000
 - Eastland Lot 3: file_case $130,515 vs note $125,515 (down payment 5,000 vs 0)
-- Lamar Lot 5: file_case reservation_date is 2026-09-07 but note start_date is 2025-11-05
+- Lamar Lot 5: file_case reservation_date was 2026-09-07 while the note start_date is 2025-11-05 —
+  corrected in Payments to 2025-09-07 (seen in the 2026-09-11 19:17 UTC refresh); no longer an issue
 
 ## Views that exist in Payments (read-only, may be useful)
 
 `v_note_summary`, `v_portfolio_dashboard`, `v_monthly_cash_flow`, `v_file_case_summary`,
 `v_outbound_summary`, `v_tape_export`. Their columns were NOT introspected for this document;
 if you use one, first run `select * from <view> limit 1` and record the columns in OPEN_QUESTIONS.md.
+
+## RPC `compute_lot_ledger(p_farm_id uuid, p_as_of date)`  (read-only; the lot ledger of one farm)
+
+Called by the viewer through `supabase.rpc('compute_lot_ledger', { p_farm_id, p_as_of })` — HTTP 200,
+no grant problem (checked 2026-09-11 19:42 UTC). It only reads. `scripts/snapshot.ts` calls it once per
+farm with `deal_type = 'fixed_interest'` and stores the raw rows in the fixture under `lotLedgers`
+(`{ farmId, farmName, asOf, rows }`). One row per `properties` row of the farm. The **real returned
+columns**, as observed (not guessed):
+
+| column | type | meaning as observed |
+|---|---|---|
+| property_id | uuid | the lot |
+| lot_number | text | nullable (Eastland has one property without a lot number; it still takes its share of farm costs) |
+| lot_capital | numeric | Σ capital entries: lot-level `property_costs` + the lot's equal share of every farm-level cost booked while it was unreleased |
+| accrued_return | numeric | Σ amt × rate/100 × days/365, days from each cost to `min(as_of, released_at)`; `rate` = `farm_acquisitions.annual_interest_rate`, a PERCENT |
+| credits | numeric | down payments + note sales + completed cash closings applied to the lot, capped at the balance on the release day |
+| lot_balance | numeric | `max(0, lot_capital + accrued_return − credits)`; 0 once released |
+| floor_amount | numeric | `lot_capital × (1 + rate/100)` — informational; it does **not** gate the release (Eastland Lot 3 released 2026-06-11 with credits 59,525.53 < floor 61,636.36). NaN on Franklin 2, whose capital is 0 until its 2026-10-15 costs |
+| released_at | date | the credit date on which the balance reached ≤ 0, else null |
+| residual | numeric | credits received beyond the balance (the overshoot on the release day plus every later credit) |
+| first_cost_date | date | earliest capital entry, null when the lot has none |
+| credit_detail | jsonb[] | `[{ dt, amt, kind }]`, `kind` ∈ `down_payment` · `note_sale` · `cash_sale` |
+
+Values come back as unrounded floats. `src/domain/lotLedger.ts` is the TypeScript port;
+`src/domain/__tests__/lotLedger.test.ts` proves parity with these stored rows on all 49 lots of the
+6 fixed-interest farms (worst absolute difference 7e-12; the test tolerates $0.01).
