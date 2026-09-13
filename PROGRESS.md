@@ -1213,3 +1213,112 @@ reconstructed click-to-paint before is the measured 59 ms plus the 40 ms of dupl
 `buildRealm` work that the hoist removed, **~99 ms** unthrottled, **~250 ms** at 4× CPU.
 
 `scripts/time-realm.ts` reprints the stage table. 452 unit tests.
+
+### Production ship-check (2026-09-13)
+
+Landed commit on `origin/v2`: **`e21b4fdd5ca0a13052b1e81fafa09cd4d2c8c9db`**
+(`e21b4fd docs: record the measured Throne Room click-to-paint`, on top of
+`4746548 perf: build the realm once and keep recharts off the first paint`).
+
+`git log --oneline origin/v2 -5` at ship time:
+
+```
+e21b4fd docs: record the measured Throne Room click-to-paint
+4746548 perf: build the realm once and keep recharts off the first paint
+bb02ddd Merge remote-tracking branch 'origin/v2' into rescate
+842f17a chore: trigger production deploy from v2
+3ba3de2 docs: add hard branching rules so work lands on v2
+```
+
+#### Deploy — which domain actually has this commit
+
+| Host | HTTP | Entry JS | Matches local `npm run build` of `e21b4fd`? |
+|---|---|---|---|
+| `https://terrafunded-quest-v2.vercel.app` | **200** | `index-CIEFpcB6.js` + `motion-BtwQxO9a.js` + `supabase-CWGMQrOR.js` | **Yes — SHA256 identical** |
+| `https://quest.terrafunded.com` | **200** | `index-C6tPRFGu.js` | **No** |
+
+`terrafunded-quest-v2.vercel.app` last-modified `Sun, 13 Sep 2026 13:43:19 GMT`. Byte hashes:
+
+| File | SHA256 (local = live) |
+|---|---|
+| `index-CIEFpcB6.js` | `d346ee2f691a77e992388977b63dda7e96c5e294c33597595563935228ffba5e` |
+| `motion-BtwQxO9a.js` | `6122363f43bf4630cf6365d75f7e8e7d2fac7a0714f019fa3827e156f7cd7250` |
+| `supabase-CWGMQrOR.js` | `5860ffc3269e2f3dc29faa3ed600f67710d3c22a876dba215ce2becbdf50d5e1` |
+
+There is no Vercel API token in this environment, so the official “deployment git SHA”
+field was not queried. The live vercel.app HTML and the three entry bundles are
+byte-identical to the local production build of `e21b4fd`. That is the evidence the
+live deployment was built from **`e21b4fdd5ca0a13052b1e81fafa09cd4d2c8c9db`**.
+
+`quest.terrafunded.com` is **not this commit**. It serves a different, older app
+(`<title>Terrafunded Quest</title>`, chunks named Prospects / Territories /
+CinematicIntro). Cloudflare sits in front (`x-deployment-id: c3531d9b-38a4-4168-98cc-d108d445c40b`).
+The custom domain did **not** pick up the v2 push. All production numbers below were
+measured on `https://terrafunded-quest-v2.vercel.app`.
+
+#### Performance on production (Playwright vs the live URL, not localhost)
+
+Authenticated full navigation to `/`, Chromium 1280×800, cache disabled via CDP.
+Headline = `[data-testid="net-profit-counter"]` visible + two animation frames.
+
+| Metric | Pre-fix (local / reconstructed) | Local post-fix | **Production (this deploy)** |
+|---|---|---|---|
+| Nav start → headline painted | not measured on prod | n/a (preview not timed this way) | **920.9 ms** (wall 921 ms) |
+| Horizon click → 2nd rAF | ~99 ms reconstructed (59 + 40 ms of duplicate `buildRealm`) | 59.1 ms median (60.3 / 59.1 / 33.1) | **60.3 ms median** (32.7 / 71.9 / 60.3) |
+| Horizon click → topbar year painted + 2 rAF | not measured | not measured | **91.6 ms, 92.3 ms** |
+| Long tasks > 50 ms on first load | not measured on prod | not measured | **one task, 53 ms** (start 398.6 ms) |
+| Long tasks > 50 ms on horizon switch | expected: the old triple `buildRealm` (~47 ms Node / ~189 ms at 4×) | not measured | **none** |
+| Initial JS before first paint | 1,351 kB decoded, **charts 581 kB modulepreloaded** | 908 kB decoded, no charts | **908.5 kB decoded / 279.5 kB encoded**; files `index-CIEFpcB6` + motion + supabase; **no charts chunk** |
+
+First paint on the live document is 120 ms (boot shell). The 921 ms number is time
+until the Throne Room headline figure is actually painted after auth + realm fetch —
+not FCP of the boot screen.
+
+`buildRealm` under 20 ms / one build per render: **not directly measured in
+production**. The live bundle does not emit stage marks or a call counter. What we
+can say:
+
+- The deployed JS is the `RealmProvider` build (byte-identical to `e21b4fd`).
+- A horizon switch paints in ~92 ms with **zero** long tasks over 50 ms, which is
+  inconsistent with the old three-consumer ~189 ms block and consistent with one
+  cheap rebuild.
+- First load recorded **one 53 ms long task**. That is 3 ms over the 50 ms
+  threshold and includes React commit / layout, not `buildRealm` alone. It does
+  **not** prove the 20 ms `buildRealm` target; it also does not look like the
+  old ~210 ms triple rebuild.
+
+Do not read the 53 ms first-load long task as a success against a 20 ms budget.
+
+#### Live PASS / FAIL
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| Hamburger left edge aligns with title and cards | **PASS** | ink = title = card = 40.00 px |
+| Skin selector gone; every user on Iron Crown | **PASS** | `theme-menu` count 0; `html[data-theme]=iron-crown` |
+| Horizon 2027/2028/2029 switches; survives reload and logout/login | **PASS** | 2029 after reload; 2028 after sign-out + sign-in (`quest.v2.exitHorizon`) |
+| `/council` loads; 8 deterministic insights; weekly read renders or degrades | **PASS** | 8 insights; `weekly-read-unavailable` (clean degrade; no written body) |
+| The Realm: parcel maps over aerial; no hover flicker | **PASS** | 7 parcel maps, 3 schematic fallbacks, 93 aerial `<image>` visible; 2 s still hover → 0 tooltip toggles, geometry Δ 0 |
+| Sponsors: capital donut + concentration line | **PASS** | donut `data-total=5534604`; concentration node visible |
+| Throne Room: Curve, Gauge, two Pulse charts | **PASS** | `deadline-gauge`, `goal-curve`, `pulse-chart-pace`, `pulse-chart-profit`; 3 `.recharts-wrapper` |
+| Spanish: no untranslated English on Realm, Sponsors, Oxygen | **FAIL** | Realm page header/legend still English (`One card per farm`, `surveyed parcel map`, `Available` / `Reserved` / `Note sold`). Oxygen **copy** is Spanish (`Oxígeno`, no marker strings) but **dates stay English** (`Aug 19, 2026`, `Oct 10, 2025`). Sponsors Spanish **PASS** (no English marker / date regex). |
+
+#### Key safety
+
+Grep of every JS file reachable from the live vercel.app HTML (33 files, including
+lazy route chunks): **`sk-ant` matches = 0**.
+
+Grep of the custom-domain bundle (`index-C6tPRFGu.js` and its static imports):
+**`sk-ant` matches = 0**.
+
+Not a security incident.
+
+#### Could not verify
+
+- Official Vercel deployment git SHA (no `VERCEL_TOKEN` / project API access).
+  Commit is inferred from byte-identical hashed assets.
+- `buildRealm` wall time and call count on the live main thread (no instrumentation).
+- `quest.terrafunded.com` serving this commit — it does not.
+- A GUI screen recording of the live site (computer-use subagent could not start;
+  Playwright screenshots are the record).
+- A written weekly Council read on production — the endpoint degraded to
+  unavailable. Insights still rendered.
