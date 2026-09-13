@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { FarmCalendar } from "@/components/realm/FarmCalendar";
 import { ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { date, money, moneyCompact, number, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -382,6 +383,8 @@ export default function WarPlanPage() {
       </section>
 
       <MonthTable plan={plan} column={selected} modeShort={modeShort} onColumn={setColumn} />
+
+      <FarmCalendar plan={plan} real={real} />
     </div>
   );
 }
