@@ -30,4 +30,5 @@ export * from "./story";
 export * from "./visits";
 export * from "./pulse";
 export * from "./history";
+export * from "./forecast";
 export * from "./realm";

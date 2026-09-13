@@ -3,7 +3,7 @@ import type { Lot } from "./lot";
 import { isSold } from "./lot";
 import { addMonths, daysBetween, monthsBetween, parseDate, toIsoDate } from "./dates";
 import { mean, round2, sum } from "./math";
-import { trailingWindow, type EraStart } from "./era";
+import { inEra, trailingWindow, type EraStart } from "./era";
 import { DAYS_PER_MONTH, GOAL_DEADLINE, GOAL_NET_PROFIT, TRAILING_WINDOW_DAYS } from "../config/goal";
 
 export interface GoalStatus {
@@ -46,6 +46,25 @@ export interface GoalStatus {
   monthsAtCurrentPace: number | null;
   projectedDate: string | null;
   requiredLotsPerMonthToHitDeadline: number | null;
+  /**
+   * The second average the audit compares (F4): net profit per closed lot over the closings since
+   * the era start only. `avgNetProfitPerClosedLot` keeps every sold lot and stays the goal
+   * arithmetic; this one sits next to it so the disagreement is visible, never blended in.
+   * Null without an era (config ERA_START, or `eraStart: null`) or without an era closing.
+   */
+  recentAvgNetProfitPerClosedLot: number | null;
+  /** Closings since the era start behind `recentAvgNetProfitPerClosedLot`. */
+  recentClosedLots: number;
+  /** ISO era start the recent figures count from; null without an era. */
+  recentSince: string | null;
+  /** "since Mar 2026"; null without an era. */
+  recentSinceLabel: string | null;
+  /** ceil(remaining ÷ recentAvgNetProfitPerClosedLot). */
+  lotsStillNeededRecent: number | null;
+  /** lotsStillNeededRecent ÷ closedLotsPerMonth — the same trailing pace, the other $/lot. */
+  monthsAtCurrentPaceRecent: number | null;
+  projectedDateRecent: string | null;
+  requiredLotsPerMonthToHitDeadlineRecent: number | null;
   inventoryGap: number | null;
   avgLotsPerFarm: number | null;
   farmsStillNeeded: number | null;
@@ -104,6 +123,18 @@ export function computeGoal(lots: Lot[], farms: FarmEconomics[], asOf: Date, opt
   const requiredLotsPerMonthToHitDeadline =
     lotsStillNeeded !== null && monthsToDeadline > 0 ? round2(lotsStillNeeded / monthsToDeadline) : null;
 
+  // The same three steps on the era closings only. Same pace, same remaining, other $/lot.
+  const era = window.era;
+  const recentSold = era ? sold.filter((l) => inEra(l.closeDate, era)) : [];
+  const recentAvgNetProfitPerClosedLot = recentSold.length > 0 ? round2(sum(recentSold.map((l) => l.netProfit)) / recentSold.length) : null;
+  const lotsStillNeededRecent =
+    recentAvgNetProfitPerClosedLot !== null && recentAvgNetProfitPerClosedLot > 0 ? Math.ceil(remaining / recentAvgNetProfitPerClosedLot) : null;
+  const monthsAtCurrentPaceRecent =
+    lotsStillNeededRecent !== null && closedLotsPerMonth > 0 ? round2(lotsStillNeededRecent / closedLotsPerMonth) : null;
+  const projectedDateRecent = monthsAtCurrentPaceRecent !== null ? toIsoDate(addMonths(asOf, monthsAtCurrentPaceRecent)) : null;
+  const requiredLotsPerMonthToHitDeadlineRecent =
+    lotsStillNeededRecent !== null && monthsToDeadline > 0 ? round2(lotsStillNeededRecent / monthsToDeadline) : null;
+
   const avgLotsPerFarm = mean(farms.map((f) => f.totalLots));
   const inventoryGap = lotsStillNeeded !== null ? lotsStillNeeded - available.length : null;
   const farmsStillNeeded =
@@ -143,6 +174,14 @@ export function computeGoal(lots: Lot[], farms: FarmEconomics[], asOf: Date, opt
     monthsAtCurrentPace,
     projectedDate,
     requiredLotsPerMonthToHitDeadline,
+    recentAvgNetProfitPerClosedLot,
+    recentClosedLots: recentSold.length,
+    recentSince: era?.start ?? null,
+    recentSinceLabel: era?.since ?? null,
+    lotsStillNeededRecent,
+    monthsAtCurrentPaceRecent,
+    projectedDateRecent,
+    requiredLotsPerMonthToHitDeadlineRecent,
     inventoryGap,
     avgLotsPerFarm: avgLotsPerFarm === null ? null : round2(avgLotsPerFarm),
     farmsStillNeeded,

@@ -129,6 +129,8 @@ export interface Expected {
   requiredClosingsPerMonth: number | null;
   /** requiredClosingsPerMonth ÷ conversion. */
   requiredReservationsPerMonth: number | null;
+  /** The same at the era average (GoalStatus.requiredLotsPerMonthToHitDeadlineRecent ÷ conversion); null without one. */
+  requiredReservationsPerMonthRecent: number | null;
 
   thisMonth: MonthActivity;
   nextMonth: MonthActivity;
@@ -289,6 +291,8 @@ export function computeExpected(lots: Lot[], pipeline: Pipeline, goal: GoalStatu
     closingsPerMonth: round2(closingsTrailing / monthsInWindow),
     requiredClosingsPerMonth: requiredClosings,
     requiredReservationsPerMonth: requiredClosings !== null && conversion > 0 ? round2(requiredClosings / conversion) : null,
+    requiredReservationsPerMonthRecent:
+      goal.requiredLotsPerMonthToHitDeadlineRecent !== null && conversion > 0 ? round2(goal.requiredLotsPerMonthToHitDeadlineRecent / conversion) : null,
     thisMonth: activity(thisMonth),
     nextMonth: activity(nextMonthKey(thisMonth)),
   };
