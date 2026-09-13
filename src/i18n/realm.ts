@@ -78,6 +78,49 @@ export interface RealmUiStrings {
     tooltipReservations: (n: number) => string;
     tooltipClosings: (n: number) => string;
   };
+  goalCurve: {
+    aria: string;
+    title: string;
+    /** Legend under the title; `eraMonth` is the era's first month ("Mar 2026") or null without one. */
+    legend: (eraMonth: string | null) => string;
+    today: string;
+    /** Deadline marker: the horizon year. */
+    deadline: (year: number) => string;
+    actual: string;
+    required: string;
+    /** Projection at the all-sold average: "projected · ledger average $58,852/lot". */
+    projectedLifetime: (avgPerLot: string, lots: number) => string;
+    projectedRecent: (avgPerLot: string, lots: number, eraMonth: string) => string;
+    /** Marker under the crossing dot: "Jan 8, 2029 · misses the deadline by 12.3 months". */
+    misses: (date: string, months: string) => string;
+    beats: (date: string, months: string) => string;
+    onTheDay: (date: string) => string;
+    /** Marker when the crossing lies past the axis: "not before Dec 2029 at this pace". */
+    beyond: (edgeDate: string) => string;
+    /** Second marker's tag. */
+    atRecentAverage: (eraMonth: string) => string;
+    noPace: string;
+    noHistory: string;
+    met: string;
+    behind: string;
+    ahead: string;
+    /** Tooltip row labels. */
+    tooltipActual: string;
+    tooltipRequired: string;
+    tooltipProjected: string;
+    tooltipProjectedRecent: string;
+  };
+  gauge: {
+    aria: string;
+    /** The one sentence: pace, horizon year, then the three units. */
+    sentence: (pace: string, year: number, lots: string, dollars: string, days: string, side: "ahead" | "behind" | "even") => string;
+    /** Days part when there is no pace to divide by. */
+    noPaceDays: string;
+    noPace: (pace: string, year: number, lots: string, dollars: string) => string;
+    noHistory: string;
+    met: string;
+    hint: (eraMonth: string | null) => string;
+  };
   pipeline: {
     aria: string;
     title: string;
@@ -249,6 +292,45 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       eraNote: (era) => `Fainter bars are months that ended before sales operations started in earnest in ${era}.`,
       tooltipReservations: (n) => `Reservations ${n}`,
       tooltipClosings: (n) => `Closings ${n}`,
+    },
+    goalCurve: {
+      aria: "The Curve — cumulative net profit against the required line",
+      title: "The Curve · are we above or below",
+      legend: (era) =>
+        `Booked net profit by month · the straight line the deadline requires · where today's pace lands, at the ledger average and${era ? ` at the since-${era} average` : " (no era average yet)"}`,
+      today: "today",
+      deadline: (year) => `${year} deadline`,
+      actual: "Booked",
+      required: "Required",
+      projectedLifetime: (avg, lots) => `Projected · ledger average ${avg}/lot (${lots} closings)`,
+      projectedRecent: (avg, lots, era) => `Projected · since-${era} average ${avg}/lot (${lots} closings)`,
+      misses: (date, months) => `${date} · misses the deadline by ${months} months`,
+      beats: (date, months) => `${date} · beats the deadline by ${months} months`,
+      onTheDay: (date) => `${date} · on the deadline`,
+      beyond: (edge) => `not before ${edge} at this pace`,
+      atRecentAverage: (era) => `at the since-${era} average`,
+      noPace: "No closing in the trailing window: today's pace projects nowhere. Only the required line is drawn.",
+      noHistory: "No closed lot yet: there is no average to project with. Only the required line is drawn.",
+      met: "The goal is met; every line rests on $10M.",
+      behind: "behind the required line",
+      ahead: "ahead of the required line",
+      tooltipActual: "Booked",
+      tooltipRequired: "Required",
+      tooltipProjected: "Projected · ledger average",
+      tooltipProjectedRecent: "Projected · era average",
+    },
+    gauge: {
+      aria: "The Gauge — deviation at the deadline in lots, dollars and days",
+      sentence: (pace, year, lots, dollars, days, side) =>
+        side === "even"
+          ? `At today's pace of ${pace} lots/month, the ${year} deadline lands exactly on the goal.`
+          : `At today's pace of ${pace} lots/month, the ${year} deadline lands ${lots} lots · ${dollars} · ${days} days ${side}.`,
+      noPaceDays: "no pace to count the days",
+      noPace: (pace, year, lots, dollars) => `No closing in the trailing window (${pace} lots/month): by ${year} every remaining lot is behind — ${lots} lots · ${dollars} · no pace to count the days.`,
+      noHistory: "No closed lot yet — there is no average to measure the deadline against.",
+      met: "The goal is met. Nothing is behind.",
+      hint: (era) =>
+        `Lots the trailing pace closes by the deadline minus the lots still needed at the ledger average; those lots in dollars; those dollars at today's net profit per day. Same root as the Curve's marker${era ? `; the since-${era} average is the dotted line above` : ""}.`,
     },
     pipeline: {
       aria: "Pipeline",
@@ -426,6 +508,45 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       eraNote: (era) => `Las barras más tenues son meses que terminaron antes de que las ventas arrancaran en serio en ${era}.`,
       tooltipReservations: (n) => `Reservas ${n}`,
       tooltipClosings: (n) => `Cierres ${n}`,
+    },
+    goalCurve: {
+      aria: "La Curva — utilidad neta acumulada frente a la línea requerida",
+      title: "La Curva · ¿vamos arriba o abajo?",
+      legend: (era) =>
+        `Utilidad neta registrada por mes · la recta que exige la fecha límite · dónde aterriza el ritmo de hoy, al promedio del libro y${era ? ` al promedio desde ${era}` : " (aún sin promedio de la era)"}`,
+      today: "hoy",
+      deadline: (year) => `límite ${year}`,
+      actual: "Registrado",
+      required: "Requerido",
+      projectedLifetime: (avg, lots) => `Proyectado · promedio del libro ${avg}/lote (${lots} cierres)`,
+      projectedRecent: (avg, lots, era) => `Proyectado · promedio desde ${era} ${avg}/lote (${lots} cierres)`,
+      misses: (date, months) => `${date} · llega ${months} meses después del límite`,
+      beats: (date, months) => `${date} · llega ${months} meses antes del límite`,
+      onTheDay: (date) => `${date} · justo en el límite`,
+      beyond: (edge) => `no antes de ${edge} a este ritmo`,
+      atRecentAverage: (era) => `al promedio desde ${era}`,
+      noPace: "Ningún cierre en la ventana: el ritmo de hoy no proyecta a ninguna fecha. Solo se dibuja la línea requerida.",
+      noHistory: "Aún no hay lotes cerrados: no hay promedio con qué proyectar. Solo se dibuja la línea requerida.",
+      met: "La meta está cumplida; todas las líneas descansan en $10M.",
+      behind: "por debajo de la línea requerida",
+      ahead: "por encima de la línea requerida",
+      tooltipActual: "Registrado",
+      tooltipRequired: "Requerido",
+      tooltipProjected: "Proyectado · promedio del libro",
+      tooltipProjectedRecent: "Proyectado · promedio de la era",
+    },
+    gauge: {
+      aria: "El Medidor — desvío en la fecha límite en lotes, dólares y días",
+      sentence: (pace, year, lots, dollars, days, side) =>
+        side === "even"
+          ? `Al ritmo de hoy, ${pace} lotes/mes, el límite ${year} cae exactamente en la meta.`
+          : `Al ritmo de hoy, ${pace} lotes/mes, el límite ${year} queda ${lots} lotes · ${dollars} · ${days} días ${side === "behind" ? "atrás" : "adelante"}.`,
+      noPaceDays: "sin ritmo para contar los días",
+      noPace: (pace, year, lots, dollars) => `Ningún cierre en la ventana (${pace} lotes/mes): para ${year} todo lote pendiente queda atrás — ${lots} lotes · ${dollars} · sin ritmo para contar los días.`,
+      noHistory: "Aún no hay lotes cerrados: no hay promedio con qué medir la fecha límite.",
+      met: "La meta está cumplida. Nada queda atrás.",
+      hint: (era) =>
+        `Lotes que el ritmo actual cierra hasta el límite menos los lotes que aún faltan al promedio del libro; esos lotes en dólares; esos dólares al ritmo de utilidad neta por día de hoy. Misma raíz que el marcador de la Curva${era ? `; el promedio desde ${era} es la línea punteada de arriba` : ""}.`,
     },
     pipeline: {
       aria: "Pipeline",

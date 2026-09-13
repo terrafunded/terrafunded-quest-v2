@@ -11,6 +11,8 @@ import { GrowthBurst } from "@/components/realm/GrowthBurst";
 import { QuestTree, type QuestNode } from "@/components/realm/QuestTree";
 import { CinematicIntro } from "@/components/realm/CinematicIntro";
 import { DebtCountdown } from "@/components/realm/DebtCountdown";
+import { DeadlineGauge } from "@/components/realm/DeadlineGauge";
+import { GoalCurve } from "@/components/realm/GoalCurve";
 import { OxygenScore } from "@/components/realm/OxygenScore";
 import { Pulse } from "@/components/realm/Pulse";
 import { PulseCharts } from "@/components/realm/PulseCharts";
@@ -212,6 +214,9 @@ export function ThroneRoom() {
         <DebtCountdown debt={realm.debt} />
         <OxygenScore oxygen={realm.oxygen} />
       </section>
+
+      <GoalCurve goal={g} history={realm.history} />
+      <DeadlineGauge goal={g} netProfitPerDayAtPace={realm.oxygen.netProfitPerDayAtPace} />
 
       <PulseCharts
         history={realm.history}

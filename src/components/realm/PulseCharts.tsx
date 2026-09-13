@@ -1,26 +1,14 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from "recharts";
 import type { MonthlyPoint } from "@/domain";
 import { DAYS_PER_MONTH } from "@/config/goal";
 import { useInViewOnce } from "@/hooks/useInViewOnce";
+import { useWideViewport } from "@/hooks/useWideViewport";
 import { useTheme } from "@/theme/ThemeProvider";
 import { money, moneyCompact } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useRealmStrings, type RealmUiStrings } from "@/i18n/realm";
-
-const EMBER = "hsl(var(--ember))";
-const GREEN = "hsl(var(--stage-closed))";
-const GOLD = "hsl(var(--gold))";
-const MUTED = "hsl(var(--muted-foreground))";
-const BORDER = "hsl(var(--border))";
-const POPOVER = "hsl(var(--popover))";
-
-/**
- * Hover cursor: recharts' default is an opaque #ccc rectangle over the hovered band, which reads
- * as a white slab on the dark skins. A 6% wash of the skin's own foreground marks the band on
- * all three (light on Iron Crown / Neon Kingdom, dark on Gilded Realm's parchment).
- */
-const CURSOR = { fill: "hsl(var(--foreground))", opacity: 0.06 };
+import { BORDER, CURSOR, EMBER, GOLD, GREEN, MUTED, POPOVER, useChartReveal, type ChartReveal } from "./chartTokens";
 
 /**
  * Every bar gets its own tick. With `minTickGap` recharts dropped alternate months, so a bar in an
@@ -39,20 +27,6 @@ const X_AXIS_HEIGHT = 34;
  */
 const MAX_BAR_DURATION_MS = 600;
 const SECOND_SERIES_BEGIN_MS = 150;
-
-const SM = "(min-width: 640px)";
-
-function useWideViewport(): boolean {
-  const [wide, setWide] = useState(() => (typeof window !== "undefined" ? window.matchMedia(SM).matches : true));
-  useEffect(() => {
-    const mq = window.matchMedia(SM);
-    const onChange = () => setWide(mq.matches);
-    onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-  return wide;
-}
 
 function fillOpacity(p: MonthlyPoint): number {
   if (p.beforeEra) return 0.35;
@@ -268,14 +242,6 @@ export function PulseCharts({
   );
 }
 
-/** Handed to a chart so its bars grow on first reveal and then stay put. */
-interface ChartReveal {
-  /** `isAnimationActive` for every series: true only during the first reveal. */
-  animate: boolean;
-  /** Wire to `onAnimationEnd` of the last-starting series to end the reveal. */
-  settle: () => void;
-}
-
 /**
  * The chart mounts only once its box first scrolls into view (the box keeps its fixed height in
  * the meantime, so nothing shifts) and animates only on that mount. Once the reveal ends, series
@@ -302,9 +268,7 @@ function ChartCard({
   children: (reveal: ChartReveal) => ReactNode;
 }) {
   const [ref, inView] = useInViewOnce<HTMLDivElement>();
-  const [settled, setSettled] = useState(false);
-  const settle = useCallback(() => setSettled(true), []);
-  const reveal: ChartReveal = { animate: !reducedMotion && !settled, settle };
+  const reveal = useChartReveal(reducedMotion);
   return (
     <div
       className="parchment-card min-w-0 overflow-hidden p-4"
