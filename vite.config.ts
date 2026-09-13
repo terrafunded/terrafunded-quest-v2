@@ -2,6 +2,7 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
+import { weeklyCouncilApi } from "./vite-plugin-weekly-council";
 
 /**
  * The faces each skin needs for its first screen (display for the counter and titles, heading,
@@ -42,10 +43,11 @@ function themeFontPreload(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), themeFontPreload()],
+  plugins: [react(), themeFontPreload(), weeklyCouncilApi()],
   // Besides VITE_*, exactly one more variable reaches the browser bundle: QUEST_ALLOWED_TEST_EMAIL,
   // the questbot e-mail the Payments-staff gate lets in (src/domain/access.ts). The prefix is
   // deliberately narrower than QUEST_ so QUEST_TEST_EMAIL / QUEST_TEST_PASSWORD never can.
+  // ANTHROPIC_API_KEY is server-only (api/weekly-council.ts). Never add it here.
   envPrefix: ["VITE_", "QUEST_ALLOWED_"],
   resolve: {
     alias: {
@@ -70,7 +72,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "api/**/*.test.ts"],
     environment: "node",
   },
 });
