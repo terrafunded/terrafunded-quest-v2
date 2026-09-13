@@ -65,7 +65,11 @@ export async function handleWeeklyCouncil(
   if (!token) return unavailable("unauthorized");
 
   const session = await verify(token);
-  if (!session.ok) return unavailable("unauthorized");
+  // A Bearer token that fails verification is not an anonymous caller. Return 200 so the
+  // page can render "weekly read unavailable" without Chrome logging a 401.
+  if (!session.ok) {
+    return json(200, { ok: false, unavailable: true, reason: "unauthorized" });
+  }
 
   let body: { facts?: unknown; force?: unknown };
   try {

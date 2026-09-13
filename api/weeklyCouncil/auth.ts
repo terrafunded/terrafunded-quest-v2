@@ -11,7 +11,11 @@ export async function verifyQuestSession(token: string, env: NonNullable<WeeklyC
   const anon = env.VITE_SUPABASE_ANON_KEY;
   if (!url || !anon || !token) return { ok: false };
   const sb = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await sb.auth.getUser(token);
+  const readUser = () => sb.auth.getUser(token);
+  let { data, error } = await readUser();
+  if (error || !data.user) {
+    ({ data, error } = await readUser());
+  }
   if (error || !data.user) return { ok: false };
   const { data: profile } = await sb.from("profiles").select("id, role").eq("id", data.user.id).maybeSingle();
   const decision = decideAccess({

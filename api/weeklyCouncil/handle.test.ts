@@ -104,8 +104,8 @@ describe("handleWeeklyCouncil", () => {
         verifySession: async () => ({ ok: false as const }),
       }),
     );
-    expect(bad.status).toBe(401);
-    expect(bad.body).toMatchObject({ reason: "unauthorized" });
+    expect(bad.status).toBe(200);
+    expect(bad.body).toMatchObject({ ok: false, unavailable: true, reason: "unauthorized" });
   });
 
   it("returns weekly_read_unavailable on a missing or invalid key, never the provider text", async () => {
