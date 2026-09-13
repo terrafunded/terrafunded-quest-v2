@@ -13,6 +13,7 @@ import { resolveEra, type Era, type EraStart } from "./era";
 import { computeDebt, type Debt } from "./debt";
 import { computeOxygen, type Oxygen } from "./oxygen";
 import { computeLiberation, type Liberation } from "./liberation";
+import { computeCapitalComposition, type CapitalComposition } from "./sponsorCapital";
 import { computeCampaigns, type Campaign } from "./campaigns";
 import { computeStreaks, type Streaks } from "./streaks";
 import { computeFutures, type Futures } from "./futures";
@@ -42,6 +43,8 @@ export interface Realm {
   debt: Debt;
   oxygen: Oxygen;
   liberation: Liberation;
+  /** Capital deployed by sponsor and kind, plus the concentration figure the Council judges. */
+  capitalComposition: CapitalComposition;
   campaigns: Campaign[];
   campaignByFarm: Map<string, Campaign>;
   /** Consecutive weeks / months with a closing. */
@@ -131,6 +134,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
 
   // Phase 2
   const liberation = computeLiberation(farms, investors, snapshot.investorDistributions);
+  const capitalComposition = computeCapitalComposition(investors);
   const events = withLiberationEvents(
     computeEvents(lots, snapshot.farmAcquisitions, snapshot.investorDistributions, snapshot.investors, asOf),
     liberation.moments,
@@ -197,6 +201,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
     debt,
     oxygen,
     liberation,
+    capitalComposition,
     campaigns,
     campaignByFarm: new Map(campaigns.map((c) => [c.farmId, c])),
     streaks,

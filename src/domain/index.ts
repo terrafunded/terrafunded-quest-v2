@@ -18,6 +18,7 @@ export * from "./oxygen";
 export * from "./pipeline";
 export * from "./expected";
 export * from "./liberation";
+export * from "./sponsorCapital";
 export * from "./campaigns";
 export * from "./streaks";
 export * from "./futures";
