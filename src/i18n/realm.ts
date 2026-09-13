@@ -1,5 +1,6 @@
 import type { LotStage, OxygenBand, RealmEvent, Trophy } from "@/domain";
 import type { QualityLang } from "@/domain/quality_human";
+import { dateIn } from "@/lib/format";
 import { useLang } from "./lang";
 
 /**
@@ -11,6 +12,8 @@ import { useLang } from "./lang";
  * Plural forms are functions of the count so Spanish gets "reserva"/"reservas" instead of an "s".
  */
 export interface RealmUiStrings {
+  /** An ISO date in the page language: "May 19, 2026" / "19 may 2026". */
+  date: (iso: string | null | undefined) => string;
   oxygen: {
     aria: string;
     title: string;
@@ -222,6 +225,7 @@ export interface StreakWording {
 
 export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
   en: {
+    date: (iso) => dateIn("en", iso),
     oxygen: {
       aria: "Oxygen",
       title: "Oxygen · days gained against days passed",
@@ -438,6 +442,7 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
     },
   },
   es: {
+    date: (iso) => dateIn("es", iso),
     oxygen: {
       aria: "Oxígeno",
       title: "Oxígeno · días ganados contra días transcurridos",

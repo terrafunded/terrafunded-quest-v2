@@ -631,8 +631,8 @@ test.describe("Page specifics", () => {
     await page.goto("/sponsors");
     await waitForRealm(page);
     const cards = page.getByTestId("sponsor-card");
-    await expect(cards.filter({ hasText: "Profit share" })).toHaveCount(1);
-    await expect(cards.filter({ hasText: "Profit share" })).toContainText("Townson Family");
+    await expect(cards.filter({ hasText: /Profit share|Reparto de utilidades/ })).toHaveCount(1);
+    await expect(cards.filter({ hasText: /Profit share|Reparto de utilidades/ })).toContainText("Townson Family");
   });
 
   test("trophies renders at least 15 cards with rarity badges and both streak panels", async ({ page }) => {

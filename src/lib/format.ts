@@ -1,3 +1,5 @@
+import type { QualityLang } from "@/domain/quality_human";
+
 const usd0 = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const num = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
@@ -42,6 +44,18 @@ export function date(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
   return Number.isNaN(d.getTime()) ? iso : dateFmt.format(d);
+}
+
+const dateFmtByLang: Record<QualityLang, Intl.DateTimeFormat> = {
+  en: dateFmt,
+  es: new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }),
+};
+
+/** `date()` in the page language: "Sep 11, 2026" / "11 sep 2026". */
+export function dateIn(lang: QualityLang, iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? iso : dateFmtByLang[lang].format(d);
 }
 
 /** "Sep 2026" from "2026-09". */

@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Lock, Unlock } from "lucide-react";
 import type { Hostage, Liberation as LiberationModel } from "@/domain";
-import { date, money, pct } from "@/lib/format";
+import { money, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useRealmStrings } from "@/i18n/realm";
 
@@ -10,7 +10,8 @@ import { useRealmStrings } from "@/i18n/realm";
  * from `investor_distributions`; at 100 % it moves to the Liberated gallery.
  */
 export function HostageBar({ h, index = 0 }: { h: Hostage; index?: number }) {
-  const t = useRealmStrings().liberation;
+  const strings = useRealmStrings();
+  const t = strings.liberation;
   return (
     <motion.li
       initial={{ opacity: 0, y: 8 }}
@@ -29,7 +30,7 @@ export function HostageBar({ h, index = 0 }: { h: Hostage; index?: number }) {
           </div>
           <div className="mt-0.5 text-[11px] text-muted-foreground">
             {t.returnedOf(money(h.capitalReturned), money(h.capital))}
-            {h.freed && h.freedAt ? `${t.freed(date(h.freedAt))}${h.daysHeld !== null ? t.afterDays(h.daysHeld) : ""}` : t.toGo(money(h.capitalOutstanding))}
+            {h.freed && h.freedAt ? `${t.freed(strings.date(h.freedAt))}${h.daysHeld !== null ? t.afterDays(h.daysHeld) : ""}` : t.toGo(money(h.capitalOutstanding))}
             {h.paidOnTop > 0 ? t.paidOnTop(money(h.paidOnTop)) : ""}
           </div>
         </div>
@@ -49,8 +50,9 @@ export function HostageBar({ h, index = 0 }: { h: Hostage; index?: number }) {
 
 export function LiberationBoard({ liberation }: { liberation: LiberationModel }) {
   const t = useRealmStrings().liberation;
+  // Side by side only from xl: the two lists differ wildly in length, and each panel keeps its own height.
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+    <div className="grid items-start gap-4 xl:grid-cols-[1.4fr_1fr]" data-testid="liberation-board">
       <section className="parchment-card p-5" aria-label={t.hostagesAria}>
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
           <h2 className="whitespace-nowrap font-heading text-sm uppercase tracking-[0.2em] text-sponsor sm:shrink-0">
