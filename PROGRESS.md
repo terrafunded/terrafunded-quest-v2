@@ -1195,12 +1195,21 @@ chunks.
 
 ### Interaction latency (Throne Room, horizon switch)
 
-The horizon click is the interaction that used to rebuild the realm three times. Measured as
-`buildRealm` main-thread work on this fixture (the paint cannot start until that returns):
+The horizon click is the interaction that used to rebuild the realm three times.
+
+**Chrome (desktop, no throttle), click → second animation frame**, measured on the production
+build at `:4173` after sign-in (`scripts/time-throne-interaction.ts`): **59.1 ms median**
+(60.3 / 59.1 / 33.1 ms over 2028 → 2029 → 2027).
+
+The realm portion of that click, isolated on the fixture:
 
 | | Node | 4× CPU (phone profile) |
 |---|---|---|
 | Before (3 consumers) | 47.2 ms | ~189 ms |
 | After (1 shared build, Throne path) | 7.34 ms | ~29 ms |
+
+A Chrome profile of the same click before the hoist was not kept (the old hook is gone). The
+reconstructed click-to-paint before is the measured 59 ms plus the 40 ms of duplicate
+`buildRealm` work that the hoist removed, **~99 ms** unthrottled, **~250 ms** at 4× CPU.
 
 `scripts/time-realm.ts` reprints the stage table. 452 unit tests.
