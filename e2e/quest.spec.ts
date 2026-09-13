@@ -11,7 +11,12 @@ const ROUTES = ["/", "/warplan", "/exodus", "/realm", "/quests", "/pipeline", "/
 function collectConsoleErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on("console", (msg) => {
-    if (msg.type() === "error") errors.push(`[console.error] ${msg.text()}`);
+    if (msg.type() !== "error") return;
+    // The Realm probes Payments for one geometry file per farm (/lots/<slug>.json); farms without
+    // a survey drawing answer 404 by design and fall back to the schematic. The browser logs that
+    // 404 as a resource error the app cannot silence, so it is not a defect of the page.
+    if (/\/lots\/[a-z0-9]+\.json$/.test(msg.location().url)) return;
+    errors.push(`[console.error] ${msg.text()}`);
   });
   page.on("pageerror", (err) => errors.push(`[pageerror] ${err.message}`));
   return errors;
@@ -712,7 +717,8 @@ test.describe("Data Quality for operations", () => {
     const everything = await lastCopied(page);
     expect(everything.split("\n")[0]).toMatch(/^\*Calidad de datos — \d{1,2} [a-z]{3} \d{4}\*$/);
     const lots = Number(await page.getByTestId("quality-summary-lots").getAttribute("data-value"));
-    expect(everything.split("\n")[1]).toBe(`${lots} lotes con problemas y 3 fincas · $19,999.50 de ganancia afectada por diferencias de precio`);
+    // 3 farm cards from the ledger (Ben White, Red River 1, Sharps Rd) + Eastland's parcel-map finding (10 parcels vs 11 lots) since 2026-09-13.
+    expect(everything.split("\n")[1]).toBe(`${lots} lotes con problemas y 4 fincas · $19,999.50 de ganancia afectada por diferencias de precio`);
     expect(everything.split("\n")[2]).toBe("");
     for (const lot of ["Lamar — Lot 5", "Lamar — Lot 6", "Lamar — Lot 7", "Eastland — Lot 3", "Ben White"]) expect(everything).toContain(`*${lot}*`);
     expect(everything).not.toContain("*Titus — Lot 6*");
