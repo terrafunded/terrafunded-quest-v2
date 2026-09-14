@@ -2,7 +2,7 @@ import { useCallback, useSyncExternalStore } from "react";
 import { DEFAULT_QUALITY_LANG, QUALITY_LANGS, type QualityLang } from "@/domain/quality_human";
 
 /**
- * The page language chosen in the drawer. /quality, /council and /exodus read it;
+ * The page language chosen in the drawer. /quality, /council, /exodus and /engine read it;
  * the rest of the app stays in English. Stored once, app-wide.
  * Persisted in localStorage; default Spanish.
  */

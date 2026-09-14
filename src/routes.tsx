@@ -7,6 +7,7 @@ import { ThroneRoom } from "@/pages/ThroneRoom";
 import { Login } from "@/pages/Login";
 
 const WarPlan = lazy(() => import("@/pages/WarPlan"));
+const Engine = lazy(() => import("@/pages/Engine"));
 const Exodus = lazy(() => import("@/pages/Exodus"));
 const RealmMap = lazy(() => import("@/pages/RealmMap"));
 const Quests = lazy(() => import("@/pages/Quests"));
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
           { path: "/", element: <ThroneRoom /> },
           { path: "/council", element: wrap(<Council />) },
           { path: "/warplan", element: wrap(<WarPlan />) },
+          { path: "/engine", element: wrap(<Engine />) },
           { path: "/exodus", element: wrap(<Exodus />) },
           { path: "/realm", element: wrap(<RealmMap />) },
           { path: "/quests", element: wrap(<Quests />) },

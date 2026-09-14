@@ -378,8 +378,11 @@ interface FarmBatch {
  * Funds each scheduled farm from the mix in order; whatever the mix cannot cover is `unfunded`.
  * With a capital cycle, the money that bought a farm returns to its sponsor `cycleMonths` later
  * and funds the farms bought from that month on — the same dollar on its next turn.
+ *
+ * Exported so The Engine (and any capital-first schedule) can reuse the same recycling math
+ * the War Plan already runs through `runOracle` — one forecast, two questions.
  */
-function fundSchedule(
+export function fundSchedule(
   schedule: number[],
   farmCost: number,
   lotsPerFarm: number,
