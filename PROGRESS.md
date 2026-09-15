@@ -2,13 +2,14 @@
 
 ## The Engine defects pass — 2026-09-15
 
-Fixed the eight /engine defects (verdict↔bottleneck agreement, multi-block turns chart, real farm names, demand-capped inventory sawtooth, peak = max series capitalOwed, farm-cost/lots helpers, i18n for bottleneck + capital deadline, interest promoted beside the verdict).
+Fixed the eight /engine defects (verdict↔bottleneck agreement, multi-block turns chart, real farm names, demand-capped inventory sawtooth, peak = max series capitalOwed, farm-cost/lots helpers, i18n for bottleneck + capital deadline, interest promoted beside the verdict). Seeded `owedStart` so peak/interest reflect capital already in the ground when inventory alone covers the horizon.
 
 | | |
 |---|---|
-| **Branch** | `cursor/engine-defects-1d6b` → merged to `v2` |
+| **Commit** | **`fb0f4e4`** on `v2` |
+| **Production** | https://terrafunded-quest-v2.vercel.app — live assets **`index-CUgKp16g.js`**, **`Engine-Dn7RCKKK.js`** (42632 bytes) match local build exactly |
 | **Tests** | 472 unit (20 Engine, including freshCapital=0 ⇏ capital bottleneck, inventory drain, peak=max(series)) |
-| **Local assets** | `index-DEvwTH9s.js`, `Engine-BLxACkyV.js` (42432 bytes), `EngineChartsLoaded-DhXopBCu.js` |
+| **Live verify** | 10/10 PASS — ES verdict + Ritmo de ventas bottleneck agree; interest beside verdict ($553K / 9%); peak $3.99M; turns/inventory/capital charts; 380px OK |
 
 
 ## The Engine (`/engine`) — deployed 2026-09-14
