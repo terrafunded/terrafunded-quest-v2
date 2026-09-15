@@ -1,7 +1,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ClipboardCheck, Copy, Eye, EyeOff } from "lucide-react";
+import { Check, ClipboardCheck, Copy, Download, Eye, EyeOff } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
 import { useFarmGeometries } from "@/data/useFarmGeometry";
+import { useHorizon } from "@/horizon/HorizonProvider";
+import { buildPlatformExport, downloadPlatformExport } from "@/lib/platformExport";
 import {
   groupIssuesByLot,
   humanDate,
@@ -77,11 +79,27 @@ function useCopy(): [CopyStatus, (text: string) => void] {
 export default function Quality() {
   const { data, isLoading, error, refetch } = useRealm();
   const [lang] = useLang();
+  const { horizon } = useHorizon();
   const t = QUALITY_UI[lang];
   const [severity, setSeverity] = useState<QualitySeverity | "all">("all");
   const [showReviewed, setShowReviewed] = useState(true);
   const { state, update, reviewed } = useReviewState();
   const [allStatus, copyAll] = useCopy();
+
+  const exportEverything = useCallback(() => {
+    if (!data) return;
+    const commitSha =
+      (import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA as string | undefined) ??
+      (import.meta.env.VITE_GIT_COMMIT_SHA as string | undefined) ??
+      "local";
+    const doc = buildPlatformExport(data.realm, {
+      lang,
+      exitHorizon: horizon,
+      commitSha,
+      appVersion: "2.0.0",
+    });
+    downloadPlatformExport(doc);
+  }, [data, lang, horizon]);
 
   const asOf = data?.realm.goal.asOf ?? new Date().toISOString().slice(0, 10);
   // The Realm's parcel maps are asserted against the ledger per farm; a drawing that disagrees is
@@ -117,6 +135,14 @@ export default function Quality() {
   return (
     <div lang={lang} data-testid="quality-page" data-lang={lang}>
       <PageHeader title={t.title} subtitle={t.subtitle}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={exportEverything}
+          data-testid="quality-export-all"
+        >
+          <Download /> {t.exportAll}
+        </Button>
         <Button variant="outline" size="sm" onClick={() => copyAll(whatsappForAll(visible, summary, asOf, { reviewed, includeReviewed: showReviewed }))} data-testid="quality-copy-all" data-status={allStatus}>
           {allStatus === "copied" ? <ClipboardCheck /> : <Copy />} {allStatus === "copied" ? t.copied : allStatus === "failed" ? t.copyFailed : t.copyAll}
         </Button>
