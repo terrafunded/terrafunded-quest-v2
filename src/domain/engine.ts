@@ -641,6 +641,7 @@ function simulateOnce(
   freshExtra: number,
   buyThroughMonth: number,
   existingFarms: EngineExistingFarm[] = [],
+  owedStart = 0,
 ): SimBundle {
   const farmCost = resolveFarmCost(inputs);
   const landLag = Math.max(0, Math.round(inputs.farmToFirstCloseMonths));
@@ -671,7 +672,7 @@ function simulateOnce(
     targetMode: "profit_at_closing",
     capitalCycleMonths: effectiveCycle,
   };
-  const result = runOracle(params, goal, startInv, asOf, { calendarMonths: true, grid });
+  const result = runOracle(params, goal, startInv, asOf, { calendarMonths: true, grid, owedStart: Math.max(0, owedStart) });
   const k = grid.deadlineIndex;
   const planned = result.farms.filter((f) => f.purchaseMonth <= k);
   const rate = weightedAnnualRate(fundedMix) / 100;
@@ -959,9 +960,10 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
       capitalOutstanding: Math.max(0, f.capitalOutstanding),
       remainingLots: Math.max(0, f.totalLots - f.soldLots),
     }));
+  const owedStart = Math.max(0, sponsorLedger(ctx).capitalOwed);
 
   // Pass 1: only capital already in the mix (deployed today) — no fresh top-up.
-  const base = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, 0, Math.max(capDeadline, k), existingFarms);
+  const base = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, 0, Math.max(capDeadline, k), existingFarms, owedStart);
   const noFreshProfit = base.profitAfterAds;
   const shortfall0 = round2(Math.max(0, goal.goal - noFreshProfit));
 
@@ -976,7 +978,7 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
     let bestExtra = 0;
     for (let i = 0; i < 28; i++) {
       const mid = (lo + hi) / 2;
-      const trial = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, mid, capDeadline, existingFarms);
+      const trial = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, mid, capDeadline, existingFarms, owedStart);
       if (trial.profitAfterAds >= goal.goal - 0.5) {
         best = trial;
         bestExtra = mid;
@@ -987,7 +989,7 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
     }
     // Snap up to the next dollar that still hits, if any.
     const snapped = Math.ceil(bestExtra);
-    const final = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, snapped, capDeadline, existingFarms);
+    const final = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, snapped, capDeadline, existingFarms, owedStart);
     if (final.profitAfterAds >= goal.goal - 0.5 || final.profitAfterAds >= best.profitAfterAds) {
       withFresh = final;
       freshCapital = snapped;
@@ -1182,9 +1184,10 @@ function runEngineLight(
   inv: ReturnType<typeof engineStartInventory>,
 ): { profit: number; fresh: number; farmsNeeded: number; capitalDeadlineIso: string | null } {
   const existingFarms: EngineExistingFarm[] = [];
+  const owedStart = Math.max(0, sponsorLedger(ctx).capitalOwed);
   const effectiveCycle = coupledCycleMonths(inputs.cycleMonths, inputs.salesPace, referencePace);
   const capDeadline = capitalDeadlineMonth(grid.deadlineIndex, effectiveCycle);
-  const base = simulateOnce(inputs, goal, ctx.asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, 0, Math.max(capDeadline, grid.deadlineIndex), existingFarms);
+  const base = simulateOnce(inputs, goal, ctx.asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, 0, Math.max(capDeadline, grid.deadlineIndex), existingFarms, owedStart);
   const shortfall0 = Math.max(0, goal.goal - base.profitAfterAds);
   if (shortfall0 <= 0.005 || capDeadline < 1) {
     const mo = capDeadline >= 1 ? grid.months[capDeadline - 1] : null;
@@ -1203,7 +1206,7 @@ function runEngineLight(
   let bestFarms = 0;
   for (let i = 0; i < 20; i++) {
     const mid = (lo + hi) / 2;
-    const trial = simulateOnce(inputs, goal, ctx.asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, mid, capDeadline, existingFarms);
+    const trial = simulateOnce(inputs, goal, ctx.asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, mid, capDeadline, existingFarms, owedStart);
     if (trial.profitAfterAds >= goal.goal - 0.5) {
       bestExtra = mid;
       bestProfit = trial.profitAfterAds;
