@@ -77,7 +77,7 @@ export default function Sponsors() {
     <div>
       <PageHeader title={t.title} subtitle={t.subtitle}>
         {liberationEvents && liberationEvents.length > 0 && (
-          <Button variant="outline" size="sm" onClick={() => setFanfare(liberationEvents)}>
+          <Button variant="outline" size="sm" onClick={() => setFanfare(liberationEvents)} data-testid="replay-liberations">
             <Sparkles /> {t.replay}
           </Button>
         )}
@@ -91,7 +91,7 @@ export default function Sponsors() {
       <div className="mb-6">
         <LiberationBoard liberation={data.realm.liberation} />
       </div>
-      {fanfare && <Celebration events={fanfare} narrative={data.realm.narrative} onDone={() => setFanfare(null)} />}
+      {fanfare && <Celebration replay events={fanfare} narrative={data.realm.narrative} onDone={() => setFanfare(null)} />}
       {funded.length === 0 ? (
         <EmptyState title={t.emptyTitle} body={t.emptyBody} />
       ) : (

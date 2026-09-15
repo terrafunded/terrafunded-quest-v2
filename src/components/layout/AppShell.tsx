@@ -11,8 +11,7 @@ import { Button } from "@/components/ui/button";
 import { SinceLastVisit } from "@/components/realm/SinceLastVisit";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { NavDrawer } from "@/components/layout/NavDrawer";
-
-const TOPBAR_HEIGHT_PX = 56;
+import { TOPBAR_HEIGHT_PX } from "@/components/layout/chrome";
 
 /** One gutter scale for the top bar and <main>, so both boxes share their left/right edges. */
 const CONTENT_GUTTERS = "px-4 sm:px-6 lg:px-10";

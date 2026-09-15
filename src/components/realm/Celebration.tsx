@@ -1,98 +1,146 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Crown, Unlock, X } from "lucide-react";
-import { useEffect } from "react";
+import { X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
 import type { RealmEvent } from "@/domain";
-import { GrowthBurst } from "./GrowthBurst";
 import { Button } from "@/components/ui/button";
+import { TOPBAR_HEIGHT_PX } from "@/components/layout/chrome";
 import { date, money } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useRealmStrings } from "@/i18n/realm";
+import { useRealmStrings, type RealmUiStrings } from "@/i18n/realm";
+import { useTheme } from "@/theme/ThemeProvider";
+import { DATA_GOAL, DATA_PROFIT_INVENTORY } from "./chartTokens";
+
+const AUTO_DISMISS_MS = 8_000;
+const MAX_VISIBLE = 3;
+const FRESH_DAYS = 7;
+const MS_PER_DAY = 86_400_000;
 
 interface CelebrationProps {
   events: RealmEvent[];
-  /** One line of chronicle prose per event id. */
+  /** One line of chronicle prose per event id — kept for callers; the toast only prints date and amount. */
   narrative: Map<string, string>;
   onDone: () => void;
+  /** Sponsors replay: never use "just" / "acaba de" in the headline. */
+  replay?: boolean;
+  now?: Date;
+}
+
+export function celebrationAgeDays(iso: string, now: Date): number {
+  const stamp = Date.parse(iso.length <= 10 ? `${iso}T00:00:00Z` : iso);
+  if (Number.isNaN(stamp)) return Number.POSITIVE_INFINITY;
+  return (now.getTime() - stamp) / MS_PER_DAY;
+}
+
+export function celebrationUsesDate(events: RealmEvent[], replay: boolean, now: Date): boolean {
+  if (replay) return true;
+  return events.some((e) => celebrationAgeDays(e.date, now) >= FRESH_DAYS);
+}
+
+export function celebrationHeadline(events: RealmEvent[], t: RealmUiStrings["celebration"], replay: boolean, now: Date, formatDate: (iso: string) => string): string {
+  if (events.length === 0) return t.sinceLastVisit;
+  const dated = celebrationUsesDate(events, replay, now);
+  if (events.length > 1) return replay ? t.replayMany(events.length) : t.thingsHappened(events.length);
+  const first = events[0]!;
+  if (dated) return t.kindOn[first.kind]?.(formatDate(first.date)) ?? t.sinceLastVisit;
+  return t.kind[first.kind] ?? t.sinceLastVisit;
 }
 
 /**
- * Full-screen fanfare for the real closings, note sales and liberations that happened since the
- * last visit (Phase 2 §9), or for a liberation the first time it is seen. Dismissible; never
- * rendered under `prefers-reduced-motion`-hostile conditions because it is a plain dialog.
+ * A viewport toast for closings, note sales and capital returned. Portalled to document.body so
+ * the page-transition wrapper cannot trap `position: fixed`. Does not dim, trap focus, or block
+ * the page.
  */
-export function Celebration({ events, narrative, onDone }: CelebrationProps) {
-  const t = useRealmStrings().celebration;
+export function Celebration({ events, narrative: _narrative, onDone, replay = false, now }: CelebrationProps) {
+  const t = useRealmStrings();
+  const { reducedMotion } = useTheme();
+  const [held, setHeld] = useState(false);
+  const remaining = useRef(AUTO_DISMISS_MS);
+  const started = useRef(0);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onDone();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onDone]);
 
-  if (events.length === 0) return null;
-  const liberation = events.some((e) => e.kind === "liberation");
-  const headline = events.length === 1 ? (events[0] ? t.kind[events[0].kind] : undefined) ?? t.sinceLastVisit : t.thingsHappened(events.length);
+  useEffect(() => {
+    if (held) return;
+    started.current = Date.now();
+    const id = window.setTimeout(onDone, remaining.current);
+    return () => {
+      window.clearTimeout(id);
+      remaining.current = Math.max(0, remaining.current - (Date.now() - started.current));
+    };
+  }, [held, onDone]);
 
-  return (
+  if (events.length === 0 || typeof document === "undefined") return null;
+
+  const clock = now ?? new Date();
+  const liberation = events.some((e) => e.kind === "liberation");
+  const accent = liberation ? DATA_PROFIT_INVENTORY : DATA_GOAL;
+  const headline = celebrationHeadline(events, t.celebration, replay, clock, (iso) => date(iso));
+  const visible = events.slice(0, MAX_VISIBLE);
+  const extra = events.length - visible.length;
+
+  return createPortal(
     <AnimatePresence>
       <motion.div
         key="celebration"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t.aria}
-        className="fixed inset-0 z-[70] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onDone}
+        role="status"
+        aria-live="polite"
+        aria-label={t.celebration.aria}
+        className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4"
+        style={{ top: `calc(${TOPBAR_HEIGHT_PX}px + env(safe-area-inset-top, 0px) + 0.5rem)` }}
+        initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -12 }}
+        transition={{ duration: reducedMotion ? 0 : 0.35, ease: [0.16, 1, 0.3, 1] }}
         data-testid="celebration"
+        data-replay={replay || undefined}
       >
-        <motion.div
-          initial={{ scale: 0.9, y: 20, opacity: 0 }}
-          animate={{ scale: 1, y: 0, opacity: 1 }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          onClick={(e) => e.stopPropagation()}
-          className={cn(
-            "relative w-full max-w-lg overflow-hidden rounded-2xl border p-6 text-center shadow-2xl",
-            liberation ? "border-liberty/50 bg-gradient-to-br from-liberty/21 via-card to-card" : "border-gold/50 bg-gradient-to-br from-gold/15 via-card to-card",
-          )}
+        <div
+          className={cn("pointer-events-auto w-full max-w-3xl rounded-xl border bg-card/95 px-4 py-3 shadow-lg")}
+          style={{ borderColor: accent, boxShadow: `0 8px 28px -16px ${accent}` }}
+          onMouseEnter={() => setHeld(true)}
+          onMouseLeave={() => setHeld(false)}
+          onFocusCapture={() => setHeld(true)}
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHeld(false);
+          }}
         >
-          <GrowthBurst trigger={events[0]?.id ?? "x"} particles={20} className="pointer-events-none absolute inset-0 left-1/2 top-1/3" />
-          <Button variant="ghost" size="icon" className="absolute right-2 top-2" onClick={onDone} aria-label={t.close}>
-            <X />
-          </Button>
-          <motion.div
-            animate={{ rotate: [0, -8, 8, 0], scale: [1, 1.1, 1] }}
-            transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 1.5 }}
-            className={cn("mx-auto mb-3 inline-flex h-16 w-16 items-center justify-center rounded-full", liberation ? "bg-liberty/20 text-liberty" : "bg-gold/20 text-gold")}
-          >
-            {liberation ? <Unlock className="h-8 w-8" /> : <Crown className="h-8 w-8" />}
-          </motion.div>
-          <div className="stat-label">{headline}</div>
-          <ol className="mt-4 max-h-[50vh] space-y-3 overflow-y-auto text-left">
-            {events.map((e, i) => (
-              <motion.li
-                key={e.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 + i * 0.12 }}
-                className="rounded-md bg-background/50 p-3"
-              >
-                <div className="flex items-baseline justify-between gap-3 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <span>{t.kind[e.kind] ?? e.kind}</span>
-                  <span>
-                    {date(e.date)}
-                    {e.amount !== null ? ` · ${money(e.amount)}` : ""}
-                  </span>
-                </div>
-                <p className="mt-1 font-heading text-sm leading-snug sm:text-base">{narrative.get(e.id) ?? e.title}</p>
-              </motion.li>
-            ))}
-          </ol>
-          <Button className="mt-5" onClick={onDone}>
-            {t.onward}
-          </Button>
-        </motion.div>
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="font-heading text-sm leading-snug" style={{ color: accent }} data-testid="celebration-headline">
+                {headline}
+              </p>
+              <ol className="mt-1.5 space-y-0.5 text-sm">
+                {visible.map((e) => (
+                  <li key={e.id} className="flex items-baseline justify-between gap-3 tabular" data-testid="celebration-event">
+                    <span>{date(e.date)}</span>
+                    <span className="text-muted-foreground">{e.amount !== null ? money(e.amount) : ""}</span>
+                  </li>
+                ))}
+              </ol>
+              {extra > 0 && (
+                <Link
+                  to="/chronicle"
+                  onClick={onDone}
+                  className="mt-1 inline-block text-sm underline-offset-2 hover:underline"
+                  data-testid="celebration-more"
+                >
+                  {t.celebration.andMore(extra)}
+                </Link>
+              )}
+            </div>
+            <Button variant="ghost" size="icon" className="shrink-0" onClick={onDone} aria-label={t.celebration.close}>
+              <X />
+            </Button>
+          </div>
+        </div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
