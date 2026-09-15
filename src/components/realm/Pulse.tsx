@@ -13,6 +13,9 @@ const BAND_CLASS = {
  * THE PULSE — the two figures that answer "am I going to make it", promoted to the top of
  * the Throne Room. PRODUCING is today's trailing pace; NEEDED is remaining ÷ days left
  * (already on the Debt card; this is a promotion, not a move).
+ *
+ * Both figures sit in the same card treatment as the this-month tiles below them, as an
+ * equal-width pair, with the derived % line centered under both.
  */
 export function Pulse({
   producing,
@@ -30,7 +33,7 @@ export function Pulse({
   return (
     <section className="mt-6" aria-label={t.aria} data-testid="pulse">
       <div className="grid grid-cols-2 gap-3">
-        <figure className="min-w-0 text-center sm:text-left">
+        <figure className="min-w-0 rounded-md bg-background/40 p-3 text-center sm:text-left">
           <figcaption className="stat-label">{t.producing}</figcaption>
           <div
             className="mt-1 font-display text-[clamp(1.35rem,5vw,2.25rem)] leading-none tabular text-foreground"
@@ -41,7 +44,7 @@ export function Pulse({
           </div>
           <div className="mt-1 text-[11px] text-muted-foreground">{t.producingHint}</div>
         </figure>
-        <figure className="min-w-0 text-center sm:text-left">
+        <figure className="min-w-0 rounded-md bg-background/40 p-3 text-center sm:text-left">
           <figcaption className="stat-label">{t.needed}</figcaption>
           <div
             className="mt-1 font-display text-[clamp(1.35rem,5vw,2.25rem)] leading-none tabular text-foreground"
@@ -54,7 +57,12 @@ export function Pulse({
         </figure>
       </div>
       {ratio !== null && band !== null && (
-        <p className={cn("mt-3 text-sm", BAND_CLASS[band])} data-testid="pulse-ratio" data-value={ratio} data-band={band}>
+        <p
+          className={cn("mt-3 text-center text-sm", BAND_CLASS[band])}
+          data-testid="pulse-ratio"
+          data-value={ratio}
+          data-band={band}
+        >
           {t.ratio(Math.round(ratio), horizonYear)}
         </p>
       )}

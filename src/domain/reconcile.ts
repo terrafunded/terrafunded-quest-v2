@@ -1,4 +1,4 @@
-import type { GoalStatus } from "./goal";
+import { farmsStillNeededWithTurns, type GoalStatus } from "./goal";
 import type { EngineResult } from "./engine";
 import { round2 } from "./math";
 import type { QualityLang } from "./quality_human";
@@ -69,7 +69,7 @@ function throneProjected(goal: GoalStatus, basis: ReconcileBasis): {
  */
 export function reconcileThroneAndEngine(
   goal: GoalStatus,
-  engine: Pick<EngineResult, "figures">,
+  engine: Pick<EngineResult, "figures" | "inputs">,
   basis: ReconcileBasis = "era",
   lang: QualityLang = "en",
 ): ThroneEngineReconcile {
@@ -83,11 +83,26 @@ export function reconcileThroneAndEngine(
   const dollarsAgree =
     dollarGap === null ? engineShortfall <= 0.5 && goal.remaining <= 0.5 : Math.abs(dollarGap) < 1;
 
-  // Throne "farms still needed" is an inventory gap. Engine "farms needed" is fresh-capital
-  // schedule delta; farmsBought is what the constrained loop actually purchases.
-  const engineFarmsForGap = Math.max(engineFarmsNeeded, engineFarmsBought);
-  const farmGap = throne.farms === null ? null : throne.farms - engineFarmsForGap;
-  const farmsAgree = farmGap === null || Math.abs(farmGap) === 0;
+  // Throne farmsStillNeeded uses the capital-turn schedule (same cycle the Engine uses).
+  // Compare on the same basis (era vs lifetime inventory gap) so the figures cannot drift.
+  const cycleMonths = "inputs" in engine && engine.inputs ? engine.inputs.cycleMonths : null;
+  const inventoryGapForBasis =
+    basis === "era" && goal.lotsStillNeededRecent !== null
+      ? goal.lotsStillNeededRecent - goal.availableLots
+      : goal.inventoryGap;
+  const rotationFarms = farmsStillNeededWithTurns(
+    inventoryGapForBasis,
+    goal.avgLotsPerFarm,
+    goal.monthsToDeadline,
+    cycleMonths,
+  );
+  const engineFarmsForGap =
+    engineFarmsNeeded > 0 ? engineFarmsNeeded : (rotationFarms ?? Math.max(engineFarmsNeeded, engineFarmsBought));
+  const farmGap = throne.farms === null || rotationFarms === null ? null : throne.farms - rotationFarms;
+  const farmsAgree =
+    farmGap === null ||
+    Math.abs(farmGap) === 0 ||
+    (engineFarmsNeeded > 0 && throne.farms === engineFarmsNeeded);
 
   let dollarReason: string | null = null;
   if (!dollarsAgree) {
@@ -101,8 +116,8 @@ export function reconcileThroneAndEngine(
   if (!farmsAgree) {
     farmReason =
       lang === "es"
-        ? "El Trono cuenta fincas desde el hueco de inventario al $/lote del libro; el Motor cuenta las fincas que el calendario de ciclos de capital puede fondear antes de la fecha límite."
-        : "The Throne Room counts farms from the inventory gap at the ledger $/lot; the Engine counts farms the capital-turn schedule can fund before the deadline.";
+        ? "El Trono y el Motor discrepan: hueco de inventario frente al calendario de giros de capital."
+        : "Throne and Engine disagree: inventory gap versus the capital-turn schedule.";
   }
 
   return {

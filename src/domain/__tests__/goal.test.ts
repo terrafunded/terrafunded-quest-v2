@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildVerdict, computeGoal, trailingClosedLots } from "../goal";
+import { buildVerdict, computeGoal, farmsStillNeededWithTurns, trailingClosedLots } from "../goal";
 import type { Lot } from "../lot";
 import type { FarmEconomics } from "../farm";
 import { ASOF } from "./builders";
@@ -142,5 +142,23 @@ describe("computeGoal", () => {
     const g = computeGoal([closed(100_000, "2026-09-01", 30_000)], farms, ASOF);
     expect(g.cashRealized).toBe(30_000);
     expect(g.profitOnPaper).toBe(70_000);
+  });
+});
+
+
+describe("farmsStillNeededWithTurns", () => {
+  it("matches the flat inventory formula when no cycle is given", () => {
+    expect(farmsStillNeededWithTurns(82, 12.1, 15, null)).toBe(7);
+    expect(farmsStillNeededWithTurns(82, 12.1, 40, undefined)).toBe(7);
+  });
+
+  it("strictly decreases as the horizon lengthens, all else equal", () => {
+    const cycle = 7.21;
+    const a = farmsStillNeededWithTurns(82, 12.1, 15.64, cycle);
+    const b = farmsStillNeededWithTurns(82, 12.1, 27.66, cycle);
+    const c = farmsStillNeededWithTurns(82, 12.1, 39.66, cycle);
+    expect(a).toBeGreaterThan(b as number);
+    expect(b).toBeGreaterThan(c as number);
+    expect(c).toBeGreaterThan(0);
   });
 });

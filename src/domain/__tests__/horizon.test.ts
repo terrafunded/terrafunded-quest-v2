@@ -66,12 +66,13 @@ describe("buildRealm at each exit horizon", () => {
     expect(req(r2029)).toBeLessThan(req(r2028));
     expect(req(r2028)).toBeLessThan(req(r2027));
 
-    // farmsStillNeeded is inventory-gap ÷ avg lots per farm — the existing formula does not
-    // read the deadline, so the number is the same on all three horizons. The War Plan's
-    // last purchase date is the figure that slides later when there is more time.
-    expect(r2028.goal.farmsStillNeeded).toBe(r2027.goal.farmsStillNeeded);
-    expect(r2029.goal.farmsStillNeeded).toBe(r2027.goal.farmsStillNeeded);
-    expect(r2027.goal.farmsStillNeeded).toBeGreaterThan(0);
+    // farmsStillNeeded accounts for capital turns before the deadline — longer horizon ⇒ fewer farms.
+    expect(r2027.goal.farmsStillNeeded).toBeGreaterThan(r2028.goal.farmsStillNeeded as number);
+    expect(r2028.goal.farmsStillNeeded).toBeGreaterThan(r2029.goal.farmsStillNeeded as number);
+    expect(r2029.goal.farmsStillNeeded).toBeGreaterThan(0);
+    // lotsStillNeeded is remaining ÷ avg $/lot — deliberately horizon-independent.
+    expect(r2028.goal.lotsStillNeeded).toBe(r2027.goal.lotsStillNeeded);
+    expect(r2029.goal.lotsStillNeeded).toBe(r2027.goal.lotsStillNeeded);
     expect(r2029.warPlan.required.lastPurchaseDate! > r2027.warPlan.required.lastPurchaseDate!).toBe(true);
 
     expect(r2029.warPlan.required.closingsPerMonth).toBeLessThan(r2028.warPlan.required.closingsPerMonth);

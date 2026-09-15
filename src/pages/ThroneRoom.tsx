@@ -108,8 +108,8 @@ export function ThroneRoom() {
         <AmbientParticles />
         <GrowthBurst trigger={g.netProfitToDate} className="pointer-events-none absolute inset-0 left-1/2 top-1/2" />
         <h1 className="stat-label">{t.asOf(date(g.asOf))}</h1>
-        <div className="mt-3 grid items-end gap-5 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-          <div className="min-w-0">
+        <div className="mt-3 grid items-stretch gap-5 md:grid-cols-2">
+          <div className="flex min-h-full min-w-0 flex-col items-center justify-center rounded-xl border border-gold/20 bg-background/40 px-4 py-3">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -134,7 +134,7 @@ export function ThroneRoom() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="min-w-0 rounded-xl border border-stage-reserved/30 bg-background/40 px-4 py-3 text-left"
+            className="flex h-full min-w-0 flex-col justify-center rounded-xl border border-stage-reserved/30 bg-background/40 px-4 py-3 text-left"
             data-testid="committed"
             aria-label={t.committedAria}
           >
@@ -170,12 +170,12 @@ export function ThroneRoom() {
           horizonYear={Number(g.deadline.slice(0, 4))}
         />
 
-        <div className="mt-8 grid items-center gap-6 sm:grid-cols-[auto_1fr] sm:text-left">
-          <ProgressRing value={g.pctComplete} size={150} className="mx-auto">
+        <div className="mt-8 flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:text-left">
+          <ProgressRing value={g.pctComplete} size={150} className="mx-auto shrink-0">
             <div className="font-heading text-3xl text-gold tabular">{g.pctComplete.toFixed(1)}%</div>
             <div className="stat-label">{t.complete}</div>
           </ProgressRing>
-          <div className="space-y-3">
+          <div className="min-w-0 flex-1 space-y-3">
             <p className="font-heading text-lg leading-snug text-foreground sm:text-xl" data-testid="verdict">
               {g.verdict.includes(t.verdictLotsMonth)
                 ? g.verdict.replace(t.verdictLotsMonth, t.verdictLotsMonthAnnotated)

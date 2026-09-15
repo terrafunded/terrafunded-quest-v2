@@ -25,6 +25,7 @@ import { NAV_UI } from "@/i18n/nav";
 import { TREASURY_UI } from "@/i18n/treasury";
 import { PIPELINE_UI } from "@/i18n/pipeline";
 import { WAR_PLAN_UI } from "@/i18n/warPlan";
+import { farmsStillNeededWithTurns } from "@/domain/goal";
 
 export interface ExportFigure {
   id: string;
@@ -299,12 +300,12 @@ function collectFigures(
       raw: g.farmsStillNeeded,
       subtitle:
         lang === "es"
-          ? "Brecha de inventario ÷ lotes por finca (modelo plano)"
-          : "Inventory gap ÷ lots per farm (flat model)",
+          ? "Brecha de inventario ÷ (lotes por finca × giros de capital antes del horizonte)"
+          : "Inventory gap ÷ (lots per farm × capital turns before the horizon)",
       units: "farms",
       source: { file: "src/domain/goal.ts", export: "computeGoal" },
       inputs: { inventoryGap: g.inventoryGap, avgLotsPerFarm: g.avgLotsPerFarm },
-      formula: "ceil(max(0, inventoryGap) ÷ avgLotsPerFarm)",
+      formula: "ceil(max(0, inventoryGap) ÷ (avgLotsPerFarm × max(1, floor(monthsToDeadline ÷ cycleMonths))))",
     },
     {
       id: "throne.capitalOutstanding",
@@ -793,8 +794,13 @@ function runReconciliations(
       lang === "es" ? "Trono farmsStillNeeded vs Motor farmsNeeded" : "Throne farmsStillNeeded vs Engine farmsNeeded",
       { label: "throne.farmsStillNeeded", value: g.farmsStillNeeded },
       {
-        label: "engine.farmsNeeded (or bought)",
-        value: Math.max(engine.figures.farmsNeeded, engine.figures.farmsBought),
+        label: "rotation farmsStillNeeded (shared formula)",
+        value: farmsStillNeededWithTurns(
+          g.inventoryGap,
+          g.avgLotsPerFarm,
+          g.monthsToDeadline,
+          engine.inputs.cycleMonths,
+        ),
       },
       0,
       throneEngine.farmReason ??
