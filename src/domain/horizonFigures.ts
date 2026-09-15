@@ -102,6 +102,9 @@ function throneFigures(realm: Realm): HorizonFigure[] {
     fig("/", "noteLiquidityCostUnrealized", "Note liquidity cost unrealized", realm.profitLayers.liquidityCostUnrealized, "historical"),
     fig("/", "notesHeldFace", "Notes held at face value", realm.profitLayers.notesHeldFace, "historical"),
     fig("/", "notesHeldAtRatio", "Notes held at measured sale ratio", realm.profitLayers.notesHeldAtRatio, "historical"),
+    fig("/", "scorecardGradeA", "Farm scorecard grade A count", realm.farmScorecard.gradeACount, "historical"),
+    fig("/", "scorecardStaleCount", "Farm scorecard stale farms", realm.farmScorecard.staleCount, "historical"),
+    fig("/", "parked90Plus", "Parked reservations 90+ days", realm.reservationAging.stuckCount, "historical"),
     fig("/", "cashRealized", "Cash realized", g.cashRealized, "historical"),
     fig("/", "capitalOutstanding", "Capital outstanding", g.capitalOutstanding, "historical"),
     fig("/", "closedLots", "Closings to date", g.closedLots, "historical"),
@@ -304,6 +307,8 @@ function pipelineFigures(realm: Realm): HorizonFigure[] {
     fig("/pipeline", "netProfitTrapped", "Pipeline profit trapped", p.netProfitTrapped, "historical"),
     fig("/pipeline", "stuckCount", "Stuck reservations", p.stuckCount, "historical"),
     fig("/pipeline", "reserved", "Pipeline reserved count", p.reserved, "historical"),
+    fig("/pipeline", "aging90Plus", "Reservation aging 90+", realm.reservationAging.stuckCount, "historical"),
+    fig("/pipeline", "fullyReservedUnsold", "Fully reserved unsold farms", realm.reservationAging.fullyReservedUnsold.length, "historical"),
   ];
 }
 
@@ -325,6 +330,10 @@ function treasuryFigures(realm: Realm): HorizonFigure[] {
   return [
     fig("/treasury", "totalCashIn", "Cash flow in", t.totalCashIn, "historical"),
     fig("/treasury", "totalCashOut", "Cash flow out", t.totalCashOut, "historical"),
+    fig("/treasury", "liquidityCostTotal", "Note liquidity cost total", realm.noteStrategies.liquidityCostTotal, "historical"),
+    fig("/treasury", "liquidityCostRealized", "Note liquidity cost realized", realm.noteStrategies.liquidityCostRealized, "historical"),
+    fig("/treasury", "liquidityCostUnrealized", "Note liquidity cost unrealized", realm.noteStrategies.liquidityCostUnrealized, "historical"),
+    fig("/treasury", "sellNowCashInHand", "Sell-now cash in hand", realm.noteStrategies.sell.cashInHandNow, "historical"),
   ];
 }
 
@@ -366,6 +375,9 @@ function realmMapFigures(realm: Realm): HorizonFigure[] {
   return [
     fig("/realm", "farmCount", "Farms and lots · farms", realm.farms.length, "historical"),
     fig("/realm", "lotCount", "Farms and lots · lots", realm.lots.length, "historical"),
+    fig("/realm", "scorecardFreestoneNet", "Farm scorecard Freestone net/lot", realm.farmScorecard.rows.find((r) => r.name === "Freestone")?.netProfitPerSoldLot ?? null, "historical"),
+    fig("/realm", "scorecardWichitaNet", "Farm scorecard Wichita net/lot", realm.farmScorecard.rows.find((r) => r.name === "Wichita")?.netProfitPerSoldLot ?? null, "historical"),
+    fig("/realm", "scorecardStaleCount", "Farm scorecard stale farms", realm.farmScorecard.staleCount, "historical"),
   ];
 }
 

@@ -25,6 +25,7 @@ import { Pulse } from "@/components/realm/Pulse";
 import { PulseCharts } from "@/components/realm/PulseCharts";
 import { AmbientParticles } from "@/components/realm/AmbientParticles";
 import { PipelinePanel } from "@/components/realm/PipelinePanel";
+import { FarmScorecardSummary } from "@/components/realm/FarmScorecardSection";
 import { Reveal } from "@/components/realm/Reveal";
 import { Stat } from "@/components/realm/Stat";
 import { EmptyState, ErrorState, LoadingState, TableErrorsBanner } from "@/components/realm/PageStates";
@@ -417,6 +418,31 @@ export function ThroneRoom() {
       <Reveal>
         <PipelinePanel pipeline={realm.pipeline} />
       </Reveal>
+
+      <section className="grid gap-3 sm:grid-cols-2" data-testid="decision-summaries">
+        <Link to="/realm" className="parchment-card block p-4 transition-colors hover:border-gold/40" data-testid="farm-scorecard-summary">
+          <div className="stat-label">{t.scorecardTitle}</div>
+          <div className="mt-1 font-heading text-xl tabular">{t.scorecardHint(realm.farmScorecard.gradeACount, realm.farmScorecard.staleCount)}</div>
+          <div className="mt-2">
+            <FarmScorecardSummary scorecard={realm.farmScorecard} />
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">{t.scorecardLink}</div>
+        </Link>
+        <Link to="/pipeline" className="parchment-card block p-4 transition-colors hover:border-gold/40" data-testid="parked-money-summary">
+          <div className="stat-label">{t.parkedTitle}</div>
+          <div className="mt-1 font-heading text-xl tabular">
+            {realm.reservationAging.stuckCount === 0
+              ? t.parkedClear
+              : t.parkedHint(realm.reservationAging.stuckCount, money(realm.reservationAging.stuckExpectedNet))}
+          </div>
+          {realm.reservationAging.fullyReservedUnsold.length > 0 && (
+            <div className="mt-2 text-xs text-[hsl(var(--data-status-far))]">
+              {realm.reservationAging.fullyReservedUnsold.map((f) => f.farmName).join(" · ")}
+            </div>
+          )}
+          <div className="mt-2 text-xs text-muted-foreground">{t.parkedLink}</div>
+        </Link>
+      </section>
 
       <Reveal>
         <section className="parchment-card p-4 sm:p-5" aria-label={t.rotation} data-testid="rotation-strip">

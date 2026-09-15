@@ -9,6 +9,7 @@ import { Stat } from "@/components/realm/Stat";
 import { Ellipsize } from "@/components/realm/FitMoney";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { ReverseFunnel } from "@/components/realm/ReverseFunnel";
+import { ReservationAgingSection } from "@/components/realm/ReservationAgingSection";
 import { usePipelineStrings } from "@/i18n/pipeline";
 import { date, money, moneyExact, monthLabel, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,8 @@ export default function Pipeline() {
       </PageHeader>
 
       <TableErrorsBanner errors={data.tableErrors} />
+
+      <ReservationAgingSection aging={data.realm.reservationAging} asOf={data.realm.asOf} />
 
       <ReverseFunnel goal={data.realm.goal} expected={data.realm.expected} conversion={p.conversion} />
 

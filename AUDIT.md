@@ -111,3 +111,20 @@ Where future interest on the **existing** book is (not) deducted:
 **Decision:** keep the schedule and the marker. The table hint states that the deadline is the last month fresh capital can complete a turn, not a ban on later recycled buys. `EngineTurnRow.afterFreshDeadline` flags those rows for audit.
 
 Existing-farm return months use `allocateExistingFarmSales`: the company `salesPace` is shared in sell-order (fewest remaining lots first, then name). Monthly Σ lots closed across farms never exceeds `salesPace`, and the last existing farm returns at `ceil(total remaining ÷ pace)` — the same horizon as `inventoryMonths`. Projected farms are always `Projected farm N` in the domain (UI i18n: "Projected farm N" / "Finca proyectada N"); they never inherit an existing farm's name. The empty "Inventory on hand" lane is omitted.
+
+## 7. Farm scorecard grade A–D
+
+**Decision:** a subdivided farm is graded only when it has at least one sold lot. The letter is the half-up average of two 1–4 scores (JS `Math.round` on the mean). Ungraded farms show "—".
+
+| Score | Net profit per sold lot | Median days farm funding → each closing |
+|---|---|---|
+| 4 | ≥ $70,000 | ≤ 60 days |
+| 3 | ≥ $55,000 | ≤ 120 days |
+| 2 | ≥ $40,000 | ≤ 180 days |
+| 1 | below $40,000 | slower than 180 days, or missing funding/close dates |
+
+`round((net + velocity) / 2)` → 4 = A, 3 = B, 2 = C, 1 = D. Fixture: Freestone $82,291.82 and 47 days → 4+4 = A. Wichita $43,923.16 and 93 days → 2+3 = 2.5 → B. Lakeview 0 of 12 sold → ungraded.
+
+A farm is flagged stale when it has **zero reservation events in the last 90 days** (including sold-out and never-reserved farms). The sentence under the table names every grade-A farm (else the highest grade present) as the pattern to buy more like.
+
+Implemented in `src/domain/farmScorecard.ts` (`computeFarmScorecard`). Shown on `/realm` and as a summary card on the Overview.

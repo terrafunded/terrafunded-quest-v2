@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { RotateCcw, Save, Trash2 } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
 import { useHorizon } from "@/horizon/HorizonProvider";
@@ -180,6 +181,9 @@ function ExodusBody({ realm, tableErrors, defaults }: { realm: Realm; tableError
           {realm.pathToGoal.projectedExitAtCurrentPace ? date(realm.pathToGoal.projectedExitAtCurrentPace) : "—"}
         </span>
         <span className="mt-0.5 block text-xs text-muted-foreground">{t.projectedExitFormula}</span>
+        <Link to="/treasury#notes-strategies" className="mt-2 inline-block text-xs text-foreground underline underline-offset-4 hover:text-gold" data-testid="exodus-notes-strategies-link">
+          {t.seeNotesStrategies}
+        </Link>
       </p>
 
       <section aria-label={t.verdict} className={cn("parchment-card mb-6 p-5", s.feasible ? "border-gold/40" : "border-destructive/50")} data-testid="exodus-verdict-card">

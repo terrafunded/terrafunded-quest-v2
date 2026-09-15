@@ -41,6 +41,15 @@ describe("platformExport", () => {
     expect(doc.figures.some((f) => f.id === "throne.netCashRealized")).toBe(false);
     expect(doc.figures.some((f) => f.id === "throne.noteLiquidityCost")).toBe(true);
     expect(doc.figures.find((f) => f.id === "throne.noteLiquidityCost")?.formula).toContain("noteFinancedAmount − noteSalePrice");
+    expect(doc.figures.find((f) => f.id === "throne.noteLiquidityCost")?.raw).toBe(783_523.79);
+    expect(doc.figures.find((f) => f.id === "treasury.liquidityCostTotal")?.raw).toBe(783_523.79);
+    expect(doc.figures.find((f) => f.id === "treasury.liquidityCostRealized")?.raw).toBe(315_064.14);
+    expect(doc.figures.find((f) => f.id === "treasury.liquidityCostUnrealized")?.raw).toBe(468_459.65);
+    expect(doc.figures.find((f) => f.id === "realm.scorecardFreestoneNetPerSoldLot")?.raw).toBeCloseTo(82_291.82, 2);
+    expect(doc.figures.find((f) => f.id === "realm.scorecardWichitaNetPerSoldLot")?.raw).toBeCloseTo(43_923.16, 2);
+    expect(doc.figures.find((f) => f.id === "realm.scorecardLakeviewSold")?.raw).toBe(0);
+    expect(doc.figures.some((f) => f.id === "pipeline.aging90Plus")).toBe(true);
+    expect(doc.figures.some((f) => f.id === "throne.parked90Plus")).toBe(true);
     expect(doc.figures.some((f) => f.id === "throne.notesHeldFace")).toBe(true);
     expect(doc.reconciliations.some((c) => c.id === "sale_price_layers" && c.pass)).toBe(true);
     const liquidity = doc.reconciliations.find((c) => c.id === "note_liquidity_cost_realized");

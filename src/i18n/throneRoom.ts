@@ -114,6 +114,13 @@ export interface ThroneRoomUiStrings {
   sponsorsHint: (sponsors: number, farms: number) => string;
   treasury: string;
   treasuryHint: (inn: string, out: string) => string;
+  scorecardTitle: string;
+  scorecardHint: (a: number, stale: number) => string;
+  scorecardLink: string;
+  parkedTitle: string;
+  parkedHint: (stuck: number, amount: string) => string;
+  parkedLink: string;
+  parkedClear: string;
 }
 
 export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
@@ -247,6 +254,13 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     sponsorsHint: (s, f) => `${s} sponsors funding ${f} farms`,
     treasury: "Cash flow",
     treasuryHint: (inn, out) => `${inn} in · ${out} out`,
+    scorecardTitle: "Farm scorecard",
+    scorecardHint: (a, stale) => `${a} grade A · ${stale} with no reservation in 90 days`,
+    scorecardLink: "Open the farm scorecard →",
+    parkedTitle: "Parked money",
+    parkedHint: (stuck, amount) => `${stuck} reservations waiting 90+ days · ${amount} expected net`,
+    parkedLink: "Open reservation aging →",
+    parkedClear: "No reservation has waited 90 days.",
   },
   es: {
     emptyTitle: "Sin fincas ni lotes",
@@ -378,6 +392,13 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     sponsorsHint: (s, f) => `${s} sponsors fondeando ${f} fincas`,
     treasury: "Flujo de efectivo",
     treasuryHint: (inn, out) => `${inn} entrante · ${out} saliente`,
+    scorecardTitle: "Tarjeta de fincas",
+    scorecardHint: (a, stale) => `${a} nota A · ${stale} sin reserva en 90 días`,
+    scorecardLink: "Abrir la tarjeta de fincas →",
+    parkedTitle: "Dinero estacionado",
+    parkedHint: (stuck, amount) => `${stuck} reservas de 90+ días · ${amount} de utilidad neta esperada`,
+    parkedLink: "Abrir antigüedad de reservas →",
+    parkedClear: "Ninguna reserva lleva 90 días.",
   },
 };
 

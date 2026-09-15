@@ -66,6 +66,32 @@ export interface RealmMapUiStrings {
     schematicNone: string;
   };
   lotAria: (name: string, stage: string, stuck: boolean) => string;
+  scorecard: {
+    title: string;
+    subtitle: string;
+    staleFlag: string;
+    staleHint: (days: number) => string;
+    ungraded: string;
+    buyLike: (names: string, grade: string) => string;
+    buyLikeNone: string;
+    dealProfitShare: (pct: string, take: string) => string;
+    dealInterest: (pct: string, take: string) => string;
+    dealOwn: string;
+    lotsSplit: (sold: number, reserved: number, available: number) => string;
+    col: {
+      farm: string;
+      grade: string;
+      landCost: string;
+      avgSale: string;
+      netPerLot: string;
+      netOverLand: string;
+      lots: string;
+      sellThrough: string;
+      medianClose: string;
+      daysSinceRes: string;
+      sponsorTake: string;
+    };
+  };
 }
 
 export const REALM_MAP_UI: Record<QualityLang, RealmMapUiStrings> = {
@@ -135,6 +161,34 @@ export const REALM_MAP_UI: Record<QualityLang, RealmMapUiStrings> = {
       schematicNone: "Schematic · Payments has no survey drawing for this farm",
     },
     lotAria: (name, stage, stuck) => `${name}: ${stage}${stuck ? ", stuck reservation" : ""}`,
+    scorecard: {
+      title: "Farm scorecard",
+      subtitle:
+        "One row per subdivided farm. Grade A–D from net profit per sold lot and median days from farm funding to each closing. Farms with no reservation in 90 days are flagged.",
+      staleFlag: "No reservation in 90 days",
+      staleHint: (days) => `No reservation in the last ${days} days`,
+      ungraded: "—",
+      buyLike: (names, grade) =>
+        `Buy more farms like ${names}: grade ${grade} from high net per lot and fast funding-to-close.`,
+      buyLikeNone: "No farm has a sold-lot grade yet, so there is no pattern to copy.",
+      dealProfitShare: (pct, take) => `${pct} profit share · ${take} per sold lot`,
+      dealInterest: (pct, take) => `${pct} interest · ${take} per sold lot`,
+      dealOwn: "own capital",
+      lotsSplit: (sold, reserved, available) => `${sold} sold / ${reserved} reserved / ${available} available`,
+      col: {
+        farm: "Farm",
+        grade: "Grade",
+        landCost: "Land cost / lot",
+        avgSale: "Avg sale",
+        netPerLot: "Net / sold lot",
+        netOverLand: "Net ÷ land",
+        lots: "Sold / reserved / available",
+        sellThrough: "Sell-through",
+        medianClose: "Median funding → close",
+        daysSinceRes: "Days since last reservation",
+        sponsorTake: "Deal · sponsor take",
+      },
+    },
   },
   es: {
     title: "Fincas y lotes",
@@ -202,6 +256,34 @@ export const REALM_MAP_UI: Record<QualityLang, RealmMapUiStrings> = {
       schematicNone: "Esquema · Payments no tiene levantamiento para esta finca",
     },
     lotAria: (name, stage, stuck) => `${name}: ${stage}${stuck ? ", reserva atascada" : ""}`,
+    scorecard: {
+      title: "Tarjeta de fincas",
+      subtitle:
+        "Una fila por finca subdividida. Nota A–D según la utilidad neta por lote vendido y la mediana de días del fondeo de la finca a cada cierre. Se marcan las fincas sin reserva en 90 días.",
+      staleFlag: "Sin reserva en 90 días",
+      staleHint: (days) => `Ninguna reserva en los últimos ${days} días`,
+      ungraded: "—",
+      buyLike: (names, grade) =>
+        `Comprar más fincas como ${names}: nota ${grade} por alta utilidad neta por lote y fondeo-a-cierre rápido.`,
+      buyLikeNone: "Ninguna finca tiene nota de lotes vendidos, así que no hay patrón que copiar.",
+      dealProfitShare: (pct, take) => `${pct} de utilidad · ${take} por lote vendido`,
+      dealInterest: (pct, take) => `${pct} de interés · ${take} por lote vendido`,
+      dealOwn: "capital propio",
+      lotsSplit: (sold, reserved, available) => `${sold} vendidos / ${reserved} reservados / ${available} disponibles`,
+      col: {
+        farm: "Finca",
+        grade: "Nota",
+        landCost: "Tierra / lote",
+        avgSale: "Venta promedio",
+        netPerLot: "Neta / lote vendido",
+        netOverLand: "Neta ÷ tierra",
+        lots: "Vendidos / reservados / disponibles",
+        sellThrough: "Colocación",
+        medianClose: "Mediana fondeo → cierre",
+        daysSinceRes: "Días desde la última reserva",
+        sponsorTake: "Trato · parte del sponsor",
+      },
+    },
   },
 };
 

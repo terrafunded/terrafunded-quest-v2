@@ -1,6 +1,7 @@
 import { Bar, BarChart, CartesianGrid, Legend, Line, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis, ComposedChart } from "recharts";
 import { useRealm } from "@/data/useRealm";
 import { Stat } from "@/components/realm/Stat";
+import { NoteStrategiesSection } from "@/components/realm/NoteStrategiesSection";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { useTreasuryStrings } from "@/i18n/treasury";
@@ -62,6 +63,8 @@ export default function Treasury() {
           }
         />
       </section>
+
+      <NoteStrategiesSection strategies={data.realm.noteStrategies} />
 
       {rows.length === 0 ? (
         <EmptyState title={tUi.empty} />

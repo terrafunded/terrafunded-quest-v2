@@ -8,6 +8,7 @@ import { StageBadge } from "@/components/realm/StageBadge";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { PointerTooltip } from "@/components/realm/PointerTooltip";
 import { FarmCard } from "@/components/realm/FarmCard";
+import { FarmScorecardSection } from "@/components/realm/FarmScorecardSection";
 import { CAMPAIGN_META, RING_STROKE, STAGE_FILL } from "@/components/realm/realmTokens";
 import { useCommonStrings } from "@/i18n/common";
 import { useRealmMapStrings } from "@/i18n/realmMap";
@@ -111,6 +112,8 @@ export default function RealmMap() {
         </ul>
       </PageHeader>
       <TableErrorsBanner errors={data.tableErrors} />
+
+      <FarmScorecardSection scorecard={data.realm.farmScorecard} />
 
       <RealmPointer lotById={lotById}>
         {(hoveredLotId) => (

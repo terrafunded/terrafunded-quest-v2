@@ -27,6 +27,9 @@ import { computeSeasonality, type SeasonalProfile } from "./seasonality";
 import { computeMonthlyHistory, type MonthlyPoint } from "./history";
 import { startOfUtcDay, toIsoDate } from "./dates";
 import { computeProfitLayers, type ProfitLayers } from "./profitLayers";
+import { computeFarmScorecard, type FarmScorecard } from "./farmScorecard";
+import { computeNoteStrategies, type NoteStrategies } from "./noteStrategies";
+import { computeReservationAging, type ReservationAging } from "./reservationAging";
 
 /** Everything the pages render. Built once from a snapshot; pages never compute money. */
 export interface Realm {
@@ -88,6 +91,12 @@ export interface Realm {
    * Derived from existing lot fields — does not change the goal.
    */
   profitLayers: ProfitLayers;
+  /** One graded row per subdivided farm — /realm scorecard and the Throne summary. */
+  farmScorecard: FarmScorecard;
+  /** Sell / hold / deliver the held notes — /treasury, linked from /exodus. */
+  noteStrategies: NoteStrategies;
+  /** Reservation aging buckets — /pipeline parked-money section and the Throne summary. */
+  reservationAging: ReservationAging;
   /** Reservations, closings and net profit by calendar month — the Pulse charts. */
   history: MonthlyPoint[];
   snapshot: PaymentsSnapshot;
@@ -209,6 +218,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
   const treasury = stage(timings, "computeTreasury", () => computeTreasury(lots, snapshot.investorDistributions, snapshot.noteSales));
   const oracleDefaults = stage(timings, "deriveOracleDefaults", () => deriveOracleDefaults(lots, farms, goal, { eraStart }));
   const profitLayers = stage(timings, "computeProfitLayers", () => computeProfitLayers(lots, oracleDefaults.noteSalePct / 100));
+  const farmScorecard = stage(timings, "computeFarmScorecard", () => computeFarmScorecard(farms, asOf));
   const getCadence = defer(timings, "farmCadence", () => farmCadence(farms, asOf, eraStart));
 
   // Phase 2
@@ -224,6 +234,8 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
   );
   const debt = stage(timings, "computeDebt", () => computeDebt(farms, goal, lots, { eraStart }));
   const oxygen = stage(timings, "computeOxygen", () => computeOxygen(lots, farms, asOf, { conversionPct: expected.conversionPct, eraStart }));
+  const noteStrategies = stage(timings, "computeNoteStrategies", () => computeNoteStrategies(profitLayers, lots, debt.capitalOwed));
+  const reservationAging = stage(timings, "computeReservationAging", () => computeReservationAging(farms, expected, oxygen, asOf));
   const campaigns = stage(timings, "computeCampaigns", () => computeCampaigns(farms, lots, asOf, undefined, lang));
   const getStreaks = defer(timings, "computeStreaks", () =>
     computeStreaks(
@@ -315,6 +327,9 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
     },
     oracleDefaults,
     profitLayers,
+    farmScorecard,
+    noteStrategies,
+    reservationAging,
     debt,
     oxygen,
     liberation,

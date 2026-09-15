@@ -118,6 +118,26 @@ export interface PipelineUiStrings {
     perWeekExplain: (n: string, perMonth: string, tag: string) => string;
     adExplain: (spend: string, cost: string) => string;
   };
+  aging: {
+    title: string;
+    subtitle: string;
+    exportTasks: string;
+    fullyReserved: string;
+    bucket0: string;
+    bucket31: string;
+    bucket61: string;
+    bucket90: string;
+    salePrice: string;
+    expectedNet: string;
+    daysGained: string;
+    client: string;
+    farm: string;
+    lot: string;
+    daysWaiting: string;
+    testClient: string;
+    empty: string;
+    farmCounts: (b0: number, b31: number, b61: number, b90: number) => string;
+  };
 }
 
 export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
@@ -249,6 +269,27 @@ export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
       adExplain: (spend, cost) =>
         `${spend} a month if every reservation takes one paid conversation at ${cost} — your figure, not Payments'.`,
     },
+    aging: {
+      title: "Parked money: reservation aging",
+      subtitle:
+        "Live reservations by days since the reservation, per farm. Days gained if closed this month use today's net profit per day. Farms whose entire inventory is reserved with zero closings are highlighted.",
+      exportTasks: "Export as Score tasks",
+      fullyReserved: "Entire inventory reserved · zero closings",
+      bucket0: "0–30 days",
+      bucket31: "31–60 days",
+      bucket61: "61–90 days",
+      bucket90: "90+ days",
+      salePrice: "Sale price",
+      expectedNet: "Expected net profit",
+      daysGained: "Days gained if closed this month",
+      client: "Client",
+      farm: "Farm",
+      lot: "Lot",
+      daysWaiting: "Days waiting",
+      testClient: "test client",
+      empty: "No live reservations.",
+      farmCounts: (b0, b31, b61, b90) => `${b0} · ${b31} · ${b61} · ${b90}`,
+    },
   },
   es: {
     title: "Pipeline",
@@ -377,6 +418,27 @@ export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
         `${n} reservas a la semana (${perMonth}/mes sobre 30.44 ÷ 7 semanas), al ${tag}.`,
       adExplain: (spend, cost) =>
         `${spend} al mes si cada reserva toma una conversación pagada a ${cost} — tu cifra, no la de Payments.`,
+    },
+    aging: {
+      title: "Dinero estacionado: antigüedad de reservas",
+      subtitle:
+        "Reservas vivas por días desde la reserva, por finca. Los días ganados si cierra este mes usan la utilidad neta por día de hoy. Se destacan las fincas cuyo inventario entero está reservado y no tiene cierres.",
+      exportTasks: "Exportar como tareas de Score",
+      fullyReserved: "Inventario entero reservado · cero cierres",
+      bucket0: "0–30 días",
+      bucket31: "31–60 días",
+      bucket61: "61–90 días",
+      bucket90: "90+ días",
+      salePrice: "Precio de venta",
+      expectedNet: "Utilidad neta esperada",
+      daysGained: "Días ganados si cierra este mes",
+      client: "Cliente",
+      farm: "Finca",
+      lot: "Lote",
+      daysWaiting: "Días esperando",
+      testClient: "cliente de prueba",
+      empty: "No hay reservas vivas.",
+      farmCounts: (b0, b31, b61, b90) => `${b0} · ${b31} · ${b61} · ${b90}`,
     },
   },
 };
