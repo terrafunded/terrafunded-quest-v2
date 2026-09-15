@@ -476,7 +476,12 @@ export default function EnginePage() {
         </p>
       </section>
 
-      <EngineCharts result={result} t={t} onLoadSensitivity={loadSensitivity} />
+      <EngineCharts
+        result={result}
+        t={t}
+        nextFarmFundByDate={data.realm.pathToGoal.nextFarmFundByDate}
+        onLoadSensitivity={loadSensitivity}
+      />
     </div>
   );
 }

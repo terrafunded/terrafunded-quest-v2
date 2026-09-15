@@ -8,6 +8,7 @@ const Loaded = lazy(() => import("./EngineChartsLoaded"));
 type Props = {
   result: EngineResult;
   t: EngineUiStrings;
+  nextFarmFundByDate: string | null;
   onLoadSensitivity: (cell: EngineSensitivityCell) => void;
 };
 

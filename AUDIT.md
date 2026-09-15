@@ -96,3 +96,18 @@ Where future interest on the **existing** book is (not) deducted:
 | Engine `netProfitAtDeadline` | **No** | `cumulativeNetProfit − ad spend`. Monthly interest is accumulated as `totalInterest` (a side figure and a share-of-profit hint) and is **not** subtracted from reachable profit. Engine `totalInterest` grows with horizon (`$766,251.76` / `$1,288,950.90` / `$1,808,632.22`) because the Engine also accrues on new-farm outstanding in the current-pace series. |
 
 **Decision: do not change the model.** The extra interest of a later exit is a cost of staying outstanding longer, not a reduction of remaining or of lots still needed. Throne Room and War Plan show a visible note with the extra versus 2027. Helpers: `interestCarryToDeadline()` and `extraInterestVersus2027()` in `src/domain/pathToGoal.ts`.
+
+## 6. Engine capital-deadline marker vs projected purchases
+
+**Neither the marker nor the buy schedule is wrong.** They answer different questions.
+
+| Piece | Function / field | Meaning |
+|---|---|---|
+| Marker | `capitalDeadlineMonth(deadlineIndex, cycleMonths)` → `figures.capitalDeadlineMonthIndex` | Last month **fresh** capital can arrive and still complete a full turn (`purchase + cycle ≤ deadline`). |
+| Schedule window | `buyThrough = max(capDeadline, deadlineIndex)` | Recycled capital may still buy after that month, through the exit deadline. |
+
+`greedyBuySchedule` is called with `buyThrough`, so a projected farm whose `purchaseMonth` is after `capitalDeadlineMonthIndex` is a **recycled** buy in the post-fresh window. The old "Capital turns" chart looked broken because those bars sat past the gold line while the hint said capital had to land before it.
+
+**Decision:** keep the schedule and the marker. The table hint states that the deadline is the last month fresh capital can complete a turn, not a ban on later recycled buys. `EngineTurnRow.afterFreshDeadline` flags those rows for audit.
+
+Existing-farm return months use `allocateExistingFarmSales`: the company `salesPace` is shared in sell-order (fewest remaining lots first, then name). Monthly Σ lots closed across farms never exceeds `salesPace`, and the last existing farm returns at `ceil(total remaining ÷ pace)` — the same horizon as `inventoryMonths`. Projected farms are always `Projected farm N` in the domain (UI i18n: "Projected farm N" / "Finca proyectada N"); they never inherit an existing farm's name. The empty "Inventory on hand" lane is omitted.

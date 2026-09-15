@@ -62,6 +62,19 @@ export interface EngineUiStrings {
   charts: string;
   turnsChart: string;
   turnsChartHint: string;
+  turnsVerdict: (capitalBackBy: string, nextFarmFundBy: string) => string;
+  turnsColFarm: string;
+  turnsColCapital: string;
+  turnsColLots: string;
+  turnsColReturn: string;
+  turnsColNext: string;
+  turnsColSource: string;
+  projectedFarm: (n: number) => string;
+  returnsToSponsor: string;
+  sourceFresh: string;
+  sourceRecycled: string;
+  sourceMixed: string;
+  turnsEmpty: string;
   profitChart: string;
   profitChartHint: string;
   inventoryChart: string;
@@ -192,7 +205,22 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     interestShareHint: (share) => `${share} of net profit at closing — the price of turning capital`,
     charts: "Charts",
     turnsChart: "Capital turns",
-    turnsChartHint: "One row per farm. Each bar is one cycle of that farm's capital: purchase, sales and return. Vertical lines mark months with no inventory and the capital deadline.",
+    turnsChartHint:
+      "One row per farm: capital in it today (or cost if projected), lots left, and the month that capital is fully back. Projected purchases after the capital deadline are recycled only — that deadline is the last month fresh capital can still complete a turn, not a ban on later buys.",
+    turnsVerdict: (capitalBackBy, nextFarmFundBy) =>
+      `Your current capital is fully back by ${capitalBackBy}. To keep inventory from running out, the next farm must be funded by ${nextFarmFundBy}.`,
+    turnsColFarm: "Farm",
+    turnsColCapital: "Capital today / cost",
+    turnsColLots: "Lots left",
+    turnsColReturn: "Capital fully back",
+    turnsColNext: "Capital goes next",
+    turnsColSource: "Fresh vs recycled",
+    projectedFarm: (n) => `Projected farm ${n}`,
+    returnsToSponsor: "returns to sponsor",
+    sourceFresh: "Fresh",
+    sourceRecycled: "Recycled",
+    sourceMixed: "Mixed",
+    turnsEmpty: "No farms on this capital line.",
     profitChart: "Cumulative profit vs the goal",
     profitChartHint: "Stacked: inventory, turn 2+, fresh capital — against the straight line to $10M.",
     inventoryChart: "Inventory over time",
@@ -323,7 +351,22 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     interestShareHint: (share) => `${share} de la utilidad neta al cierre — el precio de girar el capital`,
     charts: "Gráficas",
     turnsChart: "Giros de capital",
-    turnsChartHint: "Una fila por finca. Cada barra es un ciclo del capital de esa finca: compra, ventas y devolución. Las líneas verticales marcan meses sin inventario y la fecha límite del capital.",
+    turnsChartHint:
+      "Una fila por finca: capital hoy (o costo si es proyectada), lotes que quedan y el mes en que ese capital vuelve. Las compras proyectadas después de la fecha límite del capital son solo recicladas — esa fecha es el último mes en que el capital fresco aún puede completar un giro, no una prohibición de compras posteriores.",
+    turnsVerdict: (capitalBackBy, nextFarmFundBy) =>
+      `Tu capital actual vuelve por completo en ${capitalBackBy}. Para que el inventario no se agote, la próxima finca debe fondearse para ${nextFarmFundBy}.`,
+    turnsColFarm: "Finca",
+    turnsColCapital: "Capital hoy / costo",
+    turnsColLots: "Lotes restantes",
+    turnsColReturn: "Capital de vuelta",
+    turnsColNext: "Ese capital va a",
+    turnsColSource: "Fresco o reciclado",
+    projectedFarm: (n) => `Finca proyectada ${n}`,
+    returnsToSponsor: "vuelve al sponsor",
+    sourceFresh: "Fresco",
+    sourceRecycled: "Reciclado",
+    sourceMixed: "Mixto",
+    turnsEmpty: "No hay fincas en esta línea de capital.",
     profitChart: "Utilidad acumulada vs la meta",
     profitChartHint: "Apilada: inventario, giro 2+, capital fresco — contra la línea recta a $10M.",
     inventoryChart: "Inventario en el tiempo",

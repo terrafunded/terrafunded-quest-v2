@@ -253,16 +253,9 @@ export function capitalReturnSeeds(
   mixSlotCount: number,
 ): CapitalReturnSeed[] {
   if (mixSlotCount <= 0) return [];
-  const seeds: CapitalReturnSeed[] = [];
-  for (const farm of existingFarms) {
-    if (!(farm.capitalOutstanding > 0)) continue;
-    const returnMonth =
-      salesPace > 0 && farm.remainingLots > 0
-        ? Math.max(1, Math.ceil(farm.remainingLots / salesPace))
-        : Math.max(1, Math.round(fallbackCycleMonths));
-    seeds.push({ month: returnMonth, mixIndex: 0, amount: farm.capitalOutstanding });
-  }
-  return seeds;
+  return allocateExistingFarmSales(existingFarms, salesPace, fallbackCycleMonths)
+    .filter((a) => a.farm.capitalOutstanding > 0 && a.returnMonth !== null)
+    .map((a) => ({ month: a.returnMonth as number, mixIndex: 0, amount: a.farm.capitalOutstanding }));
 }
 
 export function deriveEngineDefaults(ctx: WarPlanContext): EngineDefaults {
@@ -410,6 +403,8 @@ export interface EngineTurnBlock {
   farmName: string;
   /** True when this block is an existing farm already in the ground. */
   isExisting: boolean;
+  /** 1-based projected index; null for existing farms. Never an existing farm's name. */
+  projectedIndex: number | null;
   purchaseMonth: number;
   purchaseIso: string | null;
   returnMonth: number | null;
@@ -419,10 +414,29 @@ export interface EngineTurnBlock {
   fresh: number;
   lots: number;
   kind: "recycled" | "fresh";
+  lotsSoldByMonth: Record<number, number>;
+  next: EngineTurnNext;
+}
+
+export interface EngineTurnRow {
+  id: string;
+  isExisting: boolean;
+  farmName: string;
+  projectedIndex: number | null;
+  capital: number;
+  lotsLeft: number;
+  returnMonth: number | null;
+  returnIso: string | null;
+  next: EngineTurnNext;
+  recycled: number;
+  fresh: number;
+  purchaseMonth: number;
+  /** True when this purchase is after the fresh-capital deadline (recycled-only window). */
+  afterFreshDeadline: boolean;
 }
 
 export interface EngineTurnLane {
-  /** 0 = inventory on hand; 1+ = capital-lineage index. */
+  /** 1+ = capital-lineage index. Inventory lanes are omitted (no blocks). */
   id: number;
   label: string;
   /** Existing farm (inventory) vs projected purchase. */
@@ -507,6 +521,7 @@ export interface EngineResult {
   verdict: string;
   series: EngineMonthPoint[];
   turns: EngineTurnLane[];
+  turnRows: EngineTurnRow[];
   sensitivity: EngineSensitivityCell[];
   goalLine: { asOf: number; deadline: number; start: number; goal: number };
   inventoryDryMonths: number[];
@@ -564,6 +579,7 @@ interface SimBundle {
   lotsClosed: number;
   inventoryDryMonths: number[];
   turns: EngineTurnLane[];
+  turnRows: EngineTurnRow[];
   profitAfterAds: number;
 }
 
@@ -574,65 +590,125 @@ export interface EngineExistingFarm {
   remainingLots: number;
 }
 
+export type EngineTurnNext = { type: "projected"; index: number } | { type: "sponsor" };
+
+export interface ExistingFarmAllocation {
+  farm: EngineExistingFarm;
+  /** Month index (1-based) when this farm's remaining lots are gone at the company pace. */
+  returnMonth: number | null;
+  /** Lots closed on this farm in each month. Sum across farms in a month never exceeds salesPace. */
+  lotsSoldByMonth: Record<number, number>;
+}
+
+/**
+ * Sell-order for existing inventory: farms closest to empty first (then name).
+ * Matches the Engine's inventory-first drain — one company-wide pace, not one pace per farm.
+ */
+export function sellOrderExistingFarms(farms: EngineExistingFarm[]): EngineExistingFarm[] {
+  return [...farms].sort((a, b) => {
+    if (a.remainingLots !== b.remainingLots) return a.remainingLots - b.remainingLots;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/**
+ * Allocate the company-wide sales pace across existing farms in sell-order.
+ * Farms do not sell in parallel: each month's closings are taken from the next farm that
+ * still has lots, so Σ lots closed in a month ≤ salesPace and the last farm returns at
+ * ceil(total remaining ÷ pace) — the same horizon as inventoryMonths.
+ */
+export function allocateExistingFarmSales(
+  farms: EngineExistingFarm[],
+  salesPace: number,
+  fallbackCycleMonths: number,
+): ExistingFarmAllocation[] {
+  const ordered = sellOrderExistingFarms(farms);
+  const remaining = ordered.map((f) => Math.max(0, f.remainingLots));
+  const sold: Record<number, number>[] = ordered.map(() => ({}));
+  const returnMonth: (number | null)[] = ordered.map((f) => {
+    if (f.remainingLots > 0) return null;
+    return f.capitalOutstanding > 0 ? Math.max(1, Math.round(fallbackCycleMonths)) : null;
+  });
+
+  if (!(salesPace > 0)) {
+    return ordered.map((farm, i) => ({
+      farm,
+      returnMonth: returnMonth[i] ?? (farm.capitalOutstanding > 0 ? Math.max(1, Math.round(fallbackCycleMonths)) : null),
+      lotsSoldByMonth: sold[i]!,
+    }));
+  }
+
+  const maxMonths = 240;
+  for (let month = 1; month <= maxMonths && remaining.some((n) => n > 1e-9); month++) {
+    let quota = salesPace;
+    for (let i = 0; i < ordered.length && quota > 1e-12; i++) {
+      const left = remaining[i] ?? 0;
+      if (left <= 1e-12) continue;
+      const take = Math.min(quota, left);
+      remaining[i] = left - take;
+      quota -= take;
+      sold[i]![month] = round2((sold[i]![month] ?? 0) + take);
+      if ((remaining[i] ?? 0) <= 1e-9 && returnMonth[i] === null) returnMonth[i] = month;
+    }
+  }
+
+  return ordered.map((farm, i) => ({
+    farm,
+    returnMonth: returnMonth[i] ?? null,
+    lotsSoldByMonth: sold[i]!,
+  }));
+}
+
 /**
  * Collapse scheduled purchases into capital-lineage lanes: each lane is one dollar
- * working successive farms. Existing farms with capital still out seed the first block;
- * later recycled buys stack on the same lane. Invented farms are "Projected farm N".
+ * working successive farms. Existing farms with capital still out seed the first block
+ * (return month from the company-pace allocation, not remainingLots ÷ company pace in
+ * parallel). Later recycled buys stack on the same lane. Invented farms are always
+ * "Projected farm N" — they never inherit an existing farm's name.
+ *
+ * No inventory lane: that row had no blocks and a hard-coded English label.
  */
 export function buildTurnLanes(
   planned: OracleFarm[],
   existing: EngineExistingFarm[],
   isoFor: (month: number | null) => string | null,
-  inventoryLots: number,
+  _inventoryLots: number,
   salesPace: number,
   effectiveCycle: number,
 ): EngineTurnLane[] {
-  const inventoryLane: EngineTurnLane = {
-    id: 0,
-    label: "Inventory on hand",
-    kind: "inventory",
-    blocks: [],
-    purchaseMonth: null,
-    purchaseIso: null,
-    returnMonth: null,
-    returnIso: null,
-    cost: 0,
-    recycled: 0,
-    fresh: 0,
-    lots: inventoryLots,
-  };
-
   type Slot = {
     freeMonth: number;
     blocks: EngineTurnBlock[];
     kind: "recycled" | "fresh";
   };
   const slots: Slot[] = [];
-  const seeded = [...existing]
-    .filter((f) => f.capitalOutstanding > 0 || f.remainingLots > 0)
-    .sort((a, b) => b.capitalOutstanding - a.capitalOutstanding);
+  const alloc = allocateExistingFarmSales(
+    existing.filter((f) => f.capitalOutstanding > 0 || f.remainingLots > 0),
+    salesPace,
+    effectiveCycle,
+  );
 
-  for (const farm of seeded) {
-    const returnMonth =
-      salesPace > 0 && farm.remainingLots > 0
-        ? Math.max(1, Math.ceil(farm.remainingLots / salesPace))
-        : Math.max(1, Math.round(effectiveCycle));
+  for (const a of alloc) {
+    const returnMonth = a.returnMonth ?? Math.max(1, Math.round(effectiveCycle));
     slots.push({
       freeMonth: returnMonth,
       kind: "recycled",
       blocks: [
         {
-          farmName: farm.name,
+          farmName: a.farm.name,
           isExisting: true,
+          projectedIndex: null,
           purchaseMonth: 0,
           purchaseIso: null,
           returnMonth,
           returnIso: isoFor(returnMonth),
-          cost: round2(farm.capitalOutstanding),
+          cost: round2(a.farm.capitalOutstanding),
           recycled: 0,
           fresh: 0,
-          lots: farm.remainingLots,
+          lots: a.farm.remainingLots,
           kind: "recycled",
+          lotsSoldByMonth: a.lotsSoldByMonth,
+          next: { type: "sponsor" },
         },
       ],
     });
@@ -648,11 +724,14 @@ export function buildTurnLanes(
       slots.push(slot);
     }
     projected += 1;
+    const prev = slot.blocks[slot.blocks.length - 1];
+    if (prev) prev.next = { type: "projected", index: projected };
     const name = `Projected farm ${projected}`;
     const returnMonth = f.turnCompletesMonth;
     slot.blocks.push({
       farmName: name,
       isExisting: false,
+      projectedIndex: projected,
       purchaseMonth: f.purchaseMonth,
       purchaseIso: isoFor(f.purchaseMonth),
       returnMonth,
@@ -662,19 +741,20 @@ export function buildTurnLanes(
       fresh: round2(Math.max(0, f.cost - f.recycled - f.unfunded)),
       lots: f.lots,
       kind,
+      lotsSoldByMonth: {},
+      next: { type: "sponsor" },
     });
     slot.freeMonth = returnMonth ?? f.purchaseMonth + Math.max(1, Math.round(effectiveCycle));
     if (kind === "fresh") slot.kind = "fresh";
   }
 
-  const lanes: EngineTurnLane[] = [inventoryLane];
+  const lanes: EngineTurnLane[] = [];
   slots.forEach((slot, i) => {
     const first = slot.blocks[0];
     if (!first) return;
-    const label = first.isExisting ? first.farmName : first.farmName;
     lanes.push({
       id: i + 1,
-      label,
+      label: first.farmName,
       kind: slot.kind,
       blocks: slot.blocks,
       purchaseMonth: first.purchaseMonth,
@@ -688,6 +768,30 @@ export function buildTurnLanes(
     });
   });
   return lanes;
+}
+
+/** Flat table rows: existing farms first (sell-order), then projected farms 1..N. */
+export function buildTurnFarmRows(lanes: EngineTurnLane[], capitalDeadlineMonthIndex: number): EngineTurnRow[] {
+  const blocks = lanes.flatMap((l) => l.blocks);
+  const existing = blocks.filter((b) => b.isExisting);
+  const projected = blocks
+    .filter((b) => !b.isExisting)
+    .sort((a, b) => (a.projectedIndex ?? 0) - (b.projectedIndex ?? 0));
+  return [...existing, ...projected].map((b, i) => ({
+    id: `${b.isExisting ? "ex" : "pr"}-${b.projectedIndex ?? i}-${b.farmName}`,
+    isExisting: b.isExisting,
+    farmName: b.farmName,
+    projectedIndex: b.projectedIndex,
+    capital: b.cost,
+    lotsLeft: b.lots,
+    returnMonth: b.returnMonth,
+    returnIso: b.returnIso,
+    next: b.next,
+    recycled: b.recycled,
+    fresh: b.fresh,
+    purchaseMonth: b.purchaseMonth,
+    afterFreshDeadline: !b.isExisting && capitalDeadlineMonthIndex > 0 && b.purchaseMonth > capitalDeadlineMonthIndex,
+  }));
 }
 
 function simulateOnce(
@@ -848,6 +952,8 @@ function simulateOnce(
   };
 
   const turns = buildTurnLanes(planned, existingFarms, isoFor, inventoryLots, inputs.salesPace, effectiveCycle);
+  const capDeadlineMonth = capitalDeadlineMonth(k, effectiveCycle);
+  const turnRows = buildTurnFarmRows(turns, capDeadlineMonth);
 
   let lotsClosed = 0;
   for (const p of result.series) {
@@ -865,6 +971,7 @@ function simulateOnce(
     lotsClosed: round2(lotsClosed),
     inventoryDryMonths,
     turns,
+    turnRows,
     profitAfterAds: round2(profitAfterAds),
   };
 }
@@ -1250,6 +1357,7 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext, lang: "en" |
     verdict,
     series: withFresh.series,
     turns: withFresh.turns,
+    turnRows: withFresh.turnRows,
     sensitivity,
     goalLine: {
       asOf: asOf.getTime(),

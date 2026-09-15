@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
+import raw from "../__fixtures__/payments.json";
+import type { PaymentsSnapshot } from "../types";
 import { buildRealm } from "../realm";
 import {
+  allocateExistingFarmSales,
+  buildTurnFarmRows,
   buildTurnLanes,
   capitalDeadlineMonth,
   coupledCycleMonths,
   costPerClosing,
+  deriveEngineDefaults,
   engineStartInventory,
   ENGINE_FRESH_CAPITAL_EPSILON,
   capitalReturnSeeds,
@@ -428,5 +433,136 @@ describe("Engine capital recycle (return to pool)", () => {
       1,
     );
     expect(seeds).toEqual([{ month: 2, mixIndex: 0, amount: 500_000 }]);
+  });
+});
+
+describe("Engine turn allocation (company pace, not per-farm pace)", () => {
+  const farms = [
+    { name: "Wichita", capitalOutstanding: 400_000, remainingLots: 8 },
+    { name: "Lamar", capitalOutstanding: 600_000, remainingLots: 20 },
+    { name: "Alpha", capitalOutstanding: 300_000, remainingLots: 12 },
+  ];
+  const salesPace = 4;
+
+  it("monthly lots closed across farms never exceed salesPace; last return matches inventoryMonths", () => {
+    const alloc = allocateExistingFarmSales(farms, salesPace, 6);
+    const byMonth: Record<number, number> = {};
+    for (const a of alloc) {
+      for (const [m, n] of Object.entries(a.lotsSoldByMonth)) {
+        byMonth[Number(m)] = (byMonth[Number(m)] ?? 0) + n;
+      }
+    }
+    for (const [month, closed] of Object.entries(byMonth)) {
+      expect(closed, `month ${month} closed ${closed}`).toBeLessThanOrEqual(salesPace + 1e-9);
+    }
+    const totalLots = farms.reduce((n, f) => n + f.remainingLots, 0);
+    const inventoryMonths = totalLots / salesPace;
+    const lastReturn = Math.max(...alloc.map((a) => a.returnMonth ?? 0));
+    expect(lastReturn).toBe(Math.ceil(inventoryMonths - 1e-9));
+    expect(lastReturn).toBe(10);
+
+    const isoFor = (m: number | null) => (m === null ? null : `2026-${String(m).padStart(2, "0")}-01`);
+    const lanes = buildTurnLanes([], farms, isoFor, totalLots, salesPace, 6);
+    expect(lanes.every((l) => l.kind !== "inventory")).toBe(true);
+    expect(lanes.every((l) => l.blocks.length > 0)).toBe(true);
+    const monthSums: Record<number, number> = {};
+    for (const lane of lanes) {
+      for (const block of lane.blocks) {
+        for (const [m, n] of Object.entries(block.lotsSoldByMonth)) {
+          monthSums[Number(m)] = (monthSums[Number(m)] ?? 0) + n;
+        }
+      }
+    }
+    for (const closed of Object.values(monthSums)) {
+      expect(closed).toBeLessThanOrEqual(salesPace + 1e-9);
+    }
+    const existing = lanes.flatMap((l) => l.blocks.filter((b) => b.isExisting));
+    const lastExisting = Math.max(...existing.map((b) => b.returnMonth ?? 0));
+    expect(lastExisting).toBe(Math.ceil(inventoryMonths - 1e-9));
+  });
+
+  it("projected farms never inherit an existing farm's name", () => {
+    const planned = [
+      {
+        index: 1,
+        purchaseMonth: 3,
+        landMonth: 3,
+        lots: 10,
+        cost: 500_000,
+        funding: [],
+        unfunded: 0,
+        recycled: 400_000,
+        turnCompletesMonth: 9,
+        turnComplete: true,
+        lotsClosedByDeadline: 10,
+        notesSoldByDeadline: 0,
+        tooLate: false,
+      },
+    ];
+    const isoFor = (m: number | null) => (m === null ? null : `2026-${String(m).padStart(2, "0")}-01`);
+    const lanes = buildTurnLanes(planned, farms, isoFor, 40, salesPace, 6);
+    const existingNames = new Set(farms.map((f) => f.name));
+    for (const lane of lanes) {
+      for (const block of lane.blocks) {
+        if (!block.isExisting) {
+          expect(block.farmName).toMatch(/^Projected farm \d+$/);
+          expect(existingNames.has(block.farmName)).toBe(false);
+          expect(block.projectedIndex).toBeGreaterThan(0);
+        }
+      }
+    }
+    const rows = buildTurnFarmRows(lanes, 8);
+    expect(rows.filter((r) => r.isExisting).length).toBe(farms.length);
+    const projected = rows.filter((r) => !r.isExisting);
+    expect(projected.length).toBe(1);
+    expect(projected[0]!.farmName).toBe("Projected farm 1");
+    expect(projected[0]!.projectedIndex).toBe(1);
+    expect(rows.findIndex((r) => r.isExisting)).toBe(0);
+    expect(rows.findIndex((r) => !r.isExisting)).toBeGreaterThan(rows.findIndex((r) => r.isExisting));
+  });
+
+  it("fixture: monthly Σ lots closed ≤ salesPace and last existing return matches inventoryMonths", () => {
+    const realm = buildRealm(raw as unknown as PaymentsSnapshot, ASOF, { deadline: "2027-12-31" });
+    const defaults = deriveEngineDefaults(realm);
+    const r = runEngine(defaults.inputs, { ...realm, referencePace: defaults.referencePace });
+    const pace = r.inputs.salesPace;
+    const byMonth: Record<number, number> = {};
+    for (const lane of r.turns) {
+      expect(lane.kind).not.toBe("inventory");
+      for (const block of lane.blocks) {
+        if (!block.isExisting) {
+          expect(block.farmName).toMatch(/^Projected farm \d+$/);
+          expect(realm.farms.some((f) => f.name === block.farmName)).toBe(false);
+        }
+        for (const [m, n] of Object.entries(block.lotsSoldByMonth)) {
+          byMonth[Number(m)] = (byMonth[Number(m)] ?? 0) + n;
+        }
+      }
+    }
+    for (const [month, closed] of Object.entries(byMonth)) {
+      expect(closed, `month ${month} closed ${closed}`).toBeLessThanOrEqual(pace + 1e-9);
+    }
+    const existing = r.turnRows.filter((row) => row.isExisting && row.returnMonth !== null);
+    expect(existing.length).toBeGreaterThan(0);
+    const lastReturn = Math.max(...existing.map((row) => row.returnMonth as number));
+    const inventoryMonths = r.figures.inventoryMonths;
+    expect(inventoryMonths).not.toBeNull();
+    expect(lastReturn).toBeGreaterThanOrEqual(Math.floor(inventoryMonths!));
+    expect(lastReturn).toBeLessThanOrEqual(Math.ceil(inventoryMonths!) + 1);
+    expect(r.turnRows.findIndex((row) => !row.isExisting) === -1 || r.turnRows.findIndex((row) => !row.isExisting) > r.turnRows.findIndex((row) => row.isExisting)).toBe(true);
+  });
+
+  it("buildTurnLanes drops the inventory lane and never emits empty lanes", () => {
+    const lanes = buildTurnLanes(
+      [],
+      [{ name: "Wichita", capitalOutstanding: 400_000, remainingLots: 8 }],
+      (m) => (m === null ? null : `2026-${String(m).padStart(2, "0")}-01`),
+      10,
+      4,
+      6,
+    );
+    expect(lanes.some((l) => l.kind === "inventory")).toBe(false);
+    expect(lanes.every((l) => l.blocks.length > 0)).toBe(true);
+    expect(lanes.every((l) => l.label !== "Inventory on hand")).toBe(true);
   });
 });

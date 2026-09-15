@@ -11,13 +11,13 @@ import {
   YAxis,
 } from "recharts";
 import { useReducedMotion } from "framer-motion";
-import type { EngineResult, EngineSensitivityCell } from "@/domain/engine";
+import type { EngineResult, EngineSensitivityCell, EngineTurnRow } from "@/domain/engine";
 import type { EngineUiStrings } from "@/i18n/engine";
 import { useInViewOnce } from "@/hooks/useInViewOnce";
-import { useWideViewport } from "@/hooks/useWideViewport";
 import { useTheme } from "@/theme/ThemeProvider";
-import { money, moneyCompact, monthLabel } from "@/lib/format";
+import { date, money, moneyCompact, monthLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   BORDER,
   EMBER,
@@ -36,6 +36,7 @@ import {
 type Props = {
   result: EngineResult;
   t: EngineUiStrings;
+  nextFarmFundByDate: string | null;
   onLoadSensitivity: (cell: EngineSensitivityCell) => void;
 };
 
@@ -62,16 +63,15 @@ function ChartCard({
   );
 }
 
-export default function EngineChartsLoaded({ result, t, onLoadSensitivity }: Props) {
+export default function EngineChartsLoaded({ result, t, nextFarmFundByDate, onLoadSensitivity }: Props) {
   const reduceMotion = useReducedMotion() ?? false;
   const { d } = useTheme();
-  const wide = useWideViewport();
   const reveal = useChartReveal(reduceMotion);
   const duration = Math.min(900, d(700));
 
   return (
     <section className="space-y-4" aria-label={t.chartAria} data-testid="engine-charts">
-      <TurnsTimeline result={result} t={t} reveal={reveal} duration={duration} wide={wide} />
+      <TurnsTable result={result} t={t} nextFarmFundByDate={nextFarmFundByDate} />
       <ProfitStack result={result} t={t} reveal={reveal} duration={duration} />
       <InventoryChart result={result} t={t} reveal={reveal} duration={duration} />
       <CapitalChart result={result} t={t} reveal={reveal} duration={duration} />
@@ -80,153 +80,75 @@ export default function EngineChartsLoaded({ result, t, onLoadSensitivity }: Pro
   );
 }
 
-function TurnsTimeline({
+function farmDisplayName(row: EngineTurnRow, t: EngineUiStrings): string {
+  return row.projectedIndex !== null ? t.projectedFarm(row.projectedIndex) : row.farmName;
+}
+
+function nextLabel(row: EngineTurnRow, t: EngineUiStrings): string {
+  return row.next.type === "projected" ? t.projectedFarm(row.next.index) : t.returnsToSponsor;
+}
+
+function sourceLabel(row: EngineTurnRow, t: EngineUiStrings): string {
+  if (row.isExisting) return t.sourceRecycled;
+  if (row.fresh > 0.5 && row.recycled > 0.5) return t.sourceMixed;
+  return row.fresh > row.recycled ? t.sourceFresh : t.sourceRecycled;
+}
+
+function lastExistingReturnIso(rows: EngineTurnRow[]): string | null {
+  let latest: string | null = null;
+  for (const row of rows) {
+    if (!row.isExisting || !row.returnIso) continue;
+    if (!latest || row.returnIso > latest) latest = row.returnIso;
+  }
+  return latest;
+}
+
+function TurnsTable({
   result,
   t,
-  reveal,
-  duration,
-  wide,
+  nextFarmFundByDate,
 }: {
   result: EngineResult;
   t: EngineUiStrings;
-  reveal: ReturnType<typeof useChartReveal>;
-  duration: number;
-  wide: boolean;
+  nextFarmFundByDate: string | null;
 }) {
-  const k = result.figures.capitalDeadlineMonthIndex;
-  const maxMonth = Math.max(1, ...result.series.map((s) => s.monthIndex));
-  const lanes = result.turns.filter((lane) => lane.kind !== "inventory" || lane.lots > 0);
+  const rows = result.turnRows;
+  const capitalBackBy = lastExistingReturnIso(rows);
+  const fundBy = nextFarmFundByDate ? date(nextFarmFundByDate) : t.never;
 
-  // Mobile: vertical stack of lanes; desktop: horizontal timeline.
   return (
     <ChartCard testId="engine-chart-turns" title={t.turnsChart} hint={t.turnsChartHint}>
-      <div className={cn("min-w-0", !wide && "flex flex-col gap-3")}>
-        {wide ? (
-          <div className="relative overflow-x-auto">
-            <div className="relative min-w-[36rem]" style={{ height: Math.max(180, lanes.length * 44 + 40) }}>
-              {/* Month axis */}
-              <div className="absolute inset-x-0 top-0 flex justify-between text-xs text-muted-foreground">
-                <span>{monthLabel(result.asOf)}</span>
-                <span>{monthLabel(result.deadline)}</span>
-              </div>
-              {lanes.map((lane, i) => {
-                const top = 28 + i * 44;
-                const blocks =
-                  lane.blocks.length > 0
-                    ? lane.blocks
-                    : lane.purchaseMonth !== null
-                      ? [
-                          {
-                            farmName: lane.label,
-                            isExisting: false,
-                            purchaseMonth: lane.purchaseMonth,
-                            purchaseIso: lane.purchaseIso,
-                            returnMonth: lane.returnMonth,
-                            returnIso: lane.returnIso,
-                            cost: lane.cost,
-                            recycled: lane.recycled,
-                            fresh: lane.fresh,
-                            lots: lane.lots,
-                            kind: (lane.kind === "fresh" ? "fresh" : "recycled") as "fresh" | "recycled",
-                          },
-                        ]
-                      : [];
-                return (
-                  <div key={lane.id} className="absolute left-0 right-0" style={{ top, height: 36 }}>
-                    <div className="mb-0.5 truncate text-xs text-muted-foreground">{lane.label}</div>
-                    <div className="relative h-4 rounded-sm bg-muted/40">
-                      {blocks.map((block, bi) => {
-                        const start = Math.max(0, block.purchaseMonth);
-                        const end =
-                          block.returnMonth ??
-                          Math.min(maxMonth, start + Math.round(result.effectiveCycleMonths));
-                        const left = (start / maxMonth) * 100;
-                        const width = Math.max(2, ((end - start) / maxMonth) * 100);
-                        const color = block.kind === "fresh" ? SPONSOR : LIBERTY;
-                        return (
-                          <div
-                            key={`${lane.id}-${bi}-${block.farmName}`}
-                            className="absolute top-0 h-full rounded-sm"
-                            style={{ left: `${left}%`, width: `${width}%`, background: color, opacity: 0.85 }}
-                            title={t.blockRecycledFresh(block.farmName, moneyCompact(block.cost), moneyCompact(block.recycled), moneyCompact(block.fresh))}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-              {/* Reference lines */}
-              {result.inventoryDryMonths.slice(0, 3).map((m) => (
-                <div
-                  key={`dry-${m}`}
-                  className="absolute bottom-0 top-6 w-px bg-ember/60"
-                  style={{ left: `${((m - 1) / maxMonth) * 100}%` }}
-                  title={t.inventoryDry}
-                />
-              ))}
-              {k > 0 && (
-                <div
-                  className="absolute bottom-0 top-6 w-0.5 bg-gold"
-                  style={{ left: `${((k - 1) / maxMonth) * 100}%` }}
-                  title={t.capitalDeadline}
-                />
-              )}
-            </div>
-          </div>
-        ) : (
-          <ul className="space-y-2">
-            {lanes.map((lane) => {
-              const blocks =
-                lane.blocks.length > 0
-                  ? lane.blocks
-                  : [
-                      {
-                        farmName: lane.label,
-                        purchaseIso: lane.purchaseIso,
-                        returnIso: lane.returnIso,
-                        cost: lane.cost,
-                        recycled: lane.recycled,
-                        fresh: lane.fresh,
-                        kind: (lane.kind === "fresh" ? "fresh" : "recycled") as "fresh" | "recycled",
-                      },
-                    ];
-              return (
-                <li key={lane.id} className="rounded-md border border-border/60 p-2">
-                  <div className="font-heading text-sm">{lane.label}</div>
-                  <ul className="mt-1 space-y-1">
-                    {blocks.map((block, bi) => (
-                      <li key={`${lane.id}-m-${bi}`} className="text-xs text-muted-foreground">
-                        <span className="text-foreground">{block.farmName}</span>
-                        {" · "}
-                        {block.purchaseIso ? monthLabel(block.purchaseIso) : "—"} →{" "}
-                        {block.returnIso ? monthLabel(block.returnIso) : "—"}
-                        {" · "}
-                        {moneyCompact(block.cost)}
-                        {block.recycled > 0 ? ` · recycled ${moneyCompact(block.recycled)}` : ""}
-                        {block.fresh > 0 ? ` · fresh ${moneyCompact(block.fresh)}` : ""}
-                        <div className="mt-1 h-2 overflow-hidden rounded-sm bg-muted/40">
-                          <div
-                            className="h-full"
-                            style={{
-                              width: "100%",
-                              background: block.kind === "fresh" ? SPONSOR : LIBERTY,
-                              opacity: 0.85,
-                            }}
-                          />
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-      {/* Keep recharts out of the hero timeline; settle reveal for siblings */}
-      <span className="sr-only" onAnimationEnd={reveal.settle} />
-      {reveal.animate && <span className="hidden" style={{ animationDuration: `${duration}ms` }} />}
+      <p className="mb-3 text-sm text-foreground" data-testid="engine-turns-verdict">
+        {t.turnsVerdict(capitalBackBy ? monthLabel(capitalBackBy) : t.never, fundBy)}
+      </p>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t.turnsEmpty}</p>
+      ) : (
+        <Table data-testid="engine-turns-table">
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t.turnsColFarm}</TableHead>
+              <TableHead>{t.turnsColCapital}</TableHead>
+              <TableHead>{t.turnsColLots}</TableHead>
+              <TableHead>{t.turnsColReturn}</TableHead>
+              <TableHead>{t.turnsColNext}</TableHead>
+              <TableHead>{t.turnsColSource}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.id} data-existing={row.isExisting ? "true" : "false"}>
+                <TableCell className="font-heading text-foreground">{farmDisplayName(row, t)}</TableCell>
+                <TableCell className="font-numeric">{money(row.capital)}</TableCell>
+                <TableCell className="font-numeric">{row.lotsLeft}</TableCell>
+                <TableCell>{row.returnIso ? monthLabel(row.returnIso) : t.never}</TableCell>
+                <TableCell>{nextLabel(row, t)}</TableCell>
+                <TableCell>{sourceLabel(row, t)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </ChartCard>
   );
 }
