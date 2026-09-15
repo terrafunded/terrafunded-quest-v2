@@ -1,213 +1,258 @@
 import type { QualityLang } from "@/domain/quality_human";
+import type { BindingConstraint, SimulatorBottleneckKind } from "@/domain/simulator";
 import { useLang } from "./lang";
 
-/** UI chrome for /oracle. Future titles/premises stay in the domain. */
+/** UI chrome for /oracle (Simulator). Domain numbers stay out of this file. */
 export interface OracleUiStrings {
   title: string;
   subtitle: string;
   reset: string;
-  futuresAria: string;
-  yourFuture: string;
-  withReservations: (n: number) => string;
-  closingsOnly: string;
-  goalReached: string;
-  notWithin10: string;
-  beforeDeadline: (d: string) => string;
-  afterDeadline: (d: string) => string;
-  raisePace: string;
-  reservationsScheduledFirst: (n: number) => string;
-  closingsOnlyHint: string;
-  monthsToGoal: string;
-  monthsLeft: (n: string) => string;
-  netPerLot: string;
-  lotsStillNeeded: (n: string) => string;
-  netAtDeadline: string;
-  farmsBought: (n: number) => string;
-  projected: string;
-  deadline: string;
-  netProfit: string;
-  cashRealized: string;
+  freedomDate: string;
+  notWithinHorizon: string;
+  monthsAheadOfToday: (n: string) => string;
+  monthsBehindToday: (n: string) => string;
+  sameAsTodayPace: string;
+  daysAheadOfToday: (n: string) => string;
+  daysBehindToday: (n: string) => string;
+  daysAheadOfDeadline: (n: string) => string;
+  daysBehindDeadline: (n: string) => string;
+  sameAsDeadline: string;
+  vsTodayPace: string;
+  vsDeadline: string;
+  raceAria: string;
+  raceToday: string;
+  racePlan: string;
+  raceDeadline: string;
+  leversAria: string;
+  adsLabel: string;
+  adsHint: string;
+  farmsLabel: string;
+  farmsHint: string;
+  capitalLabel: string;
+  capitalHint: string;
+  closingsOutput: (n: string) => string;
+  marginalAdsSooner: (n: string) => string;
+  marginalFarmSooner: (n: string) => string;
+  marginalAdsLater: (n: string) => string;
+  marginalFarmLater: (n: string) => string;
+  leverBindsAds: (constraint: string) => string;
+  leverBindsFarms: (constraint: string) => string;
+  constraintDemand: string;
+  constraintInventory: string;
+  constraintCapital: string;
+  advancedToggle: string;
+  advancedHide: string;
+  salePriceLabel: string;
+  cprLabel: string;
+  cprHint: string;
+  conversionLabel: string;
+  takeLabel: string;
+  assumption: string;
+  bottleneckAria: string;
+  bottleneckInventory: string;
+  bottleneckDemand: string;
+  bottleneckCapital: (amount: string, date: string) => string;
+  bottleneckCapitalNoDate: (amount: string) => string;
+  bottleneckNone: string;
+  costAria: string;
+  costAds: string;
+  costLand: string;
+  costPeak: string;
+  costInterest: string;
+  costNet: string;
+  chartTitle: string;
   chartLegendAria: string;
+  legendPlan: string;
+  legendToday: string;
   legendGoal: string;
-  chartFootStart: (net: string, lots: string) => string;
-  chartFootWithRes: (n: number, conv: number, lag: number) => string;
-  chartFootClosingsOnly: string;
-  chartFootCash: (down: number, note: number, lag: number) => string;
-  beyond10: string;
-  beforeThe: (d: string) => string;
-  afterThe: (d: string) => string;
-  notReached: string;
-  /** On-screen note: current-pace exit date ignores the horizon selector. */
-  paceExitNote: string;
+  legendSaved: string;
+  deadline: string;
+  presetsAria: string;
+  presetToday: string;
+  presetRequired: string;
+  presetPlusOne: string;
+  presetAggressive: string;
+  saveName: string;
+  save: string;
+  remove: string;
+  savedAria: string;
+  compare: string;
+  compareAria: string;
+  comparePick: string;
+  noSaved: string;
   projectedExitAtCurrentPace: string;
   projectedExitFormula: string;
-  daysEarlier: (n: string) => string;
-  daysLater: (n: string) => string;
-  sameDay: string;
-  reservationsScheduled: string;
-  closingsArrow: (n: string) => string;
-  thenLotsMonth: string;
-  lotsMonth: string;
-  replayingMix: string;
-  farmEvery: string;
-  mo: string;
-  inventoryToday: string;
-  lots: (n: string) => string;
-  loadSliders: string;
-  slider: {
-    lotsPerMonth: { label: string; hint: string };
-    avgSalePrice: { label: string; hint: string };
-    avgLandCost: { label: string; hint: string };
-    avgMonthsToSellNote: { label: string; hint: string };
-    newFarmEveryMonths: { label: string; hint: string };
-    avgLotsPerFarm: { label: string; hint: string };
-    investorTakePct: { label: string; hint: string };
-  };
-  never: string;
-  monthsShort: (n: number) => string;
-  fundingHint: (hint: string, since: string, farms: number, excluded: number) => string;
 }
 
 export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
   en: {
     title: "Simulator",
-    subtitle:
-      "Four projections from the real 90-day averages, then your own. The current pace lets every live reservation close on its expected date, then keeps reserving at the trailing pace. The last line is the closings-only extrapolation, for comparison.",
-    reset: "Reset to the current pace",
-    futuresAria: "Four futures",
-    yourFuture: "Your own future",
-    withReservations: (n) => `With the ${n} live reservations`,
-    closingsOnly: "Closings only",
-    goalReached: "Goal reached",
-    notWithin10: "Not within 10 years",
-    beforeDeadline: (d) => `Before the ${d} deadline`,
-    afterDeadline: (d) => `After the ${d} deadline`,
-    raisePace: "Raise pace or margin",
-    reservationsScheduledFirst: (n) => ` · ${n} reservations scheduled first`,
-    closingsOnlyHint: " · closings only",
-    monthsToGoal: "Months to goal",
-    monthsLeft: (n) => `${n} months left`,
-    netPerLot: "Net profit per lot",
-    lotsStillNeeded: (n) => `${n} lots still needed`,
-    netAtDeadline: "Net at deadline",
-    farmsBought: (n) => `${n} farms bought along the way`,
-    projected: "Projected net profit",
-    deadline: "Deadline",
-    netProfit: "Net profit",
-    cashRealized: "Cash realized",
+    subtitle: "Ads and land you can buy. Closings are the result. Cost is never hidden.",
+    reset: "Reset to today's pace",
+    freedomDate: "Freedom date",
+    notWithinHorizon: "Not within 10 years",
+    monthsAheadOfToday: (n) => `${n} months ahead of today's pace`,
+    monthsBehindToday: (n) => `${n} months behind today's pace`,
+    sameAsTodayPace: "Same date as today's pace",
+    daysAheadOfToday: (n) => `${n} days ahead of today's pace`,
+    daysBehindToday: (n) => `${n} days behind today's pace`,
+    daysAheadOfDeadline: (n) => `${n} days ahead of the deadline`,
+    daysBehindDeadline: (n) => `${n} days behind the deadline`,
+    sameAsDeadline: "Same date as the deadline",
+    vsTodayPace: "versus today's pace",
+    vsDeadline: "versus the deadline",
+    raceAria: "Race from today to the goal",
+    raceToday: "Today's pace",
+    racePlan: "Your plan",
+    raceDeadline: "Deadline",
+    leversAria: "Plan levers",
+    adsLabel: "Monthly ad spend",
+    adsHint: "Turns into reservations, then closings after conversion and the observed lag.",
+    farmsLabel: "Farms per quarter",
+    farmsHint: "Each farm at the recent land cost, arriving after the farm-to-first-close lag.",
+    capitalLabel: "Capital available for land",
+    capitalHint: "From the sponsor mix. Farms past this stay unfunded.",
+    closingsOutput: (n) => `${n} closings/month (output — min of demand and inventory)`,
+    marginalAdsSooner: (n) => `+$5K/month ads = ${n} days sooner`,
+    marginalFarmSooner: (n) => `+1 farm/quarter = ${n} days sooner`,
+    marginalAdsLater: (n) => `+$5K/month ads = ${n} days later`,
+    marginalFarmLater: (n) => `+1 farm/quarter = ${n} days later`,
+    leverBindsAds: (constraint) => `More ads will not move the date — ${constraint} binds`,
+    leverBindsFarms: (constraint) => `More farms will not move the date — ${constraint} binds`,
+    constraintDemand: "demand",
+    constraintInventory: "inventory",
+    constraintCapital: "capital",
+    advancedToggle: "Advanced",
+    advancedHide: "Hide advanced",
+    salePriceLabel: "Average sale price",
+    cprLabel: "Cost per reservation",
+    cprHint: "Assumption — no ad-spend table exists yet.",
+    conversionLabel: "Conversion",
+    takeLabel: "Investor share",
+    assumption: "assumption",
+    bottleneckAria: "Next best action",
+    bottleneckInventory: "Out of lots — buy land. More ads is wasted.",
+    bottleneckDemand: "Idle inventory — raise ads before buying more land.",
+    bottleneckCapital: (amount, date) => `Out of capital — raise ${amount} by ${date}.`,
+    bottleneckCapitalNoDate: (amount) => `Out of capital — raise ${amount}.`,
+    bottleneckNone: "No constraint binds at this pace.",
+    costAria: "Cost of this plan",
+    costAds: "Ad spend",
+    costLand: "Land capital",
+    costPeak: "Peak owed",
+    costInterest: "Interest paid",
+    costNet: "Net after costs",
+    chartTitle: "Cumulative net after ads and interest",
     chartLegendAria: "Chart legend",
+    legendPlan: "Your plan",
+    legendToday: "Today's pace",
     legendGoal: "Goal",
-    chartFootStart: (net, lots) => `Starts at ${net} net and ${lots} lots of inventory (available + reserved). `,
-    chartFootWithRes: (n, conv, lag) =>
-      `The ${n} live reservations close first, each on its expected date at ${conv}% conversion and for its own net profit; the pace above only starts after the ${lag}-day reservation → closing lag. `,
-    chartFootClosingsOnly: "Every closing comes from the pace above, from the first month on. ",
-    chartFootCash: (down, note, lag) =>
-      `Each other closed lot books (price − land) × (1 − take); cash lands as ${down}% down now and ${note}% of the balance ${lag} months later.`,
-    beyond10: "beyond 10 years",
-    beforeThe: (d) => `before the ${d} deadline`,
-    afterThe: (d) => `after the ${d} deadline`,
-    notReached: "the goal is not reached within the horizon",
-    paceExitNote:
-      "Includes live reservations closing on their expected dates first — that is why this date is earlier than the projected exit at current pace.",
+    legendSaved: "Months saved",
+    deadline: "Deadline",
+    presetsAria: "Presets",
+    presetToday: "Today's pace",
+    presetRequired: "Required pace",
+    presetPlusOne: "+1 farm",
+    presetAggressive: "Aggressive",
+    saveName: "Scenario name",
+    save: "Save",
+    remove: "Remove",
+    savedAria: "Saved scenarios",
+    compare: "Compare",
+    compareAria: "Side-by-side compare",
+    comparePick: "Pick up to 3",
+    noSaved: "No saved scenarios yet.",
     projectedExitAtCurrentPace: "Projected exit at current pace",
     projectedExitFormula: "remaining ÷ era average net profit per lot ÷ trailing closings per month",
-    daysEarlier: (n) => `${n} days earlier`,
-    daysLater: (n) => `${n} days later`,
-    sameDay: "same day",
-    reservationsScheduled: "Reservations scheduled",
-    closingsArrow: (n) => ` → ${n} closings`,
-    thenLotsMonth: "Then lots / month",
-    lotsMonth: "Lots / month",
-    replayingMix: "replaying today's mix",
-    farmEvery: "Farm every",
-    mo: "mo",
-    inventoryToday: "Inventory today",
-    lots: (n) => `${n} lots`,
-    loadSliders: "Load into the sliders",
-    slider: {
-      lotsPerMonth: { label: "Lots closed per month", hint: "Trailing 90-day pace" },
-      avgSalePrice: { label: "Average sale price", hint: "Mean price of closed lots" },
-      avgLandCost: { label: "Average land cost per lot", hint: "Capital ÷ lots on closed lots" },
-      avgMonthsToSellNote: { label: "Months to sell a note", hint: "Closing → note sale" },
-      newFarmEveryMonths: { label: "New farm every N months", hint: "Mean gap between fundings" },
-      avgLotsPerFarm: { label: "Lots per new farm", hint: "Mean total_lots" },
-      investorTakePct: { label: "Investor take (% of gross)", hint: "Blended, from closed lots" },
-    },
-    never: "never",
-    monthsShort: (n) => `${n} mo`,
-    fundingHint: (hint, since, farms, excluded) =>
-      `${hint} ${since} (${farms} funding${farms === 1 ? "" : "s"}${excluded > 0 ? `, ${excluded} earlier left out` : ""})`,
   },
   es: {
     title: "Simulador",
-    subtitle:
-      "Cuatro proyecciones desde los promedios reales de 90 días, y luego la tuya. El ritmo actual deja que cada reserva viva cierre en su fecha esperada y luego sigue reservando al ritmo reciente. La última línea es la extrapolación solo de cierres, para comparar.",
-    reset: "Restablecer al ritmo actual",
-    futuresAria: "Cuatro futuros",
-    yourFuture: "Tu propio futuro",
-    withReservations: (n) => `Con las ${n} reservas vivas`,
-    closingsOnly: "Solo cierres",
-    goalReached: "Meta alcanzada",
-    notWithin10: "No en 10 años",
-    beforeDeadline: (d) => `Antes de la fecha límite ${d}`,
-    afterDeadline: (d) => `Después de la fecha límite ${d}`,
-    raisePace: "Sube el ritmo o el margen",
-    reservationsScheduledFirst: (n) => ` · ${n} reservas programadas primero`,
-    closingsOnlyHint: " · solo cierres",
-    monthsToGoal: "Meses a la meta",
-    monthsLeft: (n) => `${n} meses restantes`,
-    netPerLot: "Utilidad neta por lote",
-    lotsStillNeeded: (n) => `${n} lotes aún necesarios`,
-    netAtDeadline: "Utilidad a la fecha límite",
-    farmsBought: (n) => `${n} fincas compradas en el camino`,
-    projected: "Utilidad neta proyectada",
-    deadline: "Fecha límite",
-    netProfit: "Utilidad neta",
-    cashRealized: "Efectivo realizado",
+    subtitle: "Anuncios y tierra que puedes comprar. Los cierres son el resultado. El costo no se esconde.",
+    reset: "Volver al ritmo de hoy",
+    freedomDate: "Fecha de libertad",
+    notWithinHorizon: "No en 10 años",
+    monthsAheadOfToday: (n) => `${n} meses por delante del ritmo de hoy`,
+    monthsBehindToday: (n) => `${n} meses por detrás del ritmo de hoy`,
+    sameAsTodayPace: "La misma fecha que el ritmo de hoy",
+    daysAheadOfToday: (n) => `${n} días por delante del ritmo de hoy`,
+    daysBehindToday: (n) => `${n} días por detrás del ritmo de hoy`,
+    daysAheadOfDeadline: (n) => `${n} días por delante de la fecha límite`,
+    daysBehindDeadline: (n) => `${n} días por detrás de la fecha límite`,
+    sameAsDeadline: "La misma fecha que la fecha límite",
+    vsTodayPace: "respecto al ritmo de hoy",
+    vsDeadline: "respecto a la fecha límite",
+    raceAria: "Carrera de hoy a la meta",
+    raceToday: "Ritmo de hoy",
+    racePlan: "Tu plan",
+    raceDeadline: "Fecha límite",
+    leversAria: "Palancas del plan",
+    adsLabel: "Gasto mensual en anuncios",
+    adsHint: "Se convierte en reservas, luego en cierres según la conversión y el desfase observado.",
+    farmsLabel: "Fincas por trimestre",
+    farmsHint: "Cada finca al costo reciente de tierra, llega después del desfase finca → primer cierre.",
+    capitalLabel: "Capital disponible para tierra",
+    capitalHint: "De la mezcla de sponsors. Las fincas que pasen de esto quedan sin fondeo.",
+    closingsOutput: (n) => `${n} cierres/mes (resultado — mínimo entre demanda e inventario)`,
+    marginalAdsSooner: (n) => `+$5K/mes en anuncios = ${n} días antes`,
+    marginalFarmSooner: (n) => `+1 finca/trimestre = ${n} días antes`,
+    marginalAdsLater: (n) => `+$5K/mes en anuncios = ${n} días después`,
+    marginalFarmLater: (n) => `+1 finca/trimestre = ${n} días después`,
+    leverBindsAds: (constraint) => `Más anuncios no mueven la fecha — ata ${constraint}`,
+    leverBindsFarms: (constraint) => `Más fincas no mueven la fecha — ata ${constraint}`,
+    constraintDemand: "la demanda",
+    constraintInventory: "el inventario",
+    constraintCapital: "el capital",
+    advancedToggle: "Avanzado",
+    advancedHide: "Ocultar avanzado",
+    salePriceLabel: "Precio de venta promedio",
+    cprLabel: "Costo por reserva",
+    cprHint: "Supuesto — aún no hay tabla de gasto en anuncios.",
+    conversionLabel: "Conversión",
+    takeLabel: "Parte del inversionista",
+    assumption: "supuesto",
+    bottleneckAria: "Siguiente mejor acción",
+    bottleneckInventory: "Sin lotes — compra tierra. Más anuncios se desperdician.",
+    bottleneckDemand: "Inventario parado — sube anuncios antes de comprar más tierra.",
+    bottleneckCapital: (amount, date) => `Sin capital — consigue ${amount} para el ${date}.`,
+    bottleneckCapitalNoDate: (amount) => `Sin capital — consigue ${amount}.`,
+    bottleneckNone: "Ninguna restricción ata a este ritmo.",
+    costAria: "Costo de este plan",
+    costAds: "Gasto en anuncios",
+    costLand: "Capital de tierra",
+    costPeak: "Pico adeudado",
+    costInterest: "Interés pagado",
+    costNet: "Neto tras costos",
+    chartTitle: "Utilidad neta acumulada tras anuncios e interés",
     chartLegendAria: "Leyenda de la gráfica",
+    legendPlan: "Tu plan",
+    legendToday: "Ritmo de hoy",
     legendGoal: "Meta",
-    chartFootStart: (net, lots) => `Parte de ${net} netos y ${lots} lotes de inventario (disponibles + reservados). `,
-    chartFootWithRes: (n, conv, lag) =>
-      `Las ${n} reservas vivas cierran primero, cada una en su fecha esperada a ${conv}% de conversión y con su propia utilidad neta; el ritmo de arriba solo empieza después del desfase de ${lag} días reserva → cierre. `,
-    chartFootClosingsOnly: "Cada cierre viene del ritmo de arriba, desde el primer mes. ",
-    chartFootCash: (down, note, lag) =>
-      `Cada otro lote cerrado registra (precio − tierra) × (1 − parte); el efectivo llega como ${down}% de enganche ahora y ${note}% del saldo ${lag} meses después.`,
-    beyond10: "más de 10 años",
-    beforeThe: (d) => `antes de la fecha límite ${d}`,
-    afterThe: (d) => `después de la fecha límite ${d}`,
-    notReached: "la meta no se alcanza dentro del horizonte",
-    paceExitNote:
-      "Incluye las reservas vivas cerrando en sus fechas esperadas primero — por eso esta fecha es anterior a la salida proyectada al ritmo actual.",
+    legendSaved: "Meses ganados",
+    deadline: "Fecha límite",
+    presetsAria: "Preajustes",
+    presetToday: "Ritmo de hoy",
+    presetRequired: "Ritmo requerido",
+    presetPlusOne: "+1 finca",
+    presetAggressive: "Agresivo",
+    saveName: "Nombre del escenario",
+    save: "Guardar",
+    remove: "Quitar",
+    savedAria: "Escenarios guardados",
+    compare: "Comparar",
+    compareAria: "Comparación lado a lado",
+    comparePick: "Elige hasta 3",
+    noSaved: "Aún no hay escenarios guardados.",
     projectedExitAtCurrentPace: "Salida proyectada al ritmo actual",
     projectedExitFormula: "restante ÷ utilidad neta promedio de la era por lote ÷ cierres/mes recientes",
-    daysEarlier: (n) => `${n} días antes`,
-    daysLater: (n) => `${n} días después`,
-    sameDay: "el mismo día",
-    reservationsScheduled: "Reservas programadas",
-    closingsArrow: (n) => ` → ${n} cierres`,
-    thenLotsMonth: "Luego lotes / mes",
-    lotsMonth: "Lotes / mes",
-    replayingMix: "reproduciendo la mezcla de hoy",
-    farmEvery: "Finca cada",
-    mo: "mes",
-    inventoryToday: "Inventario hoy",
-    lots: (n) => `${n} lotes`,
-    loadSliders: "Cargar en los controles",
-    slider: {
-      lotsPerMonth: { label: "Lotes cerrados por mes", hint: "Ritmo de los últimos 90 días" },
-      avgSalePrice: { label: "Precio de venta promedio", hint: "Precio medio de lotes cerrados" },
-      avgLandCost: { label: "Costo de tierra promedio por lote", hint: "Capital ÷ lotes en lotes cerrados" },
-      avgMonthsToSellNote: { label: "Meses para vender un pagaré", hint: "Cierre → venta de pagaré" },
-      newFarmEveryMonths: { label: "Nueva finca cada N meses", hint: "Brecha media entre fondeos" },
-      avgLotsPerFarm: { label: "Lotes por finca nueva", hint: "Media de total_lots" },
-      investorTakePct: { label: "Parte del inversionista (% de bruta)", hint: "Mezclada, de lotes cerrados" },
-    },
-    never: "nunca",
-    monthsShort: (n) => `${n} mes`,
-    fundingHint: (hint, since, farms, excluded) =>
-      `${hint} ${since} (${farms} fondeo${farms === 1 ? "" : "s"}${excluded > 0 ? `, ${excluded} anteriores excluidos` : ""})`,
   },
 };
+
+export function constraintLabel(t: OracleUiStrings, c: BindingConstraint | SimulatorBottleneckKind | null): string {
+  if (c === "inventory") return t.constraintInventory;
+  if (c === "capital") return t.constraintCapital;
+  if (c === "demand") return t.constraintDemand;
+  return t.constraintDemand;
+}
 
 export function useOracleStrings(): OracleUiStrings {
   const [lang] = useLang();

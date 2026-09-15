@@ -28,6 +28,7 @@ export * from "./seasonality";
 export * from "./warplan";
 export * from "./pathToGoal";
 export * from "./engine";
+export * from "./simulator";
 export * from "./reconcile";
 export * from "./horizonFigures";
 export * from "./lotLedger";

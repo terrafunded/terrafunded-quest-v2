@@ -1007,30 +1007,25 @@ test.describe("Phase 2: Epic", () => {
     }
   });
 
-  test("oracle shows four futures — the current pace schedules the live reservations — and the required pace lands on or before the deadline", async ({ page }) => {
+  test("simulator hero, presets and today's-pace date match the throne exit", async ({ page }) => {
     await page.goto("/oracle");
     await waitForRealm(page);
-    const futures = page.getByTestId("future");
-    await expect(futures).toHaveCount(4);
-    for (const id of ["current_pace", "required_pace", "one_more_farm", "closings_only"]) {
-      await expect(page.locator(`[data-future='${id}']`)).toBeVisible();
+    await expect(page.getByTestId("simulator-hero")).toBeVisible();
+    await expect(page.getByTestId("simulator-freedom-date")).toBeVisible();
+    await expect(page.getByTestId("simulator-cost-strip")).toBeVisible();
+    await expect(page.getByTestId("simulator-bottleneck")).toBeVisible();
+    await expect(page.getByTestId("simulator-levers")).toBeVisible();
+    for (const id of ["today", "required", "plus_one_farm", "aggressive"]) {
+      await expect(page.getByTestId(`preset-${id}`)).toBeVisible();
     }
-    await expect(page.locator("[data-future='required_pace']").getByTestId("future-exit")).toHaveText(/(2026|2027)/);
-    await expect(page.locator("[data-future='required_pace']")).toContainText("replaying today's mix");
-    // The current pace carries every live reservation as a scheduled closing; the comparison line carries none.
-    const current = page.locator("[data-future='current_pace']");
-    const scheduled = Number(await current.getAttribute("data-scheduled"));
-    expect(scheduled).toBeGreaterThan(0);
-    await expect(current.getByTestId("future-scheduled")).toHaveText(new RegExp(`^${scheduled} → [\\d.]+ closings$`));
-    await expect(page.locator("[data-future='closings_only']")).toHaveAttribute("data-scheduled", "0");
-    await expect(page.locator("[data-future='closings_only']")).toContainText("If no reservation ever closed");
-    // The sliders start from the reservation-aware future; the toggle drops back to closings only.
-    const toggle = page.getByTestId("oracle-with-reservations");
-    await expect(toggle).toHaveAttribute("aria-pressed", "true");
-    await expect(toggle).toHaveText(new RegExp(`With the ${scheduled} live reservations`));
-    await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-pressed", "false");
-    await expect(toggle).toHaveText("Closings only");
+    await expect(page.getByTestId("preset-today")).toHaveAttribute("aria-pressed", "true");
+    const throneDate = page.getByTestId("projected-exit-at-current-pace");
+    await expect(throneDate).toBeVisible();
+    const hero = (await page.getByTestId("simulator-freedom-date").innerText()).trim();
+    expect(hero.length).toBeGreaterThan(4);
+    await page.getByTestId("preset-required").click();
+    await expect(page.getByTestId("preset-required")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("simulator-vs-today")).toBeVisible();
   });
 
   test("war plan: the verdict names a dollar amount and a farm count, and moving the deadline changes it", async ({ page }) => {
@@ -1244,12 +1239,11 @@ test.describe("Phase 2: Epic", () => {
     // 90-day windows sit inside the era today, so the pace line is not clipped.
     await expect(page.getByTestId("pace-window")).toContainText("trailing 90 days");
 
-    // Oracle: the farm cadence only counts fundings since the era start, and the current pace says so.
+    // Simulator: cost per reservation stays an assumption (no ad-spend table; no "since" leak).
     await page.goto("/oracle");
     await waitForRealm(page);
-    await expect(page.getByTestId("slider-hint-newFarmEveryMonths")).toContainText("Mean gap between fundings since Mar 2026");
-    await expect(page.locator("[data-future='current_pace']")).toContainText("(since Mar 2026)");
-    await expect(page.locator("[data-future='current_pace']").getByTestId("future-cadence")).toContainText("since Mar 2026");
+    await page.getByTestId("simulator-advanced").click();
+    await expect(page.getByTestId("lever-cpr")).toContainText(/assumption|supuesto/i);
 
     // War Plan: land cost and cycle are era figures; the seasonal shape is unavailable with under 12 months of history.
     await page.goto("/warplan");

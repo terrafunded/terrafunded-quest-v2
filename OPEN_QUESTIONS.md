@@ -413,6 +413,17 @@ Payments has no marketing table, so $2,500 per closing is the brief's figure, a 
 month = closings per month ÷ conversion × ad spend per closing, with conversion from
 `pipeline.ts` (74.47 % on the fixture: 35 of 47 mature reservations, #33).
 
+## 48b. Simulator: cost per reservation is an assumption until a real table exists
+
+`ENGINE_DEFAULT_COST_PER_RESERVATION = 2000` in `src/config/engine.ts` is the only figure the
+Simulator may use for cost per reservation. `payments_schema.md` has no ad-spend, marketing, or
+campaign table — do not query Payments for ads. The slider is labeled **assumption**.
+
+What would replace it: a Payments (or marketing) table of monthly ad spend plus reservations
+attributed to those campaigns. Then trailing CPR = ad spend ÷ reservations in the same window,
+and the assumption badge comes off. Until that table is confirmed in `payments_schema.md`, the
+constant stays an editable input and is never presented as measured.
+
 ## 49. War Plan: "minimum closings per month" is a constant pace, and 60 is the ceiling
 
 The solver searches for the smallest constant pace from today to the deadline (prorated for the
