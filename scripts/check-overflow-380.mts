@@ -22,9 +22,10 @@ const routes = [
   "/chronicle",
   "/treasury",
   "/trophies",
-  "/oxygen",
   "/sponsors",
   "/exodus",
+  "/pipeline",
+  "/quality",
 ];
 
 function overflows(el: { box: { width: number; height: number }; scrollW: number; scrollH: number }) {
@@ -34,22 +35,30 @@ function overflows(el: { box: { width: number; height: number }; scrollW: number
 async function main() {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 380, height: 844 } });
+  await page.addInitScript(() => {
+    localStorage.setItem("quest.lang", "es");
+    sessionStorage.setItem("quest.intro.seen", "1");
+    localStorage.setItem("quest.liberations.seen", JSON.stringify(["seen-by-e2e"]));
+  });
   await page.goto("http://localhost:4173/");
   await page.fill("#email", env.QUEST_TEST_EMAIL!);
   await page.fill("#password", env.QUEST_TEST_PASSWORD!);
   await page.click('button[type="submit"]');
   await page.waitForURL(/\/(?!login)/, { timeout: 20000 });
-  await page.evaluate(() => localStorage.setItem("quest.lang", "es"));
+  await page.getByTestId("nav-menu-button").waitFor({ timeout: 30_000 });
 
   const findings: string[] = [];
   for (const route of routes) {
     await page.goto(`http://localhost:4173${route}`);
-    await page.waitForTimeout(900);
-    await page.evaluate(() => localStorage.setItem("quest.lang", "es"));
-    await page.reload({ waitUntil: "networkidle" });
-    await page.waitForTimeout(700);
+    await page.getByTestId("nav-menu-button").waitFor({ timeout: 30_000 });
+    await page
+      .locator('[role="status"][aria-label="Loading farm and lot data"], [role="status"][aria-label="Cargando fincas y lotes"]')
+      .first()
+      .waitFor({ state: "detached", timeout: 30_000 })
+      .catch(() => undefined);
+    await page.waitForTimeout(400);
 
-    const title = await page.locator("header h1, h1").first().evaluate((el) => ({
+    const title = await page.locator("main h1, h1").first().evaluate((el) => ({
       text: (el as HTMLElement).innerText,
       box: el.getBoundingClientRect(),
       scrollW: el.scrollWidth,
@@ -66,12 +75,17 @@ async function main() {
       })),
     );
     for (const b of badges) {
-      if (b.box.width < 8) continue;
-      if (overflows(b)) findings.push(`${route} BADGE overflow: ${b.text}`);
+      if (b.box.width < 8 || !b.text.trim()) continue;
+      if (overflows(b)) findings.push(`${route} BADGE overflow: ${JSON.stringify(b.text)} sw=${b.scrollW} bw=${Math.round(b.box.width)}`);
+    }
+
+    const fanfare = page.getByTestId("celebration");
+    if (await fanfare.isVisible().catch(() => false)) {
+      await page.keyboard.press("Escape");
     }
 
     if (route === "/") {
-      await page.getByRole("button", { name: "Abrir menú" }).click();
+      await page.getByTestId("nav-menu-button").click();
       await page.waitForTimeout(400);
       const items = await page.locator("nav a, nav button").evaluateAll((els) =>
         els.map((el) => ({
@@ -82,8 +96,11 @@ async function main() {
         })),
       );
       for (const item of items) {
-        if (overflows(item)) findings.push(`NAV overflow: ${item.text} sw=${item.scrollW} bw=${item.box.width}`);
+        if (!item.text.trim()) continue;
+        if (overflows(item)) findings.push(`NAV overflow: ${item.text} sw=${item.scrollW} bw=${Math.round(item.box.width)}`);
       }
+      const navLabels = items.map((i) => i.text).filter(Boolean);
+      console.log("NAV labels:", navLabels.join(" | "));
       await page.keyboard.press("Escape");
     }
   }
