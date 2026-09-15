@@ -3,6 +3,9 @@ import type { EngineResult } from "./engine";
 import { round2 } from "./math";
 import type { QualityLang } from "./quality_human";
 
+/** Re-export the shared farms formula so Throne / Engine / reconcile stay on one path. */
+export { sharedFarmsStillNeeded } from "./horizonFigures";
+
 /**
  * Explicit Throne Room ↔ Engine reconciliation.
  *

@@ -218,6 +218,11 @@ function FutureCard({ f, index, onAdopt, cadenceSince, t }: { f: Future; index: 
       <div className={cn("mt-2 font-display text-2xl leading-none sm:text-3xl", tone)} data-testid="future-exit">
         {f.exitDate ? date(f.exitDate) : t.beyond10}
       </div>
+      {f.id === "current_pace" && (
+        <p className="mt-1 text-[11px] text-muted-foreground" data-testid="oracle-pace-exit-note">
+          {t.paceExitNote}
+        </p>
+      )}
       <div className="mt-1 text-sm text-muted-foreground">
         {f.exitDate ? (f.hitsDeadline ? t.beforeThe(date(f.result.deadline)) : t.afterThe(date(f.result.deadline))) : t.notReached}
         {f.daysEarlierThanCurrent !== null && f.id !== "current_pace" && (

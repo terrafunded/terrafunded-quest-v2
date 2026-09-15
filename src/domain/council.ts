@@ -213,10 +213,10 @@ function inventoryInsight(realm: Realm, lang: QualityLang): Insight {
       lang === "es"
         ? needed === null
           ? `${lotsWord(available, lang)} disponibles; no hay promedio de utilidad por lote para decir cuántos faltan.`
-          : `${lotsWord(available, lang)} disponibles, ${lotsWord(needed, lang)} todavía hacen falta para el horizonte${short ? ` (faltan ${g.inventoryGap} en inventario)` : ""}.`
+          : `${lotsWord(available, lang)} disponibles; ${lotsWord(needed, lang)} cierres aún necesarios hasta la meta (restante ÷ utilidad media por lote — la misma cifra en 2027, 2028 y 2029; no es un pedido de inventario en anaquel)${short ? `; faltan ${g.inventoryGap} frente al inventario de hoy` : ""}.`
         : needed === null
           ? `${lotsWord(available, lang)} available; there is no average net profit per lot to say how many are still needed.`
-          : `${lotsWord(available, lang)} available, ${lotsWord(needed, lang)} still needed for the horizon${short ? ` (inventory short ${g.inventoryGap})` : ""}.`,
+          : `${lotsWord(available, lang)} available; ${lotsWord(needed, lang)} closings still needed to the goal (remaining ÷ avg net profit per lot — the same figure at 2027, 2028, and 2029; not a shelf-inventory request)${short ? `; ${g.inventoryGap} short of today's inventory` : ""}.`,
     figures,
     impact: impact(null, null),
     href: "/warplan",

@@ -75,7 +75,7 @@ const TROPHY_COPY: Record<string, { title: Record<QualityLang, string>; descript
   hundred_lots: { title: { en: "Centurion", es: "Centurión" }, description: { en: "Close one hundred lots.", es: "Cierra cien lotes." } },
   nine_realms: { title: { en: "Nine Realms", es: "Nueve Reinos" }, description: { en: "Hold nine subdivided farms.", es: "Posee nueve fincas subdivididas." } },
   golden_lot: { title: { en: "Golden Acre", es: "Acre Dorado" }, description: { en: "Net more than $75,000 on a single lot.", es: "Obtén más de $75,000 netos en un solo lote." } },
-  pace_keeper: { title: { en: "Pace Keeper", es: "Guardián del Ritmo" }, description: { en: "Current pace is enough to hit the deadline.", es: "El ritmo actual basta para alcanzar la fecha límite." } },
+  pace_keeper: { title: { en: "Pace Keeper", es: "Guardián del Ritmo" }, description: { en: "Current pace is enough to hit the selected exit horizon. Changes when you switch 2027 / 2028 / 2029.", es: "El ritmo actual basta para el horizonte de salida elegido. Cambia al pasar de 2027 / 2028 / 2029." } },
   streak_3: { title: { en: "Unbroken Chain", es: "Cadena Intacta" }, description: { en: "Close at least one lot in three consecutive months.", es: "Cierra al menos un lote en tres meses consecutivos." } },
   streak_weeks_3: { title: { en: "Week After Week", es: "Semana Tras Semana" }, description: { en: "Close at least one lot in three consecutive weeks.", es: "Cierra al menos un lote en tres semanas consecutivas." } },
   streak_weeks_6: { title: { en: "Relentless", es: "Implacable" }, description: { en: "Six consecutive weeks with a closing.", es: "Seis semanas consecutivas con un cierre." } },
@@ -335,7 +335,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
   trophies.push({
     id: "pace_keeper",
     title: "Pace Keeper",
-    description: "Current pace is enough to hit the deadline.",
+    description: "Current pace is enough to hit the selected exit horizon. Changes when you switch 2027 / 2028 / 2029.",
     tier: "legendary",
     earned: i.goal.onTrack === true,
     earnedAt: null,

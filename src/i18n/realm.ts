@@ -217,6 +217,8 @@ export interface RealmUiStrings {
     earned: (n: number) => string;
     noneYet: string;
     stillToEarn: (n: number) => string;
+    /** Pace Keeper (and any other horizon-tied trophy) carries this on-screen note. */
+    horizonDependent: string;
   };
 }
 
@@ -454,6 +456,7 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       earned: (n) => `Earned · ${n}`,
       noneYet: "No trophies yet. The first closing earns First Blood.",
       stillToEarn: (n) => `Still to earn · ${n}`,
+      horizonDependent: "Depends on the exit horizon selector",
     },
   },
   es: {
@@ -678,6 +681,7 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       earned: (n) => `Obtenidos · ${n}`,
       noneYet: "Aún no hay trofeos. El primer cierre gana First Blood.",
       stillToEarn: (n) => `Por obtener · ${n}`,
+      horizonDependent: "Depende del selector de horizonte de salida",
     },
   },
 };
