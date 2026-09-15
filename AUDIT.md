@@ -128,3 +128,22 @@ Existing-farm return months use `allocateExistingFarmSales`: the company `salesP
 A farm is flagged stale when it has **zero reservation events in the last 90 days** (including sold-out and never-reserved farms). The sentence under the table names every grade-A farm (else the highest grade present) as the pattern to buy more like.
 
 Implemented in `src/domain/farmScorecard.ts` (`computeFarmScorecard`). Shown on `/realm` and as a summary card on the Overview.
+
+## 8. This week — one currency (days)
+
+**Decision:** every weekly action is scored in days toward the goal using `debt.requiredNetProfitPerDay`. The list is generated once per ISO week (Monday, America/Chicago) and frozen in the Quest store. A data refresh does not reshuffle it.
+
+| Detector | Dollars | Days |
+|---|---|---|
+| Reservations (stuck, fully reserved) | Σ `netProfitAtStake` × resolved conversion | dollars ÷ required $/day |
+| Idle inventory | available lots × era $/lot | dollars ÷ required $/day, labeled **days parked** |
+| Held notes | Σ `costOfSelling` above the config threshold | liquidity cost avoided ÷ required $/day |
+| Next farm fund-by | (none) | `daysBetween(nextFarmFundByDate, inventoryZeroDate)` — empty inventory avoided if funded on time |
+| Quality | Σ \|fileCaseSalePrice − noteOriginalAmount\| on `price_mismatch` | \|profit affected\| ÷ required $/day |
+| Committed unfunded | `capitalCommittedUnfunded` | dollars ÷ required $/day |
+
+Rank = days × 1.5 when the due date is within 14 days (including overdue). Cards show the formula inputs on tap. If no candidate exceeds 3 days, the page says so and shows the Simulator bottleneck lever instead.
+
+Council's nine rules are detectors in this same list so there is one source of recommendations. Diagnostic rules that are not in the table above appear with 0 days so they are not lost and do not steal the week.
+
+Implemented in `src/domain/weeklyActions.ts`. Persisted by `api/_weeklyActions` in the Quest store used by the nightly export (not localStorage, not Payments).

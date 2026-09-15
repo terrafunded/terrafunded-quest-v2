@@ -26,7 +26,7 @@ const MOCK_READ = {
 };
 
 test.describe("Council", () => {
-  test("renders the ledger cards when the weekly read is unavailable", async ({ page }) => {
+  test("renders weekly actions when the weekly read is unavailable", async ({ page }) => {
     await page.route("**/api/weekly-council", async (route) => {
       await route.fulfill({
         status: 200,
@@ -41,13 +41,13 @@ test.describe("Council", () => {
     await expect(page.getByTestId("weekly-read")).toBeVisible();
     await expect(page.getByTestId("weekly-read-unavailable")).toBeVisible();
     await expect(page.getByTestId("weekly-read-body")).toHaveCount(0);
-    await expect(page.getByTestId("council-insights")).toBeVisible();
-    await expect(page.getByTestId("council-insight")).toHaveCount(9);
+    await expect(page.getByTestId("weekly-actions-detail")).toBeVisible();
+    await expect(page.getByTestId("weekly-action-card").first()).toBeVisible();
     await expect(page.getByTestId("weekly-read")).toHaveAttribute("data-source", "written");
-    await expect(page.getByTestId("council-insights")).toHaveAttribute("data-source", "ledger");
+    await expect(page.getByTestId("weekly-actions-detail")).toHaveAttribute("data-source", "ledger");
   });
 
-  test("shows the written weekly read above the computed cards", async ({ page }) => {
+  test("shows the written weekly read above the weekly action cards", async ({ page }) => {
     await page.route("**/api/weekly-council", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_READ) });
     });
@@ -58,9 +58,9 @@ test.describe("Council", () => {
     await expect(page.getByTestId("weekly-read-watch")).toContainText("binding constraint");
     await expect(page.getByTestId("weekly-read-generated")).toContainText(/generated|generada/i);
     await expect(page.getByTestId("weekly-read-disclaimer")).toBeVisible();
-    await expect(page.getByTestId("council-insight")).toHaveCount(9);
+    await expect(page.getByTestId("weekly-action-card").first()).toBeVisible();
     const weeklyBox = await page.getByTestId("weekly-read").boundingBox();
-    const ledgerBox = await page.getByTestId("council-insights").boundingBox();
+    const ledgerBox = await page.getByTestId("weekly-actions-detail").boundingBox();
     expect(weeklyBox && ledgerBox && weeklyBox.y < ledgerBox.y).toBe(true);
   });
 
@@ -109,6 +109,6 @@ test.describe("Council", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Recomendaciones" })).toBeVisible();
     await expect(page.getByTestId("weekly-read-label")).toContainText("Lectura semanal");
     await expect(page.getByTestId("weekly-read-unavailable")).toContainText("no disponible");
-    await expect(page.getByTestId("council-insights-label")).toHaveText("De los registros");
+    await expect(page.getByTestId("weekly-actions-detail")).toContainText("Esta semana");
   });
 });

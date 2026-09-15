@@ -13,6 +13,10 @@
     "api/nightly-export.js": {
       "maxDuration": 60,
       "includeFiles": "api/_nightlyExport/dist/**"
+    },
+    "api/weekly-actions.js": {
+      "maxDuration": 15,
+      "includeFiles": "api/_weeklyActions/dist/**"
     }
   },
   "crons": [

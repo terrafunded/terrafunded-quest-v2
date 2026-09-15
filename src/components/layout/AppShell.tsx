@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Menu, Wind } from "lucide-react";
+import { ListChecks, Menu, Wind } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
+import { useThisWeek } from "@/data/useThisWeek";
+import { useWeeklyActionsStrings } from "@/i18n/weeklyActions";
 import { useHorizon } from "@/horizon/HorizonProvider";
 import { oxygenPace } from "@/domain";
 import { useNavStrings } from "@/i18n/nav";
@@ -27,6 +29,9 @@ export function AppShell() {
   const { horizon } = useHorizon();
   const nav = useNavStrings();
   const t = useRealmStrings().oxygen;
+  const weeklyUi = useWeeklyActionsStrings();
+  const thisWeek = useThisWeek();
+  const showWeeklyPill = thisWeek.pill.pending > 0;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -110,17 +115,31 @@ export function AppShell() {
               cell, and auto-placement would otherwise drop the pill into the middle column — 8px (one
               `gap-2`) short of the right edge, with an empty third track behind it.
             */}
-            <div
-              className={cn("col-start-3 justify-self-end tabular-nums", pace?.band === "behind" ? "text-ember" : "text-oxygen")}
-              data-testid="topbar-oxygen"
-              data-band={pace?.band}
-              title={oxygenTitle}
-              aria-label={oxygenTitle}
-            >
-              <span className={cn("inline-flex min-h-11 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium", pace?.band === "behind" ? "bg-ember/10" : "bg-oxygen/10")}>
-                <Wind className="h-3.5 w-3.5" aria-hidden />
-                <span className="font-heading">{oxygenLabel}</span>
-              </span>
+            <div className="col-start-3 flex items-center justify-self-end gap-1.5">
+              {showWeeklyPill && (
+                <Link
+                  to="/"
+                  className="inline-flex min-h-11 items-center gap-1 rounded-md bg-gold/10 px-2 py-1.5 text-sm font-medium text-gold"
+                  data-testid="topbar-weekly"
+                  title={weeklyUi.pillAria(thisWeek.pill.pending, thisWeek.pill.total)}
+                  aria-label={weeklyUi.pillAria(thisWeek.pill.pending, thisWeek.pill.total)}
+                >
+                  <ListChecks className="h-3.5 w-3.5" aria-hidden />
+                  <span className="font-heading tabular">{weeklyUi.pill(thisWeek.pill.pending, thisWeek.pill.total)}</span>
+                </Link>
+              )}
+              <div
+                className={cn("tabular-nums", pace?.band === "behind" ? "text-ember" : "text-oxygen")}
+                data-testid="topbar-oxygen"
+                data-band={pace?.band}
+                title={oxygenTitle}
+                aria-label={oxygenTitle}
+              >
+                <span className={cn("inline-flex min-h-11 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium", pace?.band === "behind" ? "bg-ember/10" : "bg-oxygen/10")}>
+                  <Wind className="h-3.5 w-3.5" aria-hidden />
+                  <span className="font-heading">{oxygenLabel}</span>
+                </span>
+              </div>
             </div>
           </div>
         </div>

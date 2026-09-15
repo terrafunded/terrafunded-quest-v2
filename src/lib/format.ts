@@ -1,4 +1,4 @@
-import type { QualityLang } from "@/domain/quality_human";
+import type { QualityLang } from "../domain/quality_human";
 import { readStoredLang } from "../i18n/storedLang";
 
 /** BCP 47 locale for number/date formatting. es-MX keeps comma thousands like en-US. */

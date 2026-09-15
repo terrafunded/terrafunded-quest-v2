@@ -12,6 +12,7 @@
 import type { Realm } from "./realm";
 import { engineDefaultsFromRealm, runEngine, type EngineResult } from "./engine";
 import { computeCouncil, type Insight } from "./council";
+import { computeWeeklyActions } from "./weeklyActions";
 import { pulseRatioPct } from "./pulse";
 import { round2 } from "./math";
 import type { ExitHorizon } from "../config/goal";
@@ -105,6 +106,7 @@ function throneFigures(realm: Realm): HorizonFigure[] {
     fig("/", "scorecardGradeA", "Farm scorecard grade A count", realm.farmScorecard.gradeACount, "historical"),
     fig("/", "scorecardStaleCount", "Farm scorecard stale farms", realm.farmScorecard.staleCount, "historical"),
     fig("/", "parked90Plus", "Parked reservations 90+ days", realm.reservationAging.stuckCount, "historical"),
+    fig("/", "weeklyTopDetector", "This week top detector", computeWeeklyActions(realm).candidates[0]?.detector ?? null, "historical"),
     fig("/", "cashRealized", "Cash realized", g.cashRealized, "historical"),
     fig("/", "capitalOutstanding", "Capital outstanding", g.capitalOutstanding, "historical"),
     fig("/", "closedLots", "Closings to date", g.closedLots, "historical"),
@@ -412,6 +414,18 @@ function exodusFigures(realm: Realm): HorizonFigure[] {
   ];
 }
 
+function weeklyFigures(realm: Realm): HorizonFigure[] {
+  const weekly = computeWeeklyActions(realm);
+  const top = weekly.candidates[0];
+  return [
+    fig("/council", "weeklyTopDetector", "This week top detector", top?.detector ?? null, "historical"),
+    fig("/council", "weeklyCandidateCount", "This week candidate count", weekly.candidates.length, "historical"),
+    fig("/council", "weeklyTopDays", "This week top action days", top?.daysTowardGoal ?? null, "horizon_dependent", {
+      direction: "increase",
+    }),
+  ];
+}
+
 function topbarFigures(horizon: ExitHorizon, deadline: string): HorizonFigure[] {
   return [
     fig("topbar", "horizonYear", "Exit horizon year", horizon, "horizon_dependent", { direction: "increase" }),
@@ -438,6 +452,7 @@ export function captureHorizonFigures(realm: Realm, horizon: ExitHorizon): Horiz
     fig("/council", "projectedExitAtCurrentPace", "Projected exit at current pace (era)", realm.pathToGoal.projectedExitAtCurrentPace, "deliberately_independent", {
       labeled: true,
     }),
+    ...weeklyFigures(realm),
     ...councilFigures(council),
     ...pipelineFigures(realm),
     ...sponsorsFigures(realm),

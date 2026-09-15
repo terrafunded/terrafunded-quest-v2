@@ -50,6 +50,10 @@ describe("platformExport", () => {
     expect(doc.figures.find((f) => f.id === "realm.scorecardLakeviewSold")?.raw).toBe(0);
     expect(doc.figures.some((f) => f.id === "pipeline.aging90Plus")).toBe(true);
     expect(doc.figures.some((f) => f.id === "throne.parked90Plus")).toBe(true);
+    expect(doc.figures.some((f) => f.id === "weekly.topActionDays")).toBe(true);
+    expect(doc.figures.some((f) => f.id === "weekly.candidateCount")).toBe(true);
+    expect(doc.figures.some((f) => f.id === "weekly.averyDays")).toBe(true);
+    expect(doc.figures.find((f) => f.id === "weekly.topActionDays")?.subtitle).toBe("farm_fully_reserved_no_closings");
     expect(doc.figures.some((f) => f.id === "throne.notesHeldFace")).toBe(true);
     expect(doc.reconciliations.some((c) => c.id === "sale_price_layers" && c.pass)).toBe(true);
     const liquidity = doc.reconciliations.find((c) => c.id === "note_liquidity_cost_realized");

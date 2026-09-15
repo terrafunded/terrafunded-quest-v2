@@ -26,6 +26,7 @@ import { PulseCharts } from "@/components/realm/PulseCharts";
 import { AmbientParticles } from "@/components/realm/AmbientParticles";
 import { PipelinePanel } from "@/components/realm/PipelinePanel";
 import { FarmScorecardSummary } from "@/components/realm/FarmScorecardSection";
+import { ThisWeekStrip } from "@/components/realm/ThisWeekStrip";
 import { Reveal } from "@/components/realm/Reveal";
 import { Stat } from "@/components/realm/Stat";
 import { EmptyState, ErrorState, LoadingState, TableErrorsBanner } from "@/components/realm/PageStates";
@@ -115,8 +116,9 @@ export function ThroneRoom() {
     <div className="space-y-8">
       <CinematicIntro story={realm.story} />
       <TableErrorsBanner errors={tableErrors} />
+      <ThisWeekStrip />
 
-      <section className="relative overflow-hidden rounded-2xl border border-gold/20 bg-gradient-to-b from-card/90 to-background/40 px-5 py-10 text-center shadow-[0_0_120px_-40px_hsl(var(--gold)/0.6)] sm:px-10 sm:py-14">
+      <section className="relative overflow-hidden rounded-2xl border border-gold/20 bg-gradient-to-b from-card/90 to-background/40 px-5 py-6 text-center shadow-[0_0_120px_-40px_hsl(var(--gold)/0.6)] sm:px-10 sm:py-8" data-testid="throne-headline">
         <AmbientParticles />
         <GrowthBurst trigger={g.netProfitToDate} className="pointer-events-none absolute inset-0 left-1/2 top-1/2" />
         <h1 className="stat-label">{t.asOf(date(g.asOf))}</h1>

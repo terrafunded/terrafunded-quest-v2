@@ -39,3 +39,22 @@ export function isoWeekOf(day: Date): IsoWeek {
 export function utcToday(now: Date = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
+
+/** Calendar date in `timeZone` as a UTC-midnight Date (YYYY-MM-DD of that zone). */
+export function calendarDateInZone(now: Date, timeZone: string): Date {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const year = Number(parts.find((p) => p.type === "year")?.value);
+  const month = Number(parts.find((p) => p.type === "month")?.value);
+  const day = Number(parts.find((p) => p.type === "day")?.value);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+/** ISO week for the calendar date in America/Chicago (Monday start). */
+export function chicagoIsoWeek(now: Date = new Date(), timeZone = "America/Chicago"): IsoWeek {
+  return isoWeekOf(calendarDateInZone(now, timeZone));
+}

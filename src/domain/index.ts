@@ -45,4 +45,5 @@ export * from "./forecast";
 export * from "./isoWeek";
 export * from "./council";
 export * from "./weeklyCouncil";
+export * from "./weeklyActions";
 export * from "./realm";

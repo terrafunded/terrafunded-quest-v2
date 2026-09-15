@@ -3,6 +3,7 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { weeklyCouncilApi } from "./vite-plugin-weekly-council";
+import { weeklyActionsApi } from "./vite-plugin-weekly-actions";
 import { nightlyExportApi } from "./vite-plugin-nightly-export";
 
 /**
@@ -53,7 +54,7 @@ const LOTS_PROXY = {
 };
 
 export default defineConfig({
-  plugins: [react(), themeFontPreload(), weeklyCouncilApi(), nightlyExportApi()],
+  plugins: [react(), themeFontPreload(), weeklyCouncilApi(), weeklyActionsApi(), nightlyExportApi()],
   // Besides VITE_*, exactly one more variable reaches the browser bundle: QUEST_ALLOWED_TEST_EMAIL,
   // the questbot e-mail the Payments-staff gate lets in (src/domain/access.ts). The prefix is
   // deliberately narrower than QUEST_ so QUEST_TEST_EMAIL / QUEST_TEST_PASSWORD never can.

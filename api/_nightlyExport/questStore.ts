@@ -13,6 +13,9 @@ import {
   type NightlyRunMeta,
 } from "../../src/lib/nightlyExport";
 import { cloneExportDocument } from "../../src/lib/exportSnapshotStore";
+import { blobQuestKv, filesystemQuestKv, resolveQuestKv, vercelBlobClient, type BlobClient, type QuestKv } from "./questKv";
+
+export { resolveQuestKv, filesystemQuestKv, blobQuestKv, type QuestKv };
 
 const INDEX = "index.json";
 
@@ -65,11 +68,6 @@ function rollMonthly(monthly: MonthlyRunSummary[], dropped: NightlyRunMeta[]): M
   return [...map.values()].sort((a, b) => b.yearMonth.localeCompare(a.yearMonth));
 }
 
-interface BlobClient {
-  put(pathname: string, body: string): Promise<void>;
-  get(pathname: string): Promise<string | null>;
-  del(pathname: string): Promise<void>;
-}
 
 function runPath(runId: string): string {
   return `nightly/runs/${runId}.json`;
@@ -159,60 +157,6 @@ export function filesystemQuestStore(root: string): NightlyExportStore {
   });
 }
 
-function vercelBlobClient(token: string, fetchImpl: typeof fetch): BlobClient {
-  const api = "https://blob.vercel-storage.com";
-  return {
-    async put(pathname, body) {
-      const url = new URL(api);
-      url.searchParams.set("pathname", pathname);
-      const res = await fetchImpl(url, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "x-api-version": "7",
-          "x-content-type": "application/json",
-          "x-add-random-suffix": "0",
-        },
-        body,
-      });
-      if (!res.ok) throw new Error(`Quest blob put failed (${res.status})`);
-    },
-    async get(pathname) {
-      const url = new URL(api);
-      url.searchParams.set("pathname", pathname);
-      const res = await fetchImpl(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "x-api-version": "7",
-        },
-      });
-      if (res.status === 404) return null;
-      if (!res.ok) throw new Error(`Quest blob get failed (${res.status})`);
-      const json = (await res.json()) as { url?: string } | string;
-      if (typeof json === "string") return json;
-      if (json.url) {
-        const file = await fetchImpl(json.url);
-        if (file.status === 404) return null;
-        if (!file.ok) throw new Error(`Quest blob download failed (${file.status})`);
-        return file.text();
-      }
-      return JSON.stringify(json);
-    },
-    async del(pathname) {
-      const url = new URL(api);
-      url.searchParams.set("url", pathname);
-      const res = await fetchImpl(url, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "x-api-version": "7",
-        },
-      });
-      if (!res.ok && res.status !== 404) throw new Error(`Quest blob del failed (${res.status})`);
-    },
-  };
-}
 
 export function blobQuestStore(client: BlobClient): NightlyExportStore {
   return makeStore({
@@ -246,4 +190,5 @@ export function resolveQuestStore(env: Record<string, string | undefined>, fetch
   if (dir) return { store: filesystemQuestStore(dir), kind: "fs" };
   return { store: filesystemQuestStore(path.join("/tmp", "quest-export-store")), kind: "fs" };
 }
+
 

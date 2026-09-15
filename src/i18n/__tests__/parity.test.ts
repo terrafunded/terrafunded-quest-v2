@@ -17,6 +17,7 @@ import { THRONE_ROOM_UI } from "../throneRoom";
 import { TREASURY_UI } from "../treasury";
 import { TROPHIES_UI } from "../trophies";
 import { WAR_PLAN_UI } from "../warPlan";
+import { WEEKLY_ACTIONS_UI } from "../weeklyActions";
 
 /**
  * EN/ES key-parity guard for every `*_UI` dictionary in `src/i18n/`.
@@ -48,6 +49,7 @@ const DICTIONARIES: Record<string, { en: Dict; es: Dict }> = {
   TREASURY_UI: asLangDict(TREASURY_UI),
   TROPHIES_UI: asLangDict(TROPHIES_UI),
   WAR_PLAN_UI: asLangDict(WAR_PLAN_UI),
+  WEEKLY_ACTIONS_UI: asLangDict(WEEKLY_ACTIONS_UI),
 };
 
 /** Recursively collect leaf key paths. Functions and primitives are leaves. */
@@ -94,6 +96,7 @@ describe("i18n EN/ES key parity", () => {
       "TREASURY_UI",
       "TROPHIES_UI",
       "WAR_PLAN_UI",
+      "WEEKLY_ACTIONS_UI",
     ]);
   });
 

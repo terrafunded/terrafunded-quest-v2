@@ -28,3 +28,4 @@ async function bundle(entry, outfile) {
 
 await bundle("api/_weeklyCouncil/vercel-entry.ts", "api/_weeklyCouncil/dist/handler.js");
 await bundle("api/_nightlyExport/vercel-entry.ts", "api/_nightlyExport/dist/handler.js");
+await bundle("api/_weeklyActions/vercel-entry.ts", "api/_weeklyActions/dist/handler.js");

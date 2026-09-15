@@ -3,6 +3,7 @@ import raw from "../../domain/__fixtures__/payments.json";
 import type { PaymentsSnapshot } from "../../domain/types";
 import { buildRealm } from "../../domain/realm";
 import { computeCouncil } from "../../domain/council";
+import { computeWeeklyActions } from "../../domain/weeklyActions";
 import { CHRONICLE_UI } from "../chronicle";
 import { COMMON_UI } from "../common";
 import { COUNCIL_UI } from "../council";
@@ -21,6 +22,7 @@ import { THRONE_ROOM_UI } from "../throneRoom";
 import { TREASURY_UI } from "../treasury";
 import { TROPHIES_UI } from "../trophies";
 import { WAR_PLAN_UI } from "../warPlan";
+import { WEEKLY_ACTIONS_UI } from "../weeklyActions";
 import { buildPlatformExport } from "../../lib/platformExport";
 
 /**
@@ -51,6 +53,7 @@ const DICTIONARIES: Record<string, { en: Dict; es: Dict }> = {
   TREASURY_UI: TREASURY_UI as unknown as { en: Dict; es: Dict },
   TROPHIES_UI: TROPHIES_UI as unknown as { en: Dict; es: Dict },
   WAR_PLAN_UI: WAR_PLAN_UI as unknown as { en: Dict; es: Dict },
+  WEEKLY_ACTIONS_UI: WEEKLY_ACTIONS_UI as unknown as { en: Dict; es: Dict },
 };
 
 const BANNED: { id: string; re: RegExp }[] = [
@@ -174,6 +177,9 @@ describe("banned medieval / game vocabulary", () => {
       for (const insight of computeCouncil(realm, lang)) {
         hits.push(...findBanned(`council.${lang}.${insight.id}.title`, insight.title));
         hits.push(...findBanned(`council.${lang}.${insight.id}.body`, insight.body));
+      }
+      for (const action of computeWeeklyActions(realm, realm.asOf, lang).candidates) {
+        hits.push(...findBanned(`weekly.${lang}.${action.id}.score`, action.scoreDescription));
       }
       for (const card of realm.story.cards) {
         hits.push(...findBanned(`story.${lang}.${card.id}.kicker`, card.kicker));

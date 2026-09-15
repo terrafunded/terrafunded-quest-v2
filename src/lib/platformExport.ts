@@ -50,6 +50,8 @@ import { PIPELINE_UI } from "@/i18n/pipeline";
 import { REALM_MAP_UI } from "@/i18n/realmMap";
 import { WAR_PLAN_UI } from "@/i18n/warPlan";
 import { } from "@/domain/goal";
+import { computeWeeklyActions } from "@/domain/weeklyActions";
+import { WEEKLY_ACTIONS_UI } from "@/i18n/weeklyActions";
 
 export interface ExportFigure {
   id: string;
@@ -273,6 +275,9 @@ function collectFigures(
   );
   const histCum = round2(sum(realm.history.map((h) => h.netProfit)));
   const soldCount = realm.lots.filter((l) => isSold(l)).length;
+  const weekly = computeWeeklyActions(realm, realm.asOf, lang);
+  const weeklyTop = weekly.candidates[0];
+  const weeklyUi = WEEKLY_ACTIONS_UI[lang];
 
   return [
     {
@@ -813,6 +818,49 @@ function collectFigures(
       source: { file: "src/domain/goal.ts", export: "computeGoal" },
       inputs: { onTrack: g.onTrack },
       formula: "pace vs required lots/month",
+    },
+    {
+      id: "weekly.topActionDays",
+      page: "/council",
+      section: "this-week",
+      label: weeklyUi.thisWeek,
+      displayed: weeklyTop ? String(weeklyTop.daysTowardGoal) : "—",
+      raw: weeklyTop?.daysTowardGoal ?? null,
+      subtitle: weeklyTop?.detector ?? null,
+      units: "days",
+      source: { file: "src/domain/weeklyActions.ts", export: "computeWeeklyActions" },
+      inputs: {
+        requiredNetProfitPerDay: weekly.requiredNetProfitPerDay,
+        detector: weeklyTop?.detector ?? null,
+        dollars: weeklyTop?.formula.dollars ?? null,
+      },
+      formula: "AUDIT.md §8 — dollars ÷ requiredNetProfitPerDay × urgency",
+    },
+    {
+      id: "weekly.candidateCount",
+      page: "/council",
+      section: "this-week",
+      label: lang === "es" ? "Candidatas de esta semana" : "This week candidates",
+      displayed: fmtNumber(weekly.candidates.length, lang),
+      raw: weekly.candidates.length,
+      subtitle: weekly.belowMinimum ? weeklyUi.belowMinimum : null,
+      units: "actions",
+      source: { file: "src/domain/weeklyActions.ts", export: "computeWeeklyActions" },
+      inputs: { minDays: weekly.minDays },
+      formula: "count of detector candidates including migrated Council rules",
+    },
+    {
+      id: "weekly.averyDays",
+      page: "/",
+      section: "this-week",
+      label: lang === "es" ? "Días Avery (reservada, sin cierres)" : "Avery days (reserved, no closings)",
+      displayed: String(weekly.candidates.find((c) => c.detector === "farm_fully_reserved_no_closings" && c.records.farmNames.includes("Avery"))?.daysTowardGoal ?? 0),
+      raw: weekly.candidates.find((c) => c.detector === "farm_fully_reserved_no_closings" && c.records.farmNames.includes("Avery"))?.daysTowardGoal ?? 0,
+      subtitle: "Avery",
+      units: "days",
+      source: { file: "src/domain/weeklyActions.ts", export: "computeWeeklyActions" },
+      inputs: { requiredNetProfitPerDay: weekly.requiredNetProfitPerDay },
+      formula: "Σ Avery netProfitAtStake × resolvedConversion ÷ requiredNetProfitPerDay",
     },
     {
       id: "oracle.netPerLot",

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, Hourglass } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
 import type { StuckLot } from "@/domain";
@@ -17,7 +17,8 @@ import { cn } from "@/lib/utils";
 export default function Pipeline() {
   const { data, isLoading, error, refetch } = useRealm();
   const t = usePipelineStrings();
-  const [farm, setFarm] = useState("all");
+  const [params] = useSearchParams();
+  const [farm, setFarm] = useState(params.get("farm") ?? "all");
 
   const pipeline = data?.realm.pipeline;
   const farms = useMemo(() => (pipeline?.farms ?? []).filter((f) => f.stuck > 0).map((f) => f.farmName).sort(), [pipeline]);
