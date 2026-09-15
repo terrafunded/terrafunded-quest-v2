@@ -170,7 +170,7 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     warPlanLotsNeeded: "Lots the required-pace plan closes by the deadline",
     warPlanLotsNeededHint: "Fractional closings the required schedule actually books through the deadline — not ceil(remaining ÷ $/lot).",
     rotationFarms: (farms) => `${farms} farms on the rotation schedule`,
-    rotationFarmsHint: "Farms the required War Plan buys with capital turning before the deadline — one figure, not per $/lot basis.",
+    rotationFarmsHint: "Farms the required Plan buys with capital turning before the deadline — one figure, not per $/lot basis.",
     interestCarryNote: (horizon, extra, vs2028, vs2029) =>
       extra === "$0"
         ? `Interest on capital already outstanding is not deducted from remaining or lots still needed. A 2028 exit would cost ${vs2028} more interest than 2027; 2029 would cost ${vs2029} more.`

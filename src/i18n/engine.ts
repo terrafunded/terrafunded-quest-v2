@@ -146,7 +146,7 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     freshCapitalVsFarms:
       "Fresh capital can be $0 while farms are still needed because this page runs at the current closing pace — recycled returns cover new buys at that pace. The farms figure is the required-pace rotation schedule, which is faster.",
     peakOutstanding: "Peak outstanding (including capital already in the ground)",
-    peakHint: "Maximum owed in any month of this current-pace series, including today's outstanding. Not the War Plan peak, which covers only new farms.",
+    peakHint: "Maximum owed in any month of this current-pace series, including today's outstanding. Not the Plan peak, which covers only new farms.",
     capitalDeadline: "The capital deadline",
     totalAdSpend: "Total ad spend implied",
     adShare: (pct) => `${pct} of net profit at closing — cheap next to capital`,
