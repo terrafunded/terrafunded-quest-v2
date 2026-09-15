@@ -79,8 +79,8 @@ export const SPONSORS_UI: Record<QualityLang, SponsorsUiStrings> = {
   en: {
     date: (iso) => dateIn("en", iso),
     title: "Sponsors",
-    subtitle: "Who funded which farm, on what terms, and what they have been paid. Profit-share and fixed-interest are never blended. Every position is a hostage until its capital comes home.",
-    replay: "Replay liberation",
+    subtitle: "Who funded which farm, on what terms, and what they have been paid. Profit-share and fixed-interest are never blended. Capital is still out until that position is repaid.",
+    replay: "Replay capital returned",
     emptyTitle: "No sponsors",
     emptyBody: "No investor is attached to a subdivided farm.",
     footnote: (names) => `Also in the investors table with no farm capital: ${names}.`,
@@ -142,8 +142,8 @@ export const SPONSORS_UI: Record<QualityLang, SponsorsUiStrings> = {
   es: {
     date: (iso) => dateIn("es", iso),
     title: "Sponsors",
-    subtitle: "Quién financió qué finca, en qué términos y cuánto se le ha pagado. Reparto de utilidades e interés fijo nunca se mezclan. Cada posición es un rehén hasta que su capital vuelve a casa.",
-    replay: "Repetir la liberación",
+    subtitle: "Quién financió qué finca, en qué términos y cuánto se le ha pagado. Reparto de utilidades e interés fijo nunca se mezclan. El capital sigue afuera hasta que esa posición se reembolsa.",
+    replay: "Repetir capital devuelto",
     emptyTitle: "Sin sponsors",
     emptyBody: "Ningún inversionista está ligado a una finca subdividida.",
     footnote: (names) => `También en la tabla de inversionistas, sin capital en fincas: ${names}.`,

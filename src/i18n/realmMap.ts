@@ -70,12 +70,12 @@ export interface RealmMapUiStrings {
 
 export const REALM_MAP_UI: Record<QualityLang, RealmMapUiStrings> = {
   en: {
-    title: "The Realm",
+    title: "Farms and lots",
     subtitle: (mapped, total) =>
-      `One card per farm on its surveyed parcel map — the same drawing Payments' availability map uses, over the aerial it serves — with every lot tinted by its Quest state. Farms whose drawing is missing or disagrees with the ledger get a schematic plat instead (${mapped} of ${total} mapped). Each farm fights its own campaign: sell enough lots to cover its capital and accrued interest. Hover a lot for its economics; click a farm for the campaign.`,
+      `One card per farm on its surveyed parcel map — the same drawing Payments' availability map uses, over the aerial it serves. Each lot is tinted by stage (available, reserved, closed, note sold). Farms whose drawing is missing or disagrees with Payments get a schematic plat instead (${mapped} of ${total} mapped). Sell enough lots on a farm to cover its capital and accrued interest. Hover a lot for its figures; click a farm for the status.`,
     legendAria: "Legend",
     stuck60: "Stuck 60+ days",
-    emptyTitle: "No territories",
+    emptyTitle: "No farms",
     emptyBody: "No subdivided farms were found.",
     ownCapital: "own capital",
     lot: {
@@ -104,15 +104,15 @@ export const REALM_MAP_UI: Record<QualityLang, RealmMapUiStrings> = {
       monthsSinceFunding: "Months since funding",
       notYet: "not yet",
       reservationClosing: "Reservation → closing",
-      medianOver: (n, realm) => `median over ${n} closed lot${n === 1 ? "" : "s"}${realm ? ` · realm ${realm}` : ""}`,
+      medianOver: (n, realm) => `median over ${n} closed lot${n === 1 ? "" : "s"}${realm ? ` · all farms ${realm}` : ""}`,
       reservedStuck: (r, s) => `${r} reserved · ${s} stuck`,
       profitTrapped: (a) => ` · ${a} of profit trapped`,
       lotNumber: (n) => `Lot ${n}`,
       unsold: "unsold",
     },
     campaign: {
-      aria: "Campaign",
-      title: (label) => `Campaign · ${label}`,
+      aria: "Farm status",
+      title: (label) => `Farm status · ${label}`,
       covered: (p) => `${p} covered`,
       goal: "Goal (capital + interest)",
       soldSoFar: "Sold so far",
@@ -127,9 +127,9 @@ export const REALM_MAP_UI: Record<QualityLang, RealmMapUiStrings> = {
     },
     card: {
       closedLine: (sold, total, p, deal) => `${sold}/${total} closed · ${p} · ${deal}`,
-      territoryAria: (name, campaign) => `${name} territory${campaign ? `, ${campaign}` : ""}`,
+      territoryAria: (name, campaign) => `${name}${campaign ? `, ${campaign}` : ""}`,
       schematicMismatch: (polygons, lots) =>
-        `Schematic · the survey drawing has ${polygons} parcel${polygons === 1 ? "" : "s"}, the ledger ${lots} lot${lots === 1 ? "" : "s"} — `,
+        `Schematic · the survey drawing has ${polygons} parcel${polygons === 1 ? "" : "s"}, Payments has ${lots} lot${lots === 1 ? "" : "s"} — `,
       seeQuality: "see Data Quality",
       schematicError: "Schematic · the survey drawing could not be loaded from Payments",
       schematicNone: "Schematic · Payments has no survey drawing for this farm",
@@ -137,12 +137,12 @@ export const REALM_MAP_UI: Record<QualityLang, RealmMapUiStrings> = {
     lotAria: (name, stage, stuck) => `${name}: ${stage}${stuck ? ", stuck reservation" : ""}`,
   },
   es: {
-    title: "El Reino",
+    title: "Fincas y lotes",
     subtitle: (mapped, total) =>
-      `Una tarjeta por finca en su mapa de parcelas levantado — el mismo dibujo que usa el mapa de disponibilidad de Payments, sobre la aérea que sirve — con cada lote teñido por su estado en Quest. Las fincas cuyo dibujo falta o no coincide con el libro reciben un esquema (${mapped} de ${total} mapeadas). Cada finca pelea su propia campaña: vender suficientes lotes para cubrir su capital e interés devengado. Pasa el cursor por un lote para su economía; haz clic en una finca para la campaña.`,
+      `Una tarjeta por finca en su mapa de parcelas — el mismo dibujo que usa el mapa de disponibilidad de Payments, sobre la aérea que sirve. Cada lote se tiñe por etapa (disponible, reservado, cerrado, pagaré vendido). Las fincas cuyo dibujo falta o no coincide con Payments reciben un esquema (${mapped} de ${total} mapeadas). Hay que vender suficientes lotes para cubrir el capital y el interés de esa finca. Pasa el cursor por un lote para sus cifras; haz clic en una finca para su estado.`,
     legendAria: "Leyenda",
     stuck60: "Atascado 60+ días",
-    emptyTitle: "Sin territorios",
+    emptyTitle: "Sin fincas",
     emptyBody: "No se encontraron fincas subdivididas.",
     ownCapital: "capital propio",
     lot: {
@@ -156,7 +156,7 @@ export const REALM_MAP_UI: Record<QualityLang, RealmMapUiStrings> = {
       noteSoldFor: "Pagaré vendido por",
       reserved: "Reservado",
       closed: "Cerrado",
-      daysInPipeline: "Días en embudo",
+      daysInPipeline: "Días en pipeline",
     },
     farm: {
       capitalDeployed: "Capital desplegado",
@@ -171,15 +171,15 @@ export const REALM_MAP_UI: Record<QualityLang, RealmMapUiStrings> = {
       monthsSinceFunding: "Meses desde el fondeo",
       notYet: "aún no",
       reservationClosing: "Reserva → cierre",
-      medianOver: (n, realm) => `mediana sobre ${n} lote${n === 1 ? "" : "s"} cerrado${n === 1 ? "" : "s"}${realm ? ` · reino ${realm}` : ""}`,
+      medianOver: (n, realm) => `mediana sobre ${n} lote${n === 1 ? "" : "s"} cerrado${n === 1 ? "" : "s"}${realm ? ` · todas las fincas ${realm}` : ""}`,
       reservedStuck: (r, s) => `${r} reservados · ${s} atascados`,
       profitTrapped: (a) => ` · ${a} de utilidad atrapada`,
       lotNumber: (n) => `Lote ${n}`,
       unsold: "sin vender",
     },
     campaign: {
-      aria: "Campaña",
-      title: (label) => `Campaña · ${label}`,
+      aria: "Estado de la finca",
+      title: (label) => `Estado de la finca · ${label}`,
       covered: (p) => `${p} cubierto`,
       goal: "Meta (capital + interés)",
       soldSoFar: "Vendido hasta ahora",
@@ -194,9 +194,9 @@ export const REALM_MAP_UI: Record<QualityLang, RealmMapUiStrings> = {
     },
     card: {
       closedLine: (sold, total, p, deal) => `${sold}/${total} cerrados · ${p} · ${deal}`,
-      territoryAria: (name, campaign) => `Territorio ${name}${campaign ? `, ${campaign}` : ""}`,
+      territoryAria: (name, campaign) => `${name}${campaign ? `, ${campaign}` : ""}`,
       schematicMismatch: (polygons, lots) =>
-        `Esquema · el levantamiento tiene ${polygons} parcela${polygons === 1 ? "" : "s"}, el libro ${lots} lote${lots === 1 ? "" : "s"} — `,
+        `Esquema · el levantamiento tiene ${polygons} parcela${polygons === 1 ? "" : "s"}, Payments tiene ${lots} lote${lots === 1 ? "" : "s"} — `,
       seeQuality: "ver Calidad de datos",
       schematicError: "Esquema · no se pudo cargar el levantamiento desde Payments",
       schematicNone: "Esquema · Payments no tiene levantamiento para esta finca",

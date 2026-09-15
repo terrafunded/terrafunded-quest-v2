@@ -54,7 +54,7 @@ const SPANISH_MARKERS =
   /\b(?:Finca|Lote|Disponible|Reservado|Cerrado|requerido|Utilidad)\b|\b\d{1,2} (?:ene|abr|ago|dic)\.? \d{4}\b/;
 
 async function waitForRealm(page: Page) {
-  await expect(page.getByRole("status", { name: /Loading realm data|Cargando los datos del reino/ })).toHaveCount(0, {
+  await expect(page.getByRole("status", { name: /Loading farm and lot data|Cargando fincas y lotes/ })).toHaveCount(0, {
     timeout: 30_000,
   });
 }

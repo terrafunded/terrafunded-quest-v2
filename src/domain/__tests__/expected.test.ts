@@ -190,24 +190,24 @@ describe("expected: the rest of the realm reads it", () => {
       ["2026-08-20", "Northfield — Lot 6", "Rocío Vega withdrew after 19 days"],
     ]);
     expect(realm.narrative.get(cancellations[0]!.id)).toBe(
-      "On April 15, Rocío Vega withdrew the pledge for Lot 5 of Northfield after 45 days; the lot returned to the market and the days it promised went with it.",
+      "On April 15, Rocío Vega cancelled the reservation for Lot 5 of Northfield after 45 days; the lot returned to inventory.",
     );
     const pledges = realm.events.filter((ev) => ev.kind === "reservation" && ev.propertyId === lot6.propertyId);
     expect(pledges.map((ev) => [ev.date, ev.description])).toEqual([
       ["2026-08-01", "by Rocío Vega · later cancelled"],
       ["2026-08-25", "by Buyer One"],
     ]);
-    expect(realm.narrative.get(pledges[0]!.id)).toBe("On August 1, Rocío Vega pledged for Lot 6 of Northfield at $105,000; the pledge was later withdrawn.");
-    expect(realm.narrative.get(pledges[1]!.id)).toMatch(/^On August 25, Buyer One pledged for Lot 6 of Northfield at \$110,000 — the closing is expected around October 24(, \d+ provisional days? gained)?\.$/);
+    expect(realm.narrative.get(pledges[0]!.id)).toBe("On August 1, Rocío Vega reserved Lot 6 of Northfield at $105,000; the reservation was later cancelled.");
+    expect(realm.narrative.get(pledges[1]!.id)).toMatch(/^On August 25, Buyer One reserved Lot 6 of Northfield at \$110,000 — the closing is expected around October 24(, \d+ provisional days? gained)?\.$/);
     // the cancelled pledge on the available lot is narrated with its own buyer, not the lot's (none)
     const pledge5 = realm.events.find((ev) => ev.kind === "reservation" && ev.propertyId === lot5.propertyId)!;
-    expect(realm.narrative.get(pledge5.id)).toBe("On March 1, Rocío Vega pledged for Lot 5 of Northfield at $100,000; the pledge was later withdrawn.");
+    expect(realm.narrative.get(pledge5.id)).toBe("On March 1, Rocío Vega reserved Lot 5 of Northfield at $100,000; the reservation was later cancelled.");
     // an overdue reservation says how late it is
     const lot3 = realm.lots.find((l) => l.name === "Northfield — Lot 3")!;
     expect(realm.narrative.get(`reservation:${lot3.propertyId}`)).toMatch(/the closing was expected around August 30 and is 12 days late/);
     // a closing references its reservation
     const lot1 = realm.lots.find((l) => l.name === "Northfield — Lot 1")!;
-    expect(realm.narrative.get(`closing:${lot1.propertyId}`)).toMatch(/^On February 10, Buyer One claimed Lot 1 of Northfield for \$100,000, 40 days after Buyer's reservation\./);
+    expect(realm.narrative.get(`closing:${lot1.propertyId}`)).toMatch(/^On February 10, Buyer One closed Lot 1 of Northfield for \$100,000, 40 days after Buyer's reservation\./);
     // chronological: the cancellation sits between the pledge and the re-reservation
     const order = realm.events.filter((ev) => ev.propertyId === lot6.propertyId).map((ev) => ev.kind);
     expect(order).toEqual(["reservation", "cancellation", "reservation"]);

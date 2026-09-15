@@ -88,7 +88,7 @@ export function FarmCard({
           </p>
         </div>
         {campaign && meta && campaignLabel && (
-          <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em]", meta.badge)} data-testid="campaign-label">
+          <span className={cn("max-w-[9.5rem] shrink-0 rounded-full border px-2 py-0.5 text-right text-[11px] font-semibold uppercase leading-tight tracking-[0.06em] text-pretty", meta.badge)} data-testid="campaign-label">
             {campaignLabel}
             {tag}
           </span>

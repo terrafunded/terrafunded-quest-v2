@@ -99,16 +99,16 @@ export function reconcileThroneAndEngine(
   if (!dollarsAgree) {
     dollarReason =
       lang === "es"
-        ? "El Motor limita las ventas al inventario disponible y a los ciclos de capital; el Trono asume que siempre hay lotes disponibles."
-        : "The Engine caps sales at available inventory and capital turns; the Throne Room assumes lots are always available.";
+        ? "Proyección de capital limita las ventas al inventario disponible y a los ciclos de capital; Resumen asume que siempre hay lotes disponibles."
+        : "Capital projection caps sales at available inventory and capital turns; Overview assumes lots are always available.";
   }
 
   let farmReason: string | null = null;
   if (!farmsAgree) {
     farmReason =
       lang === "es"
-        ? "El Trono y el Motor discrepan: hueco de inventario frente al calendario de giros de capital."
-        : "Throne and Engine disagree: inventory gap versus the capital-turn schedule.";
+        ? "Resumen y Proyección de capital discrepan: hueco de inventario frente al calendario de giros de capital."
+        : "Overview and Capital projection disagree: inventory gap versus the capital-turn schedule.";
   }
 
   return {

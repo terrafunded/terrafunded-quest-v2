@@ -66,9 +66,9 @@ export interface OracleUiStrings {
 
 export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
   en: {
-    title: "Oracle",
+    title: "Simulator",
     subtitle:
-      "Four futures from the real 90-day averages, then your own: the current pace lets every live reservation close on its expected date, then keeps reserving at the trailing pace; the last line is the old closings-only extrapolation for comparison.",
+      "Four projections from the real 90-day averages, then your own. The current pace lets every live reservation close on its expected date, then keeps reserving at the trailing pace. The last line is the closings-only extrapolation, for comparison.",
     reset: "Reset to the current pace",
     futuresAria: "Four futures",
     yourFuture: "Your own future",
@@ -130,9 +130,9 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
       `${hint} ${since} (${farms} funding${farms === 1 ? "" : "s"}${excluded > 0 ? `, ${excluded} earlier left out` : ""})`,
   },
   es: {
-    title: "Oráculo",
+    title: "Simulador",
     subtitle:
-      "Cuatro futuros desde los promedios reales de 90 días, y luego el tuyo: el ritmo actual deja que cada reserva viva cierre en su fecha esperada y luego sigue reservando al ritmo reciente; la última línea es la extrapolación antigua solo de cierres, para comparar.",
+      "Cuatro proyecciones desde los promedios reales de 90 días, y luego la tuya. El ritmo actual deja que cada reserva viva cierre en su fecha esperada y luego sigue reservando al ritmo reciente. La última línea es la extrapolación solo de cierres, para comparar.",
     reset: "Restablecer al ritmo actual",
     futuresAria: "Cuatro futuros",
     yourFuture: "Tu propio futuro",

@@ -92,9 +92,9 @@ export interface EngineUiStrings {
 
 export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
   en: {
-    title: "The Engine",
+    title: "Capital projection",
     subtitle:
-      "Capital already in the ground, turning as many times as it can before the deadline. Do you reach $10M — and if not, how much fresh capital, by when. Same forecast as the Oracle and War Plan, inverted.",
+      "Capital already deployed, reused as many times as it can before the deadline. Do you reach $10M — and if not, how much new capital, by when. Same forecast as the Simulator and the Plan, inverted.",
     reset: "Reset to real data",
     verdictLabel: "The verdict",
     assumption: "Assumption",
@@ -136,10 +136,10 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     shortfallLots: "Shortfall in lots",
     shortfallFarms: "Shortfall in farms (fresh capital)",
     shortfallFarmsHint:
-      "Farms that need fresh capital only — zero when the recycled pool covers the gap. Not the Throne Room farms figure.",
+      "Farms that need new capital only — zero when returned capital covers the gap. Not the Overview farms figure.",
     farmsStillNeeded: "Farms to buy (rotation schedule)",
     farmsStillNeededHint:
-      "Same War Plan rotation schedule as the Throne Room — farms the required plan buys with capital turning before the deadline, not lots ÷ lots-per-farm.",
+      "Same Plan rotation schedule as Overview — farms the required plan buys with capital turning before the deadline, not lots ÷ lots-per-farm.",
     freshCapital: "Fresh capital required",
     peakOutstanding: "Peak outstanding",
     peakHint: "The maximum owed across all sponsors in any month — what actually has to be raised, not the sum of farm costs. Same powder under more turns does not raise the peak.",
@@ -184,7 +184,7 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
       }
     },
     interestBesideVerdict: (interest, share) =>
-      `${interest} of every turn goes to sponsor interest — ${share} of the net profit the engine produces. More turns mean more interest; that is the strongest argument against simply adding another cycle.`,
+      `${interest} of every turn goes to sponsor interest — ${share} of the net profit this projection produces. More turns mean more interest; that is the strongest argument against simply adding another cycle.`,
     interestShareHint: (share) => `${share} of net profit — the price of turning capital`,
     charts: "Charts",
     turnsChart: "The Turns",
@@ -209,20 +209,20 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     remove: "Remove",
     effectiveCycle: (n) => `Effective cycle ${n} mo (coupled to pace)`,
     couplingNote:
-      "Limitation: the Oracle hard-codes a constant cycleMonths. Here pace and cycle are coupled — selling faster returns capital sooner.",
+      "Limitation: the Simulator hard-codes a constant cycleMonths. Here pace and cycle are coupled — selling faster returns capital sooner.",
     band: { met: "Goal reached", close: "Close", short: "Short", far: "Far short" },
     months: "months",
     never: "never",
-    chartAria: "The Engine charts",
+    chartAria: "Capital projection charts",
     inventoryDry: "Inventory dry",
     cycleArrow: (from, to) => `${from} mo → ${to}`,
     blockRecycledFresh: (farm, cost, recycled, fresh) =>
       `${farm}: ${cost} · recycled ${recycled} · fresh ${fresh}`,
   },
   es: {
-    title: "El Motor",
+    title: "Proyección de capital",
     subtitle:
-      "El capital ya en tierra, girando cuantas veces pueda antes del plazo. ¿Llegas a $10M — y si no, cuánto capital fresco, para cuándo. El mismo pronóstico del Oráculo y el War Plan, invertido.",
+      "El capital ya desplegado, reutilizado cuantas veces pueda antes del plazo. ¿Llegas a $10M — y si no, cuánto capital nuevo, para cuándo. El mismo pronóstico del Simulador y el Plan, invertido.",
     reset: "Restablecer a datos reales",
     verdictLabel: "El veredicto",
     assumption: "Supuesto",
@@ -264,10 +264,10 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     shortfallLots: "Faltante en lotes",
     shortfallFarms: "Faltante en fincas (capital fresco)",
     shortfallFarmsHint:
-      "Fincas que necesitan capital fresco — cero cuando el pool reciclado cubre el hueco. No es la cifra de fincas del Trono.",
+      "Fincas que necesitan capital nuevo — cero cuando el capital devuelto cubre el hueco. No es la cifra de fincas de Resumen.",
     farmsStillNeeded: "Fincas a comprar (calendario de rotación)",
     farmsStillNeededHint:
-      "El mismo calendario de rotación del Plan de Guerra que el Trono — fincas que el plan requerido compra con el capital girando antes de la fecha límite, no lotes ÷ lotes-por-finca.",
+      "El mismo calendario de rotación del Plan que Resumen — fincas que el plan requerido compra con el capital girando antes de la fecha límite, no lotes ÷ lotes-por-finca.",
     freshCapital: "Capital fresco requerido",
     peakOutstanding: "Pico adeudado",
     peakHint: "Lo máximo adeudado a sponsors en un mes — lo que realmente hay que levantar, no la suma de costos de finca. El mismo polvo con más giros no sube el pico.",
@@ -312,7 +312,7 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
       }
     },
     interestBesideVerdict: (interest, share) =>
-      `${interest} de cada giro se va en interés a sponsors — ${share} de la utilidad neta que produce el motor. Más giros significan más interés; ese es el argumento más fuerte contra simplemente añadir otro ciclo.`,
+      `${interest} de cada giro se va en interés a sponsors — ${share} de la utilidad neta que produce esta proyección. Más giros significan más interés; ese es el argumento más fuerte contra simplemente añadir otro ciclo.`,
     interestShareHint: (share) => `${share} de la utilidad neta — el precio de girar el capital`,
     charts: "Gráficas",
     turnsChart: "Los Giros",
@@ -337,11 +337,11 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     remove: "Quitar",
     effectiveCycle: (n) => `Ciclo efectivo ${n} meses (acoplado al ritmo)`,
     couplingNote:
-      "Limitación: el Oráculo fija un cycleMonths constante. Aquí ritmo y ciclo están acoplados — vender más rápido devuelve el capital antes.",
+      "Limitación: el Simulador fija un cycleMonths constante. Aquí ritmo y ciclo están acoplados — vender más rápido devuelve el capital antes.",
     band: { met: "Meta alcanzada", close: "Cerca", short: "Corto", far: "Muy corto" },
     months: "meses",
     never: "nunca",
-    chartAria: "Gráficas del Motor",
+    chartAria: "Gráficas de proyección de capital",
     inventoryDry: "Inventario agotado",
     cycleArrow: (from, to) => `${from} mo → ${to}`,
     blockRecycledFresh: (farm, cost, recycled, fresh) =>

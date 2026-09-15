@@ -7,7 +7,7 @@ import { expect, test, type Page } from "@playwright/test";
  */
 
 async function waitForRealm(page: Page) {
-  await expect(page.getByRole("status", { name: /Loading realm data|Cargando los datos del reino/ })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByRole("status", { name: /Loading farm and lot data|Cargando fincas y lotes/ })).toHaveCount(0, { timeout: 30_000 });
 }
 
 async function openRealm(page: Page) {

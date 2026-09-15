@@ -76,11 +76,11 @@ describe("Sponsors page in Spanish", () => {
   it("the hostages strip and the liberated gallery print Spanish, including the freed date", () => {
     const text = textOf(render(createElement(LiberationBoard, { liberation: realm.liberation })));
     expect(text).not.toMatch(ENGLISH_MARKERS);
-    expect(text).toContain("Rehenes del reino");
+    expect(text).toContain("Capital aún afuera");
     expect(text).toContain("devueltos");
     const freed = realm.liberation.freedHostages[0];
     if (freed?.freedAt) {
-      expect(text).toContain(`liberado el ${REALM_UI.es.date(freed.freedAt)}`);
+      expect(text).toContain(`devuelto el ${REALM_UI.es.date(freed.freedAt)}`);
       expect(REALM_UI.es.date(freed.freedAt)).not.toMatch(/^[A-Z][a-z]{2} \d/);
       expect(REALM_UI.en.date(freed.freedAt)).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/);
     }

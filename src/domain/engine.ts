@@ -1233,7 +1233,7 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext, lang: "en" |
     referencePace,
     effectiveCycleMonths: effectiveCycle,
     cycleCouplingNote:
-      "Oracle and War Plan pass a fixed capitalCycleMonths into fundSchedule. The Engine couples cycle to pace: effectiveCycle = baseCycle × (referencePace / salesPace), so selling faster returns capital sooner and buys more turns.",
+      "The Simulator and the Plan pass a fixed capitalCycleMonths into fundSchedule. Capital projection couples cycle to pace: effectiveCycle = baseCycle × (referencePace / salesPace), so selling faster returns capital sooner and buys more turns.",
     costPerClosing: adPerClosing,
     startInventory: inv,
     figures,

@@ -36,7 +36,7 @@ type Edges = {
 };
 
 async function waitForRealm(page: Page) {
-  await expect(page.getByRole("status", { name: /Loading realm data|Cargando los datos del reino/ })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByRole("status", { name: /Loading farm and lot data|Cargando fincas y lotes/ })).toHaveCount(0, { timeout: 30_000 });
 }
 
 /** The page-enter transition translates the page root; wait until it has landed. */

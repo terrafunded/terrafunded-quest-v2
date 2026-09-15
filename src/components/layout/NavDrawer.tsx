@@ -222,13 +222,13 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
                     onClick={close}
                     className={({ isActive }) =>
                       cn(
-                        "nav-item flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground",
+                        "nav-item flex items-center gap-3 rounded-md px-3 py-2.5 text-sm leading-snug text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground",
                         isActive && "bg-secondary text-gold",
                       )
                     }
                   >
                     <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                    {label}
+                    <span className="min-w-0 text-pretty">{label}</span>
                   </NavLink>
                 );
               })}

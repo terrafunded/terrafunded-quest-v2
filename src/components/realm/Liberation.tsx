@@ -55,7 +55,7 @@ export function LiberationBoard({ liberation }: { liberation: LiberationModel })
     <div className="grid items-start gap-4 xl:grid-cols-[1.4fr_1fr]" data-testid="liberation-board">
       <section className="parchment-card p-5" aria-label={t.hostagesAria}>
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-          <h2 className="whitespace-nowrap font-heading text-sm uppercase tracking-[0.2em] text-sponsor sm:shrink-0">
+          <h2 className="font-heading text-sm uppercase tracking-[0.12em] text-sponsor sm:shrink-0">
             <Lock className="mr-2 inline h-4 w-4" />
             {t.hostages(liberation.captiveHostages.length)}
           </h2>
@@ -75,7 +75,7 @@ export function LiberationBoard({ liberation }: { liberation: LiberationModel })
       </section>
 
       <section className="parchment-card border-liberty/30 p-5" aria-label={t.liberatedAria} data-testid="liberated-gallery">
-        <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-liberty">
+        <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.12em] text-liberty">
           <Unlock className="mr-2 inline h-4 w-4" />
           {t.liberated(liberation.freedHostages.length)}
         </h2>

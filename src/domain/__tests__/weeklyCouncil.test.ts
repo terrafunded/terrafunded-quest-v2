@@ -50,7 +50,7 @@ describe("computeCouncil", () => {
   it("Spanish insights contain no English marker strings", () => {
     const es = computeCouncil(realm, "es");
     const blob = es.map((i) => `${i.title} ${i.body}`).join("\n");
-    expect(blob).not.toMatch(/\b(the pace|stuck reservations|losing ground|Data Quality|horizon asks)\b/i);
+    expect(blob).not.toMatch(/\b(the pace|stuck reservations|no recent closings|Data Quality|horizon asks)\b/i);
   });
 });
 

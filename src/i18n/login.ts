@@ -16,7 +16,7 @@ export interface LoginUiStrings {
 export const LOGIN_UI: Record<QualityLang, LoginUiStrings> = {
   en: {
     brand: "Quest",
-    tagline: "Enter the war room",
+    tagline: "Sign in to Quest",
     email: "Email",
     password: "Password",
     submit: "Enter",
@@ -24,11 +24,11 @@ export const LOGIN_UI: Record<QualityLang, LoginUiStrings> = {
     notConfigured:
       "Supabase is not configured. Copy .env.example to .env and set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.",
     footer: "Read-only, and for the TerraFunded team only: Payments staff (role admin) may enter; nothing here can write.",
-    homeAria: "Quest — back to the Throne Room",
+    homeAria: "Quest — back to Overview",
   },
   es: {
     brand: "Quest",
-    tagline: "Entra a la sala de guerra",
+    tagline: "Entra a Quest",
     email: "Correo",
     password: "Contraseña",
     submit: "Entrar",
@@ -36,7 +36,7 @@ export const LOGIN_UI: Record<QualityLang, LoginUiStrings> = {
     notConfigured:
       "Supabase no está configurado. Copia .env.example a .env y define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.",
     footer: "Solo lectura, y solo para el equipo TerraFunded: el personal de Payments (rol admin) puede entrar; aquí no se escribe nada.",
-    homeAria: "Quest — volver a la Sala del Trono",
+    homeAria: "Quest — volver a Resumen",
   },
 };
 

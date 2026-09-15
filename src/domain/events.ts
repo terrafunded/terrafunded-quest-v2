@@ -63,7 +63,7 @@ function copy(lang: QualityLang) {
   const es = lang === "es";
   return {
     aFarm: es ? "Una finca" : "A farm",
-    joins: (name: string) => (es ? `${name} se une al reino` : `${name} joins the realm`),
+    joins: (name: string) => (es ? `${name} entra como sponsor` : `${name} joins as a sponsor`),
     lotsDeal: (lots: string | number, deal: string, investor: string | null) =>
       es
         ? `${lots} lotes · ${deal}${investor ? ` · ${investor}` : ""}`
@@ -90,7 +90,7 @@ function copy(lang: QualityLang) {
     milestone: (amount: string) => (es ? `${amount} de utilidad neta` : `${amount} of net profit`),
     crossedWith: (lot: string) => (es ? `Cruzado con ${lot}` : `Crossed with ${lot}`),
     aClosing: es ? "un cierre" : "a closing",
-    freed: (who: string) => (es ? `${who} liberado` : `${who} freed`),
+    freed: (who: string) => (es ? `${who}: capital devuelto` : `${who}: capital returned`),
     repaidInFull: (farm: string, days: number | null) =>
       es
         ? `${farm} reembolsada por completo${days !== null ? ` después de ${days} días` : ""}`

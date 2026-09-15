@@ -301,9 +301,9 @@ describe("fixture: NARRATED CHRONICLE and STORY", () => {
     expect(realm.narrative.size).toBe(realm.events.length);
     const latest = realm.oxygen.latest as NonNullable<typeof realm.oxygen.latest>;
     expect(realm.narrative.get(`closing:${latest.propertyId}`)).toBe(
-      "On August 19, Daniel Carrasquillo claimed Lot 3 of Promised Valley for $116,500, 90 days after Daniel's reservation. The realm gained 5 days.",
+      "On August 19, Daniel Carrasquillo closed Lot 3 of Promised Valley for $116,500, 90 days after Daniel's reservation. Pace gained 5 days.",
     );
-    expect(realm.narrative.get(`reservation:${latest.propertyId}`)).toBe("On May 21, Daniel Carrasquillo pledged for Lot 3 of Promised Valley at $116,500.");
+    expect(realm.narrative.get(`reservation:${latest.propertyId}`)).toBe("On May 21, Daniel Carrasquillo reserved Lot 3 of Promised Valley at $116,500.");
     // no liberation has happened: Lamar's $475,000 no longer covers its $484,000
     expect(realm.liberation.moments).toEqual([]);
     expect([...realm.narrative.keys()].some((k) => k.startsWith("liberation:"))).toBe(false);
@@ -948,11 +948,11 @@ describe("fixture: EXPECTED (reservations first-class)", () => {
   it("the chronicle narrates live reservations with their expected close and provisional days; no cancellation exists in the snapshot", () => {
     const w26 = realm.lots.find((l) => l.name === "Wichita — Lot 26")!;
     expect(realm.narrative.get(`reservation:${w26.propertyId}`)).toBe(
-      "On September 3, Julia Rodriguez pledged for Lot 26 of Wichita at $117,600 — the closing is expected around November 5, 4 provisional days gained.",
+      "On September 3, Julia Rodriguez reserved Lot 26 of Wichita at $117,600 — the closing is expected around November 5, 4 provisional days gained.",
     );
     const t2 = realm.lots.find((l) => l.name === "Titus — Lot 2")!;
     expect(realm.narrative.get(`reservation:${t2.propertyId}`)).toBe(
-      "On May 2, Crystal Thompson pledged for Lot 2 of Titus at $135,412 — the closing was expected around July 14 and is 59 days late, 150 provisional days gained.",
+      "On May 2, Crystal Thompson reserved Lot 2 of Titus at $135,412 — the closing was expected around July 14 and is 59 days late, 150 provisional days gained.",
     );
     expect(realm.events.filter((ev) => ev.kind === "cancellation")).toHaveLength(0);
     expect(realm.events.filter((ev) => ev.kind === "reservation")).toHaveLength(69);

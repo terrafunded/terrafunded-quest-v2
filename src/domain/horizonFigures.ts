@@ -117,7 +117,7 @@ function throneFigures(realm: Realm): HorizonFigure[] {
       direction: "decrease",
     }),
     fig("/", "neededPerDay", "NEEDED $/day", needed, "horizon_dependent", { direction: "decrease" }),
-    fig("/", "pulseRatio", "Pulse % of required pace", ratio, "horizon_dependent", { direction: "increase" }),
+    fig("/", "pulseRatio", "Pace % of required", ratio, "horizon_dependent", { direction: "increase" }),
     fig("/", "farmsStillNeeded", "Farms to buy (rotation schedule)", g.farmsStillNeeded, "horizon_dependent", {
       direction: "non_increase",
     }),
@@ -171,7 +171,7 @@ function engineFigures(realm: Realm, engine: EngineResult): HorizonFigure[] {
     fig("/engine", "totalInterest", "Total interest to deadline", f.totalInterest, "horizon_dependent", {
       direction: "increase",
     }),
-    fig("/engine", "deadline", "Engine deadline", engine.deadline, "horizon_dependent", { direction: "later_iso" }),
+    fig("/engine", "deadline", "Capital projection deadline", engine.deadline, "horizon_dependent", { direction: "later_iso" }),
     fig("/engine", "farmsStillNeededShared", "Farms to buy (shared pathToGoal)", shared, "horizon_dependent", {
       direction: "non_increase",
     }),
@@ -190,19 +190,19 @@ function engineFigures(realm: Realm, engine: EngineResult): HorizonFigure[] {
 function warPlanFigures(realm: Realm): HorizonFigure[] {
   const w = realm.warPlan;
   return [
-    fig("/warplan", "requiredClosingsPerMonth", "War Plan required closings/month", w.required.closingsPerMonth, "horizon_dependent", {
+    fig("/warplan", "requiredClosingsPerMonth", "Plan required closings/month", w.required.closingsPerMonth, "horizon_dependent", {
       direction: "decrease",
     }),
-    fig("/warplan", "lastPurchaseDate", "War Plan last purchase date", w.required.lastPurchaseDate, "horizon_dependent", {
+    fig("/warplan", "lastPurchaseDate", "Plan last purchase date", w.required.lastPurchaseDate, "horizon_dependent", {
       direction: "later_iso",
     }),
-    fig("/warplan", "rotationFarms", "War Plan rotation farms", w.rotation.farms, "horizon_dependent", {
+    fig("/warplan", "rotationFarms", "Plan rotation farms", w.rotation.farms, "horizon_dependent", {
       direction: "non_increase",
     }),
-    fig("/warplan", "rotationPeak", "War Plan peak outstanding", w.rotation.peakOutstanding, "horizon_dependent", {
+    fig("/warplan", "rotationPeak", "Plan peak outstanding", w.rotation.peakOutstanding, "horizon_dependent", {
       direction: "decrease",
     }),
-    fig("/warplan", "deadlineRow", "War Plan final row date", w.required.rows.at(-1)?.date ?? null, "horizon_dependent", {
+    fig("/warplan", "deadlineRow", "Plan final row date", w.required.rows.at(-1)?.date ?? null, "horizon_dependent", {
       direction: "later_iso",
     }),
   ];
@@ -228,17 +228,17 @@ function councilFigures(insights: Insight[]): HorizonFigure[] {
   const out: HorizonFigure[] = [];
   for (const insight of insights) {
     if (HISTORICAL_COUNCIL_SEVERITY.has(insight.id)) {
-      out.push(fig("/council", `${insight.id}.severity`, `Council · ${insight.title}`, insight.severity, "historical"));
+      out.push(fig("/council", `${insight.id}.severity`, `Recommendations · ${insight.title}`, insight.severity, "historical"));
     } else if (insight.id === "pace" || insight.id === "conversion") {
       const rank = SEVERITY_RANK[insight.severity] ?? 0;
       out.push(
-        fig("/council", `${insight.id}.severity`, `Council · ${insight.title}`, rank, "horizon_dependent", {
+        fig("/council", `${insight.id}.severity`, `Recommendations · ${insight.title}`, rank, "horizon_dependent", {
           direction: "non_increase",
         }),
       );
     } else {
       out.push(
-        fig("/council", `${insight.id}.severity`, `Council · ${insight.title}`, insight.severity, "horizon_dependent", {
+        fig("/council", `${insight.id}.severity`, `Recommendations · ${insight.title}`, insight.severity, "horizon_dependent", {
           direction: "change",
         }),
       );
@@ -256,21 +256,21 @@ function councilFigures(insights: Insight[]): HorizonFigure[] {
           k === "farmToFirstCloseLagMonths")
       ) {
         out.push(
-          fig("/council", id, `Council inventory · ${k}`, v, "deliberately_independent", {
+          fig("/council", id, `Recommendations inventory · ${k}`, v, "deliberately_independent", {
             labeled: true,
           }),
         );
       } else if (insight.id === "inventory" && (k === "available" || k === "reserved")) {
-        out.push(fig("/council", id, `Council inventory · ${k}`, v, "historical"));
+        out.push(fig("/council", id, `Recommendations inventory · ${k}`, v, "historical"));
       } else if (HORIZON_COUNCIL_KEYS[insight.id]?.has(k)) {
         const dir: FigureDirection =
           k === "deadline" ? "later_iso" : k === "daysLeft" ? "increase" : "decrease";
         // Numeric council figures are pre-formatted strings — compare numerically when possible.
         const numeric = Number(String(v).replace(/[^0-9.-]/g, ""));
         const value = k === "deadline" || !Number.isFinite(numeric) ? v : numeric;
-        out.push(fig("/council", id, `Council ${insight.id} · ${k}`, value, "horizon_dependent", { direction: dir }));
+        out.push(fig("/council", id, `Recommendations ${insight.id} · ${k}`, value, "horizon_dependent", { direction: dir }));
       } else {
-        out.push(fig("/council", id, `Council · ${insight.id} · ${k}`, v, "historical"));
+        out.push(fig("/council", id, `Recommendations · ${insight.id} · ${k}`, v, "historical"));
       }
     }
   }
@@ -302,8 +302,8 @@ function sponsorsFigures(realm: Realm): HorizonFigure[] {
 function treasuryFigures(realm: Realm): HorizonFigure[] {
   const t = realm.treasury;
   return [
-    fig("/treasury", "totalCashIn", "Treasury cash in", t.totalCashIn, "historical"),
-    fig("/treasury", "totalCashOut", "Treasury cash out", t.totalCashOut, "historical"),
+    fig("/treasury", "totalCashIn", "Cash flow in", t.totalCashIn, "historical"),
+    fig("/treasury", "totalCashOut", "Cash flow out", t.totalCashOut, "historical"),
   ];
 }
 
@@ -311,8 +311,8 @@ function trophiesFigures(realm: Realm): HorizonFigure[] {
   const paceKeeper = realm.trophies.find((t) => t.id === "pace_keeper");
   const historicalEarned = realm.trophies.filter((t) => t.earned && t.id !== "pace_keeper").length;
   return [
-    fig("/trophies", "historicalEarned", "Trophies earned (ex Pace Keeper)", historicalEarned, "historical"),
-    fig("/trophies", "total", "Trophies defined", realm.trophies.length, "historical"),
+    fig("/trophies", "historicalEarned", "Milestones earned (ex Pace on track)", historicalEarned, "historical"),
+    fig("/trophies", "total", "Milestones defined", realm.trophies.length, "historical"),
     fig("/trophies", "paceKeeperEarned", "Pace Keeper earned", paceKeeper?.earned ? 1 : 0, "horizon_dependent", {
       direction: "non_decrease",
     }),
@@ -322,8 +322,8 @@ function trophiesFigures(realm: Realm): HorizonFigure[] {
 function chronicleFigures(realm: Realm): HorizonFigure[] {
   const nonMilestone = realm.events.filter((e) => e.kind !== "milestone");
   return [
-    fig("/chronicle", "eventCount", "Chronicle events (ex-milestones)", nonMilestone.length, "historical"),
-    fig("/chronicle", "eventIds", "Chronicle event ids", nonMilestone.map((e) => e.id).join("|"), "historical"),
+    fig("/chronicle", "eventCount", "Activity events (ex-milestones)", nonMilestone.length, "historical"),
+    fig("/chronicle", "eventIds", "Activity event ids", nonMilestone.map((e) => e.id).join("|"), "historical"),
   ];
 }
 
@@ -351,13 +351,13 @@ function realmMapFigures(realm: Realm): HorizonFigure[] {
 function oracleFigures(realm: Realm): HorizonFigure[] {
   const current = realm.futures.current;
   return [
-    fig("/oracle", "currentExitDate", "Oracle current-pace exit date", current.exitDate, "deliberately_independent", {
+    fig("/oracle", "currentExitDate", "Simulator current-pace exit date", current.exitDate, "deliberately_independent", {
       labeled: true,
     }),
-    fig("/oracle", "hitsDeadline", "Oracle current pace hits deadline", current.hitsDeadline ? 1 : 0, "horizon_dependent", {
+    fig("/oracle", "hitsDeadline", "Simulator current pace hits deadline", current.hitsDeadline ? 1 : 0, "horizon_dependent", {
       direction: "non_decrease",
     }),
-    fig("/oracle", "deadline", "Oracle deadline", realm.goal.deadline, "horizon_dependent", { direction: "later_iso" }),
+    fig("/oracle", "deadline", "Simulator deadline", realm.goal.deadline, "horizon_dependent", { direction: "later_iso" }),
   ];
 }
 

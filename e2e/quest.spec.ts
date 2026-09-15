@@ -24,7 +24,7 @@ function collectConsoleErrors(page: Page): string[] {
 
 /** Waits until the realm query has resolved on the current page (skeletons gone). */
 async function waitForRealm(page: Page) {
-  await expect(page.getByRole("status", { name: /Loading realm data|Cargando los datos del reino/ })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByRole("status", { name: /Loading farm and lot data|Cargando fincas y lotes/ })).toHaveCount(0, { timeout: 30_000 });
 }
 
 type BarGeometry = { x: number; width: number; height: number };
@@ -62,7 +62,7 @@ async function openNavDrawer(page: Page) {
 /** Navigates via the drawer: open → click the labelled route → drawer closes. */
 async function goViaDrawer(page: Page, name: string | RegExp) {
   await openNavDrawer(page);
-  await page.getByTestId("nav-drawer").getByRole("link", { name }).click();
+  await page.getByTestId("nav-drawer").getByRole("link", { name, exact: typeof name === "string" }).click();
   await expect(page.getByTestId("nav-drawer")).toHaveCount(0);
 }
 
@@ -170,10 +170,10 @@ test.describe("Throne Room", () => {
     });
     await page.goto("/");
     await waitForRealm(page);
-    await expect(page.getByTestId("oxygen")).toHaveAttribute("aria-label", "Oxígeno");
-    await expect(page.getByTestId("debt")).toHaveAttribute("aria-label", "La Deuda");
-    await expect(page.getByTestId("pulse")).toHaveAttribute("aria-label", "El Pulso");
-    await expect(page.getByTestId("pulse-charts")).toHaveAttribute("aria-label", "Gráficas del Pulso");
+    await expect(page.getByTestId("oxygen")).toHaveAttribute("aria-label", "Ritmo");
+    await expect(page.getByTestId("debt")).toHaveAttribute("aria-label", "Capital adeudado");
+    await expect(page.getByTestId("pulse")).toHaveAttribute("aria-label", "Ritmo");
+    await expect(page.getByTestId("pulse-charts")).toHaveAttribute("aria-label", "Gráficas de ritmo");
     await expect(page.getByTestId("pipeline")).toHaveAttribute("aria-label", "Pipeline");
 
     // The three Oxygen lines that used to be hard-coded English, now Spanish with real plurals.
@@ -182,12 +182,12 @@ test.describe("Throne Room", () => {
     expect(confirmed.startsWith("1 ")).toBe(confirmed.includes("cierre confirmado,"));
     await expect(page.getByTestId("oxygen-trailing")).toContainText(/días ganados en los últimos \d+$/);
     await expect(page.getByTestId("oxygen-verdict")).toHaveText(/a este ritmo la fecha de salida (se aleja \d+ días? cada \d+|se acerca \d+ días? cada \d+|no se mueve)$/);
-    await expect(page.getByTestId("oxygen-cumulative")).toHaveText(/^Marcador histórico acumulado · [\d,]+ días$/);
-    await expect(page.getByTestId("topbar-oxygen")).toHaveAttribute("aria-label", /^Oxígeno — \d+ días ganados en los últimos \d+\. /);
+    await expect(page.getByTestId("oxygen-cumulative")).toHaveText(/^Días ganados acumulados · [\d,]+ días$/);
+    await expect(page.getByTestId("topbar-oxygen")).toHaveAttribute("aria-label", /^Ritmo — \d+ días ganados en los últimos \d+\. /);
     const provisional = (await page.getByTestId("oxygen-reservations-provisional").textContent()) ?? "";
     expect(provisional).toMatch(/^\d+ (reserva provisional|reservas provisionales) al \d+(\.\d+)?% de conversión$/);
     expect(provisional.startsWith("1 ")).toBe(provisional.includes("reserva provisional al"));
-    await expect(page.getByTestId("oxygen-produces")).toHaveText(/^hoy el reino produce \$[\d,]+ de utilidad neta al día$/);
+    await expect(page.getByTestId("oxygen-produces")).toHaveText(/^hoy los cierres producen \$[\d,]+ de utilidad neta al día$/);
 
     // English marker strings from every realm component that renders on the Throne Room.
     const markers = [
@@ -198,9 +198,9 @@ test.describe("Throne Room", () => {
       "closing day",
       "provisional at",
       "of net profit per day",
-      "Latest breath",
-      "Deepest breath",
-      "per lot in the ledger",
+      "Latest closing",
+      "Biggest impact",
+      "per lot in Payments",
       "Capital still owed to sponsors",
       "Days left",
       "Net profit required per day",
@@ -217,7 +217,7 @@ test.describe("Throne Room", () => {
       "Net profit per month",
       "Fainter bars",
       "Profit trapped in reservations",
-      "the stuck list",
+      "stuck reservations",
       "the only pace that counts",
       "Median to close",
       "Reservations / mo",
@@ -830,7 +830,7 @@ test.describe("Themes", () => {
       await expect(page.getByTestId("ambient-particles")).toBeAttached();
       await expect(page.getByTestId("net-profit-counter")).toHaveClass(/counter-glow/);
       await expect(page.getByTestId("page-transition")).toHaveAttribute("data-preset", "rise");
-      await goViaDrawer(page, "Quests");
+      await goViaDrawer(page, "Lots");
       await expect(page).toHaveURL(/\/quests$/);
       await waitForRealm(page);
       await expect(page.getByTestId("ledger-row").first()).toBeVisible();
@@ -1036,7 +1036,7 @@ test.describe("Phase 2: Epic", () => {
 
     const verdict = page.getByTestId("warplan-verdict");
     await expect(verdict).toBeVisible();
-    await expect(verdict).toContainText("per the War Plan's real deal terms");
+    await expect(verdict).toContainText("per the Plan's real deal terms");
     const before = (await verdict.textContent()) ?? "";
     expect(before).toMatch(/\$[\d.,]+[KM]?/);
     expect(before).toMatch(/\b\d+ farms?\b/);
@@ -1276,7 +1276,7 @@ test.describe("Phase 2: Epic", () => {
     await expect(prose.filter({ hasText: /claimed Lot \d+ of/ }).first()).toBeVisible();
     await expect(prose.filter({ hasText: /The realm gained \d+ days?\./ }).first()).toBeVisible();
     // Reservations are narrated with their expected closing; the closing points back to the reservation.
-    await expect(prose.filter({ hasText: /pledged for Lot \d+ of .+ — the closing (is|was) expected around/ }).first()).toBeVisible();
+    await expect(prose.filter({ hasText: /reserved Lot \d+ of .+ — the closing (is|was) expected around/ }).first()).toBeVisible();
     await expect(prose.filter({ hasText: /\d+ days? after (\w+'s|the) reservation\./ }).first()).toBeVisible();
     // The Cancelled filter exists; whether any cancellation is on file is live data, so only the empty state or cancellation prose may follow.
     await page.locator("[data-testid='chronicle-filter'][data-kind='cancellation']").click();
@@ -1296,8 +1296,8 @@ test.describe("Navigation drawer", () => {
 
     await openNavDrawer(page);
     const drawer = page.getByTestId("nav-drawer");
-    for (const label of ["Throne Room", "Council", "War Plan", "Exodus", "The Realm", "Quests", "Pipeline", "Sponsors", "Treasury", "Oracle", "Chronicle", "Trophies", "Data Quality"]) {
-      await expect(drawer.getByRole("link", { name: label })).toBeVisible();
+    for (const label of ["Overview", "Recommendations", "Capital projection", "Plan", "Exodus", "Farms and lots", "Lots", "Pipeline", "Sponsors", "Cash flow", "Simulator", "Activity", "Milestones", "Data Quality"]) {
+      await expect(drawer.getByRole("link", { name: label, exact: true })).toBeVisible();
     }
     // The skin selector is hidden (everyone is held to Iron Crown); the footer keeps language + account.
     await expect(drawer.getByTestId("theme-menu")).toHaveCount(0);

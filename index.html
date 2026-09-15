@@ -5,7 +5,7 @@
     <link rel="icon" type="image/svg+xml" href="/crown.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#14161a" />
-    <meta name="description" content="Terrafunded Quest v2 — the founder's war room for $10M net profit by 2027-12-31." />
+    <meta name="description" content="Terrafunded Quest v2 — operating tool for $10M net profit by 2027-12-31." />
     <title>Quest</title>
     <script>
       // Apply the theme before the first paint so there is no flash of another skin. Mirrors
@@ -44,7 +44,7 @@
       <!-- Painted before the bundle runs; React replaces it on mount. Uses the theme tokens from the stylesheet. -->
       <div class="boot-shell" aria-hidden="true">
         <div class="boot-shell__brand">Quest</div>
-        <div class="boot-shell__hint" id="boot-hint">Entrando a la sala de guerra…</div>
+        <div class="boot-shell__hint" id="boot-hint">Entrando a Quest…</div>
       </div>
     </div>
     <script>
@@ -52,7 +52,7 @@
         var hint = document.getElementById("boot-hint");
         if (!hint) return;
         var lang = window.__QUEST_BOOT_LANG__ || "es";
-        hint.textContent = lang === "en" ? "Entering the war room…" : "Entrando a la sala de guerra…";
+        hint.textContent = lang === "en" ? "Entering Quest…" : "Entrando a Quest…";
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>

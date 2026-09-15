@@ -44,21 +44,21 @@ export function buildStory(
 
   cards.push({
     id: "lands",
-    kicker: firstYear ? (es ? `Desde ${firstYear}` : `Since ${firstYear}`) : es ? "El reino" : "The realm",
+    kicker: firstYear ? (es ? `Desde ${firstYear}` : `Since ${firstYear}`) : es ? "Fincas" : "Farms",
     line: es
       ? `${plural(farms.length, "finca")} en ${plural(counties.size, "condado")}, cortadas en ${plural(totalLots, "lote")}.`
       : `${plural(farms.length, "farm")} across ${plural(counties.size, "county", "counties")}, cut into ${plural(totalLots, "lot")}.`,
   });
   cards.push({
     id: "gold",
-    kicker: es ? "Oro de sponsors" : "Sponsor gold",
+    kicker: es ? "Capital de sponsors" : "Sponsor capital",
     line: es
       ? `${proseMoney(liberation.totalCapital, lang)} prestados por ${plural(sponsorCount, "sponsor")}. ${proseMoney(debt.capitalOwed, lang)} aún adeudados.`
       : `${proseMoney(liberation.totalCapital)} lent by ${plural(sponsorCount, "sponsor")}. ${proseMoney(debt.capitalOwed)} still owed.`,
   });
   cards.push({
     id: "claimed",
-    kicker: es ? "Reclamado" : "Claimed",
+    kicker: es ? "Cerrado" : "Closed",
     line: es
       ? `${plural(goal.closedLots, "lote")} cerrados por ${proseMoney(goal.netProfitToDate, lang)} de utilidad neta — ${goal.pctComplete.toFixed(1)}% de los diez millones.`
       : `${plural(goal.closedLots, "lot")} closed for ${proseMoney(goal.netProfitToDate)} of net profit — ${goal.pctComplete.toFixed(1)}% of the ten million.`,
@@ -66,7 +66,7 @@ export function buildStory(
   if (oxygen.totalDaysGained !== 0) {
     cards.push({
       id: "oxygen",
-      kicker: "Oxygen",
+      kicker: es ? "Ritmo" : "Pace",
       line: es
         ? `Cada cierre compró tiempo. ${plural(Math.abs(oxygen.totalDaysGained), "día")} ${oxygen.totalDaysGained > 0 ? "ganados" : "perdidos"} hacia la salida.`
         : `Every closing bought time. ${plural(Math.abs(oxygen.totalDaysGained), "day")} ${oxygen.totalDaysGained > 0 ? "gained" : "lost"} toward the exit.`,
@@ -76,15 +76,15 @@ export function buildStory(
     const h = liberation.freedHostages[0];
     cards.push({
       id: "freed",
-      kicker: es ? "Liberado" : "Liberated",
+      kicker: es ? "Capital devuelto" : "Capital returned",
       line: es
-        ? `${liberation.freedHostages.length === 1 && h ? `${h.investorName} quedó libre de ${h.farmName}` : `${plural(liberation.freedHostages.length, "posición de sponsor")} reembolsada${liberation.freedHostages.length === 1 ? "" : "s"} por completo`}. ${plural(liberation.captiveHostages.length, "queda", "quedan")} en cadenas.`
-        : `${liberation.freedHostages.length === 1 && h ? `${h.investorName} walked free of ${h.farmName}` : `${plural(liberation.freedHostages.length, "sponsor position")} repaid in full`}. ${plural(liberation.captiveHostages.length, "remains", "remain")} in chains.`,
+        ? `${liberation.freedHostages.length === 1 && h ? `${h.investorName} recibió el capital de vuelta de ${h.farmName}` : `${plural(liberation.freedHostages.length, "posición de sponsor")} reembolsada${liberation.freedHostages.length === 1 ? "" : "s"} por completo`}. ${plural(liberation.captiveHostages.length, "queda", "quedan")} con capital aún afuera.`
+        : `${liberation.freedHostages.length === 1 && h ? `${h.investorName} received their capital back for ${h.farmName}` : `${plural(liberation.freedHostages.length, "sponsor position")} repaid in full`}. ${plural(liberation.captiveHostages.length, "remains", "remain")} with capital still out.`,
     });
   }
   cards.push({
     id: "debt",
-    kicker: es ? "La Deuda" : "The Debt",
+    kicker: es ? "Capital adeudado" : "Capital owed",
     line:
       debt.requiredNetProfitPerDay !== null
         ? es

@@ -120,7 +120,7 @@ export function reconcileParcels(farm: FarmEconomics, geometry: FarmGeometry | n
     farmName: farm.name,
     lotName: null,
     propertyId: null,
-    message: `${farm.name}: the Availability map draws ${geometry.lots.length} parcels but Quest has ${farm.lots.length} lots on the ledger` + (lotsWithoutPolygon.length ? `; no parcel for ${lotsWithoutPolygon.join(", ")}` : "") + (polygonsWithoutLot.length ? `; parcels ${polygonsWithoutLot.join(", ")} have no lot` : "") + ". The Realm shows the grid instead of the map.",
+    message: `${farm.name}: the Availability map draws ${geometry.lots.length} parcels but Quest has ${farm.lots.length} lots in Payments` + (lotsWithoutPolygon.length ? `; no parcel for ${lotsWithoutPolygon.join(", ")}` : "") + (polygonsWithoutLot.length ? `; parcels ${polygonsWithoutLot.join(", ")} have no lot` : "") + ". Quest shows the grid instead of the map.",
     details: {
       farmId: farm.farmId,
       polygons: geometry.lots.length,

@@ -295,11 +295,11 @@ function losingGroundInsight(realm: Realm, lang: QualityLang): Insight {
     title:
       lang === "es"
         ? losing.length === 0
-          ? "Ninguna finca está perdiendo terreno"
-          : `${losing.length} fincas perdiendo terreno`
+          ? "Ninguna finca sin cierres recientes"
+          : `${losing.length} fincas sin cierres recientes`
         : losing.length === 0
-          ? "No farm is losing ground"
-          : `${losing.length} farms losing ground`,
+          ? "Every farm has a recent closing"
+          : `${losing.length} farms with no recent closings`,
     body:
       lang === "es"
         ? losing.length === 0
@@ -381,11 +381,11 @@ function qualityInsight(realm: Realm, lang: QualityLang): Insight {
     id: "quality",
     rule: "quality",
     severity: errors > 0 ? "warning" : "ok",
-    title: lang === "es" ? "Desacuerdos en el libro" : "Disagreements on the ledger",
+    title: lang === "es" ? "Desacuerdos en Payments" : "Disagreements in Payments",
     body:
       lang === "es"
-        ? `${errors} errores y ${warnings} avisos en Calidad de datos. El Consejo no corrige ninguno.`
-        : `${errors} errors and ${warnings} warnings on Data Quality. The Council does not correct any of them.`,
+        ? `${errors} errores y ${warnings} avisos en Calidad de datos. Recomendaciones no corrige ninguno.`
+        : `${errors} errors and ${warnings} warnings on Data Quality. Recommendations does not correct any of them.`,
     figures,
     impact: impact(null, null),
     href: "/quality",

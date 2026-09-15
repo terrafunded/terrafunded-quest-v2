@@ -254,8 +254,8 @@ export function computeGoal(lots: Lot[], farms: FarmEconomics[], asOf: Date, opt
 /** One sentence the Throne Room speaks. Pure so it can be tested. Defaults to English. */
 export function buildVerdict(g: GoalStatus, fmtDate: (iso: string) => string = (s) => s, lang: QualityLang = "en"): string {
   if (lang === "es") {
-    if (g.remaining === 0) return "La meta está cumplida. El reino es tuyo.";
-    if (g.lotsStillNeeded === null) return "Aún no hay lotes cerrados — la crónica no tiene ritmo que medir.";
+    if (g.remaining === 0) return "La meta está cumplida.";
+    if (g.lotsStillNeeded === null) return "Aún no hay lotes cerrados — no hay ritmo que medir.";
     if (g.closedLotsPerMonth <= 0) {
       const window = g.trailingEraClipped ? `desde ${fmtDate(g.trailingSince)}` : `en los últimos ${g.trailingWindowDays} días`;
       return `Necesitas ${g.requiredLotsPerMonthToHitDeadline ?? "?"} lotes/mes; no cerraste ninguno ${window}.`;
@@ -265,8 +265,8 @@ export function buildVerdict(g: GoalStatus, fmtDate: (iso: string) => string = (
     }
     return `Necesitas ${g.requiredLotsPerMonthToHitDeadline ?? "?"} lotes/mes; vas a ${g.closedLotsPerMonth}.`;
   }
-  if (g.remaining === 0) return "The goal is met. The realm is yours.";
-  if (g.lotsStillNeeded === null) return "No closed lots yet — the chronicle has no pace to measure.";
+  if (g.remaining === 0) return "The goal is met.";
+  if (g.lotsStillNeeded === null) return "No closed lots yet — there is no pace to measure.";
   if (g.closedLotsPerMonth <= 0) {
     const window = g.trailingEraClipped ? `since ${fmtDate(g.trailingSince)}` : `in the last ${g.trailingWindowDays} days`;
     return `You need ${g.requiredLotsPerMonthToHitDeadline ?? "?"} lots/month; you closed none ${window}.`;

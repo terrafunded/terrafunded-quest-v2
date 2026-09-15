@@ -10,16 +10,16 @@ export interface TrophiesUiStrings {
 
 export const TROPHIES_UI: Record<QualityLang, TrophiesUiStrings> = {
   en: {
-    title: "Trophies",
+    title: "Milestones",
     subtitle: (earned, total, byRarity) =>
-      `${earned} of ${total} achievements earned — ${byRarity}. Every one is computed from real rows; nothing is awarded by hand.`,
-    rarity: { legendary: "legendary", epic: "epic", rare: "rare", common: "common" },
+      `${earned} of ${total} milestones reached — ${byRarity}. Every one is computed from real rows; nothing is awarded by hand.`,
+    rarity: { legendary: "landmark", epic: "major", rare: "notable", common: "standard" },
   },
   es: {
-    title: "Trofeos",
+    title: "Logros",
     subtitle: (earned, total, byRarity) =>
-      `${earned} de ${total} logros obtenidos — ${byRarity}. Cada uno se calcula de filas reales; nada se otorga a mano.`,
-    rarity: { legendary: "legendario", epic: "épico", rare: "raro", common: "común" },
+      `${earned} de ${total} logros alcanzados — ${byRarity}. Cada uno se calcula de filas reales; nada se otorga a mano.`,
+    rarity: { legendary: "hito", epic: "mayor", rare: "destacado", common: "estándar" },
   },
 };
 

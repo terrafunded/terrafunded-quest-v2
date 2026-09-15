@@ -45,7 +45,7 @@ export interface TreasuryUiStrings {
 
 export const TREASURY_UI: Record<QualityLang, TreasuryUiStrings> = {
   en: {
-    title: "Treasury",
+    title: "Cash flow",
     subtitle:
       "Real cash only. In: down payments at closing (full price on cash deals), farm-lot note sales, and other note sales outside the farms. Out: every investor distribution. Monthly buyer collections are out of scope.",
     cashIn: "Cash in",
@@ -54,7 +54,7 @@ export const TREASURY_UI: Record<QualityLang, TreasuryUiStrings> = {
     noteSalesAll: "Note sales, all",
     cashInHintFarm: (down, notes) => `Farm-lot cash: down payments ${down} · notes ${notes}`,
     cashInHintReconcile: (realized, other, total, otherCompact) =>
-      `Cash realized ${realized} + other note sales ${other} = Treasury cash in ${total} · includes non-farm note sales (${otherCompact})`,
+      `Cash realized ${realized} + other note sales ${other} = Cash in ${total} · includes non-farm note sales (${otherCompact})`,
     cashOutHint: (capital, share) => `Capital ${capital} · profit share ${share}`,
     noteSalesHintOther: (farm, other) => `Farm lots ${farm} · ${other} on notes outside the farms (the gap vs Cash realized)`,
     noteSalesHintAllFarm: "all on farm lots",
@@ -87,7 +87,7 @@ export const TREASURY_UI: Record<QualityLang, TreasuryUiStrings> = {
     totals: "Totals",
   },
   es: {
-    title: "Tesorería",
+    title: "Flujo de efectivo",
     subtitle:
       "Solo efectivo real. Entrada: enganches al cierre (precio completo en ventas de contado), ventas de pagarés de lotes de finca y otras ventas de pagarés fuera de las fincas. Salida: cada distribución a inversionistas. Las colecciones mensuales del comprador quedan fuera de alcance.",
     cashIn: "Efectivo entrante",
@@ -96,7 +96,7 @@ export const TREASURY_UI: Record<QualityLang, TreasuryUiStrings> = {
     noteSalesAll: "Ventas de pagarés, todas",
     cashInHintFarm: (down, notes) => `Efectivo de lotes de finca: enganches ${down} · pagarés ${notes}`,
     cashInHintReconcile: (realized, other, total, otherCompact) =>
-      `Efectivo realizado ${realized} + otras ventas de pagarés ${other} = Entrada de Tesorería ${total} · incluye pagarés fuera de fincas (${otherCompact})`,
+      `Efectivo realizado ${realized} + otras ventas de pagarés ${other} = Entrada de efectivo ${total} · incluye pagarés fuera de fincas (${otherCompact})`,
     cashOutHint: (capital, share) => `Capital ${capital} · reparto de utilidades ${share}`,
     noteSalesHintOther: (farm, other) => `Lotes de finca ${farm} · ${other} en pagarés fuera de las fincas (la brecha vs Efectivo realizado)`,
     noteSalesHintAllFarm: "todas en lotes de finca",

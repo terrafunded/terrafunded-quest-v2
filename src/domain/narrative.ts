@@ -7,7 +7,7 @@ import { daysBetween, parseDate } from "./dates";
 import type { QualityLang } from "./quality_human";
 
 /**
- * NARRATED CHRONICLE (Phase 2 §7) — one line of medieval-chronicle prose per real event, from
+ * ACTIVITY LINES (Phase 2 §7) — one plain sentence per real event, from
  * templates in code. No external API; every number comes from the row that produced the event.
  */
 export interface NarrativeContext {
@@ -53,12 +53,12 @@ function lotPhrase(lot: Lot | undefined, fallbackLot: string | null, fallbackFar
 function daysGainedSentence(o: LotOxygen | undefined, lang: QualityLang): string {
   if (!o) return "";
   if (lang === "es") {
-    if (o.daysGained > 0) return ` El reino ganó ${o.daysGained} ${o.daysGained === 1 ? "día" : "días"}.`;
-    if (o.daysGained < 0) return ` El reino perdió ${Math.abs(o.daysGained)} ${o.daysGained === -1 ? "día" : "días"}.`;
+    if (o.daysGained > 0) return ` El ritmo ganó ${o.daysGained} ${o.daysGained === 1 ? "día" : "días"}.`;
+    if (o.daysGained < 0) return ` El ritmo perdió ${Math.abs(o.daysGained)} ${o.daysGained === -1 ? "día" : "días"}.`;
     return " La fecha de salida no se movió.";
   }
-  if (o.daysGained > 0) return ` The realm gained ${o.daysGained} ${o.daysGained === 1 ? "day" : "days"}.`;
-  if (o.daysGained < 0) return ` The realm lost ${Math.abs(o.daysGained)} ${o.daysGained === -1 ? "day" : "days"}.`;
+  if (o.daysGained > 0) return ` Pace gained ${o.daysGained} ${o.daysGained === 1 ? "day" : "days"}.`;
+  if (o.daysGained < 0) return ` Pace lost ${Math.abs(o.daysGained)} ${o.daysGained === -1 ? "day" : "days"}.`;
   return " The exit date did not move.";
 }
 
@@ -106,8 +106,8 @@ export function narrate(e: RealmEvent, ctx: NarrativeContext): string {
     buyerName ??
     (buyerIsTest
       ? lang === "es"
-        ? "un comprador cuyo nombre los escribas ocultan"
-        : "a buyer whose name the scribes withhold"
+        ? "un comprador"
+        : "a buyer"
       : lang === "es"
         ? "un comprador"
         : "a buyer");
@@ -117,25 +117,25 @@ export function narrate(e: RealmEvent, ctx: NarrativeContext): string {
   switch (e.kind) {
     case "farm_acquired": {
       const own = (e.farmName ? ctx.farmDealTypeByName?.get(e.farmName) : null) === "own_capital";
-      const gold = lang === "es" ? (own ? "de su propio oro" : "de oro de sponsors") : own ? "of its own gold" : "of sponsor gold";
+      const gold = lang === "es" ? (own ? "de capital propio" : "de capital de sponsors") : own ? "of own capital" : "of sponsor capital";
       if (lang === "es") {
         return e.future
-          ? `${on} ${when}, el reino reclamará las tierras de ${e.farmName ?? "una finca nueva"}${e.amount ? `, ${proseMoney(e.amount, lang)} ${gold} comprometidos` : ""}.`
-          : `${on} ${when}, el reino reclamó las tierras de ${e.farmName ?? "una finca nueva"}${e.amount ? ` con ${proseMoney(e.amount, lang)} ${gold}` : ""}.`;
+          ? `${on} ${when}, se adquirirá ${e.farmName ?? "una finca nueva"}${e.amount ? `, ${proseMoney(e.amount, lang)} ${gold}` : ""}.`
+          : `${on} ${when}, se adquirió ${e.farmName ?? "una finca nueva"}${e.amount ? ` con ${proseMoney(e.amount, lang)} ${gold}` : ""}.`;
       }
       return e.future
-        ? `On ${when}, the realm will claim the lands of ${e.farmName ?? "a new farm"}${e.amount ? `, ${proseMoney(e.amount)} ${gold} pledged` : ""}.`
-        : `On ${when}, the realm claimed the lands of ${e.farmName ?? "a new farm"}${e.amount ? ` with ${proseMoney(e.amount)} ${gold}` : ""}.`;
+        ? `On ${when}, ${e.farmName ?? "a new farm"} will be acquired${e.amount ? `, ${proseMoney(e.amount)} ${gold}` : ""}.`
+        : `On ${when}, ${e.farmName ?? "a new farm"} was acquired${e.amount ? ` with ${proseMoney(e.amount)} ${gold}` : ""}.`;
     }
     case "reservation": {
       if (lang === "es") {
-        const pledge = `${on} ${when}, ${who} se comprometió por ${where}${e.amount ? ` a ${proseMoney(e.amount, lang)}` : ""}`;
-        if (isCancelledPledge(e)) return `${pledge}; el compromiso fue retirado después.`;
+        const pledge = `${on} ${when}, ${who} reservó ${where}${e.amount ? ` a ${proseMoney(e.amount, lang)}` : ""}`;
+        if (isCancelledPledge(e)) return `${pledge}; la reserva se canceló después.`;
         if (lot?.stage !== "reserved") return `${pledge}.`;
         return `${pledge}${expectedSentence(e.propertyId ? ctx.expectedByLot?.get(e.propertyId) : undefined, e.propertyId ? ctx.provisionalByLot?.get(e.propertyId) : undefined, ctx)}.`;
       }
-      const pledge = `On ${when}, ${who} pledged for ${where}${e.amount ? ` at ${proseMoney(e.amount)}` : ""}`;
-      if (isCancelledPledge(e)) return `${pledge}; the pledge was later withdrawn.`;
+      const pledge = `On ${when}, ${who} reserved ${where}${e.amount ? ` at ${proseMoney(e.amount)}` : ""}`;
+      if (isCancelledPledge(e)) return `${pledge}; the reservation was later cancelled.`;
       if (lot?.stage !== "reserved") return `${pledge}.`;
       return `${pledge}${expectedSentence(e.propertyId ? ctx.expectedByLot?.get(e.propertyId) : undefined, e.propertyId ? ctx.provisionalByLot?.get(e.propertyId) : undefined, ctx)}.`;
     }
@@ -144,30 +144,30 @@ export function narrate(e: RealmEvent, ctx: NarrativeContext): string {
       const cancelled = parseDate(e.date);
       const held = reserved && cancelled ? daysBetween(reserved, cancelled) : null;
       if (lang === "es") {
-        return `${on} ${when}, ${who} retiró el compromiso por ${where}${held !== null && held >= 0 ? ` después de ${days(held, lang)}` : ""}; el lote volvió al mercado y los días que prometía se fueron con él.`;
+        return `${on} ${when}, ${who} canceló la reserva de ${where}${held !== null && held >= 0 ? ` después de ${days(held, lang)}` : ""}; el lote volvió al inventario.`;
       }
-      return `On ${when}, ${who} withdrew the pledge for ${where}${held !== null && held >= 0 ? ` after ${days(held, lang)}` : ""}; the lot returned to the market and the days it promised went with it.`;
+      return `On ${when}, ${who} cancelled the reservation for ${where}${held !== null && held >= 0 ? ` after ${days(held, lang)}` : ""}; the lot returned to inventory.`;
     }
     case "closing": {
       const price = lot?.salePrice ?? null;
-      const cash = lot?.dealType === "cash" ? (lang === "es" ? " en moneda" : " in coin") : "";
+      const cash = lot?.dealType === "cash" ? (lang === "es" ? " en efectivo" : " in cash") : "";
       const oxygen = e.propertyId ? ctx.oxygenByLot?.get(e.propertyId) : undefined;
       const reserved = parseDate(lot?.reservationDate);
       const closed = parseDate(e.date);
       const waited = reserved && closed ? daysBetween(reserved, closed) : null;
       if (lang === "es") {
         const afterPledge = waited !== null && waited >= 0 ? `, ${days(waited, lang)} después de la reserva ${possessive(lot?.buyerName, lang)}` : "";
-        return `${on} ${when}, ${who} reclamó ${where}${price !== null ? ` por ${proseMoney(price, lang)}` : ""}${cash}${afterPledge}.${daysGainedSentence(oxygen, lang)}`;
+        return `${on} ${when}, ${who} cerró ${where}${price !== null ? ` por ${proseMoney(price, lang)}` : ""}${cash}${afterPledge}.${daysGainedSentence(oxygen, lang)}`;
       }
       const afterPledge = waited !== null && waited >= 0 ? `, ${days(waited, lang)} after ${possessive(lot?.buyerName, lang)} reservation` : "";
-      return `On ${when}, ${who} claimed ${where}${price !== null ? ` for ${proseMoney(price)}` : ""}${cash}${afterPledge}.${daysGainedSentence(oxygen, lang)}`;
+      return `On ${when}, ${who} closed ${where}${price !== null ? ` for ${proseMoney(price)}` : ""}${cash}${afterPledge}.${daysGainedSentence(oxygen, lang)}`;
     }
     case "note_sale": {
       const buyer = lot?.noteBuyerName ?? (lang === "es" ? "un comprador de pagarés" : "a note buyer");
       if (lang === "es") {
-        return `${on} ${when}, el pagaré de ${where} se vendió a ${buyer} por ${proseMoney(e.amount, lang)}, y el oro volvió a casa.`;
+        return `${on} ${when}, el pagaré de ${where} se vendió a ${buyer} por ${proseMoney(e.amount, lang)}.`;
       }
-      return `On ${when}, the note on ${where} was sold to ${buyer} for ${proseMoney(e.amount)}, and the gold came home.`;
+      return `On ${when}, the note on ${where} was sold to ${buyer} for ${proseMoney(e.amount)}.`;
     }
     case "distribution": {
       const isCapital = e.title.startsWith("Capital returned") || e.title.startsWith("Capital devuelto");
@@ -175,22 +175,22 @@ export function narrate(e: RealmEvent, ctx: NarrativeContext): string {
       if (lang === "es") {
         return isCapital
           ? `${on} ${when}, se devolvieron ${proseMoney(e.amount, lang)} de capital a ${to}${e.farmName ? ` por ${e.farmName}` : ""}.`
-          : `${on} ${when}, se compartieron ${proseMoney(e.amount, lang)} del botín con ${to}${e.farmName ? ` por ${e.farmName}` : ""}.`;
+          : `${on} ${when}, se compartieron ${proseMoney(e.amount, lang)} de utilidad con ${to}${e.farmName ? ` por ${e.farmName}` : ""}.`;
       }
       return isCapital
         ? `On ${when}, ${proseMoney(e.amount)} of capital was returned to ${to}${e.farmName ? ` for ${e.farmName}` : ""}.`
-        : `On ${when}, ${proseMoney(e.amount)} of the spoils was shared with ${to}${e.farmName ? ` for ${e.farmName}` : ""}.`;
+        : `On ${when}, ${proseMoney(e.amount)} of profit was shared with ${to}${e.farmName ? ` for ${e.farmName}` : ""}.`;
     }
     case "milestone":
       if (lang === "es") {
-        return `${on} ${when}, los cronistas marcaron ${proseMoney(e.milestone, lang)} de utilidad neta${e.lotName ? `, cruzados con ${e.lotName}` : ""}. Sonaron las campanas.`;
+        return `${on} ${when}, la utilidad neta cruzó ${proseMoney(e.milestone, lang)}${e.lotName ? ` con ${e.lotName}` : ""}.`;
       }
-      return `On ${when}, the chroniclers marked ${proseMoney(e.milestone)} of net profit${e.lotName ? `, crossed with ${e.lotName}` : ""}. Bells rang.`;
+      return `On ${when}, net profit crossed ${proseMoney(e.milestone)}${e.lotName ? ` with ${e.lotName}` : ""}.`;
     case "liberation":
       if (lang === "es") {
-        return `${on} ${when}, ${e.title.replace(/ freed$/, "").replace(/ liberad[oa]$/, "")} quedó libre: cada moneda de ${e.farmName ?? "la finca"} reembolsada${e.amount ? ` (${proseMoney(e.amount, lang)})` : ""}.`;
+        return `${on} ${when}, ${e.title.replace(/: capital (returned|devuelto)$/, "").replace(/ liberad[oa]$/, "")} recibió el capital de vuelta de ${e.farmName ?? "la finca"}${e.amount ? ` (${proseMoney(e.amount, lang)})` : ""}.`;
       }
-      return `On ${when}, ${e.title.replace(/ freed$/, "")} was freed: every coin of ${e.farmName ?? "the farm"} repaid${e.amount ? ` (${proseMoney(e.amount)})` : ""}.`;
+      return `On ${when}, ${e.title.replace(/: capital returned$/, "").replace(/ freed$/, "")} received their capital back for ${e.farmName ?? "the farm"}${e.amount ? ` (${proseMoney(e.amount)})` : ""}.`;
     default:
       return lang === "es" ? `${on} ${when}, ${e.title}.` : `On ${when}, ${e.title}.`;
   }

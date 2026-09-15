@@ -70,7 +70,7 @@ function slug(route: string) {
 
 async function waitRealmGone(page: Page) {
   await page
-    .locator('[role="status"][aria-label="Loading realm data"], [role="status"][aria-label="Cargando los datos del reino"]')
+    .locator('[role="status"][aria-label="Loading farm and lot data"], [role="status"][aria-label="Cargando fincas y lotes"]')
     .first()
     .waitFor({ state: "detached", timeout: 30_000 })
     .catch(() => undefined);

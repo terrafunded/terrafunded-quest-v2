@@ -141,7 +141,7 @@ describe("defect 1: Throne Room and Engine either agree or differ by a stated re
       expect(rec.dollarReason).toBeNull();
       expect(rec.dollarGap === null || Math.abs(rec.dollarGap) < 1).toBe(true);
     } else {
-      expect(rec.dollarReason).toMatch(/Engine caps sales|Throne Room assumes lots/i);
+      expect(rec.dollarReason).toMatch(/Capital projection caps sales|Overview assumes lots/i);
       expect(rec.dollarGap).not.toBeNull();
     }
 

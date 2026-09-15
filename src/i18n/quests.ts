@@ -37,9 +37,9 @@ export interface QuestsUiStrings {
 
 export const QUESTS_UI: Record<QualityLang, QuestsUiStrings> = {
   en: {
-    title: "Quests",
+    title: "Lots",
     subtitle:
-      "Every lot sale, straight from file cases and notes. Contract price is the file-case figure; sale price follows the note when one exists. Oxygen is the days each closing moved the exit date; a reservation shows the days it would gain, lighter, until it closes. Expected close is the reservation date plus the farm's median reservation→closing lag. Hourglass rows are reservations stuck past 60 days.",
+      "Every lot sale, from file cases and notes. Contract price is the file-case figure; sale price follows the note when one exists. Pace is the days each closing moved the exit date; a reservation shows the days it would gain, lighter, until it closes. Expected close is the reservation date plus the farm's median reservation→closing lag. Hourglass rows are stuck reservations past 60 days.",
     filterFarm: "Filter by farm",
     filterStage: "Filter by stage",
     filterInvestor: "Filter by investor",
@@ -51,7 +51,7 @@ export const QUESTS_UI: Record<QualityLang, QuestsUiStrings> = {
     stuckReservations: (days) => `Stuck reservations (${days}+ days)`,
     expectedThisMonth: (n) => `Expected this month (${n})`,
     allSponsors: "All sponsors",
-    emptyTitle: "No quests match",
+    emptyTitle: "No lots match",
     emptyBody: "Loosen the filters to see lots.",
     columns: {
       name: "Lot",
@@ -66,7 +66,7 @@ export const QUESTS_UI: Record<QualityLang, QuestsUiStrings> = {
       cashRealized: "Cash realized",
       daysInPipeline: "Days",
       expectedCloseDate: "Expected close",
-      daysGained: "Oxygen",
+      daysGained: "Pace",
     },
     ownCapital: "own capital",
     testClient: "test client",
@@ -80,13 +80,13 @@ export const QUESTS_UI: Record<QualityLang, QuestsUiStrings> = {
     today: "today",
     inDays: (d) => `in ${d}d`,
     farmMedian: "farm",
-    realmMedian: "realm",
+    realmMedian: "all farms",
     medianDays: (source, days) => `${source} median ${days}d`,
   },
   es: {
-    title: "Misiones",
+    title: "Lotes",
     subtitle:
-      "Cada venta de lote, directo de file cases y pagarés. El precio de contrato es la cifra del file case; el precio de venta sigue el pagaré cuando existe. El oxígeno son los días que cada cierre movió la fecha de salida; una reserva muestra los días que ganaría, más suave, hasta que cierre. El cierre esperado es la fecha de reserva más la mediana reserva→cierre de la finca. Las filas con reloj de arena son reservas atascadas más de 60 días.",
+      "Cada venta de lote, de file cases y pagarés. El precio de contrato es la cifra del file case; el precio de venta sigue el pagaré cuando existe. El ritmo son los días que cada cierre movió la fecha de salida; una reserva muestra los días que ganaría, más suave, hasta que cierre. El cierre esperado es la fecha de reserva más la mediana reserva→cierre de la finca. Las filas con reloj de arena son reservas atascadas más de 60 días.",
     filterFarm: "Filtrar por finca",
     filterStage: "Filtrar por etapa",
     filterInvestor: "Filtrar por inversionista",
@@ -98,7 +98,7 @@ export const QUESTS_UI: Record<QualityLang, QuestsUiStrings> = {
     stuckReservations: (days) => `Reservas atascadas (${days}+ días)`,
     expectedThisMonth: (n) => `Esperadas este mes (${n})`,
     allSponsors: "Todos los sponsors",
-    emptyTitle: "Ninguna misión coincide",
+    emptyTitle: "Ningún lote coincide",
     emptyBody: "Afloja los filtros para ver lotes.",
     columns: {
       name: "Lote",
@@ -113,7 +113,7 @@ export const QUESTS_UI: Record<QualityLang, QuestsUiStrings> = {
       cashRealized: "Efectivo realizado",
       daysInPipeline: "Días",
       expectedCloseDate: "Cierre esperado",
-      daysGained: "Oxígeno",
+      daysGained: "Ritmo",
     },
     ownCapital: "capital propio",
     testClient: "cliente de prueba",
@@ -127,7 +127,7 @@ export const QUESTS_UI: Record<QualityLang, QuestsUiStrings> = {
     today: "hoy",
     inDays: (d) => `en ${d}d`,
     farmMedian: "finca",
-    realmMedian: "reino",
+    realmMedian: "todas las fincas",
     medianDays: (source, days) => `mediana ${source} ${days}d`,
   },
 };

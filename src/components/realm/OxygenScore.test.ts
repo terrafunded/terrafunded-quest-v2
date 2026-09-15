@@ -59,7 +59,7 @@ describe("OxygenScore scoreboard", () => {
     expect(html).toMatch(/class="[^"]*text-ember" data-testid="oxygen-verdict"/);
     // The cumulative total is demoted to a labelled line and keeps its test hook and value.
     expect(html).toMatch(/data-testid="oxygen-score" data-value="533" data-target="533">533</);
-    expect(textOf(html, "oxygen-cumulative")).toContain("Marcador histórico acumulado");
+    expect(textOf(html, "oxygen-cumulative")).toContain("Días ganados acumulados");
     // Provisional days stay beside the headline and are not summed into either figure.
     expect(html).toMatch(/data-testid="oxygen-provisional" data-value="340"/);
   });
@@ -80,7 +80,7 @@ describe("OxygenScore scoreboard", () => {
 
   it("the deepest-breath tooltip explains that a slower realm paid more days per dollar", () => {
     const html = render(makeOxygen({}));
-    expect(html).toContain("el mismo dólar compraba más días cuando el reino iba más lento");
+    expect(html).toContain("el mismo dólar compraba más días cuando la utilidad neta diaria era más baja");
   });
 });
 
@@ -105,6 +105,6 @@ describe("oxygen verdict copy in English", () => {
 
   it("the topbar pill reads gained/window and carries the verdict", () => {
     expect(t.pill(53, 90)).toBe("53/90d");
-    expect(t.pillTitle(53, 90, say(53, 90))).toBe("Oxygen — 53 days gained in the last 90. 90 days passed − 53 gained: at this pace the exit date moves away by 37 days every 90");
+    expect(t.pillTitle(53, 90, say(53, 90))).toBe("Pace — 53 days gained in the last 90. 90 days passed − 53 gained: at this pace the exit date moves away by 37 days every 90");
   });
 });

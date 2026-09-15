@@ -369,7 +369,7 @@ function collectFigures(
       id: "throne.oxygen",
       page: "/",
       section: "debtOxygen",
-      label: lang === "es" ? "Oxígeno (días ganados)" : "Oxygen (days gained)",
+      label: lang === "es" ? "Ritmo (días ganados)" : "Pace (days gained)",
       displayed: fmtNumber(realm.oxygen.totalDaysGained, lang),
       raw: realm.oxygen.totalDaysGained,
       subtitle: null,
@@ -641,7 +641,7 @@ function collectFigures(
       id: "realm.farmCount",
       page: "/realm",
       section: "map",
-      label: lang === "es" ? "Fincas en el reino" : "Farms in the realm",
+      label: lang === "es" ? "Fincas" : "Farms",
       displayed: fmtNumber(realm.farms.length, lang),
       raw: realm.farms.length,
       subtitle: null,
@@ -667,7 +667,7 @@ function collectFigures(
       id: "trophies.count",
       page: "/trophies",
       section: "list",
-      label: lang === "es" ? "Trofeos" : "Trophies",
+      label: lang === "es" ? "Logros" : "Milestones",
       displayed: fmtNumber(realm.trophies.length, lang),
       raw: realm.trophies.length,
       subtitle: null,
@@ -791,17 +791,17 @@ function runReconciliations(
     ),
     mkCheck(
       "throne_vs_path_farms",
-      lang === "es" ? "Trono farmsStillNeeded vs pathToGoal.farmsToBuy" : "Throne farmsStillNeeded vs pathToGoal.farmsToBuy",
+      lang === "es" ? "Resumen farmsStillNeeded vs pathToGoal.farmsToBuy" : "Overview farmsStillNeeded vs pathToGoal.farmsToBuy",
       { label: "throne.farmsStillNeeded", value: g.farmsStillNeeded },
       { label: "pathToGoal.farmsToBuy", value: realm.pathToGoal.farmsToBuy },
       0,
       lang === "es"
-        ? "El Trono y el pathToGoal compartido discrepan en fincas."
-        : "Throne and shared pathToGoal disagree on farms.",
+        ? "Resumen y el pathToGoal compartido discrepan en fincas."
+        : "Overview and shared pathToGoal disagree on farms.",
     ),
     mkCheck(
       "engine_peak_equals_series_max",
-      lang === "es" ? "Motor peakOutstanding == max(serie)" : "Engine peakOutstanding == max(series)",
+      lang === "es" ? "Proyección peakOutstanding == max(serie)" : "Capital projection peakOutstanding == max(series)",
       { label: "figures.peakOutstanding", value: engine.figures.peakOutstanding },
       { label: "max(series.capitalOwed)", value: peakSeries },
       0.02,
@@ -844,31 +844,31 @@ function runReconciliations(
     ),
     mkCheck(
       "rotation_vs_outstanding",
-      lang === "es" ? "Capital rotando (War Plan) vs capital outstanding hoy" : "Capital rotating (War Plan) vs capital outstanding today",
+      lang === "es" ? "Capital rotando (Plan) vs capital outstanding hoy" : "Capital rotating (Plan) vs capital outstanding today",
       { label: "warPlan.rotation.peakOutstanding", value: realm.warPlan.rotation.peakOutstanding },
       { label: "goal.capitalOutstanding", value: g.capitalOutstanding },
       Math.max(g.capitalOutstanding, realm.warPlan.rotation.peakOutstanding, 1),
       lang === "es"
-        ? "El pico de rotación del War Plan y el capital adeudado hoy miden cosas distintas."
-        : "War Plan rotation peak and today's capital outstanding measure different things.",
+        ? "El pico de rotación del Plan y el capital adeudado hoy miden cosas distintas."
+        : "Plan rotation peak and today's capital outstanding measure different things.",
     ),
     mkCheck(
       "treasury_vs_cash",
-      lang === "es" ? "Tesorería entradas vs cash realizado" : "Treasury cash in vs cash realized",
+      lang === "es" ? "Flujo de efectivo entradas vs cash realizado" : "Cash flow in vs cash realized",
       { label: "treasury.totalCashIn", value: realm.treasury.totalCashIn },
       { label: "goal.cashRealized", value: g.cashRealized },
       treasuryGap <= 0.02 ? 0.02 : treasuryGap + 1,
       lang === "es"
-        ? "Las entradas de tesorería no coinciden con el cash realizado."
-        : "Treasury cash in does not match goal cash realized.",
+        ? "Las entradas de flujo de efectivo no coinciden con el cash realizado."
+        : "Cash flow in does not match goal cash realized.",
     ),
     mkCheck(
       "oxygen_sum",
-      lang === "es" ? "Σ días ganados por lote == oxígeno" : "Σ per-lot days gained == oxygen headline",
+      lang === "es" ? "Σ días ganados por lote == ritmo de portada" : "Σ per-lot days gained == pace headline",
       { label: "Σ ranked.daysGained", value: oxygenSum },
       { label: "oxygen.totalDaysGained", value: realm.oxygen.totalDaysGained },
       0,
-      lang === "es" ? "El oxígeno de portada no es la suma por lote." : "Headline oxygen is not the per-lot sum.",
+      lang === "es" ? "El ritmo de portada no es la suma por lote." : "Headline pace is not the per-lot sum.",
     ),
     mkCheck(
       "debt_per_day",
@@ -903,14 +903,14 @@ function runReconciliations(
     ),
     mkCheck(
       "throne_engine_dollars",
-      lang === "es" ? "Proyección Trono vs Motor a la fecha límite" : "Throne projection vs Engine at deadline",
+      lang === "es" ? "Proyección Resumen vs Proyección de capital a la fecha límite" : "Overview projection vs Capital projection at deadline",
       { label: "throneProjectedAtDeadline", value: throneEngine.throneProjectedAtDeadline },
       { label: "engineNetAtDeadline", value: throneEngine.engineNetAtDeadline },
       1,
       throneEngine.dollarReason ??
         (lang === "es"
-          ? "El Trono (sin tope) y el Motor (con inventario/capital) discrepan."
-          : "Throne (unconstrained) and Engine (inventory/capital capped) disagree."),
+          ? "Resumen (sin tope) y Proyección de capital (con inventario/capital) discrepan."
+          : "Overview (unconstrained) and Capital projection (inventory/capital capped) disagree."),
     ),
   ];
 }

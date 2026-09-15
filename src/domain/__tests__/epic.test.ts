@@ -202,7 +202,7 @@ describe("INVESTOR LIBERATION", () => {
   it("adds a liberation event to the chronicle with the running net profit", () => {
     const ev = realm.events.find((e) => e.kind === "liberation");
     expect(ev?.date).toBe("2025-11-01");
-    expect(ev?.title).toBe("Lady Ashcombe freed");
+    expect(ev?.title).toBe("Lady Ashcombe: capital returned");
     const prev = realm.events.filter((e) => e.date <= "2025-11-01" && e.kind !== "liberation").at(-1);
     expect(ev?.cumulativeNetProfit).toBe(prev?.cumulativeNetProfit);
     expect(withLiberationEvents(realm.events, [], ASOF)).toBe(realm.events);
@@ -384,7 +384,7 @@ describe("NARRATED CHRONICLE", () => {
     const lot = realm.lots.find((l) => l.name === "Southmoor — Lot 2")!;
     const line = realm.narrative.get(`closing:${lot.propertyId}`);
     const days = realm.oxygen.perLot.get(lot.propertyId)?.daysGained ?? 0;
-    expect(line).toBe(`On August 25, Buyer One claimed Lot 2 of Southmoor for $180,000, 55 days after Buyer's reservation. The realm gained ${days} days.`);
+    expect(line).toBe(`On August 25, Buyer One closed Lot 2 of Southmoor for $180,000, 55 days after Buyer's reservation. Pace gained ${days} days.`);
   });
 
   it("narrates a live reservation with its expected close and provisional days", () => {
@@ -392,10 +392,10 @@ describe("NARRATED CHRONICLE", () => {
     const line = realm.narrative.get(`reservation:${lot.propertyId}`);
     const p = realm.oxygen.provisional.get(lot.propertyId)!;
     expect(p.provisionalDays).toBeGreaterThan(0);
-    expect(line).toBe(`On September 1, Buyer One pledged for Lot 3 of Southmoor at $180,000 — the closing is expected around October 21, ${p.provisionalDays} provisional days gained.`);
+    expect(line).toBe(`On September 1, Buyer One reserved Lot 3 of Southmoor at $180,000 — the closing is expected around October 21, ${p.provisionalDays} provisional days gained.`);
     // the reservation of a lot that has since closed carries no expectation
     const closed = realm.lots.find((l) => l.name === "Southmoor — Lot 2")!;
-    expect(realm.narrative.get(`reservation:${closed.propertyId}`)).toBe("On July 1, Buyer One pledged for Lot 2 of Southmoor at $180,000.");
+    expect(realm.narrative.get(`reservation:${closed.propertyId}`)).toBe("On July 1, Buyer One reserved Lot 2 of Southmoor at $180,000.");
   });
 
   it("has one line for every event and templates for every kind", () => {
@@ -403,9 +403,9 @@ describe("NARRATED CHRONICLE", () => {
     const kinds = new Set(realm.events.map((e) => e.kind));
     for (const k of ["farm_acquired", "reservation", "closing", "note_sale", "distribution", "liberation"]) expect(kinds.has(k as never)).toBe(true);
     const sale = realm.events.find((e) => e.kind === "note_sale")!;
-    expect(realm.narrative.get(sale.id)).toBe("On October 1, 2025, the note on Lot 1 of Northfield was sold to Note Buyer LLC for $150,000, and the gold came home.");
+    expect(realm.narrative.get(sale.id)).toBe("On October 1, 2025, the note on Lot 1 of Northfield was sold to Note Buyer LLC for $150,000.");
     const freed = realm.events.find((e) => e.kind === "liberation")!;
-    expect(realm.narrative.get(freed.id)).toBe("On November 1, 2025, Lady Ashcombe was freed: every coin of Northfield repaid ($400,000).");
+    expect(realm.narrative.get(freed.id)).toBe("On November 1, 2025, Lady Ashcombe received their capital back for Northfield ($400,000).");
     const cap = realm.events.find((e) => e.kind === "distribution" && e.title.startsWith("Capital"))!;
     expect(realm.narrative.get(cap.id)).toBe("On September 1, 2025, $150,000 of capital was returned to Lady Ashcombe for Northfield.");
   });
@@ -413,8 +413,8 @@ describe("NARRATED CHRONICLE", () => {
   it("withholds test-client names and handles unknown lots", () => {
     const lotsById = new Map(realm.lots.map((l) => [l.propertyId, { ...l, buyerName: null, buyerIsTestClient: true }]));
     const ev = realm.events.find((e) => e.kind === "reservation")!;
-    expect(narrate(ev, { lotsById, currentYear: 2026 })).toMatch(/a buyer whose name the scribes withhold pledged for Lot/);
-    expect(narrate({ ...ev, propertyId: "nope", lotName: null, farmName: "Elsewhere" }, { lotsById: new Map(), currentYear: 2026 })).toMatch(/a buyer pledged for a lot of Elsewhere/);
+    expect(narrate(ev, { lotsById, currentYear: 2026 })).toMatch(/a buyer reserved Lot/);
+    expect(narrate({ ...ev, propertyId: "nope", lotName: null, farmName: "Elsewhere" }, { lotsById: new Map(), currentYear: 2026 })).toMatch(/a buyer reserved a lot of Elsewhere/);
   });
 });
 
@@ -429,7 +429,7 @@ describe("CINEMATIC INTRO story", () => {
     expect(lines).toContain("$1,000,000 lent by 1 sponsor. $450,000 still owed.");
     expect(lines).toContain(`${realm.goal.closedLots} lots closed for ${proseMoney(realm.goal.netProfitToDate)} of net profit`);
     expect(lines).toContain(`${realm.oxygen.totalDaysGained} days gained toward the exit.`);
-    expect(lines).toContain("Lady Ashcombe walked free of Northfield. 1 remains in chains.");
+    expect(lines).toContain("Lady Ashcombe received their capital back for Northfield. 1 remains with capital still out.");
     expect(lines).toContain(`476 days left. ${proseMoney(realm.debt.requiredNetProfitPerDay)} of net profit needed every single day.`);
   });
 

@@ -16,9 +16,9 @@ export interface ChronicleUiStrings {
 
 export const CHRONICLE_UI: Record<QualityLang, ChronicleUiStrings> = {
   en: {
-    title: "Chronicle",
+    title: "Activity",
     subtitle:
-      "Every real event, newest first, told as the scribes would tell it — each line from the row that produced it — with the running net profit and a celebration each time it crosses another million. A reservation is narrated with the day its closing is expected; the closing says how long after the reservation it came; a cancellation gives the lot back to the market.",
+      "Every real event, newest first. Each line comes from the row that produced it, with running net profit and a mark each time it crosses another million. A reservation includes the expected closing date; a closing says how long after the reservation it came; a cancellation returns the lot to inventory.",
     all: "All",
     kind: {
       farm_acquired: "Farm acquired",
@@ -28,17 +28,17 @@ export const CHRONICLE_UI: Record<QualityLang, ChronicleUiStrings> = {
       note_sale: "Note sale",
       distribution: "Distribution",
       milestone: "Milestone",
-      liberation: "Liberation",
+      liberation: "Capital returned",
     },
-    empty: "Nothing chronicled yet",
+    empty: "No activity yet",
     showOlder: (n) => `Show older (${n} more)`,
     upcoming: "upcoming",
     netToDate: "net to date",
   },
   es: {
-    title: "Crónica",
+    title: "Actividad",
     subtitle:
-      "Cada evento real, del más reciente al más antiguo, contado como lo harían los escribas — cada línea de la fila que lo produjo — con la utilidad neta acumulada y una celebración cada vez que cruza otro millón. Una reserva se narra con el día en que se espera su cierre; el cierre dice cuánto después de la reserva llegó; una cancelación devuelve el lote al mercado.",
+      "Cada evento real, del más reciente al más antiguo. Cada línea sale de la fila que lo produjo, con la utilidad neta acumulada y una marca cada vez que cruza otro millón. Una reserva incluye la fecha de cierre esperada; un cierre dice cuánto después de la reserva llegó; una cancelación devuelve el lote al inventario.",
     all: "Todos",
     kind: {
       farm_acquired: "Finca adquirida",
@@ -48,9 +48,9 @@ export const CHRONICLE_UI: Record<QualityLang, ChronicleUiStrings> = {
       note_sale: "Venta de pagaré",
       distribution: "Distribución",
       milestone: "Hito",
-      liberation: "Liberación",
+      liberation: "Capital devuelto",
     },
-    empty: "Aún no hay nada en la crónica",
+    empty: "Aún no hay actividad",
     showOlder: (n) => `Ver anteriores (${n} más)`,
     upcoming: "próximo",
     netToDate: "utilidad a la fecha",

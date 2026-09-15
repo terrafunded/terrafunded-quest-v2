@@ -9,7 +9,7 @@ import { expect, test, type Page } from "@playwright/test";
 const isMobile = () => test.info().project.name === "mobile";
 
 async function waitForRealm(page: Page) {
-  await expect(page.getByRole("status", { name: /Loading realm data|Cargando los datos del reino/ })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByRole("status", { name: /Loading farm and lot data|Cargando fincas y lotes/ })).toHaveCount(0, { timeout: 30_000 });
 }
 
 async function openSponsors(page: Page, lang: "en" | "es") {
@@ -241,14 +241,14 @@ test.describe("Sponsors layout", () => {
 test.describe("Sponsors language", () => {
   // innerText applies CSS text-transform, so uppercase headings come back in capitals: match case-insensitively.
   const ENGLISH = /\b(Capital deployed|Capital returned|Capital outstanding|Profit share|Fixed interest|Own capital|Interest accrued|Distributions|Terms|Farm|Lots|Outstanding|returned|freed|to go|paid on top|holds|recovered|Replay liberation|Also in the investors table)\b|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4}\b/i;
-  const SPANISH = /\b(Capital desplegado|devueltos|faltan|Rehenes del reino|Términos|Finca)\b/i;
+  const SPANISH = /\b(Capital desplegado|devueltos|faltan|Capital aún afuera|Términos|Finca)\b/i;
 
   test("in Spanish the whole page prints Spanish, dates included", async ({ page }) => {
     await openSponsors(page, "es");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sponsors");
     const text = await page.locator("body").innerText();
     expect(text).not.toMatch(ENGLISH);
-    expect(text).toMatch(/Rehenes del reino/i);
+    expect(text).toMatch(/Capital aún afuera/i);
     expect(text).toMatch(/Capital desplegado por sponsor/i);
     expect(text).toMatch(/tiene el \d+\.\d% del capital desplegado/);
     // Funding dates in the farm tables: "21 ago 2025", never "Aug 21, 2025".
@@ -260,7 +260,7 @@ test.describe("Sponsors language", () => {
     await openSponsors(page, "en");
     const text = await page.locator("body").innerText();
     expect(text).not.toMatch(SPANISH);
-    expect(text).toMatch(/Hostages of the realm/i);
+    expect(text).toMatch(/Capital still out/i);
     expect(text).toMatch(/Capital deployed by sponsor/i);
     expect(text).toMatch(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4}\b/);
   });

@@ -57,35 +57,35 @@ const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
 
 const TROPHY_COPY: Record<string, { title: Record<QualityLang, string>; description: Record<QualityLang, string> }> = {
-  first_blood: { title: { en: "First Blood", es: "Primera Sangre" }, description: { en: "Close the first lot sale in the realm.", es: "Cierra la primera venta de lote del reino." } },
-  first_note_sold: { title: { en: "The First Scroll", es: "El Primer Pergamino" }, description: { en: "Sell the first promissory note for cash.", es: "Vende el primer pagaré por efectivo." } },
-  net_profit_1m: { title: { en: "1M Banner", es: "Estandarte 1M" }, description: { en: "Cumulative net profit crosses $1,000,000.", es: "La utilidad neta acumulada cruza $1,000,000." } },
-  net_profit_2m: { title: { en: "2M Banner", es: "Estandarte 2M" }, description: { en: "Cumulative net profit crosses $2,000,000.", es: "La utilidad neta acumulada cruza $2,000,000." } },
-  net_profit_5m: { title: { en: "5M Banner", es: "Estandarte 5M" }, description: { en: "Cumulative net profit crosses $5,000,000.", es: "La utilidad neta acumulada cruza $5,000,000." } },
-  net_profit_10m: { title: { en: "Exodus", es: "Éxodo" }, description: { en: "Reach $10,000,000 of net profit. The fund closes.", es: "Alcanza $10,000,000 de utilidad neta. El fondo cierra." } },
-  farm_fully_sold: { title: { en: "Territory Conquered", es: "Territorio Conquistado" }, description: { en: "Every lot on a farm has closed.", es: "Cada lote de una finca ha cerrado." } },
-  farm_half_sold: { title: { en: "Halfway Banner", es: "Estandarte a Mitad" }, description: { en: "A farm has closed at least half of its lots.", es: "Una finca ha cerrado al menos la mitad de sus lotes." } },
-  swift_sword: { title: { en: "Swift Sword", es: "Espada Veloz" }, description: { en: "Close a lot within 30 days of reservation.", es: "Cierra un lote dentro de 30 días de la reserva." } },
-  best_month_5: { title: { en: "Harvest Moon", es: "Luna de Cosecha" }, description: { en: "Close five or more lots in a single month.", es: "Cierra cinco o más lotes en un solo mes." } },
-  treasury_100k_month: { title: { en: "Overflowing Coffers", es: "Cofres Rebosantes" }, description: { en: "Bring $100,000 of real cash into the treasury in one month.", es: "Trae $100,000 de efectivo real a la tesorería en un mes." } },
-  cash_1m: { title: { en: "War Chest", es: "Cofre de Guerra" }, description: { en: "Cumulative cash realized (down payments + note sales) passes $1,000,000.", es: "El efectivo acumulado realizado (enganches + ventas de pagarés) supera $1,000,000." } },
-  sponsor_repaid: { title: { en: "Debt of Honor", es: "Deuda de Honor" }, description: { en: "Return all capital to a sponsor.", es: "Devuelve todo el capital a un sponsor." } },
-  ten_notes: { title: { en: "Ten Scrolls", es: "Diez Pergaminos" }, description: { en: "Sell ten promissory notes.", es: "Vende diez pagarés." } },
-  fifty_lots: { title: { en: "Half a Hundred", es: "Medio Centenar" }, description: { en: "Close fifty lots.", es: "Cierra cincuenta lotes." } },
-  hundred_lots: { title: { en: "Centurion", es: "Centurión" }, description: { en: "Close one hundred lots.", es: "Cierra cien lotes." } },
-  nine_realms: { title: { en: "Nine Realms", es: "Nueve Reinos" }, description: { en: "Hold nine subdivided farms.", es: "Posee nueve fincas subdivididas." } },
-  golden_lot: { title: { en: "Golden Acre", es: "Acre Dorado" }, description: { en: "Net more than $75,000 on a single lot.", es: "Obtén más de $75,000 netos en un solo lote." } },
-  pace_keeper: { title: { en: "Pace Keeper", es: "Guardián del Ritmo" }, description: { en: "Current pace is enough to hit the selected exit horizon. Changes when you switch 2027 / 2028 / 2029.", es: "El ritmo actual basta para el horizonte de salida elegido. Cambia al pasar de 2027 / 2028 / 2029." } },
-  streak_3: { title: { en: "Unbroken Chain", es: "Cadena Intacta" }, description: { en: "Close at least one lot in three consecutive months.", es: "Cierra al menos un lote en tres meses consecutivos." } },
-  streak_weeks_3: { title: { en: "Week After Week", es: "Semana Tras Semana" }, description: { en: "Close at least one lot in three consecutive weeks.", es: "Cierra al menos un lote en tres semanas consecutivas." } },
-  streak_weeks_6: { title: { en: "Relentless", es: "Implacable" }, description: { en: "Six consecutive weeks with a closing.", es: "Seis semanas consecutivas con un cierre." } },
-  busy_week_3: { title: { en: "Harvest Week", es: "Semana de Cosecha" }, description: { en: "Three closings inside a single week.", es: "Tres cierres en una sola semana." } },
-  pledge_streak_3: { title: { en: "Steady Pledges", es: "Compromisos Firmes" }, description: { en: "Take at least one reservation in three consecutive months.", es: "Toma al menos una reserva en tres meses consecutivos." } },
-  pledge_streak_weeks_3: { title: { en: "Pledge After Pledge", es: "Compromiso Tras Compromiso" }, description: { en: "Take at least one reservation in three consecutive weeks.", es: "Toma al menos una reserva en tres semanas consecutivas." } },
-  pledge_streak_weeks_6: { title: { en: "The Long Line", es: "La Larga Fila" }, description: { en: "Six consecutive weeks with a reservation.", es: "Seis semanas consecutivas con una reserva." } },
-  busy_pledge_week_3: { title: { en: "Market Day", es: "Día de Mercado" }, description: { en: "Three reservations inside a single week.", es: "Tres reservas en una sola semana." } },
-  first_liberation: { title: { en: "Chains Broken", es: "Cadenas Rotas" }, description: { en: "Return 100% of a sponsor's capital on one farm.", es: "Devuelve el 100% del capital de un sponsor en una finca." } },
-  all_free: { title: { en: "No Hostages", es: "Sin Rehenes" }, description: { en: "Every sponsor position fully repaid.", es: "Cada posición de sponsor reembolsada por completo." } },
+  first_blood: { title: { en: "First sale", es: "Primera venta" }, description: { en: "Close the first lot sale.", es: "Cierra la primera venta de lote." } },
+  first_note_sold: { title: { en: "First note sold", es: "Primer pagaré vendido" }, description: { en: "Sell the first promissory note for cash.", es: "Vende el primer pagaré por efectivo." } },
+  net_profit_1m: { title: { en: "$1M net profit", es: "$1M de utilidad neta" }, description: { en: "Cumulative net profit crosses $1,000,000.", es: "La utilidad neta acumulada cruza $1,000,000." } },
+  net_profit_2m: { title: { en: "$2M net profit", es: "$2M de utilidad neta" }, description: { en: "Cumulative net profit crosses $2,000,000.", es: "La utilidad neta acumulada cruza $2,000,000." } },
+  net_profit_5m: { title: { en: "$5M net profit", es: "$5M de utilidad neta" }, description: { en: "Cumulative net profit crosses $5,000,000.", es: "La utilidad neta acumulada cruza $5,000,000." } },
+  net_profit_10m: { title: { en: "Exodus", es: "Exodus" }, description: { en: "Reach $10,000,000 of net profit. The fund closes.", es: "Alcanza $10,000,000 de utilidad neta. El fondo cierra." } },
+  farm_fully_sold: { title: { en: "Farm sold out", es: "Finca vendida" }, description: { en: "Every lot on a farm has closed.", es: "Cada lote de una finca ha cerrado." } },
+  farm_half_sold: { title: { en: "Farm half sold", es: "Finca a la mitad" }, description: { en: "A farm has closed at least half of its lots.", es: "Una finca ha cerrado al menos la mitad de sus lotes." } },
+  swift_sword: { title: { en: "Fast close", es: "Cierre rápido" }, description: { en: "Close a lot within 30 days of reservation.", es: "Cierra un lote dentro de 30 días de la reserva." } },
+  best_month_5: { title: { en: "Five closings in a month", es: "Cinco cierres en un mes" }, description: { en: "Close five or more lots in a single month.", es: "Cierra cinco o más lotes en un solo mes." } },
+  treasury_100k_month: { title: { en: "$100k cash in a month", es: "$100k de efectivo en un mes" }, description: { en: "Bring $100,000 of real cash in one month.", es: "Trae $100,000 de efectivo real en un mes." } },
+  cash_1m: { title: { en: "$1M cash realized", es: "$1M de efectivo realizado" }, description: { en: "Cumulative cash realized (down payments + note sales) passes $1,000,000.", es: "El efectivo acumulado realizado (enganches + ventas de pagarés) supera $1,000,000." } },
+  sponsor_repaid: { title: { en: "Sponsor repaid", es: "Sponsor reembolsado" }, description: { en: "Return all capital to a sponsor.", es: "Devuelve todo el capital a un sponsor." } },
+  ten_notes: { title: { en: "Ten notes sold", es: "Diez pagarés vendidos" }, description: { en: "Sell ten promissory notes.", es: "Vende diez pagarés." } },
+  fifty_lots: { title: { en: "Fifty lots closed", es: "Cincuenta lotes cerrados" }, description: { en: "Close fifty lots.", es: "Cierra cincuenta lotes." } },
+  hundred_lots: { title: { en: "One hundred lots closed", es: "Cien lotes cerrados" }, description: { en: "Close one hundred lots.", es: "Cierra cien lotes." } },
+  nine_realms: { title: { en: "Nine farms", es: "Nueve fincas" }, description: { en: "Hold nine subdivided farms.", es: "Posee nueve fincas subdivididas." } },
+  golden_lot: { title: { en: "High-profit lot", es: "Lote de alta utilidad" }, description: { en: "Net more than $75,000 on a single lot.", es: "Obtén más de $75,000 netos en un solo lote." } },
+  pace_keeper: { title: { en: "Pace on track", es: "Ritmo al día" }, description: { en: "Current pace is enough to hit the selected exit horizon. Changes when you switch 2027 / 2028 / 2029.", es: "El ritmo actual basta para el horizonte de salida elegido. Cambia al pasar de 2027 / 2028 / 2029." } },
+  streak_3: { title: { en: "Three months of closings", es: "Tres meses de cierres" }, description: { en: "Close at least one lot in three consecutive months.", es: "Cierra al menos un lote en tres meses consecutivos." } },
+  streak_weeks_3: { title: { en: "Three weeks of closings", es: "Tres semanas de cierres" }, description: { en: "Close at least one lot in three consecutive weeks.", es: "Cierra al menos un lote en tres semanas consecutivas." } },
+  streak_weeks_6: { title: { en: "Six weeks of closings", es: "Seis semanas de cierres" }, description: { en: "Six consecutive weeks with a closing.", es: "Seis semanas consecutivas con un cierre." } },
+  busy_week_3: { title: { en: "Three closings in a week", es: "Tres cierres en una semana" }, description: { en: "Three closings inside a single week.", es: "Tres cierres en una sola semana." } },
+  pledge_streak_3: { title: { en: "Three months of reservations", es: "Tres meses de reservas" }, description: { en: "Take at least one reservation in three consecutive months.", es: "Toma al menos una reserva en tres meses consecutivos." } },
+  pledge_streak_weeks_3: { title: { en: "Three weeks of reservations", es: "Tres semanas de reservas" }, description: { en: "Take at least one reservation in three consecutive weeks.", es: "Toma al menos una reserva en tres semanas consecutivas." } },
+  pledge_streak_weeks_6: { title: { en: "Six weeks of reservations", es: "Seis semanas de reservas" }, description: { en: "Six consecutive weeks with a reservation.", es: "Seis semanas consecutivas con una reserva." } },
+  busy_pledge_week_3: { title: { en: "Three reservations in a week", es: "Tres reservas en una semana" }, description: { en: "Three reservations inside a single week.", es: "Tres reservas en una sola semana." } },
+  first_liberation: { title: { en: "First capital returned", es: "Primer capital devuelto" }, description: { en: "Return 100% of a sponsor's capital on one farm.", es: "Devuelve el 100% del capital de un sponsor en una finca." } },
+  all_free: { title: { en: "All capital returned", es: "Todo el capital devuelto" }, description: { en: "Every sponsor position fully repaid.", es: "Cada posición de sponsor reembolsada por completo." } },
 };
 
 /** At least 15 achievements, every one derived from real rows. */
@@ -134,15 +134,15 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     noReservationsYet: es ? "aún sin reservas" : "no reservations yet",
     noSponsorCapital: es ? "sin capital de sponsors" : "no sponsor capital",
     positionsFreed: (freed: number, total: number) =>
-      es ? `${freed} / ${total} posiciones liberadas` : `${freed} / ${total} positions freed`,
+      es ? `${freed} / ${total} posiciones con capital de vuelta` : `${freed} / ${total} positions with capital back`,
   };
 
   const trophies: Omit<Trophy, "rarity">[] = [];
 
   trophies.push({
     id: "first_blood",
-    title: "First Blood",
-    description: "Close the first lot sale in the realm.",
+    title: "First sale",
+    description: "Close the first lot sale.",
     tier: "bronze",
     earned: closings.length > 0,
     earnedAt: firstAt(closings),
@@ -152,7 +152,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
 
   trophies.push({
     id: "first_note_sold",
-    title: "The First Scroll",
+    title: "First note sold",
     description: "Sell the first promissory note for cash.",
     tier: "bronze",
     earned: noteSales.length > 0,
@@ -171,7 +171,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     const hit = milestones.find((m) => m.milestone === target);
     trophies.push({
       id: `net_profit_${n}m`,
-      title: n === 10 ? "Exodus" : `${n}M Banner`,
+      title: n === 10 ? "Exodus" : `$${n}M net profit`,
       description: n === 10 ? "Reach $10,000,000 of net profit. The fund closes." : `Cumulative net profit crosses ${money(target)}.`,
       tier,
       earned: !!hit,
@@ -185,7 +185,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
   const bestFarm = [...i.farms].sort((a, b) => b.pctClosed - a.pctClosed)[0];
   trophies.push({
     id: "farm_fully_sold",
-    title: "Territory Conquered",
+    title: "Farm sold out",
     description: "Every lot on a farm has closed.",
     tier: "gold",
     earned: fullySold.length > 0,
@@ -197,7 +197,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
   const halfSold = i.farms.filter((f) => f.pctClosed >= 50);
   trophies.push({
     id: "farm_half_sold",
-    title: "Halfway Banner",
+    title: "Farm half sold",
     description: "A farm has closed at least half of its lots.",
     tier: "silver",
     earned: halfSold.length > 0,
@@ -210,7 +210,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
   const fastest = [...paced].sort((a, b) => (a.daysInPipeline ?? 0) - (b.daysInPipeline ?? 0))[0];
   trophies.push({
     id: "swift_sword",
-    title: "Swift Sword",
+    title: "Fast close",
     description: "Close a lot within 30 days of reservation.",
     tier: "silver",
     earned: !!fastest && (fastest.daysInPipeline ?? Infinity) <= 30,
@@ -227,7 +227,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
   }
   trophies.push({
     id: "best_month_5",
-    title: "Harvest Moon",
+    title: "Five closings in a month",
     description: "Close five or more lots in a single month.",
     tier: "gold",
     earned: (bestMonth?.count ?? 0) >= 5,
@@ -239,7 +239,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
   const bigCash = i.treasury.months.reduce((best, m) => (m.cashIn > (best?.cashIn ?? 0) ? m : best), null as Treasury["months"][number] | null);
   trophies.push({
     id: "treasury_100k_month",
-    title: "Overflowing Coffers",
+    title: "$100k cash in a month",
     description: "Bring $100,000 of real cash into the treasury in one month.",
     tier: "silver",
     earned: (bigCash?.cashIn ?? 0) >= 100_000,
@@ -250,7 +250,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
 
   trophies.push({
     id: "cash_1m",
-    title: "War Chest",
+    title: "$1M cash realized",
     description: "Cumulative cash realized (down payments + note sales) passes $1,000,000.",
     tier: "gold",
     earned: i.treasury.totalCashIn >= 1_000_000,
@@ -262,7 +262,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
   const repaid = i.investors.filter((inv) => inv.capitalDeployed > 0 && inv.capitalOutstanding === 0);
   trophies.push({
     id: "sponsor_repaid",
-    title: "Debt of Honor",
+    title: "Sponsor repaid",
     description: "Return all capital to a sponsor.",
     tier: "gold",
     earned: repaid.length > 0,
@@ -277,7 +277,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
   const noteSoldCount = i.lots.filter((l) => l.stage === "note_sold").length;
   trophies.push({
     id: "ten_notes",
-    title: "Ten Scrolls",
+    title: "Ten notes sold",
     description: "Sell ten promissory notes.",
     tier: "silver",
     earned: noteSoldCount >= 10,
@@ -288,7 +288,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
 
   trophies.push({
     id: "fifty_lots",
-    title: "Half a Hundred",
+    title: "Fifty lots closed",
     description: "Close fifty lots.",
     tier: "gold",
     earned: sold.length >= 50,
@@ -299,7 +299,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
 
   trophies.push({
     id: "hundred_lots",
-    title: "Centurion",
+    title: "One hundred lots closed",
     description: "Close one hundred lots.",
     tier: "legendary",
     earned: sold.length >= 100,
@@ -311,7 +311,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
   const farmCount = i.farms.length;
   trophies.push({
     id: "nine_realms",
-    title: "Nine Realms",
+    title: "Nine farms",
     description: "Hold nine subdivided farms.",
     tier: "silver",
     earned: farmCount >= 9,
@@ -323,7 +323,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
   const bestLot = [...sold].sort((a, b) => (b.netProfit ?? 0) - (a.netProfit ?? 0))[0];
   trophies.push({
     id: "golden_lot",
-    title: "Golden Acre",
+    title: "High-profit lot",
     description: "Net more than $75,000 on a single lot.",
     tier: "gold",
     earned: (bestLot?.netProfit ?? 0) >= 75_000,
@@ -334,7 +334,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
 
   trophies.push({
     id: "pace_keeper",
-    title: "Pace Keeper",
+    title: "Pace on track",
     description: "Current pace is enough to hit the selected exit horizon. Changes when you switch 2027 / 2028 / 2029.",
     tier: "legendary",
     earned: i.goal.onTrack === true,
@@ -349,7 +349,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
   const streakMonths = consecutiveMonthsWithClosings(closings);
   trophies.push({
     id: "streak_3",
-    title: "Unbroken Chain",
+    title: "Three months of closings",
     description: "Close at least one lot in three consecutive months.",
     tier: "bronze",
     earned: streakMonths >= 3,
@@ -362,7 +362,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     const s = i.streaks;
     trophies.push({
       id: "streak_weeks_3",
-      title: "Week After Week",
+      title: "Three weeks of closings",
       description: "Close at least one lot in three consecutive weeks.",
       tier: "silver",
       earned: s.bestWeeks >= 3,
@@ -372,7 +372,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     });
     trophies.push({
       id: "streak_weeks_6",
-      title: "Relentless",
+      title: "Six weeks of closings",
       description: "Six consecutive weeks with a closing.",
       tier: "gold",
       earned: s.bestWeeks >= 6,
@@ -382,7 +382,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     });
     trophies.push({
       id: "busy_week_3",
-      title: "Harvest Week",
+      title: "Three closings in a week",
       description: "Three closings inside a single week.",
       tier: "silver",
       earned: (s.bestWeek?.count ?? 0) >= 3,
@@ -396,7 +396,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     const r = i.reservationStreaks;
     trophies.push({
       id: "pledge_streak_3",
-      title: "Steady Pledges",
+      title: "Three months of reservations",
       description: "Take at least one reservation in three consecutive months.",
       tier: "bronze",
       earned: r.bestMonths >= 3,
@@ -406,7 +406,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     });
     trophies.push({
       id: "pledge_streak_weeks_3",
-      title: "Pledge After Pledge",
+      title: "Three weeks of reservations",
       description: "Take at least one reservation in three consecutive weeks.",
       tier: "silver",
       earned: r.bestWeeks >= 3,
@@ -416,7 +416,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     });
     trophies.push({
       id: "pledge_streak_weeks_6",
-      title: "The Long Line",
+      title: "Six weeks of reservations",
       description: "Six consecutive weeks with a reservation.",
       tier: "gold",
       earned: r.bestWeeks >= 6,
@@ -426,7 +426,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     });
     trophies.push({
       id: "busy_pledge_week_3",
-      title: "Market Day",
+      title: "Three reservations in a week",
       description: "Three reservations inside a single week.",
       tier: "silver",
       earned: (r.bestWeek?.count ?? 0) >= 3,
@@ -441,7 +441,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     const captiveBest = [...i.liberation.hostages].sort((a, b) => b.pctReturned - a.pctReturned)[0];
     trophies.push({
       id: "first_liberation",
-      title: "Chains Broken",
+      title: "First capital returned",
       description: "Return 100% of a sponsor's capital on one farm.",
       tier: "gold",
       earned: freed.length > 0,
@@ -456,7 +456,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     });
     trophies.push({
       id: "all_free",
-      title: "No Hostages",
+      title: "All capital returned",
       description: "Every sponsor position fully repaid.",
       tier: "legendary",
       earned: i.liberation.hostages.length > 0 && i.liberation.captiveHostages.length === 0,

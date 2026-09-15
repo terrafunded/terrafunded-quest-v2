@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function waitForRealm(page: Page) {
-  await expect(page.getByRole("status", { name: "Loading realm data" })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByRole("status", { name: "Loading farm and lot data" })).toHaveCount(0, { timeout: 30_000 });
 }
 
 const MOCK_READ = {
@@ -37,7 +37,7 @@ test.describe("Council", () => {
     await page.goto("/council");
     await waitForRealm(page);
     await expect(page.getByTestId("council-page")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: /Council|Consejo/ })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /Recommendations|Recomendaciones/ })).toBeVisible();
     await expect(page.getByTestId("weekly-read")).toBeVisible();
     await expect(page.getByTestId("weekly-read-unavailable")).toBeVisible();
     await expect(page.getByTestId("weekly-read-body")).toHaveCount(0);

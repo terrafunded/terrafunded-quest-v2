@@ -108,7 +108,7 @@ describe("reconcileParcels: the polygon count must equal Quest's lot count and e
       expect(h.explanation).toContain("Olney");
       expect(h.fix).toMatch(/^Properties → Olney → /);
       expect(h.using).toMatch(/^Quest /);
-      expect(h.values).toEqual({ left: { label: lang === "es" ? "Mapa" : "Map", value: lang === "es" ? "2 parcelas" : "2 parcels" }, right: { label: lang === "es" ? "Libro" : "Ledger", value: lang === "es" ? "1 lotes" : "1 lots" } });
+      expect(h.values).toEqual({ left: { label: lang === "es" ? "Mapa" : "Map", value: lang === "es" ? "2 parcelas" : "2 parcels" }, right: { label: "Payments", value: lang === "es" ? "1 lotes" : "1 lots" } });
       for (const text of [h.title, h.explanation, h.check, h.using, h.fix]) expect(text).not.toMatch(/\b[a-z]+_[a-z_]+\b/);
     }
   });

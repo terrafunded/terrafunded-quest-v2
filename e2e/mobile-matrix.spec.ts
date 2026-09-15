@@ -9,7 +9,7 @@ import { APP_ROUTES } from "./matrix";
  *  - inputs ≥ 16px (no iOS focus-zoom)
  */
 async function waitForRealm(page: Page) {
-  await expect(page.getByRole("status", { name: /Loading realm data|Cargando los datos del reino/ })).toHaveCount(0, { timeout: 45_000 });
+  await expect(page.getByRole("status", { name: /Loading farm and lot data|Cargando fincas y lotes/ })).toHaveCount(0, { timeout: 45_000 });
   await page.evaluate(() => sessionStorage.setItem("quest.intro.seen", "1"));
   await page.keyboard.press("Escape").catch(() => undefined);
 }
