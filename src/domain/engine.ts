@@ -158,6 +158,21 @@ export function capitalDeadlineMonth(deadlineIndex: number, cycleMonths: number)
  * Buys each farm the moment the recycled pool (plus remaining mix capital) covers it —
  * the inverse of the War Plan's just-in-time schedule. Uses the same `fundSchedule`.
  */
+export interface GreedyBuyDemand {
+  /** Closings per month the model sells. */
+  salesPace: number;
+  /** Lots already on hand at month 0. */
+  startInventory: number;
+}
+
+/**
+ * Buys each farm the moment the recycled pool (plus remaining mix capital) covers it —
+ * the inverse of the War Plan's just-in-time schedule. Uses the same `fundSchedule`.
+ *
+ * When `demand` is set, a buy is skipped unless the lots already secured (start inventory +
+ * scheduled farms) still fall short of what the remaining horizon can sell. That stops the
+ * ASAP policy from piling inventory while today's lots are still draining.
+ */
 export function greedyBuySchedule(
   farmCost: number,
   lotsPerFarm: number,
@@ -167,12 +182,24 @@ export function greedyBuySchedule(
   deadlineIndex: number,
   lastBuyMonth: number,
   maxFarms = ENGINE_MAX_FARMS,
+  demand?: GreedyBuyDemand,
 ): number[] {
   const schedule: number[] = [];
   if (!(farmCost > 0) || lotsPerFarm <= 0 || lastBuyMonth < 1) return schedule;
   const cycle = cycleMonths !== null && cycleMonths > 0 ? Math.max(1, Math.round(cycleMonths)) : null;
   let m = 1;
   while (m <= lastBuyMonth && schedule.length < maxFarms) {
+    if (demand && demand.salesPace > 0) {
+      const lotsSecured = demand.startInventory + schedule.length * lotsPerFarm;
+      // Months of runway at the modelled pace. Buy only when a stockout is inside the land lag
+      // (otherwise inventory climbs forever as ASAP buys land faster than sales clear lots).
+      const runwayMonths = lotsSecured / demand.salesPace;
+      const leadTime = Math.max(1, landLag + 1);
+      if (runwayMonths > leadTime) {
+        m += 1;
+        continue;
+      }
+    }
     const trial = fundSchedule([...schedule, m], farmCost, lotsPerFarm, landLag, mix, cycle, deadlineIndex);
     const last = trial[trial.length - 1];
     if (last && last.unfunded <= 1e-6) {
@@ -192,8 +219,23 @@ export function deriveEngineDefaults(ctx: WarPlanContext): EngineDefaults {
   const meanAcres = mean(acres);
   const withBasis = ctx.farms.filter((f) => f.capitalBasisSource !== "none" && f.totalAcres !== null && f.totalAcres > 0 && f.capitalDeployed > 0);
   const meanCostPerAcre = mean(withBasis.map((f) => f.capitalDeployed / (f.totalAcres as number)));
-  const lotsPerFarm = WARPLAN_DEFAULT_LOTS_PER_FARM;
-  const farmCost = Math.round(war.real.defaultLandCostPerLot * lotsPerFarm);
+  // Prefer the measured average lots/farm when the realm has it; otherwise the War Plan default.
+  const lotsPerFarm =
+    war.real.lotsPerFarm !== null && war.real.lotsPerFarm > 0
+      ? round2(war.real.lotsPerFarm)
+      : WARPLAN_DEFAULT_LOTS_PER_FARM;
+  // Authoritative farm cost: acres × $/acre when both means exist; else landCostPerLot × lots.
+  // acresPerFarm / costPerAcre are seeded from the same product so the helper never disagrees.
+  const acresPerFarm = meanAcres === null ? null : round2(meanAcres);
+  const costPerAcre = meanCostPerAcre === null ? null : Math.round(meanCostPerAcre);
+  const farmCostFromAcres =
+    acresPerFarm !== null && acresPerFarm > 0 && costPerAcre !== null && costPerAcre > 0
+      ? Math.round(acresPerFarm * costPerAcre)
+      : null;
+  const farmCost =
+    farmCostFromAcres !== null
+      ? farmCostFromAcres
+      : Math.round(war.real.defaultLandCostPerLot * lotsPerFarm);
   const cycleMonths = benchmark.cycleMonths ?? 9;
   const salesPace = Math.max(0.01, war.real.closingsPerMonth);
   const conversionPct = war.real.conversionWithCancellationsPct ?? war.real.conversionPct ?? 75;
@@ -206,8 +248,8 @@ export function deriveEngineDefaults(ctx: WarPlanContext): EngineDefaults {
       conversionPct: round2(conversionPct),
       lotsPerFarm,
       farmCost,
-      acresPerFarm: meanAcres === null ? null : round2(meanAcres),
-      costPerAcre: meanCostPerAcre === null ? null : Math.round(meanCostPerAcre),
+      acresPerFarm,
+      costPerAcre,
       salesPace: round2(salesPace),
       farmToFirstCloseMonths: first.months ?? 3,
       investorMix: prefillInvestorMix(ctx.investors),
@@ -249,6 +291,23 @@ export function withBenchmarkFarm(defaults: EngineDefaults, benchmarkFarmName: s
 // Result shapes
 // ---------------------------------------------------------------------------------------------
 
+/** Amounts below this are treated as $0 for verdict / bottleneck agreement (and for usdCompact $0K). */
+export const ENGINE_FRESH_CAPITAL_EPSILON = 500;
+
+export type EngineBottleneckCode =
+  | { code: "none" }
+  | { code: "land_before_return"; dryMonth: number; returnMonth: number }
+  | { code: "capital_no_turn"; cycleMonths: number }
+  | { code: "land_inventory"; inventoryMonths: number; cycleMonths: number }
+  | { code: "sales_pace"; dryMonth: number }
+  | { code: "capital_short"; deadlineMonth: number }
+  | { code: "sales_pace_no_fresh"; salesPace: number };
+
+export type EngineCapitalDeadlineCode =
+  | { code: "not_needed" }
+  | { code: "no_turn"; cycleMonths: number; deadline: string }
+  | { code: "last_buy"; buyMonth: number; cycleMonths: number; deadlineMonth: number };
+
 export type EngineBottleneck = "land" | "sales_pace" | "capital" | "none";
 export type EngineBand = "met" | "close" | "short" | "far";
 
@@ -277,12 +336,31 @@ export interface EngineMonthPoint {
   shortfall: boolean;
 }
 
+/** One deployment of a capital line — buy → return — on the Turns chart. */
+export interface EngineTurnBlock {
+  farmName: string;
+  /** True when this block is an existing farm already in the ground. */
+  isExisting: boolean;
+  purchaseMonth: number;
+  purchaseIso: string | null;
+  returnMonth: number | null;
+  returnIso: string | null;
+  cost: number;
+  recycled: number;
+  fresh: number;
+  lots: number;
+  kind: "recycled" | "fresh";
+}
+
 export interface EngineTurnLane {
-  /** 0 = inventory on hand; 1+ = planned farm index. */
+  /** 0 = inventory on hand; 1+ = capital-lineage index. */
   id: number;
   label: string;
   /** Existing farm (inventory) vs projected purchase. */
   kind: "inventory" | "recycled" | "fresh";
+  /** Successive turns of the same dollar along the timeline. */
+  blocks: EngineTurnBlock[];
+  /** First block summary (kept so single-block callers stay simple). */
   purchaseMonth: number | null;
   purchaseIso: string | null;
   returnMonth: number | null;
@@ -326,12 +404,18 @@ export interface EngineFigures {
   capitalDeadlineIso: string | null;
   capitalDeadlineMonthIndex: number;
   capitalDeadlineReason: string;
+  /** Structured reason so the page can i18n the capital-deadline card. */
+  capitalDeadlineCode: EngineCapitalDeadlineCode;
   totalAdSpend: number;
   adSpendShareOfProfit: number | null;
   totalInterest: number;
+  /** totalInterest / netProfitAtDeadline × 100, or null when profit ≤ 0. */
+  interestShareOfProfit: number | null;
   farmsBought: number;
   farmsFromRecycled: number;
   farmsFromFresh: number;
+  /** Farms the verdict talks about — schedule delta only when fresh capital > 0. */
+  farmsNeeded: number;
 }
 
 export interface EngineResult {
@@ -348,6 +432,8 @@ export interface EngineResult {
   figures: EngineFigures;
   bottleneck: EngineBottleneck;
   bottleneckDetail: string;
+  /** Structured bottleneck so the page can i18n the explanation. */
+  bottleneckCode: EngineBottleneckCode;
   band: EngineBand;
   verdict: string;
   series: EngineMonthPoint[];
@@ -378,18 +464,6 @@ function weightedAnnualRate(mix: InvestorMixEntry[]): number {
   return sum(funded.map((e) => e.capital * e.ratePct)) / total;
 }
 
-function peakOutstandingOf(farms: OracleFarm[], deadlineIndex: number): number {
-  let peak = 0;
-  for (let m = 1; m <= Math.max(1, deadlineIndex); m++) {
-    const out = sum(
-      farms
-        .filter((f) => f.purchaseMonth <= m && (f.turnCompletesMonth === null || f.turnCompletesMonth > m))
-        .map((f) => f.cost),
-    );
-    peak = Math.max(peak, out);
-  }
-  return round2(peak);
-}
 
 function bandFor(shortfall: number, goal: number): EngineBand {
   if (shortfall <= 0) return "met";
@@ -424,6 +498,129 @@ interface SimBundle {
   profitAfterAds: number;
 }
 
+
+export interface EngineExistingFarm {
+  name: string;
+  capitalOutstanding: number;
+  remainingLots: number;
+}
+
+/**
+ * Collapse scheduled purchases into capital-lineage lanes: each lane is one dollar
+ * working successive farms. Existing farms with capital still out seed the first block;
+ * later recycled buys stack on the same lane. Invented farms are "Projected farm N".
+ */
+export function buildTurnLanes(
+  planned: OracleFarm[],
+  existing: EngineExistingFarm[],
+  isoFor: (month: number | null) => string | null,
+  inventoryLots: number,
+  salesPace: number,
+  effectiveCycle: number,
+): EngineTurnLane[] {
+  const inventoryLane: EngineTurnLane = {
+    id: 0,
+    label: "Inventory on hand",
+    kind: "inventory",
+    blocks: [],
+    purchaseMonth: null,
+    purchaseIso: null,
+    returnMonth: null,
+    returnIso: null,
+    cost: 0,
+    recycled: 0,
+    fresh: 0,
+    lots: inventoryLots,
+  };
+
+  type Slot = {
+    freeMonth: number;
+    blocks: EngineTurnBlock[];
+    kind: "recycled" | "fresh";
+  };
+  const slots: Slot[] = [];
+  const seeded = [...existing]
+    .filter((f) => f.capitalOutstanding > 0 || f.remainingLots > 0)
+    .sort((a, b) => b.capitalOutstanding - a.capitalOutstanding);
+
+  for (const farm of seeded) {
+    const returnMonth =
+      salesPace > 0 && farm.remainingLots > 0
+        ? Math.max(1, Math.ceil(farm.remainingLots / salesPace))
+        : Math.max(1, Math.round(effectiveCycle));
+    slots.push({
+      freeMonth: returnMonth,
+      kind: "recycled",
+      blocks: [
+        {
+          farmName: farm.name,
+          isExisting: true,
+          purchaseMonth: 0,
+          purchaseIso: null,
+          returnMonth,
+          returnIso: isoFor(returnMonth),
+          cost: round2(farm.capitalOutstanding),
+          recycled: 0,
+          fresh: 0,
+          lots: farm.remainingLots,
+          kind: "recycled",
+        },
+      ],
+    });
+  }
+
+  let projected = 0;
+  const ordered = [...planned].sort((a, b) => a.purchaseMonth - b.purchaseMonth || a.index - b.index);
+  for (const f of ordered) {
+    const kind: "recycled" | "fresh" = f.recycled >= f.cost - 1e-6 || f.recycled > 0 ? "recycled" : "fresh";
+    let slot = slots.find((s) => s.freeMonth <= f.purchaseMonth);
+    if (!slot) {
+      slot = { freeMonth: 0, blocks: [], kind };
+      slots.push(slot);
+    }
+    projected += 1;
+    const name = `Projected farm ${projected}`;
+    const returnMonth = f.turnCompletesMonth;
+    slot.blocks.push({
+      farmName: name,
+      isExisting: false,
+      purchaseMonth: f.purchaseMonth,
+      purchaseIso: isoFor(f.purchaseMonth),
+      returnMonth,
+      returnIso: isoFor(returnMonth),
+      cost: round2(f.cost),
+      recycled: round2(f.recycled),
+      fresh: round2(Math.max(0, f.cost - f.recycled - f.unfunded)),
+      lots: f.lots,
+      kind,
+    });
+    slot.freeMonth = returnMonth ?? f.purchaseMonth + Math.max(1, Math.round(effectiveCycle));
+    if (kind === "fresh") slot.kind = "fresh";
+  }
+
+  const lanes: EngineTurnLane[] = [inventoryLane];
+  slots.forEach((slot, i) => {
+    const first = slot.blocks[0];
+    if (!first) return;
+    const label = first.isExisting ? first.farmName : first.farmName;
+    lanes.push({
+      id: i + 1,
+      label,
+      kind: slot.kind,
+      blocks: slot.blocks,
+      purchaseMonth: first.purchaseMonth,
+      purchaseIso: first.purchaseIso,
+      returnMonth: slot.blocks[slot.blocks.length - 1]?.returnMonth ?? first.returnMonth,
+      returnIso: slot.blocks[slot.blocks.length - 1]?.returnIso ?? first.returnIso,
+      cost: round2(sum(slot.blocks.map((b) => b.cost))),
+      recycled: round2(sum(slot.blocks.map((b) => b.recycled))),
+      fresh: round2(sum(slot.blocks.map((b) => b.fresh))),
+      lots: round2(sum(slot.blocks.map((b) => b.lots))),
+    });
+  });
+  return lanes;
+}
+
 function simulateOnce(
   inputs: EngineInputs,
   goal: GoalStatus,
@@ -436,13 +633,24 @@ function simulateOnce(
   mix: InvestorMixEntry[],
   freshExtra: number,
   buyThroughMonth: number,
+  existingFarms: EngineExistingFarm[] = [],
 ): SimBundle {
   const farmCost = resolveFarmCost(inputs);
   const landLag = Math.max(0, Math.round(inputs.farmToFirstCloseMonths));
   const effectiveCycle = coupledCycleMonths(inputs.cycleMonths, inputs.salesPace, referencePace);
   const adPerClosing = costPerClosing(inputs.costPerReservation, inputs.conversionPct);
   const fundedMix = mixWithExtra(mix, freshExtra);
-  const schedule = greedyBuySchedule(farmCost, inputs.lotsPerFarm, landLag, fundedMix, effectiveCycle, grid.deadlineIndex, buyThroughMonth);
+  const schedule = greedyBuySchedule(
+    farmCost,
+    inputs.lotsPerFarm,
+    landLag,
+    fundedMix,
+    effectiveCycle,
+    grid.deadlineIndex,
+    buyThroughMonth,
+    ENGINE_MAX_FARMS,
+    { salesPace: inputs.salesPace, startInventory: startInv },
+  );
   const params: OracleParams = {
     ...oracleDefaults,
     lotsPerMonth: Math.max(0, inputs.salesPace),
@@ -550,34 +758,7 @@ function simulateOnce(
     return mo ? toIsoDate(mo.end) : null;
   };
 
-  const turns: EngineTurnLane[] = [
-    {
-      id: 0,
-      label: "Inventory on hand",
-      kind: "inventory",
-      purchaseMonth: null,
-      purchaseIso: null,
-      returnMonth: null,
-      returnIso: null,
-      cost: 0,
-      recycled: 0,
-      fresh: 0,
-      lots: inventoryLots,
-    },
-    ...planned.map((f, i) => ({
-      id: i + 1,
-      label: `Farm ${i + 1}`,
-      kind: (f.recycled >= f.cost - 1e-6 ? "recycled" : f.recycled > 0 ? "recycled" : "fresh") as EngineTurnLane["kind"],
-      purchaseMonth: f.purchaseMonth,
-      purchaseIso: isoFor(f.purchaseMonth),
-      returnMonth: f.turnCompletesMonth,
-      returnIso: isoFor(f.turnCompletesMonth),
-      cost: round2(f.cost),
-      recycled: round2(f.recycled),
-      fresh: round2(Math.max(0, f.cost - f.recycled - f.unfunded)),
-      lots: f.lots,
-    })),
-  ];
+  const turns = buildTurnLanes(planned, existingFarms, isoFor, inventoryLots, inputs.salesPace, effectiveCycle);
 
   let lotsClosed = 0;
   for (const p of result.series) {
@@ -591,7 +772,7 @@ function simulateOnce(
     series,
     adSpendTotal: round2(deadlinePoint?.cumulativeAdSpend ?? cumAds),
     interestTotal: round2(deadlinePoint?.cumulativeInterest ?? cumInterest),
-    peakOutstanding: peakOutstandingOf(planned, k),
+    peakOutstanding: round2(series.reduce((peak, s) => Math.max(peak, s.capitalOwed), 0)),
     lotsClosed: round2(lotsClosed),
     inventoryDryMonths,
     turns,
@@ -654,9 +835,9 @@ export function engineVerdict(result: Pick<EngineResult, "figures" | "inputs" | 
       deadline: result.deadline,
       goal: result.goal,
       shortfall: f.shortfallDollars,
-      farmsNeeded: Math.max(f.farmsBought > 0 ? f.shortfallFarms : f.shortfallFarms, f.shortfallFarms),
+      farmsNeeded: f.farmsNeeded,
       freshCapital: f.freshCapital,
-      capitalDeadlineIso: f.capitalDeadlineIso,
+      capitalDeadlineIso: f.freshCapital > 0 ? f.capitalDeadlineIso : null,
       hits: f.shortfallDollars <= 0,
     },
     lang,
@@ -670,40 +851,72 @@ function bottleneckOf(
   capitalDeadline: number,
   shortfall: number,
   inventoryMonths: number | null,
-): { bottleneck: EngineBottleneck; detail: string } {
+  freshCapital: number,
+  salesPace: number,
+): { bottleneck: EngineBottleneck; detail: string; code: EngineBottleneckCode } {
   if (shortfall <= 0) {
-    return { bottleneck: "none", detail: "Deployed capital and inventory cover the goal at this pace — no constraint binds." };
+    return {
+      bottleneck: "none",
+      detail: "Deployed capital and inventory cover the goal at this pace — no constraint binds.",
+      code: { code: "none" },
+    };
   }
   const firstDry = series.find((s) => s.inventoryDry)?.monthIndex ?? null;
-  const firstReturn = schedule.map((f) => f.turnCompletesMonth).filter((m): m is number => m !== null).sort((a, b) => a - b)[0] ?? null;
+  const firstReturn =
+    schedule
+      .map((f) => f.turnCompletesMonth)
+      .filter((m): m is number => m !== null)
+      .sort((a, b) => a - b)[0] ?? null;
 
   if (firstDry !== null && firstReturn !== null && firstDry < firstReturn) {
     return {
       bottleneck: "land",
       detail: `Inventory runs dry in month ${firstDry}, before capital returns in month ${firstReturn}. Fly to Texas — buy land, do not wait on a raise.`,
-    };
-  }
-  if (capitalDeadline < 1) {
-    return {
-      bottleneck: "capital",
-      detail: `A ${cycleMonths.toFixed(1)}-month cycle cannot complete a turn before the deadline. Raise earlier or shorten the cycle.`,
+      code: { code: "land_before_return", dryMonth: firstDry, returnMonth: firstReturn },
     };
   }
   if (inventoryMonths !== null && inventoryMonths < cycleMonths && schedule.length === 0) {
     return {
       bottleneck: "land",
       detail: `Inventory lasts ${inventoryMonths.toFixed(1)} months; capital needs ${cycleMonths.toFixed(1)} months to return. The land gap binds.`,
+      code: { code: "land_inventory", inventoryMonths, cycleMonths },
+    };
+  }
+
+  // Fresh capital ~0 ⇒ capital cannot be the bottleneck (verdict and card must agree).
+  if (!(freshCapital > 0)) {
+    if (firstDry !== null) {
+      return {
+        bottleneck: "sales_pace",
+        detail: `Inventory hits zero in month ${firstDry} while capital is still out. A faster pace returns capital sooner (cycle couples to pace); a slower pace wastes the raise.`,
+        code: { code: "sales_pace", dryMonth: firstDry },
+      };
+    }
+    return {
+      bottleneck: "sales_pace",
+      detail: `At ${salesPace.toFixed(1)} lots/month the deployed capital cannot reach the goal before the deadline even with a raise that still completes a turn. Speed (or land that converts sooner) moves the needle more than capital.`,
+      code: { code: "sales_pace_no_fresh", salesPace },
+    };
+  }
+
+  if (capitalDeadline < 1) {
+    return {
+      bottleneck: "capital",
+      detail: `A ${cycleMonths.toFixed(1)}-month cycle cannot complete a turn before the deadline. Raise earlier or shorten the cycle.`,
+      code: { code: "capital_no_turn", cycleMonths },
     };
   }
   if (firstDry !== null) {
     return {
       bottleneck: "sales_pace",
       detail: `Inventory hits zero in month ${firstDry} while capital is still out. A faster pace returns capital sooner (cycle couples to pace); a slower pace wastes the raise.`,
+      code: { code: "sales_pace", dryMonth: firstDry },
     };
   }
   return {
     bottleneck: "capital",
     detail: `Profit falls short with the capital already deployed. Fresh capital must land by month ${capitalDeadline} to complete a turn.`,
+    code: { code: "capital_short", deadlineMonth: capitalDeadline },
   };
 }
 
@@ -732,9 +945,16 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
 
   const inventoryNetProfit = round2(inv.total * (goal.avgNetProfitPerClosedLot ?? netPerLot));
   const inventoryMonths = inputs.salesPace > 0 ? round2(inv.total / inputs.salesPace) : null;
+  const existingFarms: EngineExistingFarm[] = ctx.farms
+    .filter((f) => f.capitalOutstanding > 0 || (f.totalLots - f.soldLots) > 0)
+    .map((f) => ({
+      name: f.name,
+      capitalOutstanding: Math.max(0, f.capitalOutstanding),
+      remainingLots: Math.max(0, f.totalLots - f.soldLots),
+    }));
 
   // Pass 1: only capital already in the mix (deployed today) — no fresh top-up.
-  const base = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, 0, Math.max(capDeadline, k));
+  const base = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, 0, Math.max(capDeadline, k), existingFarms);
   const noFreshProfit = base.profitAfterAds;
   const shortfall0 = round2(Math.max(0, goal.goal - noFreshProfit));
 
@@ -749,7 +969,7 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
     let bestExtra = 0;
     for (let i = 0; i < 28; i++) {
       const mid = (lo + hi) / 2;
-      const trial = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, mid, capDeadline);
+      const trial = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, mid, capDeadline, existingFarms);
       if (trial.profitAfterAds >= goal.goal - 0.5) {
         best = trial;
         bestExtra = mid;
@@ -760,7 +980,7 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
     }
     // Snap up to the next dollar that still hits, if any.
     const snapped = Math.ceil(bestExtra);
-    const final = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, snapped, capDeadline);
+    const final = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, snapped, capDeadline, existingFarms);
     if (final.profitAfterAds >= goal.goal - 0.5 || final.profitAfterAds >= best.profitAfterAds) {
       withFresh = final;
       freshCapital = snapped;
@@ -775,17 +995,38 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
   const hits = shortfall <= 0.005;
   const farmsFromRecycled = withFresh.schedule.filter((f) => f.recycled >= f.cost - 1e-6).length;
   const farmsFromFresh = withFresh.schedule.filter((f) => f.cost - f.recycled > 1e-6).length;
-  // Farms beyond what the no-fresh run bought.
-  const farmsNeeded = Math.max(0, withFresh.schedule.length - base.schedule.length);
-  const capitalDeadlineIso = (() => {
+  // Snap tiny "fresh" amounts that would render as $0K so verdict and bottleneck never disagree.
+  const reportedFresh =
+    freshCapital < ENGINE_FRESH_CAPITAL_EPSILON ? 0 : Math.round(freshCapital);
+  // Farms the verdict may cite — only the schedule delta, and only when fresh capital is real.
+  const farmsNeeded =
+    reportedFresh > 0 ? Math.max(0, withFresh.schedule.length - base.schedule.length) : 0;
+
+  const capitalDeadlineIsoRaw = (() => {
     if (capDeadline < 1) return null;
     const mo = grid.months[capDeadline - 1];
     return mo ? toIsoDate(mo.end) : null;
   })();
+  const capitalDeadlineCode: EngineCapitalDeadlineCode =
+    reportedFresh <= 0
+      ? { code: "not_needed" }
+      : capDeadline < 1
+        ? { code: "no_turn", cycleMonths: effectiveCycle, deadline: goal.deadline }
+        : {
+            code: "last_buy",
+            buyMonth: capDeadline,
+            cycleMonths: Math.round(effectiveCycle),
+            deadlineMonth: k,
+          };
+  // Month index always tracks the physics of the cycle (charts / tests). Iso + copy clear when no raise is needed.
+  const capitalDeadlineIso = reportedFresh > 0 ? capitalDeadlineIsoRaw : null;
+  const capitalDeadlineMonthIndex = capDeadline;
   const capitalDeadlineReason =
-    capDeadline < 1
-      ? `A ${effectiveCycle.toFixed(1)}-month turn cannot complete before ${goal.deadline}.`
-      : `Last month a farm can be bought and still return capital by the deadline: purchase month ${capDeadline} + ${Math.round(effectiveCycle)}-month cycle ≤ deadline month ${k}.`;
+    capitalDeadlineCode.code === "not_needed"
+      ? "No fresh capital is required — recycled capital funds the remaining farms."
+      : capitalDeadlineCode.code === "no_turn"
+        ? `A ${effectiveCycle.toFixed(1)}-month turn cannot complete before ${goal.deadline}.`
+        : `Last month a farm can be bought and still return capital by the deadline: purchase month ${capDeadline} + ${Math.round(effectiveCycle)}-month cycle ≤ deadline month ${k}.`;
 
   const shortfallLots =
     goal.avgNetProfitPerClosedLot !== null && goal.avgNetProfitPerClosedLot > 0
@@ -795,9 +1036,14 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
     inputs.lotsPerFarm > 0 && shortfallLots !== null ? Math.ceil(shortfallLots / inputs.lotsPerFarm) : farmsNeeded;
 
   const turnsCount =
-    withFresh.peakOutstanding > 0 ? round2(sum(withFresh.schedule.map((f) => f.cost)) / withFresh.peakOutstanding) : withFresh.schedule.length > 0 ? withFresh.schedule.length : 0;
+    withFresh.peakOutstanding > 0
+      ? round2(sum(withFresh.schedule.map((f) => f.cost)) / withFresh.peakOutstanding)
+      : withFresh.schedule.length > 0
+        ? withFresh.schedule.length
+        : 0;
 
   const adShare = reachable > 0 ? round2((withFresh.adSpendTotal / reachable) * 100) : null;
+  const interestShare = reachable > 0 ? round2((withFresh.interestTotal / reachable) * 100) : null;
   const band = bandFor(shortfall, goal.goal);
   const verdict = buildVerdict({
     salesPace: inputs.salesPace,
@@ -805,23 +1051,22 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
     deadline: goal.deadline,
     goal: goal.goal,
     shortfall,
-    farmsNeeded: Math.max(farmsNeeded, shortfallFarms),
-    freshCapital,
+    farmsNeeded,
+    freshCapital: reportedFresh,
     capitalDeadlineIso,
     hits,
   });
 
-  const { bottleneck, detail } = (() => {
-    const base = bottleneckOf(withFresh.series, withFresh.schedule, effectiveCycle, capDeadline, shortfall, inventoryMonths);
-    // If we are still short and fresh capital cannot close the gap, do not blame a raise.
-    if (shortfall > 0.005 && freshCapital <= 0 && base.bottleneck === "capital") {
-      return {
-        bottleneck: "sales_pace" as const,
-        detail: `At ${inputs.salesPace.toFixed(1)} lots/month the deployed capital cannot reach the goal before the deadline even with a raise that still completes a turn. Speed (or land that converts sooner) moves the needle more than capital.`,
-      };
-    }
-    return base;
-  })();
+  const { bottleneck, detail, code: bottleneckCode } = bottleneckOf(
+    withFresh.series,
+    withFresh.schedule,
+    effectiveCycle,
+    capDeadline,
+    shortfall,
+    inventoryMonths,
+    reportedFresh,
+    inputs.salesPace,
+  );
 
   const figures: EngineFigures = {
     availableLots: inv.availableLots,
@@ -837,17 +1082,20 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
     shortfallDollars: shortfall,
     shortfallLots,
     shortfallFarms,
-    freshCapital: round2(freshCapital),
+    freshCapital: round2(reportedFresh),
     peakOutstanding: withFresh.peakOutstanding,
     capitalDeadlineIso,
-    capitalDeadlineMonthIndex: capDeadline,
+    capitalDeadlineMonthIndex,
     capitalDeadlineReason,
+    capitalDeadlineCode,
     totalAdSpend: withFresh.adSpendTotal,
     adSpendShareOfProfit: adShare,
     totalInterest: withFresh.interestTotal,
+    interestShareOfProfit: interestShare,
     farmsBought: withFresh.schedule.length,
     farmsFromRecycled,
     farmsFromFresh,
+    farmsNeeded,
   };
 
   // Sensitivity grid (3×3) — each cell is a full run at that pace × cycle.
@@ -899,6 +1147,7 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
     figures,
     bottleneck,
     bottleneckDetail: detail,
+    bottleneckCode,
     band,
     verdict,
     series: withFresh.series,
@@ -925,9 +1174,10 @@ function runEngineLight(
   referencePace: number,
   inv: ReturnType<typeof engineStartInventory>,
 ): { profit: number; fresh: number; farmsNeeded: number; capitalDeadlineIso: string | null } {
+  const existingFarms: EngineExistingFarm[] = [];
   const effectiveCycle = coupledCycleMonths(inputs.cycleMonths, inputs.salesPace, referencePace);
   const capDeadline = capitalDeadlineMonth(grid.deadlineIndex, effectiveCycle);
-  const base = simulateOnce(inputs, goal, ctx.asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, 0, Math.max(capDeadline, grid.deadlineIndex));
+  const base = simulateOnce(inputs, goal, ctx.asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, 0, Math.max(capDeadline, grid.deadlineIndex), existingFarms);
   const shortfall0 = Math.max(0, goal.goal - base.profitAfterAds);
   if (shortfall0 <= 0.005 || capDeadline < 1) {
     const mo = capDeadline >= 1 ? grid.months[capDeadline - 1] : null;
@@ -946,7 +1196,7 @@ function runEngineLight(
   let bestFarms = 0;
   for (let i = 0; i < 20; i++) {
     const mid = (lo + hi) / 2;
-    const trial = simulateOnce(inputs, goal, ctx.asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, mid, capDeadline);
+    const trial = simulateOnce(inputs, goal, ctx.asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, mid, capDeadline, existingFarms);
     if (trial.profitAfterAds >= goal.goal - 0.5) {
       bestExtra = mid;
       bestProfit = trial.profitAfterAds;
