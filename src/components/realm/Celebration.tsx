@@ -7,7 +7,6 @@ import type { RealmEvent } from "@/domain";
 import { Button } from "@/components/ui/button";
 import { TOPBAR_HEIGHT_PX } from "@/components/layout/chrome";
 import { date, money } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { useRealmStrings } from "@/i18n/realm";
 import { useTheme } from "@/theme/ThemeProvider";
 import { DATA_GOAL, DATA_PROFIT_INVENTORY } from "./chartTokens";
@@ -80,7 +79,7 @@ export function Celebration({ events, narrative: _narrative, onDone, replay = fa
         data-replay={replay || undefined}
       >
         <div
-          className={cn("pointer-events-auto w-full max-w-3xl rounded-xl border bg-card/95 px-4 py-3 shadow-lg")}
+          className="pointer-events-auto w-full max-w-3xl rounded-xl border bg-card/95 px-4 py-3 shadow-lg"
           style={{ borderColor: accent, boxShadow: `0 8px 28px -16px ${accent}` }}
           onMouseEnter={() => setHeld(true)}
           onMouseLeave={() => setHeld(false)}
