@@ -6,8 +6,8 @@ Capital-first inversion of War Plan / Oracle. Same forecast (`runOracle` + `fund
 
 | | |
 |---|---|
-| **Commit** | `1525b26` on `v2` (follow-up verdict/i18n polish may supersede — see `git log origin/v2`) |
-| **Production** | https://terrafunded-quest-v2.vercel.app — Vercel deployment `dpl_6hW5KhGu3126tYyNY4ArZn3LuaMw` (`terrafunded-quest-v2-nm1srisyy`), status Ready, `githubCommitSha` **1525b265eff08286571080c710c79c5387a35840**, ref `v2`. Aliases: quest.terrafunded.com, terrafunded-quest-v2.vercel.app |
+| **Commit** | **`6ca01ab`** on `v2` (feat `1525b26` + polish) |
+| **Production** | https://terrafunded-quest-v2.vercel.app — tracks `v2`. Live `githubCommitSha` **6ca01abcdf31d5b6e2246ac5e6fbe7512088845b** (confirmed via Vercel API after polish). Aliases: quest.terrafunded.com, terrafunded-quest-v2.vercel.app |
 | **Asset hash check** | Local `npm run build`: `index-C3QmKg17.js`, `Engine-CDDnr-Wc.js` (33401 bytes). Live index: `index-LWO51Uuq.js`, Engine chunk: `Engine-BX5XzPZk.js` (33401 bytes, identical size). Hashes differ because `QUEST_ALLOWED_TEST_EMAIL` is baked at Vercel build time (`envPrefix`); the Engine chunk content length matches. Live bundle contains `/engine` and "The Engine". HTTP 200 on `/` and `/engine`. |
 | **Unit tests** | 466 total (14 new Engine); build + lint clean |
 
@@ -16,7 +16,7 @@ Capital-first inversion of War Plan / Oracle. Same forecast (`runOracle` + `fund
 | # | Check | Result | Evidence |
 |---|---|---|---|
 | 1 | `/engine` loads | **PASS** | `data-testid=engine-page` after questbot login |
-| 2 | Verdict with real figures | **PASS** | "selling at 4.7 lots/month, you reach $6.3M by Dec 2027 — $3.7M short…" |
+| 2 | Verdict with real figures | **PASS** | First deploy EN: "$6.3M by Dec 2027 — $3.7M short…". Polish `6ca01ab` ES: "llegas a $6.3M … faltan $3.7M. El capital fresco no cierra…" + bottleneck **Ritmo de ventas** |
 | 3 | All five charts render | **PASS** | turns, profit, inventory, capital, sensitivity testids present after scroll/lazy-load |
 | 4 | Sensitivity grid clickable | **PASS** | cell ×2 / −60d loaded pace 4.73 → 9.46 |
 | 5 | Exit horizon changes verdict | **PASS** | 2027 shortfall → 2029 "reach $10.1M … no fresh capital needed" |
@@ -31,9 +31,10 @@ Screenshots: `/opt/cursor/artifacts/screenshots/engine-*.png`, `throne.png`, `re
 
 ### Could not verify / caveats
 - Exact hashed filenames do **not** match local vs Vercel (env-baked `QUEST_ALLOWED_*`); deploy SHA was confirmed via Vercel API instead.
-- First live verdict could say "7 more farms and $0 of fresh capital" when a raise cannot close the gap before a full turn — copy and bottleneck labelling were corrected in a follow-up commit (pace/land, not a $0 raise).
+- First live verdict on `1525b26` could say "7 more farms and $0 of fresh capital" when a raise cannot close the gap — fixed on `6ca01ab` (honest copy + sales-pace bottleneck; verified live in Spanish).
 - computerUse agent unavailable (model quota); verification used Playwright headless instead.
 - Full `npm run e2e` / `verify:live` matrix not re-run in this ship (targeted Engine + regression smoke only).
+- Sensitivity cell hover verdicts remain English (domain cells built once); the page verdict follows `quest.lang`.
 
 ## Live
 
