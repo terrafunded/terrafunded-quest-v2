@@ -80,10 +80,12 @@ export interface WarPlanRealValues {
   defaultLandCostPerLot: number;
   /** "since Mar 2026" — the era every trend here (land-cost trend, cycle length) is measured from; null without an era. */
   eraSince: string | null;
-  /** Reservation → closing conversion over live and closed reservations only. */
+  /** Reservation → closing conversion over live and closed reservations only (blended; includes still-open). */
   conversionPct: number | null;
-  /** Conversion counting cancelled reservations as failures — what the plan buys ads against. */
+  /** Conversion counting cancelled reservations as failures — blended; still includes still-open. */
   conversionWithCancellationsPct: number | null;
+  /** Resolved conversion: closed ÷ (closed + cancelled). Open reservations excluded. Forecasts default here. */
+  conversionResolvedPct: number | null;
   cancellationRatePct: number | null;
   cancelledReservations: number;
   farmToFirstCloseMonths: number | null;
@@ -644,7 +646,7 @@ export function deriveWarPlanDefaults(ctx: WarPlanContext): WarPlanDefaults {
       lotsPerFarm,
       farmCost: Math.round(defaultLandCostPerLot * lotsPerFarm),
       adSpendPerClosing: WARPLAN_DEFAULT_AD_SPEND_PER_CLOSING,
-      conversionPct: conversion.pctWithCancellations ?? conversion.pct ?? 100,
+      conversionPct: conversion.resolvedPct ?? conversion.pctWithCancellations ?? conversion.pct ?? 100,
       farmToFirstCloseMonths: first.months ?? 3,
       noteSaleLagMonths: ctx.oracleDefaults.avgMonthsToSellNote,
       investorMix: prefillInvestorMix(ctx.investors),
@@ -663,6 +665,7 @@ export function deriveWarPlanDefaults(ctx: WarPlanContext): WarPlanDefaults {
       eraSince: era?.since ?? null,
       conversionPct: conversion.pct,
       conversionWithCancellationsPct: conversion.pctWithCancellations,
+      conversionResolvedPct: conversion.resolvedPct,
       cancellationRatePct: conversion.cancellationRatePct,
       cancelledReservations: ctx.pipeline.cancelledReservations,
       farmToFirstCloseMonths: first.months,

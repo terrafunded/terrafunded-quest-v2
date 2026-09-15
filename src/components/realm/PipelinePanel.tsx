@@ -15,6 +15,7 @@ export function PipelinePanel({ pipeline, className }: { pipeline: Pipeline; cla
   const t = useRealmStrings().pipeline;
   const p = pipeline;
   const ahead = p.reservationsPerMonth >= p.closedLotsPerMonth;
+  const c = p.conversion;
   return (
     <section
       className={cn("relative overflow-hidden rounded-2xl border border-siege/30 bg-gradient-to-br from-siege/10 via-card to-card p-5 sm:p-6", className)}
@@ -63,25 +64,45 @@ export function PipelinePanel({ pipeline, className }: { pipeline: Pipeline; cla
             <div className="mt-1 font-heading text-2xl tabular text-stage-closed">{p.closedLotsPerMonth}</div>
             <div className="text-[11px] text-muted-foreground">{t.onlyPace}</div>
           </div>
-          <div className="rounded-md bg-background/40 p-3">
+          <div className="col-span-2 rounded-md bg-background/40 p-3" data-testid="pipeline-conversion-block">
             <div className="stat-label">{t.conversion}</div>
-            <div className="mt-1 font-heading text-2xl tabular" data-testid="pipeline-conversion">
-              {p.conversion.pct === null ? "—" : pct(p.conversion.pct)}
+            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              <div>
+                <div className="text-[11px] text-muted-foreground">{t.resolvedConversion}</div>
+                <div className="font-heading text-xl tabular text-stage-closed" data-testid="pipeline-conversion-resolved">
+                  {c.resolvedPct === null ? "—" : pct(c.resolvedPct)}
+                </div>
+                <div className="text-[11px] text-muted-foreground">{t.resolvedHint}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-muted-foreground">{t.stillOpen}</div>
+                <div className="font-heading text-xl tabular text-stage-reserved" data-testid="pipeline-conversion-open">
+                  {c.stillReserved}
+                </div>
+                <div className="text-[11px] text-muted-foreground">{t.stillOpenHint}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-muted-foreground">{t.blendedConversion}</div>
+                <div className="font-heading text-xl tabular" data-testid="pipeline-conversion">
+                  {c.pct === null ? "—" : pct(c.pct)}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  {t.blendedHint}
+                  {c.cancellationRatePct !== null && (
+                    <>
+                      {" · "}
+                      <span data-testid="pipeline-cancellation-rate" data-value={c.cancellationRatePct}>
+                        {t.cancelled(pct(c.cancellationRatePct))}
+                      </span>
+                      {t.inclCancellations(c.pctWithCancellations === null ? "—" : pct(c.pctWithCancellations))}
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="text-[11px] text-muted-foreground">
-              {t.conversionHint(p.conversion.closed, p.conversion.cohort, p.conversion.maturityDays)}
-              {p.conversion.cancellationRatePct !== null && (
-                <>
-                  {" · "}
-                  <span data-testid="pipeline-cancellation-rate" data-value={p.conversion.cancellationRatePct}>
-                    {t.cancelled(pct(p.conversion.cancellationRatePct))}
-                  </span>
-                  {t.inclCancellations(p.conversion.pctWithCancellations === null ? "—" : pct(p.conversion.pctWithCancellations))}
-                </>
-              )}
-            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">{t.conversionHint(c.closed, c.cohort, c.maturityDays)}</div>
           </div>
-          <div className="rounded-md bg-background/40 p-3">
+          <div className="col-span-2 rounded-md bg-background/40 p-3 sm:col-span-1">
             <div className="stat-label">{t.medianToClose}</div>
             <div className="mt-1 font-heading text-2xl tabular">{p.medianDaysToClose === null ? "—" : `${p.medianDaysToClose}d`}</div>
             <div className="text-[11px] text-muted-foreground">{t.medianHint(p.closedWithBothDates)}</div>

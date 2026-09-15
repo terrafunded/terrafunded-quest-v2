@@ -55,7 +55,7 @@ export default function Pipeline() {
 
       <ReverseFunnel goal={data.realm.goal} expected={data.realm.expected} />
 
-      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" aria-label="Pipeline figures">
+      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Pipeline figures">
         <Stat
           label="Profit trapped in reservations"
           value={money(p.netProfitTrapped)}
@@ -74,20 +74,36 @@ export default function Pipeline() {
           hint={`${p.trailingEraClipped ? `since ${monthLabel(p.trailingSince.slice(0, 7))} (${p.trailingDays} days)` : `trailing ${p.trailingWindowDays} days`} · ${p.newReservationsTrailing} new reservations still waiting, ${p.reservationsMadeTrailing} made in total`}
         />
         <Stat
-          label="Reservation → closing conversion"
+          label="Resolved conversion (forecasts)"
+          value={p.conversion.resolvedPct === null ? "—" : pct(p.conversion.resolvedPct)}
+          hint={`closed ÷ (closed + cancelled) = ${p.conversion.closed} ÷ ${p.conversion.resolvedDenominator || "—"} · used for Expected, Engine, War Plan${data.realm.expected.conversionSource === "resolved" ? " · feeding forecasts now" : ""}`}
+          valueClassName="text-stage-closed"
+          data-testid="pipeline-page-conversion-resolved"
+        />
+        <Stat
+          label="Still open"
+          value={p.conversion.stillReserved}
+          hint={`matured reservations still waiting — not failures yet · cohort cutoff ${date(p.conversion.cutoff)}`}
+          valueClassName="text-stage-reserved"
+          data-testid="pipeline-page-conversion-open"
+        />
+        <Stat
+          label="Blended conversion"
           value={
             <>
               {p.conversion.pct === null ? "—" : pct(p.conversion.pct)}
-              {p.conversion.pctWithCancellations !== null && p.conversion.pctWithCancellations !== p.conversion.pct && <span className="text-muted-foreground"> · {pct(p.conversion.pctWithCancellations)} incl. cancellations</span>}
+              {p.conversion.pctWithCancellations !== null && p.conversion.pctWithCancellations !== p.conversion.pct && (
+                <span className="text-muted-foreground"> · {pct(p.conversion.pctWithCancellations)} incl. cancellations</span>
+              )}
             </>
           }
-          hint={`${p.conversion.closed} of ${p.conversion.cohort} reservations made on or before ${date(p.conversion.cutoff)} have closed; ${p.conversion.stillReserved} still waiting; ${p.conversion.cancelled} cancelled`}
+          hint={`including unresolved reservations: ${p.conversion.closed} of ${p.conversion.cohort} closed; ${p.conversion.stillReserved} still waiting; ${p.conversion.cancelled} cancelled`}
           data-testid="pipeline-page-conversion"
         />
         <Stat
           label="Cancellation rate"
           value={p.conversion.cancellationRatePct === null ? "—" : pct(p.conversion.cancellationRatePct)}
-          hint={`${p.conversion.cancelled} matured reservations whose only file case was cancelled, out of ${p.conversion.cohortWithCancellations} · ${p.cancelledReservations} cancelled in all, counted as conversion failures in the War Plan`}
+          hint={`${p.conversion.cancelled} matured reservations whose only file case was cancelled, out of ${p.conversion.cohortWithCancellations} · ${p.cancelledReservations} cancelled in all`}
           valueClassName={p.conversion.cancellationRatePct ? "text-ember" : undefined}
           data-testid="pipeline-page-cancellation-rate"
         />

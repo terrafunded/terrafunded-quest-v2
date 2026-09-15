@@ -83,6 +83,7 @@ function baseInputs(realm: ReturnType<typeof syntheticRealm>, over: Partial<Engi
     salesPace: 5,
     farmToFirstCloseMonths: 0,
     investorMix: d.investorMix.map((e) => ({ ...e, capital: Math.max(e.capital, 2_000_000) })),
+    profitBasis: "era",
     ...over,
   };
 }

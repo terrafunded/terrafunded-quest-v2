@@ -99,7 +99,7 @@ function buildRows(f: ReverseFunnelShape, eraMonth: string | null, cost: number 
         case "reservations":
           name = `Reservations needed${suffix}`;
           value = resLabel(total);
-          explain = `${resLabel(total)}: those lots ÷ the measured ${conv} reservation → closing conversion${f.conversionSource === "with_cancellations" ? " (cancellations counted as failures)" : f.conversionSource === "assumed" ? " (assumed 100 %: no matured cohort yet)" : ""}.`;
+          explain = `${resLabel(total)}: those lots ÷ the measured ${conv} reservation → closing conversion${f.conversionSource === "resolved" ? " (resolved: open matured reservations excluded — feeds forecasts)" : f.conversionSource === "with_cancellations" ? " (cancellations counted as failures)" : f.conversionSource === "assumed" ? " (assumed 100 %: no matured cohort yet)" : ""}.`;
           break;
         case "perMonth":
           name = `Reservations per month${suffix}`;
@@ -259,7 +259,13 @@ export function ReverseFunnel({ goal, expected }: { goal: GoalStatus; expected: 
         <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">The reverse funnel · what {money(funnel.remaining)} demands</h2>
         <span className="text-xs text-muted-foreground">
           {number(funnel.monthsToDeadline)} months to {goal.deadline} · {pct(funnel.conversionPct, 1)} conversion
-          {funnel.conversionSource === "with_cancellations" ? ", cancellations included" : funnel.conversionSource === "assumed" ? ", assumed" : ""}
+          {funnel.conversionSource === "resolved"
+            ? ", resolved (feeds forecasts)"
+            : funnel.conversionSource === "with_cancellations"
+              ? ", cancellations included"
+              : funnel.conversionSource === "assumed"
+                ? ", assumed"
+                : ""}
         </span>
       </div>
       <p className="mt-1 text-[11px] text-muted-foreground">

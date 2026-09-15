@@ -83,7 +83,13 @@ export interface ReservationMade {
   netProfitAtStake: number;
 }
 
-export type ConversionSource = "with_cancellations" | "without_cancellations" | "assumed";
+/**
+ * Where Expected's conversionPct came from.
+ * - `resolved`: closed ÷ (closed + cancelled) — open matured reservations excluded (preferred for forecasts).
+ * - `with_cancellations` / `without_cancellations`: legacy blended figures (kept for fallthrough only).
+ * - `assumed`: no matured cohort yet; 100%.
+ */
+export type ConversionSource = "resolved" | "with_cancellations" | "without_cancellations" | "assumed";
 
 export interface Expected {
   asOf: string;
@@ -95,7 +101,10 @@ export interface Expected {
   trailingSince: string;
   /** True when the window was clipped at the era start — the per-month paces then read "since Mar 2026". */
   trailingEraClipped: boolean;
-  /** Conversion in percent: closed ÷ (matured cohort + cancellations). Falls back to the plain conversion, then to 100. */
+  /**
+   * Conversion used for committed profit and required reservations: the resolved rate
+   * (closed ÷ (closed + cancelled)). Open matured reservations are not treated as failures.
+   */
   conversionPct: number;
   conversionSource: ConversionSource;
   /** Realm-wide median reservation→closing days (the fallback for farms without closings). */
@@ -171,7 +180,11 @@ export function computeExpected(lots: Lot[], pipeline: Pipeline, goal: GoalStatu
   const conv = pipeline.conversion;
   let conversionPct: number;
   let conversionSource: ConversionSource;
-  if (conv.pctWithCancellations !== null) {
+  // Forecasts use the resolved rate: open matured reservations are not failures.
+  if (conv.resolvedPct !== null) {
+    conversionPct = conv.resolvedPct;
+    conversionSource = "resolved";
+  } else if (conv.pctWithCancellations !== null) {
     conversionPct = conv.pctWithCancellations;
     conversionSource = "with_cancellations";
   } else if (conv.pct !== null) {

@@ -229,42 +229,46 @@ describe("fixture: trophies with rarity", () => {
 });
 
 describe("fixture: ORACLE futures", () => {
-  it("four futures: reservations close first (2028-07-11), the required pace lands on the deadline month, closings-only is the 2029-01-11 line", () => {
+  it("four futures: reservations close first (2028-01-11), the required pace lands on the deadline month, closings-only is the 2029-01-11 line", () => {
     const f = realm.futures;
     expect(f.all.map((x) => x.id)).toEqual(["current_pace", "required_pace", "one_more_farm", "closings_only"]);
-    expect(f.current.exitDate).toBe("2028-07-11");
+    // Resolved conversion is 100 % (cancelled=0); blended trailing pulse stays 75 % with 12 still-open in the cohort.
+    expect(realm.expected.conversionPct).toBe(100);
+    expect(realm.pipeline.conversion.pct).toBe(75);
+    expect(f.current.exitDate).toBe("2028-01-11");
     expect(f.current.hitsDeadline).toBe(false);
-    expect(f.current.params.lotsPerMonth).toBe(5.32);
+    expect(f.current.params.lotsPerMonth).toBe(7.1);
     expect(f.current.params.lotsPerMonth).toBe(round2(realm.expected.reservationsPerMonth * (realm.expected.conversionPct / 100)));
     expect(f.current.scheduled).toHaveLength(33);
     expect(f.required.exitDate).toBe("2027-12-11");
     expect(f.required.hitsDeadline).toBe(true);
-    expect(f.required.daysEarlierThanCurrent).toBe(213);
-    expect(f.oneMoreFarm.exitDate).toBe("2028-05-11");
+    expect(f.required.daysEarlierThanCurrent).toBe(31);
+    expect(f.oneMoreFarm.exitDate).toBe("2027-11-11");
     expect(f.oneMoreFarm.daysEarlierThanCurrent).toBe(61);
-    expect(f.oneMoreFarm.params.lotsPerMonth).toBe(6.08);
+    expect(f.oneMoreFarm.params.lotsPerMonth).toBe(8.11);
     // 83 lots in inventory since Lakeview's 12 arrived (121 lots − 38 closed), plus one average farm of 12.1
     expect(f.oneMoreFarm.startInventory).toBe(round2(83 + realm.oracleDefaults.avgLotsPerFarm));
     expect(f.oneMoreFarm.startInventory).toBe(95.1);
     expect(f.closingsOnly.exitDate).toBe("2029-01-11");
-    expect(f.closingsOnly.daysEarlierThanCurrent).toBe(-184);
+    expect(f.closingsOnly.daysEarlierThanCurrent).toBe(-366);
     expect(f.closingsOnly.params).toEqual(realm.oracleDefaults);
     expect(f.closingsOnly.params.lotsPerMonth).toBe(4.73);
   });
 
   it("the current pace books 21 of the 33 reservations in the first month (16 overdue + 5 expected by Oct 11), 8 in the second, 4 in the third; the steady pace starts after the 62-day lag", () => {
     const s = realm.futures.current.result.series;
-    expect(s[0]).toMatchObject({ date: "2026-10-11", scheduledLotsClosed: 15.75, flatLotsClosed: 0, lotsClosed: 15.75 });
-    expect(s[0]?.scheduledLotsClosed).toBe(round2(21 * 0.75));
-    expect(s[1]).toMatchObject({ date: "2026-11-11", scheduledLotsClosed: 6, flatLotsClosed: 0 });
-    expect(s[2]).toMatchObject({ date: "2026-12-11", scheduledLotsClosed: 3, flatLotsClosed: 5.14 });
-    expect(s[3]).toMatchObject({ date: "2027-01-11", scheduledLotsClosed: 0, flatLotsClosed: 5.32, lotsClosed: 5.32 });
-    expect(round2((s[0]?.scheduledLotsClosed ?? 0) + (s[1]?.scheduledLotsClosed ?? 0) + (s[2]?.scheduledLotsClosed ?? 0))).toBe(round2(33 * 0.75));
+    // At 100 % resolved conversion every live reservation books as a full closing (was ×0.75 under blended).
+    expect(s[0]).toMatchObject({ date: "2026-10-11", scheduledLotsClosed: 21, flatLotsClosed: 0, lotsClosed: 21 });
+    expect(s[0]?.scheduledLotsClosed).toBe(round2(21 * 1));
+    expect(s[1]).toMatchObject({ date: "2026-11-11", scheduledLotsClosed: 8, flatLotsClosed: 0 });
+    expect(s[2]).toMatchObject({ date: "2026-12-11", scheduledLotsClosed: 4, flatLotsClosed: 6.86 });
+    expect(s[3]).toMatchObject({ date: "2027-01-11", scheduledLotsClosed: 0, flatLotsClosed: 7.1, lotsClosed: 7.1 });
+    expect(round2((s[0]?.scheduledLotsClosed ?? 0) + (s[1]?.scheduledLotsClosed ?? 0) + (s[2]?.scheduledLotsClosed ?? 0))).toBe(33);
     // the first month books the committed net profit of those 21 reservations, not the average per lot
     const committedFirstMonth = realm.expected.lots.filter((l) => (l.expectedCloseDate ?? "") <= "2026-10-11").reduce((a, l) => a + l.expectedNetProfit, 0);
     expect(s[0]?.cumulativeNetProfit).toBe(round2(realm.goal.netProfitToDate + committedFirstMonth));
     expect(realm.futures.current.premise).toBe(
-      "33 live reservations close on their expected dates at 75% conversion (16 already overdue, counted in the first month); after the 62-day lag, new reservations at 7.1/month keep closing at that rate — 5.32 lots/month — with a new farm every 1.26 months (since Mar 2026).",
+      "33 live reservations close on their expected dates at 100% conversion (16 already overdue, counted in the first month); after the 62-day lag, new reservations at 7.1/month keep closing at that rate — 7.1 lots/month — with a new farm every 1.26 months (since Mar 2026).",
     );
     expect(realm.futures.closingsOnly.premise).toBe("4.73 closings/month and a new farm every 1.26 months (since Mar 2026) — the trailing closing pace alone, blind to the 33 live reservations.");
   });
@@ -340,9 +344,10 @@ describe("fixture: PIPELINE (reservations layer)", () => {
     expect(p.closedLotsPerMonth).toBe(realm.goal.closedLotsPerMonth);
   });
 
-  it("of the 48 reservations made on or before 2026-06-13, 36 closed (75%)", () => {
+  it("of the 48 reservations made on or before 2026-06-13, 36 closed (75% blended); resolved conversion is 100 % with cancelled=0", () => {
     // Lamar Lot 5 (pledged 2025-09-07, closed 2025-11-05) joined the cohort
-    expect(p.conversion).toMatchObject({ cutoff: "2026-06-13", cohort: 48, closed: 36, stillReserved: 12, pct: 75 });
+    // Blended trailing pulse still counts the 12 still-open matured reservations; forecasts use resolved instead.
+    expect(p.conversion).toMatchObject({ cutoff: "2026-06-13", cohort: 48, closed: 36, stillReserved: 12, pct: 75, resolvedPct: 100, resolvedDenominator: 36 });
   });
 
   it("16 reservations are stuck past 60 days, trapping $1,103,375.31 of net profit on $2,024,531 of sales", () => {
@@ -388,7 +393,8 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
   const profit = solveWarPlan(d.inputs, realm);
   const allTime = buildRealm(fixture, ASOF, { eraStart: null });
 
-  it("prefills every input from the realm: 10-lot farms at $468,520 (recent land), 75 % conversion, 2.63 months to first close, a 7.21-month cycle projected since Mar 2026, flat pace, five sponsors", () => {
+  it("prefills every input from the realm: 10-lot farms at $468,520 (recent land), 100 % resolved conversion, 2.63 months to first close, a 7.21-month cycle projected since Mar 2026, flat pace, five sponsors", () => {
+    // Forecasts prefill resolved conversion (closed÷(closed+cancelled)=100 % here); blended 75 % stays on real.* as the trailing pulse.
     expect(d.inputs).toMatchObject({
       target: 10_000_000,
       deadline: "2027-12-31",
@@ -396,7 +402,7 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
       lotsPerFarm: 10,
       farmCost: 468_520,
       adSpendPerClosing: 2_500,
-      conversionPct: 75,
+      conversionPct: 100,
       farmToFirstCloseMonths: 2.63,
       noteSaleLagMonths: 3.17,
       cycleMonths: 7.21,
@@ -412,6 +418,7 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
       eraSince: "since Mar 2026",
       conversionPct: 75,
       conversionWithCancellationsPct: 75,
+      conversionResolvedPct: 100,
       cancellationRatePct: 0,
       cancelledReservations: 0,
       farmToFirstCloseMonths: 2.63,
@@ -484,9 +491,10 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
       ["Townson Family", 1_254_272],
     ]);
     expect(r.unfunded).toBe(0);
-    expect(r.adSpendPerMonth).toBe(28_333.33);
-    expect(r.adSpendPerMonth).toBe(round2((8.5 / 0.75) * 2_500));
-    expect(r.reservationsPerMonth).toBe(11.33);
+    // Ads = closings / (resolved conversion/100) × $2,500 → at 100 % vs the old blended 75 %, spend drops by 0.75× (28,333.33 → 21,250).
+    expect(r.adSpendPerMonth).toBe(21_250);
+    expect(r.adSpendPerMonth).toBe(round2((8.5 / 1) * 2_500));
+    expect(r.reservationsPerMonth).toBe(8.5);
     expect(r.noteSalesPerMonth).toBe(8.5);
     expect(r.exitDate).toBe("2027-12-31");
     expect(r.hitsDeadline).toBe(true);
@@ -497,7 +505,7 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     expect(r.rows.at(-1)).toMatchObject({ date: "2027-12-31", lotsClosed: 8.5, flatLotsClosed: 8.5, seasonalFactor: 1, notesSold: 8.5, cumulativeNet: 10_001_938.87, inventory: 0.12 });
     expect(r.rows.at(-1)?.capitalReturned).toEqual([1_088_328, 1_248_805.93, 0, 0, 0]);
     expect(profit.verdict).toBe(
-      "Buy 5 farms, the last one no later than Jul 2027, raise $2.3M (Kevin Concua $1.1M, Townson Family $1.3M), close 8.5 lots/month, sell 8.5 notes/month and spend at least $28K/month on ads.",
+      "Buy 5 farms, the last one no later than Jul 2027, raise $2.3M (Kevin Concua $1.1M, Townson Family $1.3M), close 8.5 lots/month, sell 8.5 notes/month and spend at least $21K/month on ads.",
     );
     expect(profit.verdict).toMatch(/\$[\d.,]+[KM]?/);
     expect(profit.verdict).toMatch(/\b\d+ farms?\b/);
@@ -554,9 +562,22 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
     expect(Math.abs(seasonalTotal - flatTotal)).toBeLessThan(0.1);
   });
 
-  it("cancellations: no file case in the snapshot is cancelled, so the rate is 0 % and conversion with cancellations equals conversion", () => {
+  it("cancellations: no file case in the snapshot is cancelled, so the rate is 0 %; blended stays 75 %, resolved is 100 %", () => {
     expect(fixture.fileCases.filter((c) => c.status === "cancelled")).toHaveLength(0);
-    expect(realm.pipeline.conversion).toMatchObject({ cohort: 48, closed: 36, stillReserved: 12, pct: 75, cancelled: 0, cohortWithCancellations: 48, pctWithCancellations: 75, cancellationRatePct: 0 });
+    // Blended (pct / pctWithCancellations) still counts the 12 open matured reservations as the trailing pulse;
+    // resolved excludes them — closed÷(closed+cancelled) = 36/36 = 100 %.
+    expect(realm.pipeline.conversion).toMatchObject({
+      cohort: 48,
+      closed: 36,
+      stillReserved: 12,
+      pct: 75,
+      cancelled: 0,
+      cohortWithCancellations: 48,
+      pctWithCancellations: 75,
+      cancellationRatePct: 0,
+      resolvedPct: 100,
+      resolvedDenominator: 36,
+    });
     expect(realm.pipeline.cancelledReservations).toBe(0);
     expect(realm.lots.every((l) => l.cancelledFileCases === 0)).toBe(true);
   });
@@ -813,9 +834,9 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
 
   it("changes nothing in the Oracle's futures", () => {
     expect(realm.futures.closingsOnly.exitDate).toBe("2029-01-11");
-    expect(realm.futures.current.exitDate).toBe("2028-07-11");
+    expect(realm.futures.current.exitDate).toBe("2028-01-11");
     expect(realm.futures.required.exitDate).toBe("2027-12-11");
-    expect(realm.futures.oneMoreFarm.exitDate).toBe("2028-05-11");
+    expect(realm.futures.oneMoreFarm.exitDate).toBe("2027-11-11");
   });
 });
 
@@ -823,21 +844,22 @@ describe("fixture: EXPECTED (reservations first-class)", () => {
   const e = realm.expected;
 
   it("7 reservations were made in September 2026, all still live (Lamar Lot 5's pledge now belongs to September 2025), none closed this month", () => {
-    expect(e.thisMonth).toEqual({ month: "2026-09", reservations: 7, closings: 0, expectedReservations: 3, expectedClosings: 2.25, expectedNetProfit: 205_734.27 });
+    // Expected closings weight at 100 % resolved conversion (was ×0.75 under blended).
+    expect(e.thisMonth).toEqual({ month: "2026-09", reservations: 7, closings: 0, expectedReservations: 3, expectedClosings: 3, expectedNetProfit: 274_312.35 });
     expect(realm.lots.filter((l) => l.reservationDate?.startsWith("2026-09"))).toHaveLength(7);
     expect(realm.lots.filter((l) => l.reservationDate?.startsWith("2026-09") && l.stage === "reserved")).toHaveLength(7);
   });
 
-  it("8 reservations are expected to close in November 2026 — 6 closings at 75 %, $318,861.94 of expected net profit", () => {
+  it("8 reservations are expected to close in November 2026 — 8 closings at 100 % resolved conversion, $425,149.22 of expected net profit", () => {
     const nov = e.expectedByMonth.find((m) => m.month === "2026-11");
-    // $318,051.94 / $424,069.22 until Franklin 2's land cost per lot fell by $1,080 on 2026-09-11 (Lot 11 is one of the eight)
-    expect(nov).toMatchObject({ count: 8, expectedClosings: 6, expectedNetProfit: 318_861.94, netProfitAtStake: 425_149.22, past: false });
-    expect(nov?.expectedNetProfit).toBe(round2(318_051.94 + 1_080 * 0.75));
-    expect(nov?.expectedClosings).toBe(round2(8 * 0.75));
+    // Full stake at 100 % resolved (was $318,861.94 = stake × 0.75 under blended).
+    expect(nov).toMatchObject({ count: 8, expectedClosings: 8, expectedNetProfit: 425_149.22, netProfitAtStake: 425_149.22, past: false });
+    expect(nov?.expectedNetProfit).toBe(425_149.22);
+    expect(nov?.expectedClosings).toBe(round2(8 * 1));
     const names = (nov?.propertyIds ?? []).map((id) => realm.lots.find((l) => l.propertyId === id)?.name).sort();
     expect(names).toEqual(["Franklin 2 — Lot 11", "Promised Valley — Lot 19", "Titus — Lot 4", "Titus — Lot 5", "Wichita — Lot 12", "Wichita — Lot 13", "Wichita — Lot 26", "Wichita — Lot 30"]);
     // next month (October) from the Throne Room's strip
-    expect(e.nextMonth).toEqual({ month: "2026-10", reservations: 0, closings: 0, expectedReservations: 6, expectedClosings: 4.5, expectedNetProfit: 309_182.27 });
+    expect(e.nextMonth).toEqual({ month: "2026-10", reservations: 0, closings: 0, expectedReservations: 6, expectedClosings: 6, expectedNetProfit: 412_243.01 });
     expect(e.expectedByMonth.map((m) => [m.month, m.count, m.past])).toEqual([
       ["2026-07", 6, true],
       ["2026-08", 9, true],
@@ -848,62 +870,66 @@ describe("fixture: EXPECTED (reservations first-class)", () => {
     ]);
   });
 
-  it("the deadline demands 8.44 closings/month, i.e. 11.25 reservations/month at 75 % conversion; the realm reserves 7.1 and closes 4.73", () => {
+  it("the deadline demands 8.44 closings/month, i.e. 8.44 reservations/month at 100 % resolved conversion; the realm reserves 7.1 and closes 4.73", () => {
     expect(e.requiredClosingsPerMonth).toBe(8.44);
     expect(e.requiredClosingsPerMonth).toBe(realm.goal.requiredLotsPerMonthToHitDeadline);
     // Same figure the Throne verdict speaks; the War Plan's required plan is a different model (8.5).
     expect(realm.warPlan.required.closingsPerMonth).not.toBe(e.requiredClosingsPerMonth);
-    expect(e.requiredReservationsPerMonth).toBe(11.25);
-    expect(e.requiredReservationsPerMonth).toBe(round2(8.44 / 0.75));
+    expect(e.requiredReservationsPerMonth).toBe(8.44);
+    expect(e.requiredReservationsPerMonth).toBe(round2(8.44 / 1));
     expect(e.reservationsTrailing).toBe(21);
     expect(e.reservationsPerMonth).toBe(7.1);
     expect(e.reservationsPerMonth).toBe(realm.pipeline.reservationsMadePerMonth);
     expect(e.closingsTrailing).toBe(14);
     expect(e.closingsPerMonth).toBe(4.73);
     expect(e.closingsPerMonth).toBe(realm.goal.closedLotsPerMonth);
-    expect(e.conversionPct).toBe(75);
-    expect(e.conversionSource).toBe("with_cancellations");
+    // Forecasts use resolved; blended 75 % remains the trailing pulse on pipeline.conversion.pct.
+    expect(e.conversionPct).toBe(100);
+    expect(e.conversionSource).toBe("resolved");
+    expect(realm.pipeline.conversion.pct).toBe(75);
+    expect(realm.pipeline.conversion.resolvedPct).toBe(100);
   });
 
   it("every live reservation has an expected close: reservation + the farm's median (Titus 73, Lamar 42, Promised Valley 90), else the realm's 61.5", () => {
     expect(e.lots).toHaveLength(33);
     expect(e.undatedCount).toBe(0);
     const by = new Map(e.lots.map((l) => [l.lotName, l]));
-    expect(by.get("Titus — Lot 2")).toMatchObject({ reservationDate: "2026-05-02", medianDaysToClose: 73, medianSource: "farm", expectedCloseDate: "2026-07-14", expectedMonth: "2026-07", overdue: true, daysWaiting: 132, daysToExpectedClose: -59, netProfitAtStake: 60_460.5, expectedNetProfit: 45_345.38 });
+    // At 100 % resolved, expectedNetProfit equals netProfitAtStake (was ×0.75 under blended).
+    expect(by.get("Titus — Lot 2")).toMatchObject({ reservationDate: "2026-05-02", medianDaysToClose: 73, medianSource: "farm", expectedCloseDate: "2026-07-14", expectedMonth: "2026-07", overdue: true, daysWaiting: 132, daysToExpectedClose: -59, netProfitAtStake: 60_460.5, expectedNetProfit: 60_460.5 });
     expect(by.get("Avery — Lot 12")).toMatchObject({ medianDaysToClose: 61.5, medianSource: "realm", expectedCloseDate: "2026-10-01", overdue: false });
     expect(by.get("Lamar — Lot 1")).toMatchObject({ reservationDate: "2026-08-26", medianDaysToClose: 42, expectedCloseDate: "2026-10-07" });
     expect(by.get("Promised Valley — Lot 14")).toMatchObject({ reservationDate: "2026-09-08", medianDaysToClose: 90, expectedCloseDate: "2026-12-07", expectedMonth: "2026-12" });
-    expect(by.get("Titus — Lot 2")?.expectedNetProfit).toBe(round2(60_460.5 * 0.75));
+    expect(by.get("Titus — Lot 2")?.expectedNetProfit).toBe(round2(60_460.5 * 1));
     // soonest expected close first
     for (let i = 1; i < e.lots.length; i++) expect((e.lots[i - 1]?.expectedCloseDate ?? "") <= (e.lots[i]?.expectedCloseDate ?? "")).toBe(true);
   });
 
-  it("Committed: $1,649,202.95 expected from the 33 reservations ($2,198,937.18 at stake), landing by December 2026, most of it in November; 16 are overdue ($827,531.50)", () => {
-    // +$810 / +$1,080 since Franklin 2's capital became $329,400 on 2026-09-11
-    expect(e.committedNetProfit).toBe(1_649_202.95);
+  it("Committed: $2,198,937.18 expected from the 33 reservations ($2,198,937.18 at stake), landing by December 2026, most of it in November; 16 are overdue ($1,103,375.31)", () => {
+    // At 100 % resolved, committed equals at-stake (was $1,649,202.95 = stake × 0.75 under blended).
+    expect(e.committedNetProfit).toBe(2_198_937.18);
     expect(e.netProfitAtStake).toBe(2_198_937.18);
     expect(e.netProfitAtStake).toBe(realm.pipeline.pipelineNetProfit);
-    expect(Math.abs(e.committedNetProfit - round2(e.netProfitAtStake * 0.75))).toBeLessThan(0.2);
+    expect(Math.abs(e.committedNetProfit - round2(e.netProfitAtStake * 1))).toBeLessThan(0.2);
     expect(e.liveReservations).toBe(33);
     expect(e.landsBy).toBe("2026-12");
     expect(e.peakMonth).toBe("2026-11");
     expect(e.overdueCount).toBe(16);
-    expect(e.overdueNetProfit).toBe(827_531.5);
+    expect(e.overdueNetProfit).toBe(1_103_375.31);
     // the overdue reservations are exactly the stuck ones
     expect(new Set(e.lots.filter((l) => l.overdue).map((l) => l.propertyId))).toEqual(realm.pipeline.stuckIds);
   });
 
-  it("OXYGEN: 341 provisional days from the 33 reservations, shown apart from the 534 confirmed; the closings-only score is untouched", () => {
+  it("OXYGEN: 450 provisional days from the 33 reservations, shown apart from the 534 confirmed; the closings-only score is untouched", () => {
     expect(realm.oxygen.totalDaysGained).toBe(534);
-    // 340 until Franklin 2 Lot 11's stake grew by $1,080 (its provisional days round up by one)
-    expect(realm.oxygen.provisionalDaysGained).toBe(341);
+    // Provisional days scale with resolved conversion (100 %); was 341 under blended 75 %.
+    expect(realm.oxygen.provisionalDaysGained).toBe(450);
     expect(realm.oxygen.provisional.size).toBe(33);
-    expect(realm.oxygen.conversionPct).toBe(75);
+    expect(realm.oxygen.conversionPct).toBe(100);
     const w26 = realm.lots.find((l) => l.name === "Wichita — Lot 26")!;
-    expect(realm.oxygen.provisional.get(w26.propertyId)).toMatchObject({ reservationDate: "2026-09-03", measuredOn: "2026-09-03", netProfitAtStake: 39_784.37, daysIfClosed: 4, provisionalDays: 3, paceThatDay: 9_145.63 });
+    expect(realm.oxygen.provisional.get(w26.propertyId)).toMatchObject({ reservationDate: "2026-09-03", measuredOn: "2026-09-03", netProfitAtStake: 39_784.37, daysIfClosed: 4, provisionalDays: 4, paceThatDay: 9_145.63 });
     // a reservation made when the realm was slow (May 2, pace $403/day) is worth many provisional days — the same rule closings follow
-    expect(realm.oxygen.provisionalRanked[0]).toMatchObject({ lotName: "Titus — Lot 2", daysIfClosed: 150, provisionalDays: 113, paceThatDay: 402.8 });
-    expect(realm.oxygen.provisionalRanked[0]?.provisionalDays).toBe(Math.round(150 * 0.75));
+    expect(realm.oxygen.provisionalRanked[0]).toMatchObject({ lotName: "Titus — Lot 2", daysIfClosed: 150, provisionalDays: 150, paceThatDay: 402.8 });
+    expect(realm.oxygen.provisionalRanked[0]?.provisionalDays).toBe(Math.round(150 * 1));
   });
 
   it("reservation streaks: 6 consecutive weeks of pledges ending 2026-06-21, 7 pledges in W22, 17 in May 2026, 8 consecutive months and counting", () => {
@@ -922,11 +948,11 @@ describe("fixture: EXPECTED (reservations first-class)", () => {
   it("the chronicle narrates live reservations with their expected close and provisional days; no cancellation exists in the snapshot", () => {
     const w26 = realm.lots.find((l) => l.name === "Wichita — Lot 26")!;
     expect(realm.narrative.get(`reservation:${w26.propertyId}`)).toBe(
-      "On September 3, Julia Rodriguez pledged for Lot 26 of Wichita at $117,600 — the closing is expected around November 5, 3 provisional days gained.",
+      "On September 3, Julia Rodriguez pledged for Lot 26 of Wichita at $117,600 — the closing is expected around November 5, 4 provisional days gained.",
     );
     const t2 = realm.lots.find((l) => l.name === "Titus — Lot 2")!;
     expect(realm.narrative.get(`reservation:${t2.propertyId}`)).toBe(
-      "On May 2, Crystal Thompson pledged for Lot 2 of Titus at $135,412 — the closing was expected around July 14 and is 59 days late, 113 provisional days gained.",
+      "On May 2, Crystal Thompson pledged for Lot 2 of Titus at $135,412 — the closing was expected around July 14 and is 59 days late, 150 provisional days gained.",
     );
     expect(realm.events.filter((ev) => ev.kind === "cancellation")).toHaveLength(0);
     expect(realm.events.filter((ev) => ev.kind === "reservation")).toHaveLength(69);
@@ -1008,36 +1034,35 @@ describe("fixture: EXODUS ($10M back to the Alpha LPs in note fractions and cash
     expect(fixture.farmAcquisitions.filter((f) => f.deal_type === "fixed_interest")).toHaveLength(fixture.lotLedgers.length);
   });
 
-  it("30 % in notes: $3.0M delivered — 9 free notes today, 2 released today (EAS-L01, FRE-L01), 14 free future notes, 2.89 released future lots — through 4.89 partial releases costing $203,192.36, no cash farm, 255.47 notes sold and $9,998,755.77 paid in cash; the capital is back 2027-10-05", () => {
-    // Until 2026-09-11 21:15Z: $197,378.52 of releases, 250.67 notes sold, $10,263,747.45 in cash, back 2027-09-26. Lakeview's 12 lots and
-    // $495,000 of Townson capital make the cash-mode War Plan close 259.36 lots (254.56) over 18 farms (19) and pay $489,600 more to
-    // sponsors before Portafolio keeps anything; Franklin 2's release ratio moved with its 25 % rate and $329,400 of capital.
+  it("30 % in notes: $3.0M delivered — 9 free notes today, 2 released today (EAS-L01, FRE-L01), 14 free future notes, 2.89 released future lots — through 4.89 partial releases costing $206,019.91, no cash farm, 255.47 notes sold and $10,215,130.56 paid in cash; the capital is back 2027-09-29", () => {
+    // Lower ad spend at 100 % resolved conversion (0.75× of blended) frees cash earlier: hit date moves in from 2027-10-05,
+    // all 4.89 releases land in September, and cash paid to LPs rises with the ads saved.
     const s = plan.scenario;
     expect(s.notesPct).toBe(30);
     expect(s.noteTarget).toBe(3_000_000);
     expect(s.notesDelivered).toBe(3_000_000);
-    expect(s.cashPaidToLPs).toBe(9_998_755.77);
-    expect(s.totalReturned).toBe(12_998_755.77);
+    expect(s.cashPaidToLPs).toBe(10_215_130.56);
+    expect(s.totalReturned).toBe(13_215_130.56);
     expect(s.feasible).toBe(true);
     expect(s.notesCovered).toBe(true);
-    expect(s.hitDate).toBe("2027-10-05");
-    expect(s.lotsNeeded).toBe(259.36);
+    expect(s.hitDate).toBe("2027-09-29");
+    expect(s.lotsNeeded).toBe(258.36);
     expect(s.partialReleases.count).toBe(4.89);
-    expect(s.partialReleases.cost).toBe(203_192.36);
-    expect(s.flows.partialReleaseCost).toBe(203_192.36);
-    // the last 0.11 of a projected Avery lot is released in October, once September's cash is spent
+    expect(s.partialReleases.cost).toBe(206_019.91);
+    expect(s.flows.partialReleaseCost).toBe(206_019.91);
+    // every release fits in September now that ads no longer absorb the Portafolio cash
     expect(s.partialReleases.list.map((r) => [r.label, r.monthIndex, r.ratio])).toEqual([
       ["EAS-L01", 1, 4.05],
       ["Avery · Sep 2026", 1, 3.95],
       ["FRE-L01", 1, 2.64],
       ["Eastland · Sep 2026", 1, 2.22],
       ["Franklin 2 · Sep 2026", 1, 2.1],
-      ["Avery · Oct 2026", 2, 3.87],
     ]);
     expect(round2(s.partialReleases.list.reduce((a, r) => a + r.units, 0))).toBe(4.89);
     expect(s.cashFarms).toMatchObject({ count: 0, cost: 0, purchases: [], lastPurchaseDate: null });
     expect(s.notesSold).toEqual({ count: 255.47, proceeds: 24_087_607.72 });
-    expect(s.adSpend).toBe(864_541.07);
+    // Ads drop 0.75× with resolved conversion: 864,541.07 × 0.75 = 648,405.83.
+    expect(s.adSpend).toBe(648_405.83);
     expect(s.package).toEqual({
       totalUpb: 3_000_000,
       notes: 27.89,
@@ -1050,56 +1075,55 @@ describe("fixture: EXODUS ($10M back to the Alpha LPs in note fractions and cash
       projectedReleased: { notes: 2.89, upb: 339_988.5 },
       cashFarm: { notes: 0, upb: 0 },
     });
-    // the note target is met in January 2027 (December before Lakeview); from then on every note is sold (Option A)
+    // the note target is met in January 2027; from then on every note is sold (Option A)
     expect(s.rows.findIndex((r) => r.cumulativeNotes >= 3_000_000 - 0.005)).toBe(4);
     expect(s.rows.slice(5).every((r) => r.notesDelivered === 0)).toBe(true);
     expect(s.rows).toHaveLength(16);
-    // September's Portafolio cash all goes to releases now ($6,453.31 reached the LPs before): 4.78 releases, the 0.11 left for October
-    expect(s.rows[0]).toMatchObject({ date: "2026-09-30", lotsClosed: 13, freeNotesAvailable: 11.19, notesDelivered: 15.98, partialReleases: 4.78, partialReleaseCost: 199_851.63, notesSold: 5, adSpend: 43_341.11, cashPaidToLPs: 0, cashCarried: 0 });
-    expect(s.rows[1]).toMatchObject({ date: "2026-10-31", partialReleases: 0.11, partialReleaseCost: round2(203_192.36 - 199_851.63) });
-    expect(s.rows[2]).toMatchObject({ cashPaidToLPs: 0, cashCarried: -34_392.2 });
-    expect(s.rows[15]).toMatchObject({ date: "2027-12-31", cumulativeNotes: 3_000_000, cumulativeCash: 9_998_755.77, cumulativeReturned: 12_998_755.77 });
-    // 3.64 fixed-interest lots never close in the plan and carry the only partner balance left at the deadline (6.44 lots / $341,957.13 before Lakeview)
+    // September absorbs all 4.89 releases and starts paying LPs; ads are 0.75× the prior month's spend
+    expect(s.rows[0]).toMatchObject({ date: "2026-09-30", lotsClosed: 13, freeNotesAvailable: 11.19, notesDelivered: 16.09, partialReleases: 4.89, partialReleaseCost: 206_019.91, notesSold: 5, adSpend: 32_505.83, cashPaidToLPs: 4_666.99, cashCarried: 0 });
+    expect(s.rows[1]).toMatchObject({ date: "2026-10-31", partialReleases: 0, partialReleaseCost: 0 });
+    expect(s.rows[2]).toMatchObject({ cashPaidToLPs: 0, cashCarried: -17_283.87 });
+    expect(s.rows[15]).toMatchObject({ date: "2027-12-31", cumulativeNotes: 3_000_000, cumulativeCash: 10_215_130.56, cumulativeReturned: 13_215_130.56 });
+    // 3.64 fixed-interest lots never close in the plan and carry the only partner balance left at the deadline
     expect(plan.unsoldLotsAtDeadline).toEqual({ lots: 3.64, partnerBalance: 193_280.12 });
     expect(s.partnerBalanceAtDeadline).toBe(193_280.12);
     expect(plan.latestViablePurchaseMonth).toBe(11);
     expect(plan.latestViablePurchaseDate).toBe("2027-07-31");
-    expect(plan.verdict).toBe("With 30% in notes ($3.0M delivered): free $684K through 5 partial releases costing $203K, buy no cash farm, sell 255 notes and pay $10.0M to LPs in cash.");
+    expect(plan.verdict).toBe("With 30% in notes ($3.0M delivered): free $684K through 5 partial releases costing $206K, buy no cash farm, sell 255 notes and pay $10.2M to LPs in cash.");
     expect(exodusVerdict(plan, "es")).toBe(
-      "Con 30% en pagarés ($3.0M entregados): liberar $684K mediante 5 liberaciones parciales por $203K, no comprar fincas con efectivo propio, vender 255 pagarés y pagar $10.0M a los LP en efectivo.",
+      "Con 30% en pagarés ($3.0M entregados): liberar $684K mediante 5 liberaciones parciales por $206K, no comprar fincas con efectivo propio, vender 255 pagarés y pagar $10.2M a los LP en efectivo.",
     );
   });
 
-  it("versus 100 % cash: $572,400 of discount saved, no lot spared, 18 days (0.59 months) earlier; maxNotesPct is 60, the top of the slider", () => {
-    // before Lakeview: $12,667,312.84 in cash, back 2027-10-13, 254.56 lots; the 30 % plan spared 3.25 lots by landing in September.
-    // Now both plans land in October 2027, after the War Plan's last closing (Sep 2027), so every one of the 259.36 lots is sold either way.
-    expect(plan.baseline).toMatchObject({ notesPct: 0, notesDelivered: 0, cashPaidToLPs: 12_401_779.56, hitDate: "2027-10-23", lotsNeeded: 259.36 });
+  it("versus 100 % cash: $572,400 of discount saved, 1 lot spared, 17 days (0.56 months) earlier; maxNotesPct is 60, the top of the slider", () => {
+    // Lower ads pull both plans earlier; the 30 % plan now lands 17 days before the 0 % baseline and spares one lot.
+    expect(plan.baseline).toMatchObject({ notesPct: 0, notesDelivered: 0, cashPaidToLPs: 12_617_914.8, hitDate: "2027-10-16", lotsNeeded: 259.36 });
     expect(plan.baseline.notesSold).toEqual({ count: 283.36, proceeds: 26_496_001.89 });
-    expect(plan.versusCash).toEqual({ discountSaved: 572_400, lotsNotNeeded: 0, monthsEarlier: 0.59, daysEarlier: 18, baselineHitDate: "2027-10-23", scenarioHitDate: "2027-10-05" });
+    expect(plan.versusCash).toEqual({ discountSaved: 572_400, lotsNotNeeded: 1, monthsEarlier: 0.56, daysEarlier: 17, baselineHitDate: "2027-10-16", scenarioHitDate: "2027-09-29" });
     // discount saved = delivered UPB × (1 − sale ratio)
     expect(plan.versusCash.discountSaved).toBe(round2(3_000_000 * (1 - 0.8092)));
     expect(plan.maxNotesPct).toBe(60);
     expect(plan.coverage).toHaveLength(61);
     expect(plan.coverage.every((c) => c.notesCovered && c.feasible)).toBe(true);
-    // 60 %: 30.75 releases costing $1,136,230.49 free $3.7M of future lots; the capital is back 2027-09-18 with $7,569,060.67 in cash
+    // 60 %: 30.73 releases costing $1,132,865.80 free $3.5M of future lots; the capital is back 2027-09-12 with $7,789,519.83 in cash
     const top = runExodus(base, { ...defaults.inputs, notesPct: 60 });
-    expect(top).toMatchObject({ notesDelivered: 6_000_000, cashPaidToLPs: 7_569_060.67, hitDate: "2027-09-18" });
-    expect(top.partialReleases).toMatchObject({ count: 30.75, cost: 1_136_230.49 });
+    expect(top).toMatchObject({ notesDelivered: 6_000_000, cashPaidToLPs: 7_789_519.83, hitDate: "2027-09-12" });
+    expect(top.partialReleases).toMatchObject({ count: 30.73, cost: 1_132_865.8 });
     expect(top.cashFarms.count).toBe(0);
-    expect(top.package).toMatchObject({ avgRatePct: 9.37, avgTermMonths: 139.71, projectedReleased: { notes: 29.75, upb: 3_479_250.46 } });
+    expect(top.package).toMatchObject({ avgRatePct: 9.37, avgTermMonths: 139.7, projectedReleased: { notes: 29.73, upb: 3_478_163.32 } });
   });
 
-  it("notesPct = 0 is the War Plan's cash-mode plan: the same 259.36 lots, 18 farms and $864,541.07 of ads month by month; the cash differs by a bridge that closes to $0", () => {
+  it("notesPct = 0 is the War Plan's cash-mode plan: the same 259.36 lots, 18 farms and $648,405.83 of ads month by month; the cash differs by a bridge that closes to $0", () => {
     const r = plan.reconciliation;
-    expect(r.production).toEqual({ lotsClosed: 259.36, warPlanLotsClosed: 259.36, farmsBought: 18, warPlanFarmsBought: 18, adSpend: 864_541.07, warPlanAdSpend: 864_541.07, closingsMatch: true });
+    expect(r.production).toEqual({ lotsClosed: 259.36, warPlanLotsClosed: 259.36, farmsBought: 18, warPlanFarmsBought: 18, adSpend: 648_405.83, warPlanAdSpend: 648_405.83, closingsMatch: true });
     expect(warPlanCash.required.lotsNeeded).toBe(259.36);
     expect(warPlanCash.required.farmsToBuy).toBe(18);
     expect(base.closingsByMonth.slice(1).map((x) => round2(x))).toEqual(warPlanCash.required.rows.map((row) => row.lotsClosed));
     // the Oracle's own arithmetic replayed on the same consumption lands on the War Plan's metric within $250 (16 rows of rounded cents on $27M of receipts)
     expect(r.warPlanCash).toEqual({ start: -3_438_688.12, receipts: 26_994_399.49, outlays: 8_433_360, takePaid: 5_116_413.98, atDeadline: 10_005_937.39, warPlanTargetAtDeadline: 10_006_139.81 });
     expect(Math.abs(r.warPlanCash.atDeadline - warPlanCash.required.targetAtDeadline)).toBeLessThan(250);
-    // the Exodus pays $12,401,779.56 in cash at 0 %: it starts from $0 instead of cash kept − owed, sells today's notes, pays partners lot by lot and pays the ads
-    expect(r.baselineCashPaid).toBe(12_401_779.56);
+    // the Exodus pays $12,617,914.80 in cash at 0 %: ads are 0.75× the prior pin, so more cash reaches the LPs
+    expect(r.baselineCashPaid).toBe(12_617_914.8);
     expect(r.bridge).toEqual({
       replayDrift: -202.42,
       startingPosition: 3_438_688.12,
@@ -1107,7 +1131,7 @@ describe("fixture: EXODUS ($10M back to the Alpha LPs in note fractions and cash
       existingNotes: 1_034_918.91,
       partnerPayments: -1_136_076.03,
       settlementSpend: 0,
-      adSpend: -864_541.07,
+      adSpend: -648_405.83,
       unpaidCarry: 0,
       residual: 0,
     });
@@ -1121,7 +1145,7 @@ describe("fixture: EXODUS ($10M back to the Alpha LPs in note fractions and cash
       existingPartnerPaid: 1_093_408.01,
       partialReleaseCost: 0,
       cashFarmCost: 0,
-      adSpend: 864_541.07,
+      adSpend: 648_405.83,
       cashCarriedAtDeadline: 0,
     });
   });
