@@ -90,11 +90,52 @@ const TROPHY_COPY: Record<string, { title: Record<QualityLang, string>; descript
 
 /** At least 15 achievements, every one derived from real rows. */
 export function computeTrophies(i: TrophyInputs): Trophy[] {
+  const lang = i.lang ?? "en";
+  const es = lang === "es";
   const sold = i.lots.filter(isSold);
   const closings = i.events.filter((e) => e.kind === "closing");
   const noteSales = i.events.filter((e) => e.kind === "note_sale");
   const milestones = i.events.filter((e) => e.kind === "milestone");
   const firstAt = (list: RealmEvent[]) => list[0]?.date ?? null;
+
+  const d = {
+    closings: (n: number) => (es ? `${n} cierres` : `${n} closings`),
+    notesSold: (n: number) => (es ? `${n} pagarés vendidos` : `${n} notes sold`),
+    ratio: (a: string, b: string) => `${a} / ${b}`,
+    noFarms: es ? "sin fincas" : "no farms",
+    atPct: (name: string, pctClosed: number) => (es ? `${name} al ${pctClosed}%` : `${name} at ${pctClosed}%`),
+    farmsPast50: (n: number) =>
+      es ? `${n} finca${n === 1 ? "" : "s"} pasadas del 50%` : `${n} farm${n === 1 ? "" : "s"} past 50%`,
+    daysOnLot: (name: string, days: number) => (es ? `${name}: ${days} días` : `${name}: ${days} days`),
+    noClosingsWithDates: es ? "sin cierres con fechas" : "no closings with dates",
+    monthClosings: (month: string, count: number, profit: string) =>
+      es ? `${month}: ${count} cierres, ${profit} neto` : `${month}: ${count} closings, ${profit} net`,
+    noClosings: es ? "sin cierres" : "no closings",
+    monthCash: (month: string, amount: string) => `${month}: ${amount}`,
+    noCashYet: es ? "aún sin efectivo" : "no cash yet",
+    stillOutstanding: (amount: string) => (es ? `${amount} aún pendiente` : `${amount} still outstanding`),
+    farms: (n: number) => (es ? `${n} fincas` : `${n} farms`),
+    lotProfit: (name: string, amount: string) => `${name}: ${amount}`,
+    lotsPerMonth: (a: string | number, b: string | number) =>
+      es ? `${a} / ${b} lotes por mes` : `${a} / ${b} lots per month`,
+    consecutiveMonths: (n: number) =>
+      es ? `${n} mes${n === 1 ? "" : "es"} consecutivos` : `${n} consecutive month${n === 1 ? "" : "s"}`,
+    bestWeeksCurrent: (best: number, current: number) =>
+      es
+        ? `mejor ${best} semana${best === 1 ? "" : "s"} · actual ${current}`
+        : `best ${best} week${best === 1 ? "" : "s"} · current ${current}`,
+    bestWeeks: (n: number) => (es ? `mejor ${n} semanas` : `best ${n} weeks`),
+    inWeek: (count: number, week: string) => (es ? `${count} en semana ${week}` : `${count} in week ${week}`),
+    noClosingsYet: es ? "aún sin cierres" : "no closings yet",
+    bestMonthsCurrent: (best: number, current: number) =>
+      es
+        ? `mejor ${best} mes${best === 1 ? "" : "es"} consecutivos · actual ${current}`
+        : `best ${best} consecutive month${best === 1 ? "" : "s"} · current ${current}`,
+    noReservationsYet: es ? "aún sin reservas" : "no reservations yet",
+    noSponsorCapital: es ? "sin capital de sponsors" : "no sponsor capital",
+    positionsFreed: (freed: number, total: number) =>
+      es ? `${freed} / ${total} posiciones liberadas` : `${freed} / ${total} positions freed`,
+  };
 
   const trophies: Omit<Trophy, "rarity">[] = [];
 
@@ -106,7 +147,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: closings.length > 0,
     earnedAt: firstAt(closings),
     progress: pct(closings.length, 1),
-    detail: `${closings.length} closings`,
+    detail: d.closings(closings.length),
   });
 
   trophies.push({
@@ -117,7 +158,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: noteSales.length > 0,
     earnedAt: firstAt(noteSales),
     progress: pct(noteSales.length, 1),
-    detail: `${noteSales.length} notes sold`,
+    detail: d.notesSold(noteSales.length),
   });
 
   for (const [n, tier] of [
@@ -136,7 +177,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       earned: !!hit,
       earnedAt: hit?.date ?? null,
       progress: pct(i.goal.netProfitToDate, target),
-      detail: `${money(i.goal.netProfitToDate)} / ${money(target)}`,
+      detail: d.ratio(money(i.goal.netProfitToDate), money(target)),
     });
   }
 
@@ -150,7 +191,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: fullySold.length > 0,
     earnedAt: fullySold.length > 0 ? lastCloseDate(fullySold[0]?.lots ?? []) : null,
     progress: bestFarm ? bestFarm.pctClosed : 0,
-    detail: fullySold.length > 0 ? `${fullySold.map((f) => f.name).join(", ")}` : bestFarm ? `${bestFarm.name} at ${bestFarm.pctClosed}%` : "no farms",
+    detail: fullySold.length > 0 ? `${fullySold.map((f) => f.name).join(", ")}` : bestFarm ? d.atPct(bestFarm.name, bestFarm.pctClosed) : d.noFarms,
   });
 
   const halfSold = i.farms.filter((f) => f.pctClosed >= 50);
@@ -162,7 +203,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: halfSold.length > 0,
     earnedAt: null,
     progress: bestFarm ? pct(bestFarm.pctClosed, 50) : 0,
-    detail: `${halfSold.length} farm${halfSold.length === 1 ? "" : "s"} past 50%`,
+    detail: d.farmsPast50(halfSold.length),
   });
 
   const paced = sold.filter((l) => l.daysInPipeline !== null && l.reservationDate && l.closeDate);
@@ -175,7 +216,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: !!fastest && (fastest.daysInPipeline ?? Infinity) <= 30,
     earnedAt: fastest && (fastest.daysInPipeline ?? Infinity) <= 30 ? fastest.closeDate : null,
     progress: fastest ? pct(30, Math.max(30, fastest.daysInPipeline ?? 30)) : 0,
-    detail: fastest ? `${fastest.name}: ${fastest.daysInPipeline} days` : "no closings with dates",
+    detail: fastest ? d.daysOnLot(fastest.name, fastest.daysInPipeline ?? 0) : d.noClosingsWithDates,
   });
 
   const byMonth = groupBy(closings, (e) => e.date.slice(0, 7));
@@ -192,7 +233,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: (bestMonth?.count ?? 0) >= 5,
     earnedAt: bestMonth && bestMonth.count >= 5 ? `${bestMonth.month}-01` : null,
     progress: pct(bestMonth?.count ?? 0, 5),
-    detail: bestMonth ? `${bestMonth.month}: ${bestMonth.count} closings, ${money(bestMonth.profit)} net` : "no closings",
+    detail: bestMonth ? d.monthClosings(bestMonth.month, bestMonth.count, money(bestMonth.profit)) : d.noClosings,
   });
 
   const bigCash = i.treasury.months.reduce((best, m) => (m.cashIn > (best?.cashIn ?? 0) ? m : best), null as Treasury["months"][number] | null);
@@ -204,7 +245,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: (bigCash?.cashIn ?? 0) >= 100_000,
     earnedAt: bigCash && bigCash.cashIn >= 100_000 ? `${bigCash.month}-01` : null,
     progress: pct(bigCash?.cashIn ?? 0, 100_000),
-    detail: bigCash ? `${bigCash.month}: ${money(bigCash.cashIn)}` : "no cash yet",
+    detail: bigCash ? d.monthCash(bigCash.month, money(bigCash.cashIn)) : d.noCashYet,
   });
 
   trophies.push({
@@ -215,7 +256,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: i.treasury.totalCashIn >= 1_000_000,
     earnedAt: i.treasury.months.find((m) => m.cumulativeCashIn >= 1_000_000)?.month.concat("-01") ?? null,
     progress: pct(i.treasury.totalCashIn, 1_000_000),
-    detail: `${money(i.treasury.totalCashIn)} / $1,000,000`,
+    detail: d.ratio(money(i.treasury.totalCashIn), "$1,000,000"),
   });
 
   const repaid = i.investors.filter((inv) => inv.capitalDeployed > 0 && inv.capitalOutstanding === 0);
@@ -230,7 +271,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       const best = [...i.investors].filter((v) => v.capitalDeployed > 0).sort((a, b) => b.capitalReturned / b.capitalDeployed - a.capitalReturned / a.capitalDeployed)[0];
       return best ? pct(best.capitalReturned, best.capitalDeployed) : 0;
     })(),
-    detail: repaid.length > 0 ? repaid.map((r) => r.name).join(", ") : `${money(i.goal.capitalOutstanding)} still outstanding`,
+    detail: repaid.length > 0 ? repaid.map((r) => r.name).join(", ") : d.stillOutstanding(money(i.goal.capitalOutstanding)),
   });
 
   const noteSoldCount = i.lots.filter((l) => l.stage === "note_sold").length;
@@ -242,7 +283,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: noteSoldCount >= 10,
     earnedAt: noteSales[9]?.date ?? null,
     progress: pct(noteSoldCount, 10),
-    detail: `${noteSoldCount} / 10`,
+    detail: d.ratio(String(noteSoldCount), "10"),
   });
 
   trophies.push({
@@ -253,7 +294,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: sold.length >= 50,
     earnedAt: closings[49]?.date ?? null,
     progress: pct(sold.length, 50),
-    detail: `${sold.length} / 50`,
+    detail: d.ratio(String(sold.length), "50"),
   });
 
   trophies.push({
@@ -264,7 +305,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: sold.length >= 100,
     earnedAt: closings[99]?.date ?? null,
     progress: pct(sold.length, 100),
-    detail: `${sold.length} / 100`,
+    detail: d.ratio(String(sold.length), "100"),
   });
 
   const farmCount = i.farms.length;
@@ -276,7 +317,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: farmCount >= 9,
     earnedAt: farmCount >= 9 ? i.farms[8]?.fundingDate ?? null : null,
     progress: pct(farmCount, 9),
-    detail: `${farmCount} farms`,
+    detail: d.farms(farmCount),
   });
 
   const bestLot = [...sold].sort((a, b) => (b.netProfit ?? 0) - (a.netProfit ?? 0))[0];
@@ -288,7 +329,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: (bestLot?.netProfit ?? 0) >= 75_000,
     earnedAt: bestLot && (bestLot.netProfit ?? 0) >= 75_000 ? bestLot.closeDate : null,
     progress: pct(bestLot?.netProfit ?? 0, 75_000),
-    detail: bestLot ? `${bestLot.name}: ${money(bestLot.netProfit ?? 0)}` : "no closings",
+    detail: bestLot ? d.lotProfit(bestLot.name, money(bestLot.netProfit ?? 0)) : d.noClosings,
   });
 
   trophies.push({
@@ -302,7 +343,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       i.goal.requiredLotsPerMonthToHitDeadline && i.goal.requiredLotsPerMonthToHitDeadline > 0
         ? pct(i.goal.closedLotsPerMonth, i.goal.requiredLotsPerMonthToHitDeadline)
         : 0,
-    detail: `${i.goal.closedLotsPerMonth} / ${i.goal.requiredLotsPerMonthToHitDeadline ?? "?"} lots per month`,
+    detail: d.lotsPerMonth(i.goal.closedLotsPerMonth, i.goal.requiredLotsPerMonthToHitDeadline ?? "?"),
   });
 
   const streakMonths = consecutiveMonthsWithClosings(closings);
@@ -314,7 +355,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     earned: streakMonths >= 3,
     earnedAt: null,
     progress: pct(streakMonths, 3),
-    detail: `${streakMonths} consecutive month${streakMonths === 1 ? "" : "s"}`,
+    detail: d.consecutiveMonths(streakMonths),
   });
 
   if (i.streaks) {
@@ -327,7 +368,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       earned: s.bestWeeks >= 3,
       earnedAt: s.bestWeeks >= 3 ? s.bestWeeksEndedOn : null,
       progress: pct(s.bestWeeks, 3),
-      detail: `best ${s.bestWeeks} week${s.bestWeeks === 1 ? "" : "s"} · current ${s.currentWeeks}`,
+      detail: d.bestWeeksCurrent(s.bestWeeks, s.currentWeeks),
     });
     trophies.push({
       id: "streak_weeks_6",
@@ -337,7 +378,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       earned: s.bestWeeks >= 6,
       earnedAt: s.bestWeeks >= 6 ? s.bestWeeksEndedOn : null,
       progress: pct(s.bestWeeks, 6),
-      detail: `best ${s.bestWeeks} weeks`,
+      detail: d.bestWeeks(s.bestWeeks),
     });
     trophies.push({
       id: "busy_week_3",
@@ -347,7 +388,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       earned: (s.bestWeek?.count ?? 0) >= 3,
       earnedAt: (s.bestWeek?.count ?? 0) >= 3 ? s.bestWeek?.weekStart ?? null : null,
       progress: pct(s.bestWeek?.count ?? 0, 3),
-      detail: s.bestWeek ? `${s.bestWeek.count} in week ${s.bestWeek.week}` : "no closings yet",
+      detail: s.bestWeek ? d.inWeek(s.bestWeek.count, s.bestWeek.week) : d.noClosingsYet,
     });
   }
 
@@ -361,7 +402,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       earned: r.bestMonths >= 3,
       earnedAt: null,
       progress: pct(r.bestMonths, 3),
-      detail: `best ${r.bestMonths} consecutive month${r.bestMonths === 1 ? "" : "s"} · current ${r.currentMonths}`,
+      detail: d.bestMonthsCurrent(r.bestMonths, r.currentMonths),
     });
     trophies.push({
       id: "pledge_streak_weeks_3",
@@ -371,7 +412,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       earned: r.bestWeeks >= 3,
       earnedAt: r.bestWeeks >= 3 ? r.bestWeeksEndedOn : null,
       progress: pct(r.bestWeeks, 3),
-      detail: `best ${r.bestWeeks} week${r.bestWeeks === 1 ? "" : "s"} · current ${r.currentWeeks}`,
+      detail: d.bestWeeksCurrent(r.bestWeeks, r.currentWeeks),
     });
     trophies.push({
       id: "pledge_streak_weeks_6",
@@ -381,7 +422,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       earned: r.bestWeeks >= 6,
       earnedAt: r.bestWeeks >= 6 ? r.bestWeeksEndedOn : null,
       progress: pct(r.bestWeeks, 6),
-      detail: `best ${r.bestWeeks} weeks`,
+      detail: d.bestWeeks(r.bestWeeks),
     });
     trophies.push({
       id: "busy_pledge_week_3",
@@ -391,7 +432,7 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       earned: (r.bestWeek?.count ?? 0) >= 3,
       earnedAt: (r.bestWeek?.count ?? 0) >= 3 ? r.bestWeek?.weekStart ?? null : null,
       progress: pct(r.bestWeek?.count ?? 0, 3),
-      detail: r.bestWeek ? `${r.bestWeek.count} in week ${r.bestWeek.week}` : "no reservations yet",
+      detail: r.bestWeek ? d.inWeek(r.bestWeek.count, r.bestWeek.week) : d.noReservationsYet,
     });
   }
 
@@ -406,7 +447,12 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       earned: freed.length > 0,
       earnedAt: freed.map((h) => h.freedAt ?? "").filter(Boolean).sort()[0] ?? null,
       progress: freed.length > 0 ? 100 : captiveBest?.pctReturned ?? 0,
-      detail: freed.length > 0 ? freed.map((h) => `${h.investorName} · ${h.farmName}`).join(", ") : captiveBest ? `${captiveBest.farmName} at ${captiveBest.pctReturned}%` : "no sponsor capital",
+      detail:
+        freed.length > 0
+          ? freed.map((h) => `${h.investorName} · ${h.farmName}`).join(", ")
+          : captiveBest
+            ? d.atPct(captiveBest.farmName, captiveBest.pctReturned)
+            : d.noSponsorCapital,
     });
     trophies.push({
       id: "all_free",
@@ -416,11 +462,10 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
       earned: i.liberation.hostages.length > 0 && i.liberation.captiveHostages.length === 0,
       earnedAt: null,
       progress: i.liberation.pctReturned,
-      detail: `${freed.length} / ${i.liberation.hostages.length} positions freed`,
+      detail: d.positionsFreed(freed.length, i.liberation.hostages.length),
     });
   }
 
-  const lang = i.lang ?? "en";
   return trophies.map((t) => {
     const copy = TROPHY_COPY[t.id];
     return {

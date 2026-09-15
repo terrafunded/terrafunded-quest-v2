@@ -148,7 +148,7 @@ function TurnsTimeline({
                             key={`${lane.id}-${bi}-${block.farmName}`}
                             className="absolute top-0 h-full rounded-sm"
                             style={{ left: `${left}%`, width: `${width}%`, background: color, opacity: 0.85 }}
-                            title={`${block.farmName}: ${moneyCompact(block.cost)} · recycled ${moneyCompact(block.recycled)} · fresh ${moneyCompact(block.fresh)}`}
+                            title={t.blockRecycledFresh(block.farmName, moneyCompact(block.cost), moneyCompact(block.recycled), moneyCompact(block.fresh))}
                           />
                         );
                       })}
@@ -162,7 +162,7 @@ function TurnsTimeline({
                   key={`dry-${m}`}
                   className="absolute bottom-0 top-6 w-px bg-ember/60"
                   style={{ left: `${((m - 1) / maxMonth) * 100}%` }}
-                  title="Inventory dry"
+                  title={t.inventoryDry}
                 />
               ))}
               {k > 0 && (

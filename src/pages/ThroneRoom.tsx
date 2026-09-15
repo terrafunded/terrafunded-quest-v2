@@ -147,19 +147,16 @@ export function ThroneRoom() {
                 t.noReservationWaiting
               ) : (
                 <>
-                  {money(x.netProfitAtStake)} at stake × {pct(x.conversionPct, 0)} {conversionForecastLabel} = this figure
-                  <span className="text-muted-foreground/80"> (forecasts use {conversionForecastLabel})</span>
+                  {t.atStake(money(x.netProfitAtStake), pct(x.conversionPct, 0), conversionForecastLabel)}
+                  <span className="text-muted-foreground/80">{t.forecastsUse(conversionForecastLabel)}</span>
                   {x.landsBy && (
                     <>
-                      {" "}
-                      · expected by <span className="text-foreground" data-testid="committed-lands-by">{monthLabel(x.landsBy)}</span>
+                      {t.expectedBy}
+                      <span className="text-foreground" data-testid="committed-lands-by">{monthLabel(x.landsBy)}</span>
                     </>
                   )}
                   {x.overdueCount > 0 && (
-                    <span className="text-ember">
-                      {" "}
-                      · {x.overdueCount} overdue ({moneyCompact(x.overdueNetProfit)})
-                    </span>
+                    <span className="text-ember">{t.overdue(x.overdueCount, moneyCompact(x.overdueNetProfit))}</span>
                   )}
                 </>
               )}
@@ -186,69 +183,97 @@ export function ThroneRoom() {
             </p>
             <div className="space-y-1 text-sm text-muted-foreground">
               <p data-testid="pace-line-reservations">
-                Reserving <strong className="text-stage-reserved tabular">{number(x.reservationsPerMonth)}</strong>/month, closing{" "}
-                <strong className="text-stage-closed tabular">{number(x.closingsPerMonth)}</strong>/month
+                {(() => {
+                  const res = number(x.reservationsPerMonth);
+                  const closings = number(x.closingsPerMonth);
+                  const full = t.paceReservations(res, closings);
+                  const i = full.indexOf(res);
+                  const j = full.indexOf(closings, i + res.length);
+                  if (i < 0 || j < 0) return full;
+                  return (
+                    <>
+                      {full.slice(0, i)}
+                      <strong className="text-stage-reserved tabular">{res}</strong>
+                      {full.slice(i + res.length, j)}
+                      <strong className="text-stage-closed tabular">{closings}</strong>
+                      {full.slice(j + closings.length)}
+                    </>
+                  );
+                })()}
                 <span className="text-xs" data-testid="pace-window">
                   {" "}
-                  · {x.trailingEraClipped && realm.era ? `${realm.era.since} (${x.trailingDays} days)` : `trailing ${x.trailingWindowDays} days`}
+                  ·{" "}
+                  {x.trailingEraClipped && realm.era
+                    ? t.paceWindowSince(realm.era.since, x.trailingDays)
+                    : t.paceWindowTrailing(x.trailingWindowDays)}
                 </span>
               </p>
               <p data-testid="pace-line-required">
-                Need <strong className="text-foreground tabular">{x.requiredReservationsPerMonth === null ? "—" : number(x.requiredReservationsPerMonth)}</strong> reservations/month
+                {(() => {
+                  const res = x.requiredReservationsPerMonth === null ? "—" : number(x.requiredReservationsPerMonth);
+                  const full = t.paceRequired(res);
+                  const i = full.indexOf(res);
+                  if (i < 0) return full;
+                  return (
+                    <>
+                      {full.slice(0, i)}
+                      <strong className="text-foreground tabular">{res}</strong>
+                      {full.slice(i + res.length)}
+                    </>
+                  );
+                })()}
                 <span className="text-xs">
-                  {" "}
-                  · {x.requiredClosingsPerMonth === null ? "—" : number(x.requiredClosingsPerMonth)} closings/month at {pct(x.conversionPct, 0)}{" "}
-                  {conversionForecastLabel}
+                  {t.paceRequiredClosings(
+                    x.requiredClosingsPerMonth === null ? "—" : number(x.requiredClosingsPerMonth),
+                    pct(x.conversionPct, 0),
+                    conversionForecastLabel,
+                  )}
                 </span>
               </p>
-              <p className="text-xs">
-                Era average is the better estimator of today&apos;s business (excludes pre-operation closings). Lifetime keeps every closed lot.
-              </p>
+              <p className="text-xs">{t.eraNote}</p>
               <p data-testid="pace-era-avg" className="text-xs sm:text-sm">
-                <span className="text-oxygen">Era</span>
-                {g.recentSinceLabel ? ` ${g.recentSinceLabel}` : ""}:{" "}
-                <strong className="text-foreground tabular">{g.recentAvgNetProfitPerClosedLot === null ? "—" : money(g.recentAvgNetProfitPerClosedLot)}</strong>
-                /lot · <strong className="text-foreground tabular">{g.lotsStillNeededRecent ?? "—"}</strong> lots ·{" "}
-                <strong className="text-foreground tabular">{g.farmsStillNeededRecent ?? "—"}</strong> farms · need{" "}
-                <strong className="text-foreground tabular">{g.requiredLotsPerMonthToHitDeadlineRecent ?? "—"}</strong>/mo · lands{" "}
-                <strong className="text-foreground tabular">{g.projectedDateRecent ? date(g.projectedDateRecent) : "—"}</strong>
-                {g.recentClosedLots > 0 ? ` · ${g.recentClosedLots} closings` : ""}
+                <span className="text-oxygen">{t.era}</span>
+                {g.recentSinceLabel ? ` ${g.recentSinceLabel}` : ""}
+                {t.perLotLotsFarms(
+                  g.recentAvgNetProfitPerClosedLot === null ? "—" : money(g.recentAvgNetProfitPerClosedLot),
+                  String(g.lotsStillNeededRecent ?? "—"),
+                  String(g.farmsStillNeededRecent ?? "—"),
+                  String(g.requiredLotsPerMonthToHitDeadlineRecent ?? "—"),
+                  g.projectedDateRecent ? date(g.projectedDateRecent) : "—",
+                  t.closingsCount(g.recentClosedLots),
+                )}
               </p>
               <p data-testid="pace-lifetime-avg" className="text-xs sm:text-sm">
-                <span className="text-muted-foreground">Lifetime</span>:{" "}
-                <strong className="text-foreground tabular">{g.avgNetProfitPerClosedLot === null ? "—" : money(g.avgNetProfitPerClosedLot)}</strong>
-                /lot · <strong className="text-foreground tabular">{g.lotsStillNeeded ?? "—"}</strong> lots ·{" "}
-                <strong className="text-foreground tabular">{g.farmsStillNeeded ?? "—"}</strong> farms · need{" "}
-                <strong className="text-foreground tabular">{g.requiredLotsPerMonthToHitDeadline ?? "—"}</strong>/mo · lands{" "}
-                <strong className="text-foreground tabular">{g.projectedDate ? date(g.projectedDate) : "—"}</strong>
-                {g.closedLots > 0 ? ` · ${g.closedLots} closings` : ""}
+                <span className="text-muted-foreground">{t.lifetime}</span>
+                {t.perLotLotsFarms(
+                  g.avgNetProfitPerClosedLot === null ? "—" : money(g.avgNetProfitPerClosedLot),
+                  String(g.lotsStillNeeded ?? "—"),
+                  String(g.farmsStillNeeded ?? "—"),
+                  String(g.requiredLotsPerMonthToHitDeadline ?? "—"),
+                  g.projectedDate ? date(g.projectedDate) : "—",
+                  t.closingsCount(g.closedLots),
+                )}
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground sm:justify-start">
               <span className="inline-flex items-center gap-1.5">
                 <CalendarClock className="h-4 w-4 text-gold" />
-                <span data-testid="days-to-deadline">
-                  <strong className="text-foreground tabular">{number(g.daysToDeadline)}</strong> days to {date(g.deadline)}
-                </span>
+                <span data-testid="days-to-deadline">{t.daysToDeadline(number(g.daysToDeadline), date(g.deadline))}</span>
               </span>
               <span>
-                <strong className="text-foreground tabular">{g.lotsStillNeeded ?? "—"}</strong> lots still needed ·{" "}
-                <strong className="text-foreground tabular">{g.farmsStillNeeded ?? "—"}</strong> more farms
+                {t.lotsStillNeeded(String(g.lotsStillNeeded ?? "—"), String(g.farmsStillNeeded ?? "—"))}
                 {g.lotsStillNeededRecent !== null && (
-                  <span className="text-xs">
-                    {" "}
-                    (era: {g.lotsStillNeededRecent} lots · {g.farmsStillNeededRecent ?? "—"} farms)
-                  </span>
+                  <span className="text-xs">{t.eraLotsFarms(g.lotsStillNeededRecent, String(g.farmsStillNeededRecent ?? "—"))}</span>
                 )}
               </span>
             </div>
             {throneEngineReconcile && (!throneEngineReconcile.dollarsAgree || !throneEngineReconcile.farmsAgree) && (
               <p className="text-xs text-muted-foreground" data-testid="engine-throne-reconcile">
-                Throne pace is unconstrained; the Engine caps inventory and capital turns
+                {t.engineReconcile}
                 {throneEngineReconcile.dollarReason ? ` — ${throneEngineReconcile.dollarReason}` : ""}
                 {throneEngineReconcile.farmReason ? ` ${throneEngineReconcile.farmReason}` : ""}{" "}
                 <Link to="/engine" className="touch-link text-gold hover:text-foreground">
-                  see The Engine →
+                  {t.seeEngine}
                 </Link>
               </p>
             )}
@@ -280,7 +305,11 @@ export function ThroneRoom() {
               {number(x.nextMonth.expectedClosings)}
             </dd>
             <dd className="text-[11px] text-muted-foreground">
-              closings in {monthLabel(x.nextMonth.month)} from {x.nextMonth.expectedReservations} {x.nextMonth.expectedReservations === 1 ? "reservation" : "reservations"} already made
+              {t.closingsFromReservations(
+                monthLabel(x.nextMonth.month),
+                x.nextMonth.expectedReservations,
+                common.reservations(x.nextMonth.expectedReservations).replace(/^\d+\s+/, ""),
+              )}
             </dd>
           </div>
         </dl>
@@ -309,7 +338,7 @@ export function ThroneRoom() {
       </Reveal>
 
       <Reveal>
-        <section className="parchment-card p-4 sm:p-5" aria-label="Rotation" data-testid="rotation-strip">
+        <section className="parchment-card p-4 sm:p-5" aria-label={t.rotation} data-testid="rotation-strip">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">
               <RefreshCw className="mr-2 inline h-4 w-4" />
@@ -325,30 +354,29 @@ export function ThroneRoom() {
               <dd className="mt-1 font-heading text-xl tabular text-sponsor" data-testid="rotation-outstanding">
                 {money(rot.capitalOutstanding)}
               </dd>
-              <dd className="text-[11px] text-muted-foreground">today&apos;s captive sponsor capital (excludes own-capital farms)</dd>
+              <dd className="text-[11px] text-muted-foreground">{t.capitalOutstandingHint}</dd>
             </div>
             <div className="rounded-md bg-background/40 p-3">
               <dt className="stat-label">{t.benchmarkTurn}</dt>
               <dd className="mt-1 font-heading text-xl tabular" data-testid="rotation-benchmark">
-                {rot.cycleDays === null ? "—" : `${number(rot.cycleDays)} days`}
+                {rot.cycleDays === null ? "—" : t.days(number(rot.cycleDays))}
               </dd>
               <dd className="text-[11px] text-muted-foreground" data-testid="rotation-benchmark-hint">
                 {rot.benchmark ? (
                   <>
                     {rot.benchmark.farmName} ·{" "}
                     <span data-testid="rotation-benchmark-months">
-                      {rot.cycleMonths !== null ? rot.cycleMonths.toFixed(1) : "—"} months
+                      {rot.cycleMonths !== null ? t.months(rot.cycleMonths.toFixed(1)) : "—"}
                     </span>
-                    {rot.benchmark.projected ? ", projected" : ""}
+                    {rot.benchmark.projected ? t.projected : ""}
                   </>
                 ) : (
-                  "no farm freed, none projectable"
+                  t.noFarmFreed
                 )}
                 {rot.sinceLabel && (
                   <>
-                    {" "}
-                    · farms funded {rot.sinceLabel}
-                    {rot.excludedCycles.length > 0 && ` (${rot.excludedCycles.map((c) => c.farmName).join(", ")} freed earlier, on record only)`}
+                    {t.farmsFunded(rot.sinceLabel)}
+                    {rot.excludedCycles.length > 0 && t.freedEarlier(rot.excludedCycles.map((c) => c.farmName).join(", "))}
                   </>
                 )}
               </dd>
@@ -358,7 +386,10 @@ export function ThroneRoom() {
               <dd className="mt-1 font-heading text-xl tabular text-liberty" data-testid="rotation-turns-completed">
                 {rot.turnsCompleted}
               </dd>
-              <dd className="text-[11px] text-muted-foreground">{rot.turnsCompleted === 1 ? "farm freed" : "farms freed"} — capital fully back</dd>
+              <dd className="text-[11px] text-muted-foreground">
+                {rot.turnsCompleted === 1 ? t.farmFreed : t.farmsFreed}
+                {t.capitalFullyBack}
+              </dd>
             </div>
             <div className="rounded-md bg-background/40 p-3">
               <dt className="stat-label">{t.turnsStillNeeded}</dt>
@@ -367,9 +398,9 @@ export function ThroneRoom() {
               </dd>
               <dd className="text-[11px] text-muted-foreground">
                 {plan.turnsNeeded === null
-                  ? "no capital has to turn"
-                  : `${money(plan.peakOutstanding)} peak in the war-plan buy schedule across ${plan.farms} ${plan.farms === 1 ? "farm" : "farms"} (not today's ${money(rot.capitalOutstanding)} already outstanding with sponsors)`}
-                {plan.turnsIncomplete > 0 && <span className="text-ember"> · {plan.turnsIncomplete} not back by the deadline</span>}
+                  ? t.noCapitalToTurn
+                  : t.peakInWarPlan(money(plan.peakOutstanding), plan.farms, t.farmWord(plan.farms), money(rot.capitalOutstanding))}
+                {plan.turnsIncomplete > 0 && <span className="text-ember">{t.notBackByDeadline(plan.turnsIncomplete)}</span>}
               </dd>
             </div>
             <div className="rounded-md bg-background/40 p-3">
@@ -380,11 +411,11 @@ export function ThroneRoom() {
               <dd className="text-[11px] text-muted-foreground tabular">
                 {rot.nextLiberation
                   ? rot.nextLiberation.daysToGo === null
-                    ? `${(100 - rot.nextLiberation.pctReturned).toFixed(0)}% of capital still to return`
+                    ? t.pctStillToReturn((100 - rot.nextLiberation.pctReturned).toFixed(0))
                     : rot.nextLiberation.daysToGo === 0
-                      ? "lots covered, awaiting payout"
-                      : `${number(rot.nextLiberation.daysToGo)} days to go · ${date(rot.nextLiberation.projectedLiberationDate)}`
-                  : "every sponsor-funded farm is free"}
+                      ? t.lotsCoveredAwaiting
+                      : t.daysToGo(number(rot.nextLiberation.daysToGo), date(rot.nextLiberation.projectedLiberationDate))
+                  : t.everyFarmFree}
               </dd>
             </div>
           </dl>
@@ -399,11 +430,10 @@ export function ThroneRoom() {
             hint={
               tsy.totalOtherNoteSales > 0 ? (
                 <span data-testid="treasury-cash-reconcile">
-                  Farm-lot cash only. Cash realized {money(g.cashRealized)} + other note sales {money(tsy.totalOtherNoteSales)} = Treasury cash in{" "}
-                  {money(tsy.totalCashIn)}
+                  {t.cashReconcile(money(g.cashRealized), money(tsy.totalOtherNoteSales), money(tsy.totalCashIn))}
                 </span>
               ) : (
-                "Farm-lot cash only — down payments + note sales on farm lots"
+                t.cashRealizedHint
               )
             }
             valueClassName="text-stage-closed"
@@ -412,7 +442,13 @@ export function ThroneRoom() {
           <Stat
             label={t.pipelineProfit}
             value={money(g.netProfitInPipeline)}
-            hint={`${g.reservedLots} reserved lots, if every one closes as priced · ${money(x.committedNetProfit)} committed at ${pct(x.conversionPct, 0)} ${conversionForecastLabel} · ${money(realm.pipeline.netProfitTrapped)} stuck`}
+            hint={t.pipelineHint(
+              g.reservedLots,
+              money(x.committedNetProfit),
+              pct(x.conversionPct, 0),
+              conversionForecastLabel,
+              money(realm.pipeline.netProfitTrapped),
+            )}
             valueClassName="text-stage-reserved"
           />
           <Stat
@@ -424,12 +460,9 @@ export function ThroneRoom() {
             }
             hint={
               <span data-testid="key-capital-outstanding-hint">
-                Today&apos;s captive sponsor capital
+                {t.captiveSponsor}
                 {realm.debt.ownCapitalOutstanding > 0 ? (
-                  <span data-testid="key-own-capital">
-                    {" · + "}
-                    {money(realm.debt.ownCapitalOutstanding)} own capital tied up
-                  </span>
+                  <span data-testid="key-own-capital">{t.ownCapitalTied(money(realm.debt.ownCapitalOutstanding))}</span>
                 ) : null}
               </span>
             }
@@ -479,16 +512,16 @@ export function ThroneRoom() {
             <Scroll className="h-6 w-6 text-gold" />
             <div className="min-w-0">
               <div className="font-heading">{t.quests}</div>
-              <div className="truncate text-xs text-muted-foreground">
-                {g.closedLots} closed · {g.reservedLots} reserved · {g.availableLots} available
-              </div>
+              <div className="truncate text-xs text-muted-foreground">{t.questsHint(g.closedLots, g.reservedLots, g.availableLots)}</div>
             </div>
           </Link>
           <Link to="/sponsors" className="parchment-card group flex items-center gap-4 p-4 transition-colors hover:border-gold/40">
             <Landmark className="h-6 w-6 text-gold" />
             <div className="min-w-0">
               <div className="font-heading">{t.sponsors}</div>
-              <div className="truncate text-xs text-muted-foreground">{realm.investors.filter((i) => i.capitalDeployed > 0).length} sponsors funding {realm.farms.length} farms</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {t.sponsorsHint(realm.investors.filter((i) => i.capitalDeployed > 0).length, realm.farms.length)}
+              </div>
             </div>
           </Link>
           <Link to="/treasury" className="parchment-card group flex items-center gap-4 p-4 transition-colors hover:border-gold/40">
@@ -496,7 +529,7 @@ export function ThroneRoom() {
             <div className="min-w-0">
               <div className="font-heading">{t.treasury}</div>
               <div className="truncate text-xs text-muted-foreground">
-                {money(realm.treasury.totalCashIn)} in · {money(realm.treasury.totalCashOut)} out
+                {t.treasuryHint(money(realm.treasury.totalCashIn), money(realm.treasury.totalCashOut))}
               </div>
             </div>
           </Link>

@@ -37,7 +37,7 @@ export function DeadlineGauge({ goal, netProfitPerDayAtPace }: { goal: GoalStatu
       data-lots={dev.lots ?? ""}
       data-dollars={dev.dollars ?? ""}
       data-days={dev.days ?? ""}
-      title={`${dev.lots === null ? "" : `${number(dev.lots)} lots · ${money(dev.dollars)} · ${dev.days === null ? "—" : `${number(dev.days)} days`}`}`}
+      title={dev.lots === null ? undefined : t.title(number(dev.lots), money(dev.dollars), dev.days === null ? null : number(dev.days))}
     >
       <p
         className={cn("font-heading text-lg leading-snug transition-opacity duration-700 sm:text-2xl", tone, inView ? "opacity-100" : "opacity-0")}

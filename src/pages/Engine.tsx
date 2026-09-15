@@ -239,7 +239,7 @@ export default function EnginePage() {
               <AssumptionBadge label={real.cycleMonths !== null ? t.measured : t.assumption} />
             </label>
             <span className="font-numeric text-sm" data-testid="engine-cycle-value">
-              {inputs.cycleMonths.toFixed(1)} mo → {t.effectiveCycle(result.effectiveCycleMonths.toFixed(1))}
+              {t.cycleArrow(inputs.cycleMonths.toFixed(1), t.effectiveCycle(result.effectiveCycleMonths.toFixed(1)))}
             </span>
           </div>
           <Slider

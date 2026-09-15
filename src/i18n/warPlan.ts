@@ -192,6 +192,67 @@ export interface WarPlanUiStrings {
   monthFoot: string;
   monthFootSeasonal: string;
   days: (n: number) => string;
+  calendar: {
+    aria: string;
+    title: string;
+    subtitle: string;
+    legendAria: string;
+    fundingDeadlinesAria: string;
+    barRecycled: string;
+    barFresh: string;
+    barUnfunded: string;
+    barReturned: string;
+    inventoryOut: string;
+    deadline: string;
+    legendFresh: string;
+    legendRecycled: string;
+    legendUnfunded: string;
+    legendReturned: string;
+    legendInventoryOut: string;
+    farmFundBy: (n: number, month: string) => string;
+    recycledAmount: (amount: string) => string;
+    freshAmount: (amount: string) => string;
+    unfundedAmount: (amount: string) => string;
+    lotsCloseFrom: (when: string) => string;
+    afterDeadline: string;
+    lagPrefix: string;
+    month: (n: number) => string;
+    farm: (n: number) => string;
+    lot: (n: number) => string;
+    capitalReturn: (n: number) => string;
+    lagObserved: (months: string, farms: string, median: string) => string;
+    lagAssumption: (months: string, sparse: string | null) => string;
+      lagSparse: (n: number, hasHave: string) => string;
+      farmHas: string;
+      farmsHave: string;
+      inventoryNever: (stock: string) => string;
+    inventoryPast: (stock: string, months: string, pace: string, when: string) => string;
+    inventoryRunsOut: (stock: string, months: string, pace: string, when: string) => string;
+    inventoryStock: (lots: string, available: number, reserved: number) => string;
+    summaryFunds: (lag: string, farms: string, first: string, last: string, fresh: string, recycled: string | null) => string;
+    summaryNone: (lag: string) => string;
+    andRecycled: (amount: string) => string;
+    todayMonth: (label: string) => string;
+    deadlineMonth: (label: string, date: string) => string;
+    emptyMonth: (label: string) => string;
+    farmSentence: (n: number, lots: string, cost: string, fundBy: string, land: string, lag: string, source: string, parts: string, late: boolean) => string;
+    recycledFrom: (amount: string) => string;
+    freshFrom: (amount: string, who: string) => string;
+    theMix: string;
+    andJoin: string;
+    nobodyCovers: (amount: string) => string;
+    returnSentence: (when: string, sponsor: string, amount: string, farm: number, cycle: string, use: string) => string;
+    afterCycle: (months: string) => string;
+    canFundFarm: (n: number) => string;
+    afterDeadlineNoUse: string;
+    noLaterFarm: string;
+    returnsInPlan: (returns: string, cycle: string, after: string) => string;
+    onCycle: (months: string) => string;
+    afterDeadlineList: (n: number, list: string) => string;
+    returnAfterItem: (sponsor: string, amount: string, farm: number, when: string | null) => string;
+    noCycleMeasured: string;
+    noReturnsInPlan: string;
+  };
 }
 
 export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
@@ -403,6 +464,76 @@ export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
     monthFootSeasonal:
       " Seasonal closings follow the realm's month-of-year profile of real closing dates (smoothed, floored at 25% of the flat rate) and average out to the flat pace over the plan.",
     days: (n) => `${n} ${Math.abs(n) === 1 ? "day" : "days"}`,
+    calendar: {
+      aria: "Farm calendar",
+      title: "The farm calendar — when to reinvest",
+      subtitle: "The required plan, month by month. Hover any month.",
+      legendAria: "legend",
+      fundingDeadlinesAria: "Funding deadlines",
+      barRecycled: "Recycled capital",
+      barFresh: "Fresh capital to raise",
+      barUnfunded: "Unfunded",
+      barReturned: "Capital returned",
+      inventoryOut: "inventory out",
+      deadline: "deadline",
+      legendFresh: "fresh capital to raise",
+      legendRecycled: "recycled capital",
+      legendUnfunded: "unfunded",
+      legendReturned: "sponsor capital returned",
+      legendInventoryOut: "inventory out",
+      farmFundBy: (n, month) => `Farm ${n} · fund by ${month}`,
+      recycledAmount: (a) => `${a} recycled · `,
+      freshAmount: (a) => `${a} fresh`,
+      unfundedAmount: (a) => ` · ${a} unfunded`,
+      lotsCloseFrom: (when) => ` · lots close from ${when}`,
+      afterDeadline: "after the deadline",
+      lagPrefix: "Lag: ",
+      month: (n) => `${n} ${n === 1 ? "month" : "months"}`,
+      farm: (n) => `${n} ${n === 1 ? "farm" : "farms"}`,
+      lot: (n) => `${n} ${n === 1 ? "lot" : "lots"}`,
+      capitalReturn: (n) => `${n} ${n === 1 ? "capital return" : "capital returns"}`,
+      lagObserved: (months, farms, median) =>
+        `${months} from funding to first closing, observed on ${farms} (median ${median})`,
+      lagAssumption: (months, sparse) =>
+        `${months} from funding to first closing — an assumption${sparse ?? ", not the observed median"}`,
+      lagSparse: (n, hasHave) => ` (only ${n} funded ${hasHave} a first closing)`,
+      farmHas: "farm has",
+      farmsHave: "farms have",
+      inventoryNever: (stock) => `${stock}; the required pace is zero, so they never run out.`,
+      inventoryPast: (stock, months, pace, when) =>
+        `${stock} last ${months} months at ${pace} lots/month — past the deadline (${when}), so no farm is needed for inventory.`,
+      inventoryRunsOut: (stock, months, pace, when) =>
+        `${stock} last ${months} months at the required ${pace} lots/month: they run out around ${when}.`,
+      inventoryStock: (lots, available, reserved) =>
+        `${lots} in inventory today (${available} available + ${reserved} reserved)`,
+      summaryFunds: (lag, farms, first, last, fresh, recycled) =>
+        `Working back ${lag}, the plan funds ${farms} — the first by ${first}, the last by ${last} — ${fresh} fresh${recycled ?? ""}.`,
+      summaryNone: (lag) => `No farm to fund before the deadline (lag: ${lag}).`,
+      andRecycled: (a) => ` and ${a} recycled`,
+      todayMonth: (label) => `${label}: today's month — the plan starts here.`,
+      deadlineMonth: (label, d) => `${label}: the deadline, ${d}.`,
+      emptyMonth: (label) => `${label}: nothing to fund, nothing comes back.`,
+      farmSentence: (n, lots, cost, fundBy, land, lag, source, parts, late) =>
+        `Farm ${n} (${lots}, ${cost}): fund by ${fundBy} so its lots can close from ${land} (${lag} lag, ${source}) — ${parts}${late ? " — bought too late to convert before the deadline." : "."}`,
+      recycledFrom: (a) => `${a} recycled from an earlier farm's capital return`,
+      freshFrom: (a, who) => `${a} fresh from ${who}`,
+      theMix: "the mix",
+      andJoin: " and ",
+      nobodyCovers: (a) => `${a} nobody in the mix covers`,
+      returnSentence: (when, sponsor, amount, farm, cycle, use) =>
+        `${when}: ${sponsor}'s ${amount} from farm ${farm} comes back${cycle} — ${use}.`,
+      afterCycle: (m) => ` after a ${m}-month cycle`,
+      canFundFarm: (n) => `it can fund farm ${n}`,
+      afterDeadlineNoUse: "after the deadline, so no planned farm can use it",
+      noLaterFarm: "no later farm in the plan needs it",
+      returnsInPlan: (returns, cycle, after) => `${returns} in the plan${cycle}${after}.`,
+      onCycle: (m) => ` on a ${m}-month cycle`,
+      afterDeadlineList: (n, list) => `; ${n} of them land after the deadline (${list})`,
+      returnAfterItem: (sponsor, amount, farm, when) =>
+        `${sponsor} ${amount} from farm ${farm}${when ? ` in ${when}` : ""}`,
+      noCycleMeasured: "No capital cycle is measured, so no sponsor capital returns inside the plan.",
+      noReturnsInPlan: "No sponsor capital returns inside the plan.",
+    },
   },
   es: {
     title: "Plan de Guerra",
@@ -612,6 +743,76 @@ export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
     monthFootSeasonal:
       " Los cierres estacionales siguen el perfil mes-del-año del reino de fechas reales de cierre (suavizado, con piso al 25% del ritmo plano) y promedian al ritmo plano a lo largo del plan.",
     days: (n) => `${n} ${Math.abs(n) === 1 ? "día" : "días"}`,
+    calendar: {
+      aria: "Calendario de fincas",
+      title: "El calendario de fincas — cuándo reinvertir",
+      subtitle: "El plan requerido, mes a mes. Pasa el cursor por cualquier mes.",
+      legendAria: "leyenda",
+      fundingDeadlinesAria: "Fechas límite de fondeo",
+      barRecycled: "Capital reciclado",
+      barFresh: "Capital fresco por levantar",
+      barUnfunded: "Sin fondear",
+      barReturned: "Capital devuelto",
+      inventoryOut: "inventario agotado",
+      deadline: "fecha límite",
+      legendFresh: "capital fresco por levantar",
+      legendRecycled: "capital reciclado",
+      legendUnfunded: "sin fondear",
+      legendReturned: "capital de sponsors devuelto",
+      legendInventoryOut: "inventario agotado",
+      farmFundBy: (n, month) => `Finca ${n} · fondear para ${month}`,
+      recycledAmount: (a) => `${a} reciclado · `,
+      freshAmount: (a) => `${a} fresco`,
+      unfundedAmount: (a) => ` · ${a} sin fondear`,
+      lotsCloseFrom: (when) => ` · lotes cierran desde ${when}`,
+      afterDeadline: "después de la fecha límite",
+      lagPrefix: "Retraso: ",
+      month: (n) => `${n} ${n === 1 ? "mes" : "meses"}`,
+      farm: (n) => `${n} ${n === 1 ? "finca" : "fincas"}`,
+      lot: (n) => `${n} ${n === 1 ? "lote" : "lotes"}`,
+      capitalReturn: (n) => `${n} ${n === 1 ? "retorno de capital" : "retornos de capital"}`,
+      lagObserved: (months, farms, median) =>
+        `${months} del fondeo al primer cierre, observado en ${farms} (mediana ${median})`,
+      lagAssumption: (months, sparse) =>
+        `${months} del fondeo al primer cierre — un supuesto${sparse ?? ", no la mediana observada"}`,
+      lagSparse: (n, hasHave) => ` (solo ${n} ${hasHave} un primer cierre)`,
+      farmHas: "finca fondeada tiene",
+      farmsHave: "fincas fondeadas tienen",
+      inventoryNever: (stock) => `${stock}; el ritmo requerido es cero, así que nunca se agotan.`,
+      inventoryPast: (stock, months, pace, when) =>
+        `${stock} duran ${months} meses a ${pace} lotes/mes — pasada la fecha límite (${when}), así que no hace falta finca para inventario.`,
+      inventoryRunsOut: (stock, months, pace, when) =>
+        `${stock} duran ${months} meses al ritmo requerido de ${pace} lotes/mes: se agotan alrededor de ${when}.`,
+      inventoryStock: (lots, available, reserved) =>
+        `${lots} en inventario hoy (${available} disponibles + ${reserved} reservados)`,
+      summaryFunds: (lag, farms, first, last, fresh, recycled) =>
+        `Trabajando hacia atrás ${lag}, el plan fondea ${farms} — la primera para ${first}, la última para ${last} — ${fresh} fresco${recycled ?? ""}.`,
+      summaryNone: (lag) => `Ninguna finca que fondear antes de la fecha límite (retraso: ${lag}).`,
+      andRecycled: (a) => ` y ${a} reciclado`,
+      todayMonth: (label) => `${label}: el mes de hoy — el plan empieza aquí.`,
+      deadlineMonth: (label, d) => `${label}: la fecha límite, ${d}.`,
+      emptyMonth: (label) => `${label}: nada que fondear, nada que vuelva.`,
+      farmSentence: (n, lots, cost, fundBy, land, lag, source, parts, late) =>
+        `Finca ${n} (${lots}, ${cost}): fondear para ${fundBy} para que sus lotes cierren desde ${land} (${lag} de retraso, ${source}) — ${parts}${late ? " — comprada demasiado tarde para convertir antes de la fecha límite." : "."}`,
+      recycledFrom: (a) => `${a} reciclado del retorno de capital de una finca anterior`,
+      freshFrom: (a, who) => `${a} fresco de ${who}`,
+      theMix: "la mezcla",
+      andJoin: " y ",
+      nobodyCovers: (a) => `${a} que nadie en la mezcla cubre`,
+      returnSentence: (when, sponsor, amount, farm, cycle, use) =>
+        `${when}: ${amount} de ${sponsor} de la finca ${farm} vuelve${cycle} — ${use}.`,
+      afterCycle: (m) => ` tras un ciclo de ${m} meses`,
+      canFundFarm: (n) => `puede fondear la finca ${n}`,
+      afterDeadlineNoUse: "después de la fecha límite, así que ninguna finca planificada puede usarlo",
+      noLaterFarm: "ninguna finca posterior del plan lo necesita",
+      returnsInPlan: (returns, cycle, after) => `${returns} en el plan${cycle}${after}.`,
+      onCycle: (m) => ` en un ciclo de ${m} meses`,
+      afterDeadlineList: (n, list) => `; ${n} de ellos caen después de la fecha límite (${list})`,
+      returnAfterItem: (sponsor, amount, farm, when) =>
+        `${sponsor} ${amount} de la finca ${farm}${when ? ` en ${when}` : ""}`,
+      noCycleMeasured: "No hay ciclo de capital medido, así que no hay retornos de capital de sponsors dentro del plan.",
+      noReturnsInPlan: "No hay retornos de capital de sponsors dentro del plan.",
+    },
   },
 };
 

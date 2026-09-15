@@ -189,9 +189,10 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
   const getCapitalComposition = defer(timings, "computeCapitalComposition", () => computeCapitalComposition(investors));
   const events = stage(timings, "computeEvents", () =>
     withLiberationEvents(
-      computeEvents(lots, snapshot.farmAcquisitions, snapshot.investorDistributions, snapshot.investors, asOf),
+      computeEvents(lots, snapshot.farmAcquisitions, snapshot.investorDistributions, snapshot.investors, asOf, undefined, lang),
       liberation.moments,
       asOf,
+      lang,
     ),
   );
   const debt = stage(timings, "computeDebt", () => computeDebt(farms, goal, lots, { eraStart }));

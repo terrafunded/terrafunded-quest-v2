@@ -31,6 +31,8 @@ export interface ThroneRoomUiStrings {
   era: string;
   lifetime: string;
   perLotLotsFarms: (perLot: string, lots: string, farms: string, need: string, lands: string, closings: string) => string;
+  /** Suffix after the lands date: " · 14 closings" / " · 14 cierres". Empty when n is 0. */
+  closingsCount: (n: number) => string;
   daysToDeadline: (days: string, deadline: string) => string;
   lotsStillNeeded: (lots: string, farms: string) => string;
   eraLotsFarms: (lots: number, farms: string) => string;
@@ -64,6 +66,7 @@ export interface ThroneRoomUiStrings {
   capitalFullyBack: string;
   turnsStillNeeded: string;
   noCapitalToTurn: string;
+  farmWord: (n: number) => string;
   peakInWarPlan: (peak: string, farms: number, word: string, outstanding: string) => string;
   notBackByDeadline: (n: number) => string;
   nextLiberation: string;
@@ -124,6 +127,7 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     lifetime: "Lifetime",
     perLotLotsFarms: (perLot, lots, farms, need, lands, closings) =>
       `: ${perLot}/lot · ${lots} lots · ${farms} farms · need ${need}/mo · lands ${lands}${closings}`,
+    closingsCount: (n) => (n > 0 ? ` · ${n} closings` : ""),
     daysToDeadline: (days, deadline) => `${days} days to ${deadline}`,
     lotsStillNeeded: (lots, farms) => `${lots} lots still needed · ${farms} more farms`,
     eraLotsFarms: (lots, farms) => ` (era: ${lots} lots · ${farms} farms)`,
@@ -157,6 +161,7 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     capitalFullyBack: " — capital fully back",
     turnsStillNeeded: "Turns still needed",
     noCapitalToTurn: "no capital has to turn",
+    farmWord: (n) => (n === 1 ? "farm" : "farms"),
     peakInWarPlan: (peak, farms, word, outstanding) =>
       `${peak} peak in the war-plan buy schedule across ${farms} ${word} (not today's ${outstanding} already outstanding with sponsors)`,
     notBackByDeadline: (n) => ` · ${n} not back by the deadline`,
@@ -227,6 +232,7 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     lifetime: "De por vida",
     perLotLotsFarms: (perLot, lots, farms, need, lands, closings) =>
       `: ${perLot}/lote · ${lots} lotes · ${farms} fincas · se necesitan ${need}/mes · aterriza ${lands}${closings}`,
+    closingsCount: (n) => (n > 0 ? ` · ${n} cierres` : ""),
     daysToDeadline: (days, deadline) => `${days} días hasta ${deadline}`,
     lotsStillNeeded: (lots, farms) => `${lots} lotes aún necesarios · ${farms} fincas más`,
     eraLotsFarms: (lots, farms) => ` (era: ${lots} lotes · ${farms} fincas)`,
@@ -260,6 +266,7 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     capitalFullyBack: " — capital de vuelta por completo",
     turnsStillNeeded: "Ciclos aún necesarios",
     noCapitalToTurn: "no hay capital que girar",
+    farmWord: (n) => (n === 1 ? "finca" : "fincas"),
     peakInWarPlan: (peak, farms, word, outstanding) =>
       `${peak} de pico en el calendario de compras del plan de guerra en ${farms} ${word} (no los ${outstanding} ya pendientes con sponsors hoy)`,
     notBackByDeadline: (n) => ` · ${n} no vuelven antes de la fecha límite`,

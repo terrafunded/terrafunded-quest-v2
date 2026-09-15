@@ -21,54 +21,10 @@ import ts from "typescript";
 
 const ATTRS = new Set(["aria-label", "title", "placeholder", "alt"]);
 
-/** Known remaining English JSX literals (Throne / War Plan / funnel / calendar). Shrink over time. */
+/** Deliberate English keeps (brand chrome). Shrink further only when brand copy itself is localized. */
 export const I18N_LITERAL_ALLOWLIST = new Set<string>([
-  "(forecasts use",
-  "+ other note sales",
-  "/lot ·",
-  "/mo · lands",
-  "/month, closing",
-  "= Treasury cash in",
-  "= this figure",
-  "Era average is the better estimator of today&apos;s business (excludes pre-operation closings). Lifetime keeps every closed lot.",
-  "Farm calendar",
-  "Farm-lot cash only. Cash realized",
-  "Funding deadlines",
-  "Inventory dry",
+  // AppShell topbar brand mark — "Quest" is the product name (Exodus / Sponsors also stay English by design).
   "Quest ·",
-  "The farm calendar — when to reinvest",
-  "The required plan, month by month. Hover any month.",
-  "Throne pace is unconstrained; the Engine caps inventory and capital turns",
-  "Today&apos;s captive sponsor capital",
-  "already made",
-  "at stake ×",
-  "closed ·",
-  "closings in",
-  "closings/month at",
-  "days to",
-  "farms · need",
-  "fresh capital to raise",
-  "in ·",
-  "inventory out",
-  "lots close from",
-  "lots still needed ·",
-  "lots ·",
-  "mo →",
-  "more farms",
-  "not back by the deadline",
-  "overdue (",
-  "own capital tied up",
-  "recycled capital",
-  "recycled ·",
-  "reserved ·",
-  "see The Engine →",
-  "sponsor capital returned",
-  "sponsors funding",
-  "today&apos;s captive sponsor capital (excludes own-capital farms)",
-  "· expected by",
-  "· farms funded",
-  "· fund by",
-  "— capital fully back"
 ]);
 
 export function normalizeLiteral(s: string): string {
@@ -149,6 +105,11 @@ describe("no raw English JSX literals", () => {
     expect(hits.map((h) => h.text)).toContain("Hello Farm Capital Terms");
   });
 
+  /**
+   * Fail-then-pass proof (2026-09-15): temporarily added
+   * `<span>Hello Farm Capital Terms</span>` to `ThroneRoom.tsx`, ran this suite — it FAILED
+   * on the project scan — then removed the span. Guard still catches real JSX leaks.
+   */
   it("pages and components have no new English JSX prose outside the allowlist", () => {
     const hits = collectProjectHits();
     if (hits.length === 0) {
