@@ -2,7 +2,7 @@ import type { PaymentsSnapshot } from "./types";
 import { buildInterestLedger, type InterestLedger } from "./interest";
 import { computeLots, isSold, type Lot } from "./lot";
 import { computeFarms, type FarmEconomics } from "./farm";
-import { computeGoal, withVerdict, type GoalStatus } from "./goal";
+import { computeGoal, withCapitalTurns, withVerdict, type GoalStatus } from "./goal";
 import { computeQualityIssues, type QualityIssue } from "./quality";
 import { computeEvents, withLiberationEvents, type RealmEvent } from "./events";
 import { computeInvestors, type InvestorSummary } from "./investors";
@@ -265,6 +265,9 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
   };
   const warPlanDefaults = stage(timings, "deriveWarPlanDefaults", () => deriveWarPlanDefaults(warPlanContext));
   const warPlan = stage(timings, "solveWarPlan", () => solveWarPlan(warPlanDefaults.inputs, warPlanContext, lang));
+  // Farms-still-needed must account for capital turns before the deadline (same cycle the
+  // Engine / War Plan use). computeGoal runs before the benchmark exists, so we overlay here.
+  const goalWithTurns = withCapitalTurns(goal, warPlan.benchmark.cycleMonths);
   if (timings) timings.total = performance.now() - t0;
 
   return {
@@ -272,7 +275,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
     lots,
     farms,
     interestByFarm,
-    goal,
+    goal: goalWithTurns,
     get quality() {
       return getQuality();
     },

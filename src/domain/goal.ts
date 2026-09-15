@@ -81,6 +81,56 @@ export interface GoalOptions {
   trailingWindowDays?: number;
   /** Era start (ISO) the trailing window may not reach before; `null` for no era. Default: config ERA_START. */
   eraStart?: EraStart;
+  /**
+   * Capital-cycle length in months (from the rotation benchmark). When set, `farmsStillNeeded`
+   * accounts for how many times the same capital can buy a farm before the deadline — longer
+   * horizons need fewer farms. Omit for the flat inventory-gap formula (tests, callers without
+   * a cycle).
+   */
+  cycleMonths?: number | null;
+}
+
+/**
+ * Farms still to buy, given that land capital turns before the deadline.
+ *
+ * Flat model (no cycle): ceil(inventoryGap ÷ avgLotsPerFarm).
+ * Rotation model: the same gap divided by the number of full capital turns that fit before
+ * the deadline (at least 1), so a longer horizon strictly reduces farms still needed.
+ */
+export function farmsStillNeededWithTurns(
+  inventoryGap: number | null,
+  avgLotsPerFarm: number | null,
+  monthsToDeadline: number,
+  cycleMonths: number | null | undefined,
+): number | null {
+  if (inventoryGap === null || avgLotsPerFarm === null || !(avgLotsPerFarm > 0)) return null;
+  if (inventoryGap <= 0) return 0;
+  const turns =
+    cycleMonths != null && cycleMonths > 0 && monthsToDeadline > 0
+      ? Math.max(1, Math.floor(monthsToDeadline / cycleMonths))
+      : 1;
+  return Math.max(0, Math.ceil(inventoryGap / (avgLotsPerFarm * turns)));
+}
+
+/** Recompute farmsStillNeeded / farmsStillNeededRecent with a capital-cycle length. */
+export function withCapitalTurns(goal: GoalStatus, cycleMonths: number | null): GoalStatus {
+  const inventoryGapRecent =
+    goal.lotsStillNeededRecent !== null ? goal.lotsStillNeededRecent - goal.availableLots : null;
+  return {
+    ...goal,
+    farmsStillNeeded: farmsStillNeededWithTurns(
+      goal.inventoryGap,
+      goal.avgLotsPerFarm,
+      goal.monthsToDeadline,
+      cycleMonths,
+    ),
+    farmsStillNeededRecent: farmsStillNeededWithTurns(
+      inventoryGapRecent,
+      goal.avgLotsPerFarm,
+      goal.monthsToDeadline,
+      cycleMonths,
+    ),
+  };
 }
 
 /** Sold lots that closed inside the trailing window — never before the era start (era.ts). */
@@ -140,11 +190,15 @@ export function computeGoal(lots: Lot[], farms: FarmEconomics[], asOf: Date, opt
 
   const avgLotsPerFarm = mean(farms.map((f) => f.totalLots));
   const inventoryGap = lotsStillNeeded !== null ? lotsStillNeeded - available.length : null;
-  const farmsStillNeeded =
-    inventoryGap !== null && avgLotsPerFarm ? Math.max(0, Math.ceil(inventoryGap / avgLotsPerFarm)) : null;
   const inventoryGapRecent = lotsStillNeededRecent !== null ? lotsStillNeededRecent - available.length : null;
-  const farmsStillNeededRecent =
-    inventoryGapRecent !== null && avgLotsPerFarm ? Math.max(0, Math.ceil(inventoryGapRecent / avgLotsPerFarm)) : null;
+  const avgLots = avgLotsPerFarm === null ? null : avgLotsPerFarm;
+  const farmsStillNeeded = farmsStillNeededWithTurns(inventoryGap, avgLots, monthsToDeadline, opts.cycleMonths);
+  const farmsStillNeededRecent = farmsStillNeededWithTurns(
+    inventoryGapRecent,
+    avgLots,
+    monthsToDeadline,
+    opts.cycleMonths,
+  );
 
   const onTrack =
     remaining === 0 ? true : projectedDate !== null ? (parseDate(projectedDate) ?? deadline) <= deadline : null;
