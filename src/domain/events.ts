@@ -87,7 +87,7 @@ function copy(lang: QualityLang) {
     toNoteBuyer: es ? "a un comprador de pagarés" : "to a note buyer",
     capitalReturned: (who: string) => (es ? `Capital devuelto a ${who}` : `Capital returned to ${who}`),
     profitShared: (who: string) => (es ? `Utilidad compartida con ${who}` : `Profit shared to ${who}`),
-    milestone: (amount: string) => (es ? `${amount} de utilidad neta` : `${amount} of net profit`),
+    milestone: (amount: string) => (es ? `${amount} de utilidad neta al cierre` : `${amount} of net profit at closing`),
     crossedWith: (lot: string) => (es ? `Cruzado con ${lot}` : `Crossed with ${lot}`),
     aClosing: es ? "un cierre" : "a closing",
     freed: (who: string) => (es ? `${who}: capital devuelto` : `${who}: capital returned`),

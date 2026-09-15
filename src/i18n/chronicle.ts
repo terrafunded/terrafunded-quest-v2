@@ -18,7 +18,7 @@ export const CHRONICLE_UI: Record<QualityLang, ChronicleUiStrings> = {
   en: {
     title: "Activity",
     subtitle:
-      "Every real event, newest first. Each line comes from the row that produced it, with running net profit and a mark each time it crosses another million. A reservation includes the expected closing date; a closing says how long after the reservation it came; a cancellation returns the lot to inventory.",
+      "Every real event, newest first. Each line comes from the row that produced it, with running net profit at closing and a mark each time it crosses another million. A reservation includes the expected closing date; a closing says how long after the reservation it came; a cancellation returns the lot to inventory.",
     all: "All",
     kind: {
       farm_acquired: "Farm acquired",
@@ -38,7 +38,7 @@ export const CHRONICLE_UI: Record<QualityLang, ChronicleUiStrings> = {
   es: {
     title: "Actividad",
     subtitle:
-      "Cada evento real, del más reciente al más antiguo. Cada línea sale de la fila que lo produjo, con la utilidad neta acumulada y una marca cada vez que cruza otro millón. Una reserva incluye la fecha de cierre esperada; un cierre dice cuánto después de la reserva llegó; una cancelación devuelve el lote al inventario.",
+      "Cada evento real, del más reciente al más antiguo. Cada línea sale de la fila que lo produjo, con la utilidad neta al cierre acumulada y una marca cada vez que cruza otro millón. Una reserva incluye la fecha de cierre esperada; un cierre dice cuánto después de la reserva llegó; una cancelación devuelve el lote al inventario.",
     all: "Todos",
     kind: {
       farm_acquired: "Finca adquirida",

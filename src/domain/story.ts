@@ -60,8 +60,8 @@ export function buildStory(
     id: "claimed",
     kicker: es ? "Cerrado" : "Closed",
     line: es
-      ? `${plural(goal.closedLots, "lote")} cerrados por ${proseMoney(goal.netProfitToDate, lang)} de utilidad neta — ${goal.pctComplete.toFixed(1)}% de los diez millones.`
-      : `${plural(goal.closedLots, "lot")} closed for ${proseMoney(goal.netProfitToDate)} of net profit — ${goal.pctComplete.toFixed(1)}% of the ten million.`,
+      ? `${plural(goal.closedLots, "lote")} cerrados por ${proseMoney(goal.netProfitToDate, lang)} de utilidad neta al cierre — ${goal.pctComplete.toFixed(1)}% de los diez millones.`
+      : `${plural(goal.closedLots, "lot")} closed for ${proseMoney(goal.netProfitToDate)} of net profit at closing — ${goal.pctComplete.toFixed(1)}% of the ten million.`,
   });
   if (oxygen.totalDaysGained !== 0) {
     cards.push({

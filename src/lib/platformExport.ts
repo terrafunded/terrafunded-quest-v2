@@ -278,14 +278,67 @@ function collectFigures(
       id: "throne.netProfitToDate",
       page: "/",
       section: "headline",
-      label: lang === "es" ? "Utilidad neta a la fecha" : "Net profit to date",
+      label: lang === "es" ? "Utilidad neta al cierre" : "Net profit at closing",
       displayed: moneyCompact(g.netProfitToDate, lang),
       raw: g.netProfitToDate,
       subtitle: t.ofGoal(money(g.goal, lang), money(g.remaining, lang)),
       units: "USD",
       source: { file: "src/domain/goal.ts", export: "computeGoal" },
       inputs: { closedLots: g.closedLots, goal: g.goal },
-      formula: "Σ netProfit of sold lots",
+      formula: "Σ (salePrice − landCost − sponsor take) of sold lots",
+    },
+    {
+      id: "throne.netCashRealized",
+      page: "/",
+      section: "headline",
+      label: t.netCashRealized,
+      displayed: moneyCompact(realm.profitLayers.netCashRealized, lang),
+      raw: realm.profitLayers.netCashRealized,
+      subtitle: t.netCashRealizedFormula,
+      units: "USD",
+      source: { file: "src/domain/profitLayers.ts", export: "computeProfitLayers" },
+      inputs: {
+        cashRealized: g.cashRealized,
+        land: round2(sum(realm.lots.filter((l) => isSold(l)).map((l) => l.landCost))),
+        sponsorTake: g.investorTakeToDate,
+      },
+      formula: "Σ (down + note-sale proceeds − land − sponsor take) of sold lots",
+    },
+    {
+      id: "throne.notesHeldFace",
+      page: "/",
+      section: "headline",
+      label: t.notesHeldFace,
+      displayed: moneyCompact(realm.profitLayers.notesHeldFace, lang),
+      raw: realm.profitLayers.notesHeldFace,
+      subtitle: t.notesHeldHint(
+        realm.profitLayers.notesHeldCount,
+        money(realm.profitLayers.notesHeldAtRatio, lang),
+        `${(realm.profitLayers.noteSaleRatio * 100).toFixed(1)}%`,
+      ),
+      units: "USD",
+      source: { file: "src/domain/profitLayers.ts", export: "computeProfitLayers" },
+      inputs: {
+        notesHeldCount: realm.profitLayers.notesHeldCount,
+        noteSaleRatio: realm.profitLayers.noteSaleRatio,
+      },
+      formula: "Σ financed_amount of closed lots whose note is not sold",
+    },
+    {
+      id: "throne.notesHeldAtRatio",
+      page: "/",
+      section: "headline",
+      label: lang === "es" ? "Notas en cartera al ratio medido" : "Notes held at the measured sale ratio",
+      displayed: moneyCompact(realm.profitLayers.notesHeldAtRatio, lang),
+      raw: realm.profitLayers.notesHeldAtRatio,
+      subtitle: `${(realm.profitLayers.noteSaleRatio * 100).toFixed(1)}%`,
+      units: "USD",
+      source: { file: "src/domain/profitLayers.ts", export: "computeProfitLayers" },
+      inputs: {
+        notesHeldFace: realm.profitLayers.notesHeldFace,
+        noteSaleRatio: realm.profitLayers.noteSaleRatio,
+      },
+      formula: "notesHeldFace × measured note-sale ratio",
     },
     {
       id: "throne.closingsToDate",
@@ -696,7 +749,7 @@ function collectFigures(
       id: "chronicle.cumulativeNet",
       page: "/chronicle",
       section: "history",
-      label: lang === "es" ? "Utilidad neta acumulada (actividad)" : "Cumulative net profit (activity)",
+      label: lang === "es" ? "Utilidad neta al cierre acumulada (actividad)" : "Cumulative net profit at closing (activity)",
       displayed: moneyCompact(histCum, lang),
       raw: histCum,
       subtitle: null,
@@ -874,11 +927,15 @@ function runReconciliations(
       : null;
 
   const throneEngine = reconcileThroneAndEngine(g, engine, "era", lang);
+  const layers = realm.profitLayers;
+  const salePriceLayersSum = round2(
+    layers.cashAtClosing + layers.notesHeldFace + layers.noteSaleProceeds + layers.salePriceResidual,
+  );
 
   return [
     mkCheck(
       "net_profit_sold_lots",
-      lang === "es" ? "Σ utilidad neta lotes vendidos == goal.netProfitToDate" : "Σ net profit sold lots == goal.netProfitToDate",
+      lang === "es" ? "Σ utilidad neta al cierre lotes vendidos == goal.netProfitToDate" : "Σ net profit at closing sold lots == goal.netProfitToDate",
       { label: "Σ lot.netProfit (sold)", value: soldNet },
       { label: "goal.netProfitToDate", value: netToDate },
       TOL_CENTS,
@@ -895,6 +952,21 @@ function runReconciliations(
       lang === "es"
         ? "La actividad mensual no suma la utilidad a la fecha."
         : "Monthly activity does not sum to net profit to date.",
+    ),
+    mkCheck(
+      "sale_price_layers",
+      lang === "es"
+        ? "efectivo al cierre + notas en cartera + notas vendidas + residual == Σ precio de venta"
+        : "cash at closing + notes held + notes sold + residual == Σ sale price",
+      {
+        label: "cashAtClosing + notesHeldFace + noteSaleProceeds + residual",
+        value: salePriceLayersSum,
+      },
+      { label: "Σ salePrice of sold lots", value: layers.salePriceSoldLots },
+      TOL_CENTS,
+      lang === "es"
+        ? `El residual (${layers.salePriceResidual}) es el descuento en pagarés ya vendidos (precio − enganche − venta) más cualquier hueco entre el contrato y enganche + financiado en pagarés aún en cartera.`
+        : `Residual (${layers.salePriceResidual}) is the discount on notes already sold (contract price − down − sale proceeds) plus any gap between contract price and down + financed on notes still held.`,
     ),
     mkCheck(
       "goal_identity",

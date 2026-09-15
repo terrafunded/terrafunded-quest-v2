@@ -26,6 +26,7 @@ import { deriveWarPlanDefaults, solveWarPlan, type RotationBenchmark, type WarPl
 import { computeSeasonality, type SeasonalProfile } from "./seasonality";
 import { computeMonthlyHistory, type MonthlyPoint } from "./history";
 import { startOfUtcDay, toIsoDate } from "./dates";
+import { computeProfitLayers, type ProfitLayers } from "./profitLayers";
 
 /** Everything the pages render. Built once from a snapshot; pages never compute money. */
 export interface Realm {
@@ -82,6 +83,11 @@ export interface Realm {
   eraStart: EraStart;
   /** How often a farm is bought — the Oracle's "new farm every N months", with the farms behind it. */
   farmCadence: FarmCadence;
+  /**
+   * Booked net profit at closing, net cash in hand, and notes still held.
+   * Derived from existing lot fields — does not change the goal.
+   */
+  profitLayers: ProfitLayers;
   /** Reservations, closings and net profit by calendar month — the Pulse charts. */
   history: MonthlyPoint[];
   snapshot: PaymentsSnapshot;
@@ -202,6 +208,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
   const investors = stage(timings, "computeInvestors", () => computeInvestors(snapshot.investors, farms, snapshot.investorDistributions));
   const treasury = stage(timings, "computeTreasury", () => computeTreasury(lots, snapshot.investorDistributions, snapshot.noteSales));
   const oracleDefaults = stage(timings, "deriveOracleDefaults", () => deriveOracleDefaults(lots, farms, goal, { eraStart }));
+  const profitLayers = stage(timings, "computeProfitLayers", () => computeProfitLayers(lots, oracleDefaults.noteSalePct / 100));
   const getCadence = defer(timings, "farmCadence", () => farmCadence(farms, asOf, eraStart));
 
   // Phase 2
@@ -307,6 +314,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
       return getTrophies();
     },
     oracleDefaults,
+    profitLayers,
     debt,
     oxygen,
     liberation,

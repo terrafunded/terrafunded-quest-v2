@@ -427,7 +427,7 @@ describe("CINEMATIC INTRO story", () => {
     expect(realm.story.hasData).toBe(true);
     expect(lines).toContain("3 farms across 1 county, cut into 13 lots.");
     expect(lines).toContain("$1,000,000 lent by 1 sponsor. $450,000 still owed.");
-    expect(lines).toContain(`${realm.goal.closedLots} lots closed for ${proseMoney(realm.goal.netProfitToDate)} of net profit`);
+    expect(lines).toContain(`${realm.goal.closedLots} lots closed for ${proseMoney(realm.goal.netProfitToDate)} of net profit at closing`);
     expect(lines).toContain(`${realm.oxygen.totalDaysGained} days gained toward the exit.`);
     expect(lines).toContain("Lady Ashcombe received their capital back for Northfield. 1 remains with capital still out.");
     expect(lines).toContain(`476 days left. ${proseMoney(realm.debt.requiredNetProfitPerDay)} of net profit needed every single day.`);

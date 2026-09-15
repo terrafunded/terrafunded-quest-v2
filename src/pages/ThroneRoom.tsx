@@ -77,6 +77,8 @@ export function ThroneRoom() {
   const g = realm.goal;
   const x = realm.expected;
   const tsy = realm.treasury;
+  const layers = realm.profitLayers;
+  const noteSalePctLabel = `${(layers.noteSaleRatio * 100).toFixed(1)}%`;
   const recent = latestEvents(realm.events, 5, ["reservation", "cancellation", "closing", "note_sale", "distribution", "liberation"]);
   const rot = realm.rotation;
   const plan = realm.warPlan.rotation;
@@ -108,13 +110,14 @@ export function ThroneRoom() {
         <AmbientParticles />
         <GrowthBurst trigger={g.netProfitToDate} className="pointer-events-none absolute inset-0 left-1/2 top-1/2" />
         <h1 className="stat-label">{t.asOf(date(g.asOf))}</h1>
-        <div className="mt-3 grid items-stretch gap-5 md:grid-cols-2">
+        <div className="mt-3 grid items-stretch gap-5 md:grid-cols-3" data-testid="profit-layers">
           <div className="flex min-h-full min-w-0 flex-col items-center justify-center rounded-xl border border-gold/20 bg-background/40 px-4 py-3">
+            <div className="stat-label">{t.profitAtClosing}</div>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="mx-auto w-full max-w-full font-display text-[clamp(1.75rem,9vw,4.5rem)] leading-none"
+              className="mx-auto mt-1 w-full max-w-full font-display text-[clamp(1.5rem,6vw,3.25rem)] leading-none"
             >
               <FitMoney value={g.netProfitToDate} className="gold-shimmer text-center" data-testid="net-profit-counter" />
             </motion.div>
@@ -130,6 +133,42 @@ export function ThroneRoom() {
               })()}
             </div>
           </div>
+          <div className="flex min-h-full min-w-0 flex-col items-center justify-center rounded-xl border border-gold/20 bg-background/40 px-4 py-3">
+            <div className="stat-label">{t.netCashRealized}</div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
+              className="mx-auto mt-1 w-full max-w-full font-display text-[clamp(1.5rem,6vw,3.25rem)] leading-none"
+            >
+              <FitMoney value={layers.netCashRealized} className="text-center" data-testid="net-cash-realized-counter" />
+            </motion.div>
+            <div className="mt-2 text-xs text-muted-foreground" data-testid="net-cash-realized-formula">
+              {t.netCashRealizedFormula}
+            </div>
+          </div>
+          <div className="flex min-h-full min-w-0 flex-col items-center justify-center rounded-xl border border-gold/20 bg-background/40 px-4 py-3">
+            <div className="stat-label">{t.notesHeldFace}</div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+              className="mx-auto mt-1 w-full max-w-full font-display text-[clamp(1.5rem,6vw,3.25rem)] leading-none"
+            >
+              <FitMoney value={layers.notesHeldFace} className="text-center" data-testid="notes-held-counter" />
+            </motion.div>
+            <div className="mt-2 text-xs text-muted-foreground" data-testid="notes-held-hint">
+              {t.notesHeldHint(layers.notesHeldCount, money(layers.notesHeldAtRatio), noteSalePctLabel)}
+            </div>
+          </div>
+        </div>
+        <p className="mx-auto mt-4 max-w-3xl text-sm text-muted-foreground" data-testid="profit-layers-context">
+          {t.profitLayersContext(noteSalePctLabel)}{" "}
+          <Link to="/exodus" className="text-foreground underline underline-offset-4 hover:text-gold">
+            {t.seeExodus}
+          </Link>
+        </p>
+        <div className="mt-5">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}

@@ -7,7 +7,14 @@ export interface ThroneRoomUiStrings {
   emptyTitle: string;
   emptyBody: string;
   asOf: (date: string) => string;
+  profitAtClosing: string;
   ofGoal: (goal: string, remaining: string) => string;
+  netCashRealized: string;
+  netCashRealizedFormula: string;
+  notesHeldFace: string;
+  notesHeldHint: (count: number, atRatio: string, pct: string) => string;
+  profitLayersContext: (pct: string) => string;
+  seeExodus: string;
   committedAria: string;
   committed: (n: number, word: string) => string;
   noReservationWaiting: string;
@@ -102,8 +109,17 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
   en: {
     emptyTitle: "No farms or lots",
     emptyBody: "No lots were found on subdivided farms. Check the Data Quality panel and table permissions.",
-    asOf: (d) => `Overview · Net profit to date · as of ${d}`,
+    asOf: (d) => `Overview · Net profit at closing · as of ${d}`,
+    profitAtClosing: "Net profit at closing",
     ofGoal: (goal, remaining) => `of ${goal} · ${remaining} remaining · closings only`,
+    netCashRealized: "Net cash realized",
+    netCashRealizedFormula: "Down payments + note-sale proceeds − land − sponsor take, on closed lots",
+    notesHeldFace: "Notes held at face value",
+    notesHeldHint: (count, atRatio, pct) =>
+      `${count} ${count === 1 ? "note" : "notes"} · ${atRatio} if sold at the measured ${pct} of balance`,
+    profitLayersContext: (pct) =>
+      `Net profit at closing becomes cash by collecting the note over its term, by selling it (historically at ${pct} of balance), or by delivering it to a limited partner at face value.`,
+    seeExodus: "See Exodus",
     committedAria: "Committed net profit from live reservations",
     committed: (n, word) => `Committed · ${n} live ${word}`,
     noReservationWaiting: "no reservation is waiting to close",
@@ -208,8 +224,17 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
   es: {
     emptyTitle: "Sin fincas ni lotes",
     emptyBody: "No se encontraron lotes en fincas subdivididas. Revisa el panel de Calidad de datos y los permisos de las tablas.",
-    asOf: (d) => `Resumen · Utilidad neta a la fecha · al ${d}`,
+    asOf: (d) => `Resumen · Utilidad neta al cierre · al ${d}`,
+    profitAtClosing: "Utilidad neta al cierre",
     ofGoal: (goal, remaining) => `de ${goal} · ${remaining} restantes · solo cierres`,
+    netCashRealized: "Efectivo neto realizado",
+    netCashRealizedFormula: "Enganches + venta de pagarés − tierra − parte del sponsor, en lotes cerrados",
+    notesHeldFace: "Notas en cartera a valor nominal",
+    notesHeldHint: (count, atRatio, pct) =>
+      `${count} ${count === 1 ? "pagaré" : "pagarés"} · ${atRatio} si se venden al ${pct} del saldo medido`,
+    profitLayersContext: (pct) =>
+      `La utilidad neta al cierre se vuelve efectivo cobrando el pagaré a plazo, vendiéndolo (históricamente al ${pct} del saldo) o entregándolo a un limited partner a valor nominal.`,
+    seeExodus: "Ver Exodus",
     committedAria: "Utilidad neta comprometida de reservas vivas",
     committed: (n, word) => `Comprometido · ${n} ${word} viva${n === 1 ? "" : "s"}`,
     noReservationWaiting: "ninguna reserva espera cerrar",

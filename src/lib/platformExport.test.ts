@@ -37,6 +37,10 @@ describe("platformExport", () => {
     expect(doc.quality.length).toBe(realm.quality.length);
     expect(doc.figures.some((f) => f.id === "throne.closingsToDate")).toBe(true);
     expect(doc.figures.some((f) => f.id === "throne.capitalReturnedToDate")).toBe(true);
+    expect(doc.figures.find((f) => f.id === "throne.netProfitToDate")?.label).toContain("at closing");
+    expect(doc.figures.some((f) => f.id === "throne.netCashRealized")).toBe(true);
+    expect(doc.figures.some((f) => f.id === "throne.notesHeldFace")).toBe(true);
+    expect(doc.reconciliations.some((c) => c.id === "sale_price_layers" && c.pass)).toBe(true);
     expect(doc.figures.length).toBeGreaterThan(10);
     expect(doc.rows.lots.length).toBeGreaterThan(50);
     expect(doc.rows.farms.length).toBeGreaterThan(5);
@@ -72,6 +76,8 @@ describe("platformExport", () => {
     const doc = buildPlatformExport(realm, { lang: "es", exitHorizon: 2027 });
     const profit = doc.figures.find((f) => f.id === "quality.profitAffected");
     expect(profit?.label).toBe("Ganancia afectada por diferencias de precio");
+    const atClosing = doc.figures.find((f) => f.id === "throne.netProfitToDate");
+    expect(atClosing?.label).toContain("al cierre");
   });
 
   it("a deliberately broken net-profit figure makes the sold-lots check FAIL", () => {

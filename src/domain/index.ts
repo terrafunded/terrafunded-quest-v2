@@ -6,6 +6,7 @@ export * from "./interest";
 export * from "./lot";
 export * from "./farm";
 export * from "./goal";
+export * from "./profitLayers";
 export * from "./quality";
 export * from "./quality_human";
 export * from "./parcels";

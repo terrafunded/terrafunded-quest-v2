@@ -315,7 +315,7 @@ describe("fixture: NARRATED CHRONICLE and STORY", () => {
     expect(lines).toEqual([
       "10 farms across 8 counties, cut into 121 lots.",
       "$3,939,204 lent by 5 sponsors. $3,320,955 still owed.",
-      "38 lots closed for $2,236,378 of net profit — 22.4% of the ten million.",
+      "38 lots closed for $2,236,378 of net profit at closing — 22.4% of the ten million.",
       "Every closing bought time. 534 days gained toward the exit.",
       "476 days left. $16,310 of net profit needed every single day.",
     ]);

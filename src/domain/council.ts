@@ -132,8 +132,8 @@ function paceInsight(realm: Realm, lang: QualityLang, covered: boolean): Insight
       title: lang === "es" ? "El ritmo va por debajo de lo que pide el horizonte" : "The pace is below what the horizon asks",
       body:
         lang === "es"
-          ? `La proyección de capital no cubre la meta a ${figures.deadline}. Se producen ${figures.producingPerDay} de utilidad neta al día; el ritmo plano pide ${figures.requiredPerDay}. Quedan ${figures.remaining} y ${daysWord(g.daysToDeadline, lang)}.`
-          : `The capital projection does not cover the goal by ${figures.deadline}. Producing ${figures.producingPerDay} of net profit a day; the flat pace asks ${figures.requiredPerDay}. ${figures.remaining} remains and ${daysWord(g.daysToDeadline, lang)} are left.`,
+          ? `La proyección de capital no cubre la meta a ${figures.deadline}. Se producen ${figures.producingPerDay} de utilidad neta al cierre al día; el ritmo plano pide ${figures.requiredPerDay}. Quedan ${figures.remaining} y ${daysWord(g.daysToDeadline, lang)}.`
+          : `The capital projection does not cover the goal by ${figures.deadline}. Producing ${figures.producingPerDay} of net profit at closing a day; the flat pace asks ${figures.requiredPerDay}. ${figures.remaining} remains and ${daysWord(g.daysToDeadline, lang)} are left.`,
       figures,
       impact: worth,
       href: "/",

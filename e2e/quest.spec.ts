@@ -187,7 +187,7 @@ test.describe("Throne Room", () => {
     const provisional = (await page.getByTestId("oxygen-reservations-provisional").textContent()) ?? "";
     expect(provisional).toMatch(/^\d+ (reserva provisional|reservas provisionales) al \d+(\.\d+)?% de conversión$/);
     expect(provisional.startsWith("1 ")).toBe(provisional.includes("reserva provisional al"));
-    await expect(page.getByTestId("oxygen-produces")).toHaveText(/^hoy los cierres producen \$[\d,]+ de utilidad neta al día$/);
+    await expect(page.getByTestId("oxygen-produces")).toHaveText(/^hoy los cierres producen \$[\d,]+ de utilidad neta al cierre al día$/);
 
     // English marker strings from every realm component that renders on the Throne Room.
     const markers = [

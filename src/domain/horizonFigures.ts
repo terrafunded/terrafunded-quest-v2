@@ -96,7 +96,10 @@ function throneFigures(realm: Realm): HorizonFigure[] {
   const needed = d.requiredNetProfitPerDay;
   const ratio = pulseRatioPct(producing, needed);
   return [
-    fig("/", "netProfitToDate", "Net profit to date", g.netProfitToDate, "historical"),
+    fig("/", "netProfitToDate", "Net profit at closing", g.netProfitToDate, "historical"),
+    fig("/", "netCashRealized", "Net cash realized", realm.profitLayers.netCashRealized, "historical"),
+    fig("/", "notesHeldFace", "Notes held at face value", realm.profitLayers.notesHeldFace, "historical"),
+    fig("/", "notesHeldAtRatio", "Notes held at measured sale ratio", realm.profitLayers.notesHeldAtRatio, "historical"),
     fig("/", "cashRealized", "Cash realized", g.cashRealized, "historical"),
     fig("/", "capitalOutstanding", "Capital outstanding", g.capitalOutstanding, "historical"),
     fig("/", "closedLots", "Closings to date", g.closedLots, "historical"),
