@@ -90,8 +90,8 @@ export default function EnginePage() {
   }, [defaults, horizonDeadline]);
 
   const result = useMemo(
-    () => (data && inputs && defaults ? runEngine(inputs, { ...data.realm, referencePace: defaults.referencePace }) : null),
-    [data, inputs, defaults],
+    () => (data && inputs && defaults ? runEngine(inputs, { ...data.realm, referencePace: defaults.referencePace }, lang) : null),
+    [data, inputs, defaults, lang],
   );
 
   if (isLoading) return <LoadingState />;

@@ -69,6 +69,11 @@ export interface OracleParams {
    * and can fund the next farm (the realm's real liberation cycle). Without it capital never rotates.
    */
   capitalCycleMonths?: number;
+  /**
+   * Capital already outstanding that re-enters the recycled pool on the given month
+   * (Engine: existing farms' lots selling through). Forwarded to `fundSchedule`.
+   */
+  seedReturns?: CapitalReturnSeed[];
 }
 
 /** A closing already committed by a live reservation (expected.ts): when it should land and what it books. */
@@ -374,10 +379,20 @@ interface FarmBatch {
   closedByMonth: number[];
 }
 
+/** Capital that re-enters the recycled pool on a given month (e.g. today's outstanding as existing lots sell). */
+export interface CapitalReturnSeed {
+  month: number;
+  mixIndex: number;
+  amount: number;
+}
+
 /**
  * Funds each scheduled farm from the mix in order; whatever the mix cannot cover is `unfunded`.
  * With a capital cycle, the money that bought a farm returns to its sponsor `cycleMonths` later
  * and funds the farms bought from that month on — the same dollar on its next turn.
+ * `seedReturns` puts capital already outstanding back into the pool on the month those lots
+ * sell through — without it, a capital-first schedule would treat deployed capital as fresh
+ * dry powder and outstanding would only ever climb.
  *
  * Exported so The Engine (and any capital-first schedule) can reuse the same recycling math
  * the War Plan already runs through `runOracle` — one forecast, two questions.
@@ -390,10 +405,14 @@ export function fundSchedule(
   mix: InvestorMixEntry[],
   cycleMonths: number | null,
   deadlineIndex: number,
+  seedReturns: CapitalReturnSeed[] = [],
 ): OracleFarm[] {
   const remaining = mix.map((e) => Math.max(0, e.capital));
   const recycledPool = mix.map(() => 0);
-  const pending: { month: number; mixIndex: number; amount: number }[] = [];
+  // Existing capital already in the ground returns on its seed month; new purchases append after.
+  const pending: { month: number; mixIndex: number; amount: number }[] = seedReturns
+    .filter((s) => s.amount > 0 && s.month > 0)
+    .map((s) => ({ month: s.month, mixIndex: s.mixIndex, amount: s.amount }));
   return schedule.map((purchaseMonth, index) => {
     for (const p of pending) {
       if (p.month <= purchaseMonth && p.amount > 0) {
@@ -481,7 +500,7 @@ export function runOracle(params: OracleParams, goal: GoalStatus, startInventory
         .sort((a, b) => a - b)
     : [];
   const cycleMonths = params.capitalCycleMonths !== undefined && params.capitalCycleMonths > 0 ? Math.max(1, Math.round(params.capitalCycleMonths)) : null;
-  const farms = fundSchedule(schedule, farmCost, lotsPerFarm, landLag, mix, cycleMonths, deadlineIndex);
+  const farms = fundSchedule(schedule, farmCost, lotsPerFarm, landLag, mix, cycleMonths, deadlineIndex, params.seedReturns ?? []);
   const farmsByPurchase = new Map<number, OracleFarm[]>();
   const farmsByLand = new Map<number, OracleFarm[]>();
   for (const f of farms) {

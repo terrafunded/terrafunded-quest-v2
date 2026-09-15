@@ -7,6 +7,7 @@ import {
   costPerClosing,
   engineStartInventory,
   ENGINE_FRESH_CAPITAL_EPSILON,
+  capitalReturnSeeds,
   greedyBuySchedule,
   resolveFarmCost,
   runEngine,
@@ -157,10 +158,11 @@ describe("runEngine — hand-computed invariants", () => {
     expect(r.verdict).toMatch(/no fresh capital needed/i);
   });
 
-  it("a longer cycle produces fewer turns and less profit", () => {
-    const shortCycle = runEngine(baseInputs(realm, { cycleMonths: 4, salesPace: 5 }), realm);
-    const longCycle = runEngine(baseInputs(realm, { cycleMonths: 12, salesPace: 5 }), realm);
-    expect(longCycle.figures.turns).toBeLessThanOrEqual(shortCycle.figures.turns);
+  it("a longer cycle produces less (or equal) net profit at fixed pace", () => {
+    const shortCycle = runEngine(baseInputs(realm, { cycleMonths: 4, salesPace: 5 }), { ...realm, referencePace: 5 });
+    const longCycle = runEngine(baseInputs(realm, { cycleMonths: 12, salesPace: 5 }), { ...realm, referencePace: 5 });
+    // Turns (= Σ farm cost / peak) can rise when a longer cycle lowers the peak faster than it
+    // cuts spend; net profit is the figure that must respond to cycle length.
     expect(longCycle.figures.netProfitNoFresh).toBeLessThanOrEqual(shortCycle.figures.netProfitNoFresh + 1);
   });
 
@@ -333,3 +335,98 @@ describe("Engine defect guards (verdict / inventory / capital peak)", () => {
   });
 });
 
+describe("Engine capital recycle (return to pool)", () => {
+  const realm = syntheticRealm();
+
+  it("outstanding capital oscillates instead of only climbing (return event frees the pool)", () => {
+    const r = runEngine(
+      baseInputs(realm, { cycleMonths: 6, salesPace: 5, farmCost: 500_000, farmToFirstCloseMonths: 1 }),
+      { ...realm, referencePace: 5 },
+    );
+    const owed = r.series.map((s) => s.capitalOwed);
+    expect(owed.length).toBeGreaterThan(3);
+    const peak = Math.max(...owed);
+    const troughAfterPeak = Math.min(...owed.slice(owed.indexOf(peak)));
+    // After capital returns, outstanding must fall below the peak — not ratchet upward forever.
+    expect(peak).toBeGreaterThan(0);
+    expect(troughAfterPeak).toBeLessThan(peak - 1);
+    // Interest must stay consistent with a peak near today's stack, not a multi-stack pile-up.
+    // At ~20% on ~peak for ~horizon/12 years: rough upper bound 0.35 * peak * years.
+    const years = Math.max(0.5, r.series.length / 12);
+    expect(r.figures.totalInterest).toBeLessThan(peak * 0.45 * years + 1);
+  });
+
+  it("peakOutstanding equals max(series.capitalOwed) and sits at the chart peak", () => {
+    const r = runEngine(baseInputs(realm, { cycleMonths: 6, salesPace: 5 }), { ...realm, referencePace: 5 });
+    const peakSeries = r.series.reduce((p, s) => Math.max(p, s.capitalOwed), 0);
+    expect(r.figures.peakOutstanding).toBeCloseTo(peakSeries, 2);
+  });
+
+  it("turn lanes show successive blocks and block count reconciles with capital-turns", () => {
+    const r = runEngine(
+      baseInputs(realm, { cycleMonths: 4, salesPace: 6, farmCost: 500_000 }),
+      { ...realm, referencePace: 3 },
+    );
+    const capitalLanes = r.turns.filter((l) => l.kind !== "inventory");
+    const totalBlocks = capitalLanes.reduce((n, l) => n + l.blocks.length, 0);
+    expect(totalBlocks).toBeGreaterThan(0);
+    // Capital-turns figure is total farm cost / peak; block count is the discrete turns drawn.
+    // Every scheduled farm should appear as a block; existing farms may add blocks too.
+    const scheduled = r.figures.farmsBought;
+    const projectedBlocks = capitalLanes.reduce(
+      (n, l) => n + l.blocks.filter((b) => !b.isExisting).length,
+      0,
+    );
+    expect(projectedBlocks).toBe(scheduled);
+    for (const lane of capitalLanes) {
+      for (const block of lane.blocks) {
+        if (!block.isExisting) expect(block.farmName).toMatch(/^Projected farm \d+$/);
+      }
+    }
+  });
+
+  it("at fixed pace, a shorter cycle produces strictly more net profit", () => {
+    const ctx = { ...realm, referencePace: 5 };
+    const short = runEngine(baseInputs(realm, { cycleMonths: 4, salesPace: 5, farmCost: 500_000 }), ctx);
+    const long = runEngine(baseInputs(realm, { cycleMonths: 10, salesPace: 5, farmCost: 500_000 }), ctx);
+    expect(short.figures.netProfitNoFresh).toBeGreaterThan(long.figures.netProfitNoFresh);
+    // Sensitivity ×1 column must also move with cycle.
+    const shortCell = short.sensitivity.find((c) => c.paceMultiplier === 1 && c.cycleOffsetDays === -60);
+    const baseCell = short.sensitivity.find((c) => c.paceMultiplier === 1 && c.cycleOffsetDays === 0);
+    const longCell = short.sensitivity.find((c) => c.paceMultiplier === 1 && c.cycleOffsetDays === 60);
+    expect(shortCell && baseCell && longCell).toBeTruthy();
+    expect(shortCell!.netProfitAtDeadline).toBeGreaterThan(longCell!.netProfitAtDeadline);
+  });
+
+  it("existing farms keep their real names; invented farms are Projected farm N", () => {
+    const lanes = buildTurnLanes(
+      [],
+      [{ name: "Wichita", capitalOutstanding: 400_000, remainingLots: 8 }],
+      (m) => (m === null ? null : `2026-${String(m).padStart(2, "0")}-01`),
+      10,
+      4,
+      6,
+    );
+    expect(lanes.some((l) => l.label === "Wichita")).toBe(true);
+    const r = runEngine(
+      baseInputs(realm, { cycleMonths: 4, salesPace: 6, farmCost: 500_000 }),
+      { ...realm, referencePace: 3 },
+    );
+    for (const lane of r.turns.filter((l) => l.kind !== "inventory")) {
+      for (const b of lane.blocks) {
+        if (b.isExisting) expect(b.farmName).not.toMatch(/^Projected farm /);
+        else expect(b.farmName).toMatch(/^Projected farm \d+$/);
+      }
+    }
+  });
+
+  it("capitalReturnSeeds times returns to existing-lot sell-through", () => {
+    const seeds = capitalReturnSeeds(
+      [{ name: "Lamar", capitalOutstanding: 500_000, remainingLots: 10 }],
+      5,
+      9,
+      1,
+    );
+    expect(seeds).toEqual([{ month: 2, mixIndex: 0, amount: 500_000 }]);
+  });
+});
