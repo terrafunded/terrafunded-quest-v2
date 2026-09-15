@@ -16,5 +16,6 @@ playwright/.auth
 .vercel
 api/_weeklyCouncil/dist
 api/_nightlyExport/dist
+api/_weeklyActions/dist
 .env*
 !.env.example
