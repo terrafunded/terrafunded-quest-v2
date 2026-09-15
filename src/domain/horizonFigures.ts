@@ -16,6 +16,7 @@ import { computeWeeklyActions } from "./weeklyActions";
 import { pulseRatioPct } from "./pulse";
 import { round2 } from "./math";
 import type { ExitHorizon } from "../config/goal";
+import { runPreset, simulatorContextFromRealm } from "./simulator";
 
 export type FigureClass = "historical" | "horizon_dependent" | "deliberately_independent";
 
@@ -385,6 +386,7 @@ function realmMapFigures(realm: Realm): HorizonFigure[] {
 
 function oracleFigures(realm: Realm): HorizonFigure[] {
   const current = realm.futures.current;
+  const sim = runPreset("today", simulatorContextFromRealm(realm), true);
   return [
     fig("/oracle", "projectedExitAtCurrentPace", "Projected exit at current pace (era)", realm.pathToGoal.projectedExitAtCurrentPace, "deliberately_independent", {
       labeled: true,
@@ -396,6 +398,17 @@ function oracleFigures(realm: Realm): HorizonFigure[] {
       direction: "non_decrease",
     }),
     fig("/oracle", "deadline", "Simulator deadline", realm.goal.deadline, "horizon_dependent", { direction: "later_iso" }),
+    fig("/oracle", "simulatorFreedomDate", "Simulator freedom date (after-cost series)", sim.freedomDate, "deliberately_independent", {
+      labeled: true,
+    }),
+    fig("/oracle", "simulatorPeakOwed", "Simulator peak owed", sim.peakCapitalOwed, "deliberately_independent", {
+      labeled: true,
+    }),
+    fig("/oracle", "simulatorInventoryZeroDate", "Simulator inventory-zero month", sim.inventoryZeroDate, "deliberately_independent", {
+      labeled: true,
+    }),
+    fig("/oracle", "simulatorActiveFarmsToday", "Simulator active farms today", sim.activeFarmsToday, "historical"),
+    fig("/oracle", "simulatorInventoryOnHand", "Simulator lots on hand today", sim.inventoryOnHand, "historical"),
   ];
 }
 

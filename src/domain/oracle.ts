@@ -748,3 +748,498 @@ export function runOracle(params: OracleParams, goal: GoalStatus, startInventory
     farms,
   };
 }
+
+/** Labeled assumption: every active farm is advertised at this daily budget. */
+export const DEFAULT_AD_BUDGET_PER_FARM_PER_DAY = 250;
+
+export type FarmStockKind = "existing" | "projected";
+export type PerFarmBinding = "demand" | "inventory" | "capital";
+
+/** A live reservation that should close on its expected date, before fall-through. */
+export interface ReservedClosingSeed {
+  date: string;
+  lots: number;
+  /** Gross-of-fall-through net at stake (conversion not applied). */
+  netProfitAtStake: number;
+}
+
+/** One existing farm's on-hand lots for the per-farm selling model. */
+export interface ExistingFarmSeed {
+  id: string;
+  name: string;
+  availableLots: number;
+  reservedLots: number;
+  reservationsInLast90: number;
+  reservedDue: ReservedClosingSeed[];
+}
+
+export interface PerFarmSellingParams {
+  adBudgetPerFarmPerDay: number;
+  costPerReservation: number;
+  conversionPct: number;
+  fallThroughPct: number;
+  lotsPerFarm: number;
+  farmToFirstCloseMonths: number;
+  /** Purchase month indices (1-based) the cadence asked for. Unfunded if capital is short that month. */
+  purchaseMonths: number[];
+  farmCost: number;
+  capitalAvailable: number;
+  /** Extra cash on day one when notes are sold at the measured ratio. */
+  noteCashNow: number;
+  sellNotes: boolean;
+  noteSaleRatio: number;
+  downPaymentPct: number;
+  avgSalePrice: number;
+  investorTakePct: number;
+  owedStart: number;
+  startNetProfit: number;
+  goal: number;
+  asOf: Date;
+  paceLagDays: number;
+  noteLagMonths: number;
+}
+
+export interface FarmMonthStock {
+  id: string;
+  name: string;
+  kind: FarmStockKind;
+  available: number;
+  reserved: number;
+}
+
+export interface PerFarmMonthPoint {
+  monthIndex: number;
+  date: string;
+  fraction: number;
+  activeFarms: number;
+  reservationsPerFarm: number;
+  lotsClosed: number;
+  lotsClosedFromReserved: number;
+  lotsClosedFromAvailable: number;
+  adSpend: number;
+  inventoryAvailable: number;
+  inventoryReserved: number;
+  inventory: number;
+  farmsBought: number;
+  farmsUnfunded: number;
+  capitalDeployed: number;
+  capitalOwed: number;
+  interest: number;
+  cumulativeAdSpend: number;
+  cumulativeInterest: number;
+  cumulativeBookedProfit: number;
+  cumulativeNetProfit: number;
+  binding: PerFarmBinding;
+  farmInventory: FarmMonthStock[];
+}
+
+export interface FarmInventoryRow {
+  id: string;
+  name: string;
+  kind: FarmStockKind;
+  availableLots: number;
+  reservedLots: number;
+  arrivalMonth: number | null;
+  arrivalDate: string | null;
+  lastLotMonth: number | null;
+  lastLotDate: string | null;
+  stale90: boolean;
+}
+
+export interface PerFarmSellingResult {
+  series: PerFarmMonthPoint[];
+  farms: FarmInventoryRow[];
+  inventoryZeroMonthIndex: number | null;
+  inventoryZeroDate: string | null;
+  activeFarmsToday: number;
+  activeFarmsDropMonthIndex: number | null;
+  activeFarmsDropDate: string | null;
+  freedomDate: string | null;
+  monthsToGoal: number | null;
+  peakCapitalOwed: number;
+  landCapitalDeployed: number;
+  lotsSold: number;
+  farmsBought: number;
+  farmsUnfunded: number;
+  unfundedCapital: number;
+  totalAdSpend: number;
+  interestPaid: number;
+  netProfitAtDeadline: number;
+  demandPerMonth: number;
+  closingsPerMonth: number;
+}
+
+/**
+ * Reservations one active farm receives in a 30-day month at the shared daily budget.
+ * Doubling *one* farm's budget is not modeled — every active farm gets this same rate.
+ */
+export function reservationsPerFarmPerMonth(adBudgetPerFarmPerDay: number, costPerReservation: number): number {
+  if (!(costPerReservation > 0)) return 0;
+  return round2((Math.max(0, adBudgetPerFarmPerDay) * 30) / costPerReservation);
+}
+
+/** Total ad spend for a 30-day month: activeFarms × budget × 30. */
+export function monthlyAdSpendForActiveFarms(activeFarms: number, adBudgetPerFarmPerDay: number): number {
+  return round2(Math.max(0, activeFarms) * Math.max(0, adBudgetPerFarmPerDay) * 30);
+}
+
+function interpolateGoalDate(prevValue: number, prevDate: string, value: number, date: string, goal: number, asOf: Date): string {
+  if (prevValue >= goal) return prevDate;
+  if (value <= prevValue) return date;
+  const frac = Math.min(1, Math.max(0, (goal - prevValue) / (value - prevValue)));
+  const start = parseDate(prevDate) ?? asOf;
+  const end = parseDate(date) ?? start;
+  const span = Math.max(1, daysBetween(start, end));
+  return toIsoDate(addDays(start, Math.min(span, Math.max(1, Math.ceil(frac * span)))));
+}
+
+interface LiveFarm {
+  id: string;
+  name: string;
+  kind: FarmStockKind;
+  available: number;
+  reserved: number;
+  startAvailable: number;
+  startReserved: number;
+  reservationsInLast90: number;
+  arrivalMonth: number;
+  lastLotMonth: number | null;
+  pending: { month: number; lots: number }[];
+  reservedDue: { month: number; lots: number; net: number }[];
+}
+
+/**
+ * Per-farm selling model. Every farm with available lots is advertised at the same
+ * daily budget; each receives the same reservations that month. A farm stops selling
+ * and stops spending when it has no available lots. Closings are an output.
+ *
+ * Existing reservations close on their expected dates × (1 − fall-through).
+ * New reservations close after the observed reservation→closing lag, × conversion,
+ * capped at the farm's remaining lots.
+ *
+ * Outstanding capital is the running balance (start + purchases − returns), never a sum
+ * of monthly balances. Recycled dollars that have not actually come back from closings
+ * cannot fund a new farm.
+ */
+export function runPerFarmSellingModel(
+  seeds: ExistingFarmSeed[],
+  params: PerFarmSellingParams,
+  grid: OracleMonthGrid,
+  annualRatePct: number,
+): PerFarmSellingResult {
+  const conversion = Math.max(0, params.conversionPct) / 100;
+  const fallThrough = Math.min(1, Math.max(0, params.fallThroughPct) / 100);
+  const landLag = Math.max(0, Math.round(params.farmToFirstCloseMonths));
+  const closeLag = Math.max(1, Math.round(Math.max(0, params.paceLagDays) / 30));
+  const noteLag = Math.max(0, Math.round(params.noteLagMonths));
+  const landPerLot = params.lotsPerFarm > 0 ? params.farmCost / params.lotsPerFarm : 0;
+  const financed = params.avgSalePrice * (1 - Math.max(0, params.downPaymentPct) / 100);
+  const discount = params.sellNotes ? financed * (1 - Math.min(1, Math.max(0, params.noteSaleRatio))) : 0;
+  const noteCash = params.sellNotes ? financed * Math.min(1, Math.max(0, params.noteSaleRatio)) : 0;
+  const netPerNewLot = round2((params.avgSalePrice - landPerLot) * (1 - params.investorTakePct / 100) - discount);
+  const startInventory = round2(seeds.reduce((a, s) => a + Math.max(0, s.availableLots) + Math.max(0, s.reservedLots), 0));
+  const existingReturnPerLot = startInventory > 0 ? params.owedStart / startInventory : 0;
+
+  const farms: LiveFarm[] = seeds.map((s) => {
+    const reservedDue: LiveFarm["reservedDue"] = [];
+    for (const r of s.reservedDue) {
+      const d = parseDate(r.date);
+      const idx = !d || d <= params.asOf ? 1 : monthIndexFor(d, grid);
+      if (idx === null) continue;
+      reservedDue.push({ month: idx, lots: r.lots, net: r.netProfitAtStake });
+    }
+    const dueLots = reservedDue.reduce((a, r) => a + r.lots, 0);
+    const reserved = Math.max(0, s.reservedLots);
+    if (reserved > dueLots + 1e-9) {
+      reservedDue.push({ month: 1, lots: reserved - dueLots, net: netPerNewLot * (reserved - dueLots) });
+    }
+    return {
+      id: s.id,
+      name: s.name,
+      kind: "existing" as const,
+      available: Math.max(0, s.availableLots),
+      reserved: reserved,
+      startAvailable: Math.max(0, s.availableLots),
+      startReserved: reserved,
+      reservationsInLast90: s.reservationsInLast90,
+      arrivalMonth: 1,
+      lastLotMonth: null,
+      pending: [],
+      reservedDue,
+    };
+  });
+
+  const wanted = params.purchaseMonths.filter((m) => m >= 1 && m <= ORACLE_HORIZON_MONTHS).slice(0, 40);
+  const wantedSet = new Map<number, number>();
+  for (const m of wanted) wantedSet.set(m, (wantedSet.get(m) ?? 0) + 1);
+
+  let nextProjected = 1;
+  let freeCapital = Math.max(0, params.capitalAvailable) + (params.sellNotes ? Math.max(0, params.noteCashNow) : 0);
+  let owed = Math.max(0, params.owedStart);
+  let existingOwed = Math.max(0, params.owedStart);
+  let landDeployed = 0;
+  let peakOwed = owed;
+  let profit = params.startNetProfit;
+  let cumAds = 0;
+  let cumInterest = 0;
+  let lotsSold = 0;
+  let farmsBought = 0;
+  let farmsUnfunded = 0;
+  let unfundedCapital = 0;
+  const pendingNoteCash: number[] = [];
+  const series: PerFarmMonthPoint[] = [];
+  const rate = Math.max(0, annualRatePct) / 100;
+
+  let freedomDate: string | null = params.startNetProfit >= params.goal ? toIsoDate(params.asOf) : null;
+  let monthsToGoal: number | null = params.startNetProfit >= params.goal ? 0 : null;
+  let prevNet = params.startNetProfit;
+  let prevDate = toIsoDate(params.asOf);
+  let inventoryZeroMonth: number | null = startInventory <= 0 ? 0 : null;
+  let inventoryZeroDate: string | null = startInventory <= 0 ? toIsoDate(params.asOf) : null;
+  const activeToday = farms.filter((f) => f.available > 1e-9).length;
+  let activeDropMonth: number | null = null;
+  let activeDropDate: string | null = null;
+  const k = grid.deadlineIndex;
+
+  const snapshot = (): FarmMonthStock[] =>
+    farms.map((f) => ({
+      id: f.id,
+      name: f.name,
+      kind: f.kind,
+      available: round2(Math.max(0, f.available)),
+      reserved: round2(Math.max(0, f.reserved)),
+    }));
+
+  const inventoryOf = (list: LiveFarm[]) => {
+    let available = 0;
+    let reserved = 0;
+    for (const f of list) {
+      available += Math.max(0, f.available);
+      reserved += Math.max(0, f.reserved);
+    }
+    return { available, reserved, total: available + reserved };
+  };
+
+  for (let m = 1; m <= ORACLE_HORIZON_MONTHS; m++) {
+    const month = grid.months[m - 1];
+    if (!month) break;
+    const fraction = month.fraction;
+    const date = toIsoDate(month.end);
+    let boughtNow = 0;
+    let unfundedNow = 0;
+    let capitalNow = 0;
+
+    const dueBuys = freedomDate !== null ? 0 : (wantedSet.get(m) ?? 0);
+    for (let i = 0; i < dueBuys; i++) {
+      if (params.farmCost > 0 && freeCapital + 1e-6 >= params.farmCost) {
+        freeCapital -= params.farmCost;
+        owed += params.farmCost;
+        landDeployed += params.farmCost;
+        boughtNow += 1;
+        farmsBought += 1;
+        const id = `projected-${nextProjected}`;
+        const name = `Projected farm ${nextProjected}`;
+        nextProjected += 1;
+        farms.push({
+          id,
+          name,
+          kind: "projected",
+          available: 0,
+          reserved: 0,
+          startAvailable: params.lotsPerFarm,
+          startReserved: 0,
+          reservationsInLast90: 0,
+          arrivalMonth: m + landLag,
+          lastLotMonth: null,
+          pending: [],
+          reservedDue: [],
+        });
+        peakOwed = Math.max(peakOwed, owed);
+      } else {
+        unfundedNow += 1;
+        farmsUnfunded += 1;
+        unfundedCapital += params.farmCost;
+      }
+    }
+
+    for (const f of farms) {
+      if (f.kind === "projected" && f.arrivalMonth === m && f.available <= 0 && f.startAvailable > 0 && f.reserved <= 0 && f.pending.length === 0) {
+        f.available += f.startAvailable;
+      }
+    }
+
+    const arrived = farms.filter((f) => m >= f.arrivalMonth);
+    const active = arrived.filter((f) => f.available > 1e-9);
+    const resPerFarm = reservationsPerFarmPerMonth(params.adBudgetPerFarmPerDay, params.costPerReservation) * fraction;
+    const ads = round2(monthlyAdSpendForActiveFarms(active.length, params.adBudgetPerFarmPerDay) * fraction);
+    cumAds += ads;
+
+    let closedReserved = 0;
+    let closedAvailable = 0;
+    let monthProfit = 0;
+
+    for (const f of arrived) {
+      const due = f.reservedDue.filter((r) => r.month === m);
+      for (const r of due) {
+        const close = r.lots * (1 - fallThrough);
+        const cancel = r.lots * fallThrough;
+        const take = Math.min(f.reserved, r.lots);
+        f.reserved = Math.max(0, f.reserved - take);
+        f.available += cancel * (take / (r.lots || 1));
+        const closed = close * (take / (r.lots || 1));
+        closedReserved += closed;
+        monthProfit += r.net * (1 - fallThrough) * (take / (r.lots || 1));
+        if (f.kind === "existing") {
+          const ret = Math.min(existingOwed, closed * existingReturnPerLot);
+          existingOwed -= ret;
+          owed -= ret;
+        }
+      }
+
+      const pendingNow = f.pending.filter((p) => p.month === m);
+      f.pending = f.pending.filter((p) => p.month !== m);
+      for (const p of pendingNow) {
+        const close = Math.min(f.reserved, p.lots * conversion);
+        const cancel = Math.min(f.reserved - close, p.lots - close);
+        f.reserved = Math.max(0, f.reserved - close - cancel);
+        f.available += Math.max(0, cancel);
+        closedAvailable += close;
+        monthProfit += close * netPerNewLot;
+        if (f.kind === "existing") {
+          const ret = Math.min(existingOwed, close * existingReturnPerLot);
+          existingOwed -= ret;
+          owed -= ret;
+        } else {
+          const ret = close * landPerLot;
+          owed -= ret;
+          freeCapital += ret;
+        }
+        if (noteCash > 0 && close > 0) {
+          pendingNoteCash[m + noteLag] = (pendingNoteCash[m + noteLag] ?? 0) + close * noteCash;
+        }
+      }
+    }
+
+    for (const f of active) {
+      const want = resPerFarm;
+      const take = Math.min(want, f.available);
+      if (take <= 1e-12) continue;
+      f.available -= take;
+      f.reserved += take;
+      f.pending.push({ month: m + closeLag, lots: take });
+    }
+
+    const noteIn = pendingNoteCash[m] ?? 0;
+    freeCapital += noteIn;
+
+    profit += monthProfit;
+    owed = Math.max(0, owed);
+    peakOwed = Math.max(peakOwed, owed);
+    const interest = round2(Math.max(0, owed) * rate / 12);
+    cumInterest += interest;
+
+    const inv = inventoryOf(farms);
+    const closed = closedReserved + closedAvailable;
+    if (m <= k) lotsSold += closed * (m === k ? grid.deadlineFraction : 1);
+    const netAfter = round2(profit - cumAds);
+    if (freedomDate === null && netAfter >= params.goal) {
+      freedomDate = interpolateGoalDate(prevNet, prevDate, netAfter, date, params.goal, params.asOf);
+      monthsToGoal = round2(monthsBetween(params.asOf, parseDate(freedomDate) ?? params.asOf));
+    }
+
+    if (inventoryZeroMonth === null && inv.total <= 1e-6) {
+      inventoryZeroMonth = m;
+      inventoryZeroDate = date;
+    }
+
+    const activeNow = arrived.filter((f) => f.available > 1e-9).length;
+    if (activeDropMonth === null && m > 1 && activeNow < activeToday) {
+      activeDropMonth = m;
+      activeDropDate = date;
+    }
+
+    for (const f of farms) {
+      if (f.lastLotMonth === null && m >= f.arrivalMonth && f.available <= 1e-9 && f.reserved <= 1e-9) {
+        f.lastLotMonth = m;
+      }
+    }
+
+    let binding: PerFarmBinding = "demand";
+    if (unfundedNow > 0) binding = "capital";
+    else if (resPerFarm > 1e-9 && active.length === 0 && inv.total <= 1e-6) binding = "inventory";
+    else if (resPerFarm > 1e-9 && active.some((f) => f.available <= 1e-9) && inv.available <= 1e-6) binding = "inventory";
+    else if (closed + 1e-9 < active.length * resPerFarm * conversion && inv.available <= 1e-6) binding = "inventory";
+
+    series.push({
+      monthIndex: m,
+      date,
+      fraction,
+      activeFarms: active.length,
+      reservationsPerFarm: round2(resPerFarm),
+      lotsClosed: round2(closed),
+      lotsClosedFromReserved: round2(closedReserved),
+      lotsClosedFromAvailable: round2(closedAvailable),
+      adSpend: ads,
+      inventoryAvailable: round2(inv.available),
+      inventoryReserved: round2(inv.reserved),
+      inventory: round2(inv.total),
+      farmsBought: boughtNow,
+      farmsUnfunded: unfundedNow,
+      capitalDeployed: round2(capitalNow + (boughtNow > 0 ? boughtNow * params.farmCost : 0)),
+      capitalOwed: round2(owed),
+      interest,
+      cumulativeAdSpend: round2(cumAds),
+      cumulativeInterest: round2(cumInterest),
+      cumulativeBookedProfit: round2(profit),
+      cumulativeNetProfit: netAfter,
+      binding,
+      farmInventory: snapshot(),
+    });
+    prevNet = netAfter;
+    prevDate = date;
+    capitalNow = 0;
+  }
+
+  const deadlinePoint = series.find((s) => s.monthIndex === k) ?? series[series.length - 1];
+  const demand = reservationsPerFarmPerMonth(params.adBudgetPerFarmPerDay, params.costPerReservation) * conversion;
+
+  const rows: FarmInventoryRow[] = farms.map((f) => {
+    const arrival = f.kind === "projected" ? (grid.months[f.arrivalMonth - 1] ?? null) : null;
+    const last = f.lastLotMonth !== null ? (grid.months[f.lastLotMonth - 1] ?? null) : null;
+    return {
+      id: f.id,
+      name: f.name,
+      kind: f.kind,
+      availableLots: round2(f.startAvailable),
+      reservedLots: round2(f.startReserved),
+      arrivalMonth: f.kind === "projected" ? f.arrivalMonth : null,
+      arrivalDate: arrival ? toIsoDate(arrival.end) : null,
+      lastLotMonth: f.lastLotMonth,
+      lastLotDate: last ? toIsoDate(last.end) : null,
+      stale90: f.kind === "existing" && f.reservationsInLast90 <= 0 && f.startAvailable + f.startReserved > 0,
+    };
+  });
+
+  return {
+    series,
+    farms: rows,
+    inventoryZeroMonthIndex: inventoryZeroMonth,
+    inventoryZeroDate,
+    activeFarmsToday: activeToday,
+    activeFarmsDropMonthIndex: activeDropMonth,
+    activeFarmsDropDate: activeDropDate,
+    freedomDate,
+    monthsToGoal,
+    peakCapitalOwed: round2(peakOwed),
+    landCapitalDeployed: round2(landDeployed),
+    lotsSold: round2(lotsSold),
+    farmsBought,
+    farmsUnfunded,
+    unfundedCapital: round2(unfundedCapital),
+    totalAdSpend: deadlinePoint?.cumulativeAdSpend ?? round2(cumAds),
+    interestPaid: deadlinePoint?.cumulativeInterest ?? round2(cumInterest),
+    netProfitAtDeadline: deadlinePoint?.cumulativeNetProfit ?? round2(params.startNetProfit),
+    demandPerMonth: round2(demand * Math.max(1, activeToday)),
+    closingsPerMonth: k > 0 ? round2(lotsSold / Math.max(1, grid.monthsToDeadline)) : 0,
+  };
+}

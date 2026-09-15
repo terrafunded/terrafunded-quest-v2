@@ -30,13 +30,19 @@ export interface OracleUiStrings {
   farmsHint: string;
   capitalLabel: string;
   capitalHint: string;
+  fallThroughLabel: string;
+  fallThroughHint: string;
+  sellNotesLabel: string;
+  sellNotesSell: string;
+  sellNotesHold: string;
+  sellNotesHint: string;
   closingsOutput: (n: string) => string;
   marginalAdsSooner: (n: string) => string;
   marginalFarmSooner: (n: string) => string;
   marginalAdsLater: (n: string) => string;
   marginalFarmLater: (n: string) => string;
-  marginalAdsReaches: string;
-  marginalFarmReaches: string;
+  marginalAdsNoEffect: string;
+  marginalFarmNoEffect: string;
   leverBindsAds: (constraint: string) => string;
   leverBindsFarms: (constraint: string) => string;
   constraintDemand: string;
@@ -49,6 +55,7 @@ export interface OracleUiStrings {
   cprHint: string;
   conversionLabel: string;
   takeLabel: string;
+  landCostLabel: string;
   assumption: string;
   bottleneckAria: string;
   bottleneckInventory: string;
@@ -62,12 +69,28 @@ export interface OracleUiStrings {
   costPeak: string;
   costInterest: string;
   costNet: string;
+  activeFarmsLabel: string;
+  activeFarmsDrop: (month: string) => string;
+  activeFarmsHold: string;
   chartTitle: string;
   chartLegendAria: string;
   legendPlan: string;
   legendToday: string;
   legendGoal: string;
   legendSaved: string;
+  inventoryTitle: string;
+  inventoryAria: string;
+  inventoryFarm: string;
+  inventoryAvailable: string;
+  inventoryReserved: string;
+  inventoryLastLot: string;
+  inventoryArrival: string;
+  inventoryNever: string;
+  inventoryTotals: string;
+  inventoryStale: string;
+  inventoryChartTitle: string;
+  inventoryChartLegend: string;
+  legendInventoryZero: string;
   deadline: string;
   presetsAria: string;
   presetToday: string;
@@ -84,6 +107,7 @@ export interface OracleUiStrings {
   noSaved: string;
   projectedExitAtCurrentPace: string;
   projectedExitFormula: string;
+  projectedFarm: (n: string) => string;
 }
 
 export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
@@ -108,19 +132,25 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     racePlan: "Your plan",
     raceDeadline: "Deadline",
     leversAria: "Plan levers",
-    adsLabel: "Monthly ad spend",
-    adsHint: "Turns into reservations, then closings after conversion and the observed lag.",
+    adsLabel: "Ad budget per farm per day",
+    adsHint: "Assumption — every farm with lots is advertised at this daily budget.",
     farmsLabel: "Farms per quarter",
     farmsHint: "Each farm at the recent land cost, arriving after the farm-to-first-close lag.",
     capitalLabel: "Capital available for land",
     capitalHint: "From the sponsor mix. Farms past this stay unfunded.",
+    fallThroughLabel: "Fall-through of reservations",
+    fallThroughHint: "Share of reservations that cancel before they close. Starts from the observed rate.",
+    sellNotesLabel: "Notes",
+    sellNotesSell: "Sell notes",
+    sellNotesHold: "Hold notes",
+    sellNotesHint: "Sell at the measured ratio: cash for land, costs the discount. Hold: keeps profit, delays purchases.",
     closingsOutput: (n) => `${n} closings/month (output — min of demand and inventory)`,
-    marginalAdsSooner: (n) => `+$5K/month ads = ${n} days sooner`,
+    marginalAdsSooner: (n) => `${n} days sooner`,
     marginalFarmSooner: (n) => `+1 farm/quarter = ${n} days sooner`,
-    marginalAdsLater: (n) => `+$5K/month ads = ${n} days later`,
+    marginalAdsLater: (n) => `${n} days later`,
     marginalFarmLater: (n) => `+1 farm/quarter = ${n} days later`,
-    marginalAdsReaches: "+$5K/month ads = now reaches the goal",
-    marginalFarmReaches: "+1 farm/quarter = now reaches the goal",
+    marginalAdsNoEffect: "No effect: inventory limits sales",
+    marginalFarmNoEffect: "No effect: demand limits sales",
     leverBindsAds: (constraint) => `More ads will not move the date — ${constraint} binds`,
     leverBindsFarms: (constraint) => `More farms will not move the date — ${constraint} binds`,
     constraintDemand: "demand",
@@ -133,6 +163,7 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     cprHint: "Assumption — no ad-spend table exists yet.",
     conversionLabel: "Conversion",
     takeLabel: "Investor share",
+    landCostLabel: "Land cost per farm",
     assumption: "assumption",
     bottleneckAria: "Next best action",
     bottleneckInventory: "Out of lots — buy land. More ads is wasted.",
@@ -146,12 +177,28 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     costPeak: "Peak owed",
     costInterest: "Interest paid",
     costNet: "Net after costs",
+    activeFarmsLabel: "Active farms today",
+    activeFarmsDrop: (month) => `Drops below today's count in ${month}`,
+    activeFarmsHold: "Stays at today's count",
     chartTitle: "Cumulative net after ads and interest",
     chartLegendAria: "Chart legend",
     legendPlan: "Your plan",
     legendToday: "Today's pace",
     legendGoal: "Goal",
     legendSaved: "Months saved",
+    inventoryTitle: "Inventory by farm",
+    inventoryAria: "Lots on hand by farm",
+    inventoryFarm: "Farm",
+    inventoryAvailable: "Available",
+    inventoryReserved: "Reserved",
+    inventoryLastLot: "Last lot sells",
+    inventoryArrival: "Arrives",
+    inventoryNever: "Never",
+    inventoryTotals: "Total on hand today",
+    inventoryStale: "No reservations in 90 days",
+    inventoryChartTitle: "Lots remaining by farm",
+    inventoryChartLegend: "Inventory chart legend",
+    legendInventoryZero: "Inventory reaches zero",
     deadline: "Deadline",
     presetsAria: "Presets",
     presetToday: "Today's pace",
@@ -168,6 +215,7 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     noSaved: "No saved scenarios yet.",
     projectedExitAtCurrentPace: "Projected exit at current pace",
     projectedExitFormula: "remaining ÷ era average net profit per lot ÷ trailing closings per month",
+    projectedFarm: (n) => `Projected farm ${n}`,
   },
   es: {
     title: "Simulador",
@@ -190,19 +238,25 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     racePlan: "Tu plan",
     raceDeadline: "Fecha límite",
     leversAria: "Palancas del plan",
-    adsLabel: "Gasto mensual en anuncios",
-    adsHint: "Se convierte en reservas, luego en cierres según la conversión y el desfase observado.",
+    adsLabel: "Presupuesto de anuncios por finca por día",
+    adsHint: "Supuesto — cada finca con lotes se anuncia con este presupuesto diario.",
     farmsLabel: "Fincas por trimestre",
     farmsHint: "Cada finca al costo reciente de tierra, llega después del desfase finca → primer cierre.",
     capitalLabel: "Capital disponible para tierra",
     capitalHint: "De la mezcla de sponsors. Las fincas que pasen de esto quedan sin fondeo.",
+    fallThroughLabel: "Caída de reservas",
+    fallThroughHint: "Parte de las reservas que se cancelan antes de cerrar. Parte de la tasa observada.",
+    sellNotesLabel: "Pagarés",
+    sellNotesSell: "Vender pagarés",
+    sellNotesHold: "Conservar pagarés",
+    sellNotesHint: "Vender al ratio medido: efectivo para tierra, cuesta el descuento. Conservar: mantiene la utilidad, retrasa compras.",
     closingsOutput: (n) => `${n} cierres/mes (resultado — mínimo entre demanda e inventario)`,
-    marginalAdsSooner: (n) => `+$5K/mes en anuncios = ${n} días antes`,
+    marginalAdsSooner: (n) => `${n} días antes`,
     marginalFarmSooner: (n) => `+1 finca/trimestre = ${n} días antes`,
-    marginalAdsLater: (n) => `+$5K/mes en anuncios = ${n} días después`,
+    marginalAdsLater: (n) => `${n} días después`,
     marginalFarmLater: (n) => `+1 finca/trimestre = ${n} días después`,
-    marginalAdsReaches: "+$5K/mes en anuncios = ahora llega a la meta",
-    marginalFarmReaches: "+1 finca/trimestre = ahora llega a la meta",
+    marginalAdsNoEffect: "Sin efecto: limita el inventario",
+    marginalFarmNoEffect: "Sin efecto: limita la demanda",
     leverBindsAds: (constraint) => `Más anuncios no mueven la fecha — ata ${constraint}`,
     leverBindsFarms: (constraint) => `Más fincas no mueven la fecha — ata ${constraint}`,
     constraintDemand: "la demanda",
@@ -215,6 +269,7 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     cprHint: "Supuesto — aún no hay tabla de gasto en anuncios.",
     conversionLabel: "Conversión",
     takeLabel: "Parte del inversionista",
+    landCostLabel: "Costo de tierra por finca",
     assumption: "supuesto",
     bottleneckAria: "Siguiente mejor acción",
     bottleneckInventory: "Sin lotes — compra tierra. Más anuncios se desperdician.",
@@ -228,12 +283,28 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     costPeak: "Pico adeudado",
     costInterest: "Interés pagado",
     costNet: "Neto tras costos",
+    activeFarmsLabel: "Fincas activas hoy",
+    activeFarmsDrop: (month) => `Baja del conteo de hoy en ${month}`,
+    activeFarmsHold: "Se mantiene en el conteo de hoy",
     chartTitle: "Utilidad neta acumulada tras anuncios e interés",
     chartLegendAria: "Leyenda de la gráfica",
     legendPlan: "Tu plan",
     legendToday: "Ritmo de hoy",
     legendGoal: "Meta",
     legendSaved: "Meses ganados",
+    inventoryTitle: "Inventario por finca",
+    inventoryAria: "Lotes en mano por finca",
+    inventoryFarm: "Finca",
+    inventoryAvailable: "Disponibles",
+    inventoryReserved: "Reservados",
+    inventoryLastLot: "Se vende el último",
+    inventoryArrival: "Llega",
+    inventoryNever: "Nunca",
+    inventoryTotals: "Total en mano hoy",
+    inventoryStale: "Cero reservas en 90 días",
+    inventoryChartTitle: "Lotes restantes por finca",
+    inventoryChartLegend: "Leyenda del inventario",
+    legendInventoryZero: "El inventario llega a cero",
     deadline: "Fecha límite",
     presetsAria: "Preajustes",
     presetToday: "Ritmo de hoy",
@@ -250,6 +321,7 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     noSaved: "Aún no hay escenarios guardados.",
     projectedExitAtCurrentPace: "Salida proyectada al ritmo actual",
     projectedExitFormula: "restante ÷ utilidad neta promedio de la era por lote ÷ cierres/mes recientes",
+    projectedFarm: (n) => `Finca proyectada ${n}`,
   },
 };
 

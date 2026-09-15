@@ -147,3 +147,43 @@ Rank = days × 1.5 when the due date is within 14 days (including overdue). Card
 Council's nine rules are detectors in this same list so there is one source of recommendations. Diagnostic rules that are not in the table above appear with 0 days so they are not lost and do not steal the week.
 
 Implemented in `src/domain/weeklyActions.ts`. Persisted by `api/_weeklyActions` in the Quest store used by the nightly export (not localStorage, not Payments).
+
+## 9. Simulator interest is already inside booked net (do not deduct twice)
+
+**Traced before changing the model.** Each lot's booked net profit already subtracts the sponsor take:
+
+| Stream | Where the take is removed |
+|---|---|
+| Existing inventory | `netProfitPerLot = (price − land) × (1 − investorTakePct)` and each reservation's `netProfitAtStake` |
+| New farms | per-deal take: fixed-interest `capital × rate × months/12`, or profit share of gross |
+
+The Simulator used to build "net after costs" as `booked − ads − (outstanding × mix rate / 12)`. The last term is a second interest charge on the same sponsor capital.
+
+**Decision: stop the second deduction.** After-cost net is `booked − ads`. Interest stays on the cost strip as the already-included carry (display-only), the same way the Engine keeps `totalInterest` off reachable profit.
+
+Fixture today's-pace, 2027 deadline, first simulated month (2026-09-30):
+
+| | Before (double count) | After (ads only) |
+|---|---|---|
+| Booked net | $3,521,228.55 | $3,521,228.55 |
+| Ads this month | $38,000 | $38,000 |
+| Extra interest subtracted | $56,725.27 | $0 |
+| After-cost net | $3,426,503.28 | $3,483,228.55 |
+
+Ad spend is a forward-looking Simulator input only. It does not enter the $10M goal or any historical figure.
+
+Implemented in `src/domain/oracle.ts` (`runPerFarmSellingModel`) and `src/domain/simulator.ts`.
+
+## 10. Per-farm selling model — two labeled assumptions
+
+The operating rule: every farm with available lots is advertised at the same time with roughly the same daily budget; buyers pick location unpredictably. So each active farm receives about the same reservations per month regardless of its lot count, and a farm stops selling and spending when it runs out of available lots.
+
+This model makes two assumptions that are labeled in the UI (`assumption` / `supuesto`):
+
+1. **Doubling one farm's budget does not double its reservations.** The $250/farm/day lever is the shared typical budget. The model does not give a single farm a private demand curve — every active farm gets the same reservation rate. Raising the lever raises the rate for every farm together; it is not a claim that twice the spend on Lakeview twice Lakeview's reservations.
+
+2. **Farms do not compete for the same buyer.** Adding an active farm adds reservations (and ad spend) instead of splitting a fixed buyer pool. `reservationsPerFarm = budget × 30 ÷ costPerReservation`; `totalAdSpend = activeFarms × budget × 30`.
+
+Existing reservations close on their expected dates × (1 − fall-through %). New reservations close after the observed lag × conversion, capped at that farm's remaining lots. Closings are an output.
+
+Implemented in `src/domain/oracle.ts` (`runPerFarmSellingModel`).

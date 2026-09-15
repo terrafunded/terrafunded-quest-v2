@@ -51,6 +51,7 @@ import { REALM_MAP_UI } from "@/i18n/realmMap";
 import { WAR_PLAN_UI } from "@/i18n/warPlan";
 import { } from "@/domain/goal";
 import { computeWeeklyActions } from "@/domain/weeklyActions";
+import { runPreset, simulatorContextFromRealm } from "@/domain/simulator";
 import { WEEKLY_ACTIONS_UI } from "@/i18n/weeklyActions";
 
 export interface ExportFigure {
@@ -278,6 +279,7 @@ function collectFigures(
   const weekly = computeWeeklyActions(realm, realm.asOf, lang);
   const weeklyTop = weekly.candidates[0];
   const weeklyUi = WEEKLY_ACTIONS_UI[lang];
+  const sim = runPreset("today", simulatorContextFromRealm(realm), true);
 
   return [
     {
@@ -874,6 +876,84 @@ function collectFigures(
       source: { file: "src/domain/goal.ts", export: "computeGoal" },
       inputs: { avgSalePrice: realm.oracleDefaults.avgSalePrice },
       formula: "goal.avgNetProfitPerClosedLot (simulator uses sale/land averages separately)",
+    },
+    {
+      id: "oracle.simulatorFreedomDate",
+      page: "/oracle",
+      section: "simulator",
+      label: lang === "es" ? "Fecha de libertad (tras costos)" : "Freedom date (after costs)",
+      displayed: sim.freedomDate ?? "—",
+      raw: sim.freedomDate,
+      subtitle: lang === "es" ? "Misma serie que la gráfica" : "Same series as the chart",
+      units: "date",
+      source: { file: "src/domain/simulator.ts", export: "runPreset" },
+      inputs: { peakCapitalOwed: sim.peakCapitalOwed },
+      formula: "first month after-cost cumulative net (booked − ads) crosses the goal",
+    },
+    {
+      id: "oracle.simulatorPeakOwed",
+      page: "/oracle",
+      section: "simulator",
+      label: lang === "es" ? "Pico adeudado" : "Peak owed",
+      displayed: moneyCompact(sim.peakCapitalOwed, lang),
+      raw: sim.peakCapitalOwed,
+      subtitle: null,
+      units: "USD",
+      source: { file: "src/domain/oracle.ts", export: "runPerFarmSellingModel" },
+      inputs: { landCapitalDeployed: sim.landCapitalDeployed, owedStart: realm.debt.capitalOwed },
+      formula: "max over months of outstanding capital (never a sum)",
+    },
+    {
+      id: "oracle.simulatorInventoryZeroDate",
+      page: "/oracle",
+      section: "simulator",
+      label: lang === "es" ? "Mes en que el inventario llega a cero" : "Inventory-zero month",
+      displayed: sim.inventoryZeroDate ?? (lang === "es" ? "Nunca" : "Never"),
+      raw: sim.inventoryZeroDate,
+      subtitle: null,
+      units: "date",
+      source: { file: "src/domain/oracle.ts", export: "runPerFarmSellingModel" },
+      inputs: { onHand: sim.inventoryOnHand },
+      formula: "first month available + reserved lots across farms = 0",
+    },
+    {
+      id: "oracle.simulatorActiveFarmsToday",
+      page: "/oracle",
+      section: "simulator",
+      label: lang === "es" ? "Fincas activas hoy" : "Active farms today",
+      displayed: fmtNumber(sim.activeFarmsToday, lang),
+      raw: sim.activeFarmsToday,
+      subtitle: sim.activeFarmsDropDate,
+      units: "farms",
+      source: { file: "src/domain/oracle.ts", export: "runPerFarmSellingModel" },
+      inputs: { availableLots: sim.inventoryAvailable },
+      formula: "count of farms with available lots today",
+    },
+    {
+      id: "oracle.simulatorInventoryOnHand",
+      page: "/oracle",
+      section: "simulator",
+      label: lang === "es" ? "Lotes en mano hoy" : "Lots on hand today",
+      displayed: fmtNumber(sim.inventoryOnHand, lang),
+      raw: sim.inventoryOnHand,
+      subtitle: `${sim.inventoryAvailable} + ${sim.inventoryReserved}`,
+      units: "lots",
+      source: { file: "src/domain/oracle.ts", export: "runPerFarmSellingModel" },
+      inputs: { available: sim.inventoryAvailable, reserved: sim.inventoryReserved },
+      formula: "availableLots + reservedLots (domain, not conversion-weighted)",
+    },
+    {
+      id: "oracle.adBudgetPerFarmPerDay",
+      page: "/oracle",
+      section: "simulator",
+      label: lang === "es" ? "Presupuesto de anuncios por finca por día" : "Ad budget per farm per day",
+      displayed: moneyCompact(sim.levers.adBudgetPerFarmPerDay, lang),
+      raw: sim.levers.adBudgetPerFarmPerDay,
+      subtitle: lang === "es" ? "supuesto" : "assumption",
+      units: "USD/day",
+      source: { file: "src/domain/oracle.ts", export: "DEFAULT_AD_BUDGET_PER_FARM_PER_DAY" },
+      inputs: {},
+      formula: "labeled assumption — not a historical ad-spend figure",
     },
     {
       id: "exodus.lpCapital",

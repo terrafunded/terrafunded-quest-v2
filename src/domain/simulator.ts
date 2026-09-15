@@ -1,30 +1,39 @@
 /**
- * Simulator — owner levers on the same capital- and inventory-constrained forecast
- * Engine and War Plan already run. There is no third model.
+ * Simulator — owner levers on the same capital- and inventory-constrained forecast.
  *
- * Closings per month are an OUTPUT: min(ad-driven demand, inventory on hand).
- * Farms the mix cannot pay for are marked unfunded and do not add lots.
- * Ad spend is the monthly lever (paid whether or not inventory can fulfill it).
+ * Selling is per-farm: every farm with available lots is advertised at the same daily
+ * budget; each receives the same reservations that month. Closings are an output.
+ * Ad spend is a forward-looking input only — it never enters the goal or historical figures.
  *
- * Today's-pace FREEDOM DATE is the authoritative Throne Room exit
- * (`pathToGoal.projectedExitAtCurrentPace`). The constrained run still supplies
- * costs, the binding constraint, and every other output. Do not replace that
- * date with a second engine date.
+ * Freedom date and the profit chart share one series: the month after-cost cumulative
+ * net (booked profit already net of sponsor take, minus ads) crosses the goal.
+ * Interest is not deducted a second time. See AUDIT.md §9.
  */
 
 import { ENGINE_DEFAULT_COST_PER_RESERVATION, ENGINE_MAX_FARMS } from "../config/engine";
-import { daysBetween, monthsBetween, parseDate, toIsoDate, addDays } from "./dates";
+import { daysBetween, monthsBetween, parseDate } from "./dates";
 import {
   costPerClosing,
   engineDefaultsFromRealm,
-  engineStartInventory,
   resolveFarmCost,
   type EngineDefaults,
 } from "./engine";
 import type { Expected } from "./expected";
+import type { FarmScorecard } from "./farmScorecard";
 import type { GoalStatus } from "./goal";
 import { mean, round2, sum } from "./math";
-import { buildMonthGrid, fundSchedule, runOracle, type InvestorMixEntry, type OracleParams } from "./oracle";
+import type { NoteStrategies } from "./noteStrategies";
+import {
+  DEFAULT_AD_BUDGET_PER_FARM_PER_DAY,
+  buildMonthGrid,
+  reservationsPerFarmPerMonth,
+  runPerFarmSellingModel,
+  type ExistingFarmSeed,
+  type FarmInventoryRow,
+  type InvestorMixEntry,
+  type OracleParams,
+  type PerFarmMonthPoint,
+} from "./oracle";
 import type { PathToGoal } from "./pathToGoal";
 import type { WarPlan, WarPlanContext } from "./warplan";
 import { cadenceSchedule } from "./warplan";
@@ -32,6 +41,8 @@ import { cadenceSchedule } from "./warplan";
 export const SIMULATOR_AD_STEP_USD = 5_000;
 export const SIMULATOR_FARM_STEP = 1;
 export const SIMULATOR_CPR_ASSUMPTION = ENGINE_DEFAULT_COST_PER_RESERVATION;
+export const SIMULATOR_AD_BUDGET_PER_FARM_PER_DAY = DEFAULT_AD_BUDGET_PER_FARM_PER_DAY;
+export const SIMULATOR_BUDGET_STEP = 50;
 
 export type SimulatorPresetId = "today" | "required" | "plus_one_farm" | "aggressive";
 export type BindingConstraint = "demand" | "inventory" | "capital";
@@ -39,13 +50,18 @@ export type SimulatorBottleneckKind = "inventory" | "demand" | "capital" | "none
 export type DeltaComparator = "today_pace" | "deadline";
 
 export interface SimulatorLevers {
-  adSpendPerMonth: number;
+  adBudgetPerFarmPerDay: number;
   farmsPerQuarter: number;
   capitalAvailable: number;
+  fallThroughPct: number;
+  sellNotes: boolean;
   avgSalePrice: number;
   costPerReservation: number;
   conversionPct: number;
   investorTakePct: number;
+  landCostPerFarm: number;
+  /** @deprecated monthly total — derived from per-farm budget × active farms. Kept for saved scenarios. */
+  adSpendPerMonth?: number;
 }
 
 export interface DatedDelta {
@@ -62,6 +78,9 @@ export interface SimulatorMonth {
   lotsClosed: number;
   demandLots: number;
   inventory: number;
+  inventoryAvailable: number;
+  inventoryReserved: number;
+  activeFarms: number;
   farmsBought: number;
   farmsUnfunded: number;
   adSpend: number;
@@ -70,16 +89,16 @@ export interface SimulatorMonth {
   interest: number;
   cumulativeAdSpend: number;
   cumulativeInterest: number;
-  /** Booked net at closing (the $10M goal metric). */
+  /** Booked net at closing (sponsor take already deducted). */
   cumulativeBookedProfit: number;
-  /** Booked net minus ads paid this plan minus interest. */
+  /** Booked net minus ads paid this plan. Interest is already inside booked net. */
   cumulativeNetProfit: number;
   binding: BindingConstraint;
+  farmInventory: PerFarmMonthPoint["farmInventory"];
 }
 
 export interface SimulatorBottleneck {
   kind: SimulatorBottleneckKind;
-  /** First month the constraint binds, or null. */
   monthIndex: number | null;
   date: string | null;
   capitalShort: number;
@@ -95,9 +114,8 @@ export interface LeverMarginal {
 export interface SimulatorResult {
   levers: SimulatorLevers;
   presetId: SimulatorPresetId | null;
-  /** Goal-reached date shown for this scenario. Today's pace is pinned to Throne Room. */
+  /** Month after-cost cumulative net crosses the goal — same series as the chart. */
   freedomDate: string | null;
-  /** After-cost crossing from this run (may differ from `freedomDate` on today's pace). */
   simulatedFreedomDate: string | null;
   monthsToGoal: number | null;
   vsTodayPace: DatedDelta | null;
@@ -119,6 +137,16 @@ export interface SimulatorResult {
   marginalAds: LeverMarginal;
   marginalFarm: LeverMarginal;
   costPerReservationIsAssumption: true;
+  adBudgetIsAssumption: true;
+  inventory: FarmInventoryRow[];
+  inventoryOnHand: number;
+  inventoryAvailable: number;
+  inventoryReserved: number;
+  inventoryZeroMonthIndex: number | null;
+  inventoryZeroDate: string | null;
+  activeFarmsToday: number;
+  activeFarmsDropMonthIndex: number | null;
+  activeFarmsDropDate: string | null;
 }
 
 export interface SimulatorContext {
@@ -133,6 +161,7 @@ export interface SimulatorContext {
   cycleMonths: number;
   conversionPct: number;
   costPerReservation: number;
+  fallThroughPct: number;
   startInventory: number;
   paceLagDays: number;
   owedStart: number;
@@ -142,13 +171,16 @@ export interface SimulatorContext {
   requiredFarmsToBuy: number;
   requiredCapitalToRaise: number;
   engine: EngineDefaults;
+  farmSeeds: ExistingFarmSeed[];
+  noteSaleRatio: number;
+  notesHeldAtRatio: number;
+  downPaymentPct: number;
 }
 
 export interface SimulatorRunOptions {
-  /** When set, `freedomDate` is this ISO date (today's pace ↔ Throne Room). */
+  /** When set, `freedomDate` is this ISO date (labeled Throne comparison only). */
   pinFreedomDate?: string | null;
   presetId?: SimulatorPresetId | null;
-  /** Skip the two extra runs that size the slider footnotes. */
   skipMarginals?: boolean;
 }
 
@@ -171,7 +203,7 @@ export function cadenceMonthsFromFarmsPerQuarter(farmsPerQuarter: number): numbe
   return round2(3 / farmsPerQuarter);
 }
 
-/** Authoritative current-pace exit — the same date Throne Room reads. */
+/** Authoritative current-pace exit — the same date the Overview reads. Labeled comparison only. */
 export function todayPaceFreedomDate(path: Pick<PathToGoal, "projectedExitAtCurrentPace">): string | null {
   return path.projectedExitAtCurrentPace;
 }
@@ -201,7 +233,6 @@ export function datedDelta(from: string | null, toward: string | null, comparato
   if (!a && b) return { days: 3650, months: 120, comparator, direction: "behind" };
   if (a && !b) return { days: 3650, months: 120, comparator, direction: "ahead" };
   if (!a || !b) return null;
-  // Positive days = `from` is earlier than `toward` = ahead of the comparator.
   const signed = daysBetween(a, b);
   const months = round2(monthsBetween(a, b));
   if (signed === 0) return { days: 0, months: 0, comparator, direction: "same" };
@@ -219,25 +250,41 @@ function weightedAnnualRate(mix: InvestorMixEntry[]): number {
   return sum(funded.map((e) => e.capital * e.ratePct)) / total;
 }
 
-function interpolateCross(prevValue: number, prevDate: string, value: number, date: string, goal: number, asOf: Date): string {
-  if (prevValue >= goal) return prevDate;
-  if (value <= prevValue) return date;
-  const frac = Math.min(1, Math.max(0, (goal - prevValue) / (value - prevValue)));
-  const start = parseDate(prevDate) ?? asOf;
-  const end = parseDate(date) ?? start;
-  const span = Math.max(1, daysBetween(start, end));
-  return toIsoDate(addDays(start, Math.min(span, Math.max(1, Math.ceil(frac * span)))));
+export function farmSeedsFromRealm(scorecard: FarmScorecard, expected: Expected): ExistingFarmSeed[] {
+  const dueByFarm = new Map<string, ExistingFarmSeed["reservedDue"]>();
+  for (const lot of expected.lots) {
+    const list = dueByFarm.get(lot.farmId) ?? [];
+    list.push({
+      date: lot.expectedCloseDate ?? lot.reservationDate,
+      lots: 1,
+      netProfitAtStake: lot.netProfitAtStake,
+    });
+    dueByFarm.set(lot.farmId, list);
+  }
+  return scorecard.rows
+    .filter((r) => r.availableLots + r.reservedLots > 0)
+    .map((r) => ({
+      id: r.farmId,
+      name: r.name,
+      availableLots: r.availableLots,
+      reservedLots: r.reservedLots,
+      reservationsInLast90: r.reservationsInLast90,
+      reservedDue: dueByFarm.get(r.farmId) ?? [],
+    }));
 }
 
 export function todayLevers(ctx: SimulatorContext): SimulatorLevers {
   return {
-    adSpendPerMonth: inferredAdSpendPerMonth(ctx.closedLotsPerMonth, ctx.costPerReservation, ctx.conversionPct),
+    adBudgetPerFarmPerDay: SIMULATOR_AD_BUDGET_PER_FARM_PER_DAY,
     farmsPerQuarter: farmsPerQuarterFromCadence(ctx.newFarmEveryMonths),
     capitalAvailable: mixCapitalTotal(ctx.mix),
+    fallThroughPct: ctx.fallThroughPct,
+    sellNotes: true,
     avgSalePrice: ctx.oracleDefaults.avgSalePrice,
     costPerReservation: ctx.costPerReservation,
     conversionPct: ctx.conversionPct,
     investorTakePct: ctx.oracleDefaults.investorTakePct,
+    landCostPerFarm: ctx.farmCost,
   };
 }
 
@@ -246,12 +293,15 @@ export function requiredLevers(ctx: SimulatorContext): SimulatorLevers {
   const months = Math.max(1, ctx.goal.monthsToDeadline);
   const farmsPerQuarter =
     ctx.requiredFarmsToBuy > 0 ? round2((ctx.requiredFarmsToBuy / months) * 3) : Math.max(today.farmsPerQuarter, 1);
-  const capital = Math.max(today.capitalAvailable, ctx.requiredCapitalToRaise);
+  const active = ctx.farmSeeds.filter((f) => f.availableLots > 0).length;
+  const neededRes =
+    active > 0 && ctx.conversionPct > 0 ? ctx.requiredClosingsPerMonth / active / (ctx.conversionPct / 100) : 0;
+  const neededBudget = neededRes > 0 && ctx.costPerReservation > 0 ? round2((neededRes * ctx.costPerReservation) / 30) : today.adBudgetPerFarmPerDay;
   return {
     ...today,
-    adSpendPerMonth: inferredAdSpendPerMonth(ctx.requiredClosingsPerMonth, ctx.costPerReservation, ctx.conversionPct),
+    adBudgetPerFarmPerDay: Math.max(today.adBudgetPerFarmPerDay, neededBudget),
     farmsPerQuarter,
-    capitalAvailable: capital,
+    capitalAvailable: Math.max(today.capitalAvailable, ctx.requiredCapitalToRaise),
   };
 }
 
@@ -264,7 +314,7 @@ export function aggressiveLevers(ctx: SimulatorContext): SimulatorLevers {
   const today = todayLevers(ctx);
   return {
     ...today,
-    adSpendPerMonth: round2(today.adSpendPerMonth * 2),
+    adBudgetPerFarmPerDay: round2(today.adBudgetPerFarmPerDay * 2),
     farmsPerQuarter: round2(today.farmsPerQuarter + 2),
     capitalAvailable: round2(today.capitalAvailable + ctx.farmCost * 2),
   };
@@ -285,12 +335,17 @@ export function simulatorContextFromRealm(
     rotation: { benchmark: { farmName: string } | null };
     debt: { capitalOwed: number };
     farmCadence: { months: number };
+    farmScorecard: FarmScorecard;
+    noteStrategies: NoteStrategies;
+    pipeline: { conversion: { cancellationRatePct: number | null } };
   },
 ): SimulatorContext {
   const engine = engineDefaultsFromRealm(realm, realm.rotation.benchmark?.farmName ?? null);
   const conversionPct = engine.inputs.conversionPct;
-  const inv = engineStartInventory(realm.goal.availableLots, realm.goal.reservedLots, conversionPct);
+  const farmSeeds = farmSeedsFromRealm(realm.farmScorecard, realm.expected);
+  const onHand = farmSeeds.reduce((a, f) => a + f.availableLots + f.reservedLots, 0);
   const lag = realm.expected.medianDaysToClose;
+  const cancel = realm.pipeline.conversion.cancellationRatePct;
   return {
     goal: realm.goal,
     asOf: realm.asOf,
@@ -303,7 +358,8 @@ export function simulatorContextFromRealm(
     cycleMonths: engine.inputs.cycleMonths,
     conversionPct,
     costPerReservation: engine.inputs.costPerReservation,
-    startInventory: inv.total,
+    fallThroughPct: cancel === null ? Math.max(0, 100 - conversionPct) : cancel,
+    startInventory: onHand,
     paceLagDays: lag === null ? 0 : Math.round(lag),
     owedStart: Math.max(0, realm.debt.capitalOwed),
     closedLotsPerMonth: realm.goal.closedLotsPerMonth,
@@ -312,6 +368,10 @@ export function simulatorContextFromRealm(
     requiredFarmsToBuy: realm.pathToGoal.farmsToBuy,
     requiredCapitalToRaise: realm.pathToGoal.capitalToRaise,
     engine,
+    farmSeeds,
+    noteSaleRatio: realm.noteStrategies.noteSaleRatio,
+    notesHeldAtRatio: realm.noteStrategies.notesHeldAtRatio,
+    downPaymentPct: realm.oracleDefaults.downPaymentPct,
   };
 }
 
@@ -364,136 +424,111 @@ function decideBottleneck(
 }
 
 function runCore(levers: SimulatorLevers, ctx: SimulatorContext): Omit<SimulatorResult, "marginalAds" | "marginalFarm" | "vsTodayPace" | "vsDeadline" | "presetId"> {
-  const demand = demandLotsPerMonth(levers.adSpendPerMonth, levers.costPerReservation, levers.conversionPct);
   const deadline = parseDate(ctx.goal.deadline) ?? ctx.asOf;
   const grid = buildMonthGrid(ctx.asOf, deadline, true);
-  const horizon = grid.months.length;
-  const wanted = farmPurchaseMonths(levers.farmsPerQuarter, horizon);
+  const wanted = farmPurchaseMonths(levers.farmsPerQuarter, grid.months.length);
   const fundedMix = scaleMixToCapital(ctx.mix, levers.capitalAvailable);
-  const landLag = Math.max(0, Math.round(ctx.landLagMonths));
-  const cycleMonths = ctx.cycleMonths > 0 ? Math.max(1, Math.round(ctx.cycleMonths)) : null;
-  const planned = fundSchedule(wanted, ctx.farmCost, ctx.lotsPerFarm, landLag, fundedMix, cycleMonths, grid.deadlineIndex);
-  const bought = planned.filter((f) => f.unfunded <= Math.max(1, ctx.farmCost * 0.01));
-  const skipped = planned.filter((f) => f.unfunded > Math.max(1, ctx.farmCost * 0.01));
-  const unfundedByMonth = new Map<number, number>();
-  for (const f of skipped) {
-    unfundedByMonth.set(f.purchaseMonth, (unfundedByMonth.get(f.purchaseMonth) ?? 0) + 1);
-  }
+  const farmCost = Math.max(0, levers.landCostPerFarm);
+  const resPerFarm = reservationsPerFarmPerMonth(levers.adBudgetPerFarmPerDay, levers.costPerReservation);
 
-  const adPerClosing = costPerClosing(levers.costPerReservation, levers.conversionPct);
-  const params: OracleParams = {
-    ...ctx.oracleDefaults,
-    lotsPerMonth: Math.max(0, demand),
-    avgSalePrice: levers.avgSalePrice,
-    investorTakePct: levers.investorTakePct,
-    avgLotsPerFarm: ctx.lotsPerFarm,
-    farmCost: ctx.farmCost,
-    adSpendPerClosing: adPerClosing,
-    conversionPct: levers.conversionPct,
-    farmToFirstCloseMonths: ctx.landLagMonths,
-    investorMix: fundedMix,
-    farmsToBuy: bought.map((f) => f.purchaseMonth),
-    targetMode: "profit_at_closing",
-    capitalCycleMonths: ctx.cycleMonths,
-    newFarmEveryMonths: cadenceMonthsFromFarmsPerQuarter(levers.farmsPerQuarter),
-  };
-
-  // Inflate the target so runOracle does not stop when booked profit hits $10M —
-  // we still need months after that to see after-cost (ads + interest) cross the goal.
-  const oracle = runOracle(params, { ...ctx.goal, goal: Math.max(ctx.goal.goal * 5, 50_000_000) }, ctx.startInventory, ctx.asOf, {
-    calendarMonths: true,
+  const model = runPerFarmSellingModel(
+    ctx.farmSeeds,
+    {
+      adBudgetPerFarmPerDay: levers.adBudgetPerFarmPerDay,
+      costPerReservation: levers.costPerReservation,
+      conversionPct: levers.conversionPct,
+      fallThroughPct: levers.fallThroughPct,
+      lotsPerFarm: ctx.lotsPerFarm,
+      farmToFirstCloseMonths: ctx.landLagMonths,
+      purchaseMonths: wanted,
+      farmCost,
+      capitalAvailable: levers.capitalAvailable,
+      noteCashNow: ctx.notesHeldAtRatio,
+      sellNotes: levers.sellNotes,
+      noteSaleRatio: ctx.noteSaleRatio,
+      downPaymentPct: ctx.downPaymentPct,
+      avgSalePrice: levers.avgSalePrice,
+      investorTakePct: levers.investorTakePct,
+      owedStart: ctx.owedStart,
+      startNetProfit: ctx.goal.netProfitToDate,
+      goal: ctx.goal.goal,
+      asOf: ctx.asOf,
+      paceLagDays: ctx.paceLagDays,
+      noteLagMonths: ctx.oracleDefaults.avgMonthsToSellNote,
+    },
     grid,
-    owedStart: ctx.owedStart,
-    paceLagDays: ctx.paceLagDays,
-  });
+    weightedAnnualRate(fundedMix),
+  );
 
-  const rate = weightedAnnualRate(fundedMix) / 100;
   const k = grid.deadlineIndex;
-  const series: SimulatorMonth[] = [];
-  let cumAds = 0;
-  let cumInterest = 0;
-  let lotsSold = 0;
-  let landCapital = 0;
-  let peakOwed = ctx.owedStart;
-  let prevBooked = ctx.goal.netProfitToDate;
-  let prevNet = ctx.goal.netProfitToDate;
-  let prevDate = toIsoDate(ctx.asOf);
-  let simulatedFreedomDate: string | null = ctx.goal.netProfitToDate >= ctx.goal.goal ? toIsoDate(ctx.asOf) : null;
-  let monthsToGoal: number | null = ctx.goal.netProfitToDate >= ctx.goal.goal ? 0 : null;
-
-  for (const p of oracle.series) {
-    if (simulatedFreedomDate !== null && p.monthIndex > Math.max(k, 1) + 3) break;
-    const month = grid.months[p.monthIndex - 1];
-    const fraction = month?.fraction ?? 1;
-    const ads = round2(Math.max(0, levers.adSpendPerMonth) * fraction);
-    const interest = round2(Math.max(0, p.capitalOwed) * rate / 12);
-    cumAds += ads;
-    cumInterest += interest;
-    const weight = p.monthIndex === k ? grid.deadlineFraction : 1;
-    if (p.monthIndex <= k) lotsSold += p.lotsClosed * (p.monthIndex === k ? weight : 1);
-    if (p.monthIndex <= k) landCapital += p.capitalDeployed;
-    peakOwed = Math.max(peakOwed, p.capitalOwed);
-    const netAfter = round2(p.cumulativeNetProfit - cumAds - cumInterest);
-    const unfundedNow = unfundedByMonth.get(p.monthIndex) ?? 0;
-    let binding: BindingConstraint;
-    if (unfundedNow > 0) binding = "capital";
-    else if (p.shortfall) binding = "inventory";
-    else binding = "demand";
-
-    if (simulatedFreedomDate === null && netAfter >= ctx.goal.goal) {
-      simulatedFreedomDate = interpolateCross(prevNet, prevDate, netAfter, p.date, ctx.goal.goal, ctx.asOf);
-      monthsToGoal = round2(monthsBetween(ctx.asOf, parseDate(simulatedFreedomDate) ?? ctx.asOf));
-    }
-
-    series.push({
+  const freedomIdx = model.freedomDate
+    ? (model.series.find((s) => s.date >= (model.freedomDate as string))?.monthIndex ?? model.series.length)
+    : model.series.length;
+  const keepThrough = Math.max(k + 3, freedomIdx + 1, model.inventoryZeroMonthIndex ?? 0, model.activeFarmsDropMonthIndex ?? 0, 16);
+  const series: SimulatorMonth[] = model.series
+    .filter((p) => p.monthIndex <= keepThrough)
+    .map((p) => ({
       monthIndex: p.monthIndex,
       date: p.date,
       lotsClosed: p.lotsClosed,
-      demandLots: round2(p.flatLotsClosed + p.scheduledLotsClosed),
+      demandLots: round2(p.activeFarms * resPerFarm * p.fraction * (levers.conversionPct / 100)),
       inventory: p.inventory,
+      inventoryAvailable: p.inventoryAvailable,
+      inventoryReserved: p.inventoryReserved,
+      activeFarms: p.activeFarms,
       farmsBought: p.farmsBought,
-      farmsUnfunded: unfundedNow,
-      adSpend: ads,
+      farmsUnfunded: p.farmsUnfunded,
+      adSpend: p.adSpend,
       capitalDeployed: p.capitalDeployed,
       capitalOwed: p.capitalOwed,
-      interest,
-      cumulativeAdSpend: round2(cumAds),
-      cumulativeInterest: round2(cumInterest),
-      cumulativeBookedProfit: p.cumulativeNetProfit,
-      cumulativeNetProfit: netAfter,
-      binding,
-    });
-    prevBooked = p.cumulativeNetProfit;
-    prevNet = netAfter;
-    prevDate = p.date;
-    void prevBooked;
-  }
+      interest: p.interest,
+      cumulativeAdSpend: p.cumulativeAdSpend,
+      cumulativeInterest: p.cumulativeInterest,
+      cumulativeBookedProfit: p.cumulativeBookedProfit,
+      cumulativeNetProfit: p.cumulativeNetProfit,
+      binding: p.binding,
+      farmInventory: p.farmInventory,
+    }));
 
-  const deadlinePoint = series.find((s) => s.monthIndex === k) ?? series[series.length - 1];
-  const farmsBought = bought.filter((f) => f.purchaseMonth <= k).length;
-  const farmsUnfunded = skipped.filter((f) => f.purchaseMonth <= k).length;
-  const unfundedCapital = round2(sum(skipped.filter((f) => f.purchaseMonth <= k).map((f) => f.unfunded)));
+  const available = ctx.farmSeeds.reduce((a, f) => a + f.availableLots, 0);
+  const reserved = ctx.farmSeeds.reduce((a, f) => a + f.reservedLots, 0);
 
   return {
     levers,
-    freedomDate: simulatedFreedomDate,
-    simulatedFreedomDate,
-    monthsToGoal,
-    netProfitAtDeadline: deadlinePoint?.cumulativeNetProfit ?? round2(ctx.goal.netProfitToDate),
-    totalAdSpend: deadlinePoint?.cumulativeAdSpend ?? round2(cumAds),
-    landCapitalDeployed: round2(landCapital),
-    peakCapitalOwed: round2(peakOwed),
-    interestPaid: deadlinePoint?.cumulativeInterest ?? round2(cumInterest),
-    lotsSold: round2(lotsSold),
-    farmsBought,
-    farmsUnfunded,
-    unfundedCapital,
-    closingsPerMonth: demand > 0 ? round2(lotsSold / Math.max(1, ctx.goal.monthsToDeadline)) : 0,
-    demandPerMonth: demand,
+    freedomDate: model.freedomDate,
+    simulatedFreedomDate: model.freedomDate,
+    monthsToGoal: model.monthsToGoal,
+    netProfitAtDeadline: model.netProfitAtDeadline,
+    totalAdSpend: model.totalAdSpend,
+    landCapitalDeployed: model.landCapitalDeployed,
+    peakCapitalOwed: model.peakCapitalOwed,
+    interestPaid: model.interestPaid,
+    lotsSold: model.lotsSold,
+    farmsBought: model.farmsBought,
+    farmsUnfunded: model.farmsUnfunded,
+    unfundedCapital: model.unfundedCapital,
+    closingsPerMonth: model.closingsPerMonth,
+    demandPerMonth: model.demandPerMonth,
     bindingByMonth: series.filter((s) => s.monthIndex <= k).map((s) => s.binding),
     series,
-    bottleneck: decideBottleneck(series.filter((s) => s.monthIndex <= k), farmsUnfunded, unfundedCapital, ctx.pathToGoal.nextFarmFundByDate, ctx.farmCost),
+    bottleneck: decideBottleneck(
+      series.filter((s) => s.monthIndex <= k),
+      model.farmsUnfunded,
+      model.unfundedCapital,
+      ctx.pathToGoal.nextFarmFundByDate,
+      farmCost,
+    ),
     costPerReservationIsAssumption: true,
+    adBudgetIsAssumption: true,
+    inventory: model.farms,
+    inventoryOnHand: available + reserved,
+    inventoryAvailable: available,
+    inventoryReserved: reserved,
+    inventoryZeroMonthIndex: model.inventoryZeroMonthIndex,
+    inventoryZeroDate: model.inventoryZeroDate,
+    activeFarmsToday: model.activeFarmsToday,
+    activeFarmsDropMonthIndex: model.activeFarmsDropMonthIndex,
+    activeFarmsDropDate: model.activeFarmsDropDate,
   };
 }
 
@@ -510,22 +545,23 @@ function daysSooner(base: string | null, next: string | null): { daysSooner: num
 
 export function runSimulator(levers: SimulatorLevers, ctx: SimulatorContext, opts: SimulatorRunOptions = {}): SimulatorResult {
   const core = runCore(levers, ctx);
-  const todayDate = todayPaceFreedomDate(ctx.pathToGoal);
+  const todayPace =
+    opts.presetId === "today" ? core.simulatedFreedomDate : runCore(todayLevers(ctx), ctx).simulatedFreedomDate;
   const freedomDate = opts.pinFreedomDate !== undefined ? opts.pinFreedomDate : core.simulatedFreedomDate;
-  const vsTodayPace = datedDelta(freedomDate, todayDate, "today_pace");
+  const vsTodayPace = datedDelta(freedomDate, todayPace, "today_pace");
   const vsDeadline = datedDelta(freedomDate, ctx.goal.deadline, "deadline");
 
   let marginalAds: LeverMarginal = { daysSooner: null, binds: false, binding: null };
   let marginalFarm: LeverMarginal = { daysSooner: null, binds: false, binding: null };
   if (!opts.skipMarginals) {
-    const adsUp = runCore({ ...levers, adSpendPerMonth: levers.adSpendPerMonth + SIMULATOR_AD_STEP_USD }, ctx);
+    const adsUp = runCore({ ...levers, adBudgetPerFarmPerDay: levers.adBudgetPerFarmPerDay + SIMULATOR_BUDGET_STEP }, ctx);
     const farmUp = runCore({ ...levers, farmsPerQuarter: levers.farmsPerQuarter + SIMULATOR_FARM_STEP }, ctx);
     const adsDelta = daysSooner(core.simulatedFreedomDate, adsUp.simulatedFreedomDate);
     const farmDelta = daysSooner(core.simulatedFreedomDate, farmUp.simulatedFreedomDate);
     marginalAds = {
       daysSooner: adsDelta.daysSooner,
       binds: adsDelta.binds,
-      binding: adsDelta.binds ? core.bottleneck.kind === "none" ? "inventory" : core.bottleneck.kind === "demand" ? "inventory" : core.bottleneck.kind : null,
+      binding: adsDelta.binds ? (core.bottleneck.kind === "none" ? "inventory" : core.bottleneck.kind === "demand" ? "inventory" : core.bottleneck.kind) : null,
     };
     if (adsDelta.binds && core.bottleneck.kind === "inventory") marginalAds.binding = "inventory";
     if (adsDelta.binds && core.bottleneck.kind === "capital") marginalAds.binding = "capital";
@@ -533,7 +569,7 @@ export function runSimulator(levers: SimulatorLevers, ctx: SimulatorContext, opt
     marginalFarm = {
       daysSooner: farmDelta.daysSooner,
       binds: farmDelta.binds,
-      binding: farmDelta.binds ? core.bottleneck.kind === "none" ? "demand" : core.bottleneck.kind === "inventory" ? "demand" : core.bottleneck.kind : null,
+      binding: farmDelta.binds ? (core.bottleneck.kind === "none" ? "demand" : core.bottleneck.kind === "inventory" ? "demand" : core.bottleneck.kind) : null,
     };
     if (farmDelta.binds && core.bottleneck.kind === "demand") marginalFarm.binding = "demand";
     if (farmDelta.binds && core.bottleneck.kind === "capital") marginalFarm.binding = "capital";
@@ -561,11 +597,7 @@ function seriesDominant(series: SimulatorMonth[]): BindingConstraint {
 
 export function runPreset(id: SimulatorPresetId, ctx: SimulatorContext, skipMarginals = false): SimulatorResult {
   const levers = leversForPreset(id, ctx);
-  return runSimulator(levers, ctx, {
-    presetId: id,
-    skipMarginals,
-    pinFreedomDate: id === "today" ? todayPaceFreedomDate(ctx.pathToGoal) : undefined,
-  });
+  return runSimulator(levers, ctx, { presetId: id, skipMarginals });
 }
 
 export function runAllPresets(ctx: SimulatorContext, skipMarginals = true): Record<SimulatorPresetId, SimulatorResult> {
@@ -605,4 +637,20 @@ export function compareResults(rows: { id: string; name: string; result: Simulat
     lotsSold: r.result.lotsSold,
     bottleneck: r.result.bottleneck.kind,
   }));
+}
+
+export function normalizeLevers(raw: Partial<SimulatorLevers>, ctx: SimulatorContext): SimulatorLevers {
+  const today = todayLevers(ctx);
+  return {
+    adBudgetPerFarmPerDay: raw.adBudgetPerFarmPerDay ?? today.adBudgetPerFarmPerDay,
+    farmsPerQuarter: raw.farmsPerQuarter ?? today.farmsPerQuarter,
+    capitalAvailable: raw.capitalAvailable ?? today.capitalAvailable,
+    fallThroughPct: raw.fallThroughPct ?? today.fallThroughPct,
+    sellNotes: raw.sellNotes ?? true,
+    avgSalePrice: raw.avgSalePrice ?? today.avgSalePrice,
+    costPerReservation: raw.costPerReservation ?? today.costPerReservation,
+    conversionPct: raw.conversionPct ?? today.conversionPct,
+    investorTakePct: raw.investorTakePct ?? today.investorTakePct,
+    landCostPerFarm: raw.landCostPerFarm ?? today.landCostPerFarm,
+  };
 }
