@@ -27,22 +27,26 @@ import { PipelinePanel } from "@/components/realm/PipelinePanel";
 import { Reveal } from "@/components/realm/Reveal";
 import { Stat } from "@/components/realm/Stat";
 import { EmptyState, ErrorState, LoadingState, TableErrorsBanner } from "@/components/realm/PageStates";
+import { useCommonStrings } from "@/i18n/common";
+import { useThroneRoomStrings } from "@/i18n/throneRoom";
 import { date, money, moneyCompact, monthLabel, number, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const EVENT_STYLE: Record<RealmEvent["kind"], { label: string; className: string }> = {
-  reservation: { label: "Reserved", className: "text-stage-reserved" },
-  cancellation: { label: "Cancelled", className: "text-ember" },
-  closing: { label: "Closed", className: "text-stage-closed" },
-  note_sale: { label: "Note sold", className: "text-stage-note_sold" },
-  distribution: { label: "Paid out", className: "text-sponsor" },
-  farm_acquired: { label: "Farm", className: "text-oxygen" },
-  milestone: { label: "Milestone", className: "text-gold" },
-  liberation: { label: "Freed", className: "text-liberty" },
+const EVENT_CLASS: Record<RealmEvent["kind"], string> = {
+  reservation: "text-stage-reserved",
+  cancellation: "text-ember",
+  closing: "text-stage-closed",
+  note_sale: "text-stage-note_sold",
+  distribution: "text-sponsor",
+  farm_acquired: "text-oxygen",
+  milestone: "text-gold",
+  liberation: "text-liberty",
 };
 
 export function ThroneRoom() {
   const { data, isLoading, error, refetch } = useRealm();
+  const t = useThroneRoomStrings();
+  const common = useCommonStrings();
 
   const questNodes = useMemo<QuestNode[]>(() => {
     if (!data) return [];
@@ -77,18 +81,18 @@ export function ThroneRoom() {
   const turnsNeeded = plan.turnsNeeded === null ? "—" : Number.isInteger(plan.turnsNeeded) ? String(plan.turnsNeeded) : plan.turnsNeeded.toFixed(1);
   const conversionForecastLabel =
     x.conversionSource === "resolved"
-      ? "resolved conversion"
+      ? t.conversion.resolved
       : x.conversionSource === "with_cancellations"
-        ? "blended conversion (incl. cancellations)"
+        ? t.conversion.blendedIncl
         : x.conversionSource === "without_cancellations"
-          ? "blended conversion"
-          : "assumed conversion";
+          ? t.conversion.blended
+          : t.conversion.assumed;
 
   if (realm.lots.length === 0) {
     return (
       <>
         <TableErrorsBanner errors={tableErrors} />
-        <EmptyState title="The realm is empty" body="No lots were found on subdivided farms. Check the Data Quality panel and table permissions." />
+        <EmptyState title={t.emptyTitle} body={t.emptyBody} />
       </>
     );
   }
@@ -101,7 +105,7 @@ export function ThroneRoom() {
       <section className="relative overflow-hidden rounded-2xl border border-gold/20 bg-gradient-to-b from-card/90 to-background/40 px-5 py-10 text-center shadow-[0_0_120px_-40px_hsl(var(--gold)/0.6)] sm:px-10 sm:py-14">
         <AmbientParticles />
         <GrowthBurst trigger={g.netProfitToDate} className="pointer-events-none absolute inset-0 left-1/2 top-1/2" />
-        <h1 className="stat-label">Throne Room · Net profit chronicled · as of {date(g.asOf)}</h1>
+        <h1 className="stat-label">{t.asOf(date(g.asOf))}</h1>
         <div className="mt-3 grid items-end gap-5 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <div className="min-w-0">
             <motion.div
@@ -113,7 +117,15 @@ export function ThroneRoom() {
               <FitMoney value={g.netProfitToDate} className="gold-shimmer text-center" data-testid="net-profit-counter" />
             </motion.div>
             <div className="mt-2 text-sm text-muted-foreground">
-              of <span className="text-foreground">{money(g.goal)}</span> · <span className="text-foreground tabular">{money(g.remaining)}</span> remaining · closings only
+              {(() => {
+                const goal = money(g.goal);
+                const rem = money(g.remaining);
+                const full = t.ofGoal(goal, rem);
+                const i = full.indexOf(goal);
+                const j = full.indexOf(rem, i + goal.length);
+                if (i < 0 || j < 0) return full;
+                return <>{full.slice(0, i)}<span className="text-foreground">{goal}</span>{full.slice(i + goal.length, j)}<span className="text-foreground tabular">{rem}</span>{full.slice(j + rem.length)}</>;
+              })()}
             </div>
           </div>
           <motion.div
@@ -122,15 +134,15 @@ export function ThroneRoom() {
             transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
             className="min-w-0 rounded-xl border border-stage-reserved/30 bg-background/40 px-4 py-3 text-left"
             data-testid="committed"
-            aria-label="Committed net profit from live reservations"
+            aria-label={t.committedAria}
           >
-            <div className="stat-label text-stage-reserved">Committed · {x.liveReservations} live {x.liveReservations === 1 ? "reservation" : "reservations"}</div>
+            <div className="stat-label text-stage-reserved">{t.committed(x.liveReservations, common.reservations(x.liveReservations).replace(/^\d+\s+/, ""))}</div>
             <div className="mt-1 font-display text-[clamp(1.5rem,6vw,2.5rem)] leading-none text-stage-reserved">
               <FitMoney value={x.committedNetProfit} data-testid="committed-counter" />
             </div>
             <div className="mt-1.5 text-xs text-muted-foreground" data-testid="committed-when">
               {x.liveReservations === 0 ? (
-                "no reservation is waiting to close"
+                t.noReservationWaiting
               ) : (
                 <>
                   {money(x.netProfitAtStake)} at stake × {pct(x.conversionPct, 0)} {conversionForecastLabel} = this figure
@@ -162,7 +174,7 @@ export function ThroneRoom() {
         <div className="mt-8 grid items-center gap-6 sm:grid-cols-[auto_1fr] sm:text-left">
           <ProgressRing value={g.pctComplete} size={150} className="mx-auto">
             <div className="font-heading text-3xl text-gold tabular">{g.pctComplete.toFixed(1)}%</div>
-            <div className="stat-label">complete</div>
+            <div className="stat-label">{t.complete}</div>
           </ProgressRing>
           <div className="space-y-3">
             <p className="font-heading text-lg leading-snug text-foreground sm:text-xl" data-testid="verdict">
@@ -241,27 +253,27 @@ export function ThroneRoom() {
           </div>
         </div>
 
-        <dl className="mt-8 grid gap-3 text-left sm:grid-cols-3" aria-label="This month" data-testid="this-month">
+        <dl className="mt-8 grid gap-3 text-left sm:grid-cols-3" aria-label={t.thisMonthAria} data-testid="this-month">
           <div className="rounded-md bg-background/40 p-3">
-            <dt className="stat-label">Reservations this month</dt>
+            <dt className="stat-label">{t.reservationsThisMonth}</dt>
             <dd className="mt-1 font-heading text-2xl tabular text-stage-reserved" data-testid="this-month-reservations" data-value={x.thisMonth.reservations}>
               {x.thisMonth.reservations}
             </dd>
-            <dd className="text-[11px] text-muted-foreground">pledged in {monthLabel(x.thisMonth.month)}</dd>
+            <dd className="text-[11px] text-muted-foreground">{t.pledgedIn(monthLabel(x.thisMonth.month))}</dd>
           </div>
           <div className="rounded-md bg-background/40 p-3">
-            <dt className="stat-label">Closings this month</dt>
+            <dt className="stat-label">{t.closingsThisMonth}</dt>
             <dd className="mt-1 font-heading text-2xl tabular text-stage-closed" data-testid="this-month-closings" data-value={x.thisMonth.closings}>
               {x.thisMonth.closings}
             </dd>
             <dd className="text-[11px] text-muted-foreground">
               {x.thisMonth.expectedReservations > 0
-                ? `${x.thisMonth.expectedReservations} more expected to close by month end`
-                : `closed in ${monthLabel(x.thisMonth.month)}`}
+                ? t.moreExpected(x.thisMonth.expectedReservations)
+                : t.closedIn(monthLabel(x.thisMonth.month))}
             </dd>
           </div>
           <div className="rounded-md bg-background/40 p-3">
-            <dt className="stat-label">Expected next month</dt>
+            <dt className="stat-label">{t.expectedNextMonth}</dt>
             <dd className="mt-1 font-heading text-2xl tabular text-foreground" data-testid="next-month-expected" data-value={x.nextMonth.expectedClosings}>
               {number(x.nextMonth.expectedClosings)}
             </dd>
@@ -274,7 +286,7 @@ export function ThroneRoom() {
         <QuestTree nodes={questNodes} current={g.netProfitToDate} className="mt-8" />
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1.35fr_1fr]" aria-label="The Debt and Oxygen">
+      <section className="grid gap-4 lg:grid-cols-[1.35fr_1fr]" aria-label={t.debtOxygenAria}>
         <DebtCountdown debt={realm.debt} />
         <OxygenScore oxygen={realm.oxygen} />
       </section>
@@ -299,22 +311,22 @@ export function ThroneRoom() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">
               <RefreshCw className="mr-2 inline h-4 w-4" />
-              Rotation · land capital turning
+              {t.rotation}
             </h2>
             <Link to="/warplan" className="touch-link text-xs text-muted-foreground hover:text-foreground">
-              the war plan →
+              {t.warPlanLink}
             </Link>
           </div>
           <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div className="rounded-md bg-background/40 p-3">
-              <dt className="stat-label">Capital outstanding</dt>
+              <dt className="stat-label">{t.capitalOutstanding}</dt>
               <dd className="mt-1 font-heading text-xl tabular text-sponsor" data-testid="rotation-outstanding">
                 {money(rot.capitalOutstanding)}
               </dd>
               <dd className="text-[11px] text-muted-foreground">today&apos;s captive sponsor capital (excludes own-capital farms)</dd>
             </div>
             <div className="rounded-md bg-background/40 p-3">
-              <dt className="stat-label">Benchmark turn</dt>
+              <dt className="stat-label">{t.benchmarkTurn}</dt>
               <dd className="mt-1 font-heading text-xl tabular" data-testid="rotation-benchmark">
                 {rot.cycleDays === null ? "—" : `${number(rot.cycleDays)} days`}
               </dd>
@@ -340,14 +352,14 @@ export function ThroneRoom() {
               </dd>
             </div>
             <div className="rounded-md bg-background/40 p-3">
-              <dt className="stat-label">Turns completed</dt>
+              <dt className="stat-label">{t.turnsCompleted}</dt>
               <dd className="mt-1 font-heading text-xl tabular text-liberty" data-testid="rotation-turns-completed">
                 {rot.turnsCompleted}
               </dd>
               <dd className="text-[11px] text-muted-foreground">{rot.turnsCompleted === 1 ? "farm freed" : "farms freed"} — capital fully back</dd>
             </div>
             <div className="rounded-md bg-background/40 p-3">
-              <dt className="stat-label">Turns still needed</dt>
+              <dt className="stat-label">{t.turnsStillNeeded}</dt>
               <dd className="mt-1 font-heading text-xl tabular text-gold" data-testid="rotation-turns-needed">
                 {turnsNeeded}
               </dd>
@@ -359,7 +371,7 @@ export function ThroneRoom() {
               </dd>
             </div>
             <div className="rounded-md bg-background/40 p-3">
-              <dt className="stat-label">Next liberation</dt>
+              <dt className="stat-label">{t.nextLiberation}</dt>
               <dd className="mt-1 truncate font-heading text-xl" data-testid="rotation-next">
                 {rot.nextLiberation?.farmName ?? "—"}
               </dd>
@@ -378,9 +390,9 @@ export function ThroneRoom() {
       </Reveal>
 
       <Reveal>
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Key figures">
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label={t.keyFiguresAria}>
           <Stat
-            label="Cash realized"
+            label={t.cashRealized}
             value={money(g.cashRealized)}
             hint={
               tsy.totalOtherNoteSales > 0 ? (
@@ -394,15 +406,15 @@ export function ThroneRoom() {
             }
             valueClassName="text-stage-closed"
           />
-          <Stat label="Profit on paper" value={money(g.profitOnPaper)} hint="Net profit recognized but not yet cash" />
+          <Stat label={t.profitOnPaper} value={money(g.profitOnPaper)} hint={t.profitOnPaperHint} />
           <Stat
-            label="Pipeline profit"
+            label={t.pipelineProfit}
             value={money(g.netProfitInPipeline)}
             hint={`${g.reservedLots} reserved lots, if every one closes as priced · ${money(x.committedNetProfit)} committed at ${pct(x.conversionPct, 0)} ${conversionForecastLabel} · ${money(realm.pipeline.netProfitTrapped)} stuck`}
             valueClassName="text-stage-reserved"
           />
           <Stat
-            label="Capital outstanding"
+            label={t.capitalOutstandingKey}
             value={
               <span data-testid="key-capital-outstanding" data-value={realm.debt.capitalOwed}>
                 {money(realm.debt.capitalOwed)}
@@ -428,17 +440,17 @@ export function ThroneRoom() {
       <section className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
         <div className="parchment-card min-w-0 p-5">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">Live chronicle</h2>
+            <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">{t.liveChronicle}</h2>
             <Link to="/chronicle" className="touch-link inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              Full chronicle <ArrowRight className="h-3 w-3" />
+              {t.fullChronicle} <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
           {recent.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No events yet.</p>
+            <p className="text-sm text-muted-foreground">{t.noEvents}</p>
           ) : (
             <ol className="divide-y divide-border/60">
               {recent.map((e, i) => {
-                const style = EVENT_STYLE[e.kind];
+                const styleClass = EVENT_CLASS[e.kind];
                 return (
                   <motion.li
                     key={e.id}
@@ -447,7 +459,7 @@ export function ThroneRoom() {
                     transition={{ delay: i * 0.07 }}
                     className="flex items-start gap-3 py-2.5 text-sm"
                   >
-                    <span className={cn("w-20 shrink-0 text-[10px] uppercase tracking-wider", style.className)}>{style.label}</span>
+                    <span className={cn("w-20 shrink-0 text-[10px] uppercase tracking-wider", styleClass)}>{t.eventLabel[e.kind]}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{e.title}</span>
                       <span className="block truncate text-xs text-muted-foreground">{realm.narrative.get(e.id)}</span>
@@ -464,7 +476,7 @@ export function ThroneRoom() {
           <Link to="/quests" className="parchment-card group flex items-center gap-4 p-4 transition-colors hover:border-gold/40">
             <Scroll className="h-6 w-6 text-gold" />
             <div className="min-w-0">
-              <div className="font-heading">Quests</div>
+              <div className="font-heading">{t.quests}</div>
               <div className="truncate text-xs text-muted-foreground">
                 {g.closedLots} closed · {g.reservedLots} reserved · {g.availableLots} available
               </div>
@@ -473,14 +485,14 @@ export function ThroneRoom() {
           <Link to="/sponsors" className="parchment-card group flex items-center gap-4 p-4 transition-colors hover:border-gold/40">
             <Landmark className="h-6 w-6 text-gold" />
             <div className="min-w-0">
-              <div className="font-heading">Sponsors</div>
+              <div className="font-heading">{t.sponsors}</div>
               <div className="truncate text-xs text-muted-foreground">{realm.investors.filter((i) => i.capitalDeployed > 0).length} sponsors funding {realm.farms.length} farms</div>
             </div>
           </Link>
           <Link to="/treasury" className="parchment-card group flex items-center gap-4 p-4 transition-colors hover:border-gold/40">
             <Coins className="h-6 w-6 text-gold" />
             <div className="min-w-0">
-              <div className="font-heading">Treasury</div>
+              <div className="font-heading">{t.treasury}</div>
               <div className="truncate text-xs text-muted-foreground">
                 {money(realm.treasury.totalCashIn)} in · {money(realm.treasury.totalCashOut)} out
               </div>

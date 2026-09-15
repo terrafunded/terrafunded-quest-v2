@@ -309,7 +309,7 @@ function ExpectedCloseCell({ x, thisMonth }: { x: ExpectedLot | null; thisMonth:
     <>
       <div className={cn(x.expectedMonth === thisMonth && !x.overdue && "font-medium text-oxygen")}>{date(x.expectedCloseDate)}</div>
       <div className="text-xs text-muted-foreground">
-        {when} · {t.medianDays(source, x.medianDaysToClose)}
+        {when} · {t.medianDays(source, x.medianDaysToClose ?? 0)}
       </div>
     </>
   );

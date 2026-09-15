@@ -15,7 +15,6 @@ import {
   type WarPlan,
   type WarPlanColumn,
   type WarPlanColumnId,
-  type WarPlanFlag,
   type WarPlanInputs,
 } from "@/domain";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +24,8 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FarmCalendar } from "@/components/realm/FarmCalendar";
 import { ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
+import { useCommonStrings } from "@/i18n/common";
+import { useWarPlanStrings, type WarPlanUiStrings } from "@/i18n/warPlan";
 import { date, money, moneyCompact, number, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -60,20 +61,6 @@ function persistScenarios(list: SavedScenario[]) {
   }
 }
 
-const MODE_LABEL: Record<TargetMode, string> = { profit_at_closing: "net profit at closing", cash_in_bank: "cash in the bank" };
-const MODE_SHORT: Record<TargetMode, string> = { profit_at_closing: "net profit", cash_in_bank: "cash" };
-const DEAL_OPTIONS: { value: MixDealType; label: string }[] = [
-  { value: "fixed_interest", label: "Fixed interest" },
-  { value: "profit_share", label: "Profit share" },
-  { value: "own_capital", label: "Own capital" },
-];
-const FLAG_LABEL: Record<WarPlanFlag, string> = {
-  shortfall: "Closings exceed inventory",
-  too_late: "Farm bought too late to convert",
-  turn_incomplete: "Capital turn cannot complete before the deadline",
-};
-const COLUMN_SHORT: Record<WarPlanColumnId, string> = { current_pace: "Current pace", required_plan: "Required plan", required_plus_buffer: "+1 buffer farm" };
-const GRADE_LABEL: Record<FarmGradeVerdict, string> = { benchmark: "Benchmark", ahead: "Ahead", on_pace: "On pace", behind: "Behind", unrated: "Unrated" };
 const GRADE_CLASS: Record<FarmGradeVerdict, string> = { benchmark: "text-gold", ahead: "text-stage-closed", on_pace: "text-foreground", behind: "text-ember", unrated: "text-muted-foreground" };
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -84,6 +71,7 @@ const turnsLabel = (n: number | null) => (n === null ? "—" : `${Number.isInteg
 export default function WarPlanPage() {
   const { data, isLoading, error, refetch } = useRealm();
   const { deadline: horizonDeadline } = useHorizon();
+  const t = useWarPlanStrings();
   const defaults = data?.realm.warPlanDefaults;
   const [inputs, setInputs] = useState<WarPlanInputs | null>(null);
   const [farmCostTouched, setFarmCostTouched] = useState(false);
@@ -145,44 +133,41 @@ export default function WarPlanPage() {
 
   const selected = plan.all.find((c) => c.id === column) ?? plan.required;
   const cashMode = inputs.targetMode === "cash_in_bank";
-  const modeShort = MODE_SHORT[inputs.targetMode];
+  const modeShort = t.modeShort[inputs.targetMode];
   const lastUsefulPurchase = plan.required.rows.find((r) => r.monthIndex === plan.maxPurchaseMonth)?.date ?? null;
 
   return (
     <div>
-      <PageHeader
-        title="War Plan"
-        subtitle={`The Oracle in reverse: the Oracle takes a pace and returns a date; the War Plan takes the deadline and returns what must happen — closings, farms and when to buy them, capital and who funds it, ad spend, note sales, and what comes back to every sponsor. Every input starts at the real figure${real.eraSince ? `; rates and trends are measured ${real.eraSince}, when sales operations started in earnest` : ""}.`}
-      >
+      <PageHeader title={t.title} subtitle={t.subtitle(real.eraSince)}>
         <Button variant="outline" size="sm" onClick={reset} data-testid="warplan-reset">
-          <RotateCcw /> Reset to real data
+          <RotateCcw /> {t.reset}
         </Button>
       </PageHeader>
       <TableErrorsBanner errors={data.tableErrors} />
 
-      <section aria-label="Inputs" className="parchment-card mb-6 p-4 sm:p-5" data-testid="warplan-inputs">
+      <section aria-label={t.inputsAria} className="parchment-card mb-6 p-4 sm:p-5" data-testid="warplan-inputs">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <NumberField id="wp-target" label="Target" value={inputs.target} onChange={(v) => update({ target: v })} step={100_000} prefix="$" real={money(real.target)} hint={`Measured on ${MODE_LABEL[inputs.targetMode]}`} />
+          <NumberField id="wp-target" label={t.target} value={inputs.target} onChange={(v) => update({ target: v })} step={100_000} prefix="$" real={money(real.target)} hint={`${t.modeLabel[inputs.targetMode]}`} />
           <div className="min-w-0">
             <label htmlFor="wp-deadline" className="mb-1 block text-sm">
-              Deadline
+              {t.deadline}
             </label>
             <Input id="wp-deadline" type="date" className="tabular" value={inputs.deadline} min={plan.asOf} onChange={(e) => e.target.value && update({ deadline: e.target.value })} data-testid="warplan-deadline" />
-            <FieldFooter hint={`${number(plan.monthsToDeadline)} months from today`} real={date(real.deadline)} />
+            <FieldFooter hint={t.monthsFromToday(number(plan.monthsToDeadline))} real={date(real.deadline)} />
           </div>
           <div className="min-w-0">
             <label htmlFor="wp-mode" className="mb-1 block text-sm">
-              Target mode
+              {t.targetMode}
             </label>
             <Select id="wp-mode" value={inputs.targetMode} onChange={(e) => update({ targetMode: e.target.value as TargetMode })}>
-              <option value="profit_at_closing">Net profit at closing</option>
-              <option value="cash_in_bank">Cash in the bank, sponsors paid out</option>
+              <option value="profit_at_closing">{t.modeOption.profit_at_closing}</option>
+              <option value="cash_in_bank">{t.modeOption.cash_in_bank}</option>
             </Select>
-            <FieldFooter hint={cashMode ? "Down payments + note sales − farm outlays − every sponsor's capital and take" : "(price − land) × (1 − take), booked at closing"} real={cashMode ? `${money(plan.ledger.cashKept)} kept, ${money(plan.ledger.owedToday)} owed` : money(data.realm.goal.netProfitToDate)} />
+            <FieldFooter hint={cashMode ? t.modeHintCash : t.modeHintProfit} real={cashMode ? t.keptOwed(money(plan.ledger.cashKept), money(plan.ledger.owedToday)) : money(data.realm.goal.netProfitToDate)} />
           </div>
           <NumberField
             id="wp-lots-per-farm"
-            label="Lots per new farm"
+            label={t.lotsPerFarm}
             value={inputs.lotsPerFarm}
             onChange={(v) =>
               setInputs((prev) => (prev ? { ...prev, lotsPerFarm: v, farmCost: farmCostTouched ? prev.farmCost : Math.round(v * real.defaultLandCostPerLot) } : prev))
@@ -194,7 +179,7 @@ export default function WarPlanPage() {
           />
           <NumberField
             id="wp-farm-cost"
-            label="Farm cost"
+            label={t.farmCost}
             value={inputs.farmCost}
             onChange={(v) => {
               setFarmCostTouched(true);
@@ -212,10 +197,10 @@ export default function WarPlanPage() {
             }
             hint={`${number(inputs.lotsPerFarm)} lots × the per-lot cost of the ${real.recentFarms.length > 0 ? `${real.recentFarms.length} most recent farms${real.eraSince ? ` bought ${real.eraSince}` : ""}` : "all-time average"}`}
           />
-          <NumberField id="wp-ad-spend" label="Ad spend per closing" value={inputs.adSpendPerClosing} onChange={(v) => update({ adSpendPerClosing: v })} step={100} prefix="$" real="no source in the data — assumption" hint="Monthly ads = closings ÷ conversion × this" />
+          <NumberField id="wp-ad-spend" label={t.adSpend} value={inputs.adSpendPerClosing} onChange={(v) => update({ adSpendPerClosing: v })} step={100} prefix="$" real="no source in the data — assumption" hint="Monthly ads = closings ÷ conversion × this" />
           <NumberField
             id="wp-conversion"
-            label="Reservation → closing conversion"
+            label={t.conversion}
             value={inputs.conversionPct}
             onChange={(v) => update({ conversionPct: v })}
             step={1}
@@ -233,7 +218,7 @@ export default function WarPlanPage() {
           />
           <NumberField
             id="wp-farm-lag"
-            label="Farm purchase → first closing"
+            label={t.farmLag}
             value={inputs.farmToFirstCloseMonths}
             onChange={(v) => update({ farmToFirstCloseMonths: v })}
             step={0.5}
@@ -241,10 +226,10 @@ export default function WarPlanPage() {
             real={real.farmToFirstCloseMonths === null ? "no farm has closed a lot yet" : `${number(real.farmToFirstCloseMonths)} mo (median of ${real.farmToFirstCloseFarms} farms)`}
             hint={`Plus ${real.medianDaysToClose === null ? "—" : number(real.medianDaysToClose)} median days to close a reservation`}
           />
-          <NumberField id="wp-note-lag" label="Note-sale lag" value={inputs.noteSaleLagMonths} onChange={(v) => update({ noteSaleLagMonths: v })} step={0.5} suffix="mo" real={`${number(real.noteSaleLagMonths)} mo (closing → note sale)`} hint="When the financed balance turns into cash" />
+          <NumberField id="wp-note-lag" label={t.noteLag} value={inputs.noteSaleLagMonths} onChange={(v) => update({ noteSaleLagMonths: v })} step={0.5} suffix="mo" real={`${number(real.noteSaleLagMonths)} mo (closing → note sale)`} hint="When the financed balance turns into cash" />
           <div className="min-w-0">
             <label htmlFor="wp-cycle" className="mb-1 block text-sm">
-              Capital turn
+              {t.capitalTurn}
             </label>
             <div className="relative">
               <Input
@@ -255,7 +240,7 @@ export default function WarPlanPage() {
                 min={0}
                 className="tabular pr-12"
                 value={inputs.cycleMonths ?? ""}
-                placeholder="never returns"
+                placeholder={t.neverReturns}
                 onChange={(e) => {
                   const raw = e.target.value.trim();
                   const n = Number(raw);
@@ -278,8 +263,8 @@ export default function WarPlanPage() {
             />
           </div>
           <div className="min-w-0">
-            <span className="mb-1 block text-sm">Required pace</span>
-            <div role="group" aria-label="Required pace shape" className="flex gap-2" data-seasonality-applied={seasonality.applied}>
+            <span className="mb-1 block text-sm">{t.requiredPace}</span>
+            <div role="group" aria-label={t.paceShapeAria} className="flex gap-2" data-seasonality-applied={seasonality.applied}>
               <Button
                 type="button"
                 size="sm"
@@ -290,10 +275,10 @@ export default function WarPlanPage() {
                 onClick={() => update({ seasonal: true })}
                 data-testid="warplan-seasonal-on"
               >
-                Seasonal
+                {t.seasonal}
               </Button>
               <Button type="button" size="sm" variant={inputs.seasonal && seasonality.applied ? "outline" : "default"} aria-pressed={!inputs.seasonal || !seasonality.applied} onClick={() => update({ seasonal: false })} data-testid="warplan-seasonal-off">
-                Flat
+                {t.flat}
               </Button>
             </div>
             <FieldFooter
@@ -319,28 +304,28 @@ export default function WarPlanPage() {
 
         <div className="mt-6">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">Investor mix</h2>
-            <span className="text-xs text-muted-foreground">New farms are funded top to bottom; each new lot pays its own farm's deal. Prefilled from the sponsors' real positions.</span>
+            <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">{t.investorMix}</h2>
+            <span className="text-xs text-muted-foreground">{t.investorMixHint}</span>
           </div>
-          <InvestorMixTable mix={inputs.investorMix} onChange={setMix} />
+          <InvestorMixTable mix={inputs.investorMix} onChange={setMix} t={t} />
         </div>
 
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-end" data-testid="warplan-scenarios">
           <div className="min-w-0 flex-1">
             <label htmlFor="wp-scenario-name" className="mb-1 block text-sm">
-              Scenario name
+              {t.scenarioName}
             </label>
-            <Input id="wp-scenario-name" value={scenarioName} onChange={(e) => setScenarioName(e.target.value)} placeholder="e.g. Two farms before spring" maxLength={60} />
+            <Input id="wp-scenario-name" value={scenarioName} onChange={(e) => setScenarioName(e.target.value)} placeholder={t.scenarioPlaceholder} maxLength={60} />
           </div>
           <Button variant="outline" size="sm" onClick={saveScenario} disabled={!scenarioName.trim()} data-testid="warplan-save">
-            <Save /> Save
+            <Save /> {t.save}
           </Button>
           <div className="min-w-0 flex-1">
             <label htmlFor="wp-scenario-load" className="mb-1 block text-sm">
-              Saved scenarios
+              {t.savedScenarios}
             </label>
             <Select id="wp-scenario-load" value={selectedScenario} onChange={(e) => loadScenario(e.target.value)}>
-              <option value="">{scenarios.length > 0 ? "Load a scenario…" : "None saved yet"}</option>
+              <option value="">{scenarios.length > 0 ? t.loadScenario : t.noneSaved}</option>
               {scenarios.map((s) => (
                 <option key={s.name} value={s.name}>
                   {s.name} · {date(s.savedAt)}
@@ -349,20 +334,20 @@ export default function WarPlanPage() {
             </Select>
           </div>
           <Button variant="outline" size="sm" onClick={deleteScenario} disabled={!selectedScenario} data-testid="warplan-delete">
-            <Trash2 /> Delete
+            <Trash2 /> {t.delete}
           </Button>
         </div>
       </section>
 
-      <section aria-label="Verdict" className={cn("parchment-card mb-6 p-5", plan.feasible ? "border-gold/40" : "border-destructive/50")}>
-        <div className="stat-label">The verdict</div>
+      <section aria-label={t.verdict} className={cn("parchment-card mb-6 p-5", plan.feasible ? "border-gold/40" : "border-destructive/50")}>
+        <div className="stat-label">{t.verdict}</div>
         <p className="mt-2 font-heading text-lg leading-snug sm:text-xl" data-testid="warplan-verdict" data-feasible={plan.feasible}>
           {plan.verdict.includes("lots/month")
             ? plan.verdict.replace("lots/month", "lots/month per the War Plan's real deal terms")
             : plan.verdict}
         </p>
         <p className="mt-3 text-sm text-muted-foreground">
-          Measured on {MODE_LABEL[inputs.targetMode]}. {number(plan.monthsToDeadline)} months to {date(plan.goal.deadline)}, {number(plan.startInventory)} lots in inventory today (available + reserved). A new farm needs {plan.landLag} {plan.landLag === 1 ? "month" : "months"} to its first closing and {plan.closeLag} more to close a reservation
+          Measured on {t.modeLabel[inputs.targetMode]}. {number(plan.monthsToDeadline)} months to {date(plan.goal.deadline)}, {number(plan.startInventory)} lots in inventory today (available + reserved). A new farm needs {plan.landLag} {plan.landLag === 1 ? "month" : "months"} to its first closing and {plan.closeLag} more to close a reservation
           {cashMode ? `, then ${plan.noteLag} to sell the note` : ""}
           {plan.deadlineMonthIndex > 0 ? (lastUsefulPurchase ? `, so the last useful purchase is ${warPlanMonthLabel(lastUsefulPurchase)}.` : ", so no farm bought now converts before the deadline.") : "."}
           {cashMode && (
@@ -374,31 +359,31 @@ export default function WarPlanPage() {
         </p>
       </section>
 
-      <RotationSection plan={plan} />
+      <RotationSection plan={plan} t={t} />
 
-      <section aria-label="Three plans" className="mb-6 grid gap-3 lg:grid-cols-3" data-testid="warplan-columns">
+      <section aria-label={t.threePlansAria} className="mb-6 grid gap-3 lg:grid-cols-3" data-testid="warplan-columns">
         {plan.all.map((c) => (
-          <ColumnCard key={c.id} c={c} plan={plan} modeShort={modeShort} selected={c.id === column} onSelect={() => setColumn(c.id)} />
+          <ColumnCard key={c.id} c={c} plan={plan} modeShort={modeShort} selected={c.id === column} onSelect={() => setColumn(c.id)} t={t} />
         ))}
       </section>
 
-      <MonthTable plan={plan} column={selected} modeShort={modeShort} onColumn={setColumn} />
+      <MonthTable plan={plan} column={selected} modeShort={modeShort} onColumn={setColumn} t={t} />
 
       <FarmCalendar plan={plan} real={real} />
     </div>
   );
 }
 
-function RotationSection({ plan }: { plan: WarPlan }) {
+function RotationSection({ plan, t }: { plan: WarPlan; t: WarPlanUiStrings }) {
   const r: RotationPlan = plan.rotation;
   const b: RotationBenchmark = plan.benchmark;
   const flagged = r.turnsIncomplete > 0;
   return (
-    <section aria-label="Capital rotation" className={cn("parchment-card mb-6 overflow-hidden", plan.feasible && !flagged ? "border-gold/40" : "border-ember/40")} data-testid="warplan-rotation">
+    <section aria-label={t.rotationAria} className={cn("parchment-card mb-6 overflow-hidden", plan.feasible && !flagged ? "border-gold/40" : "border-ember/40")} data-testid="warplan-rotation">
       <div className="p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <div className="stat-label">Capital rotation — the required plan</div>
-          <span className="text-xs text-muted-foreground">Land only: houses, receivables and overhead are out of scope by design.</span>
+          <div className="stat-label">{t.rotationTitle}</div>
+          <span className="text-xs text-muted-foreground">{t.rotationScope}</span>
         </div>
         <p className="mt-2 font-heading text-lg leading-snug sm:text-xl" data-testid="warplan-rotation-headline" data-turns={r.turnsNeeded ?? ""} data-incomplete={r.turnsIncomplete}>
           {r.headline}
@@ -412,11 +397,11 @@ function RotationSection({ plan }: { plan: WarPlan }) {
         )}
 
         <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="warplan-rotation-stats">
-          <RotationStat label="Peak capital outstanding" value={money(r.peakOutstanding)} hint="The most land capital out at once — what actually has to be raised" tone="text-gold" testId="warplan-rotation-peak" />
-          <RotationStat label="Total capital deployed" value={money(r.totalDeployed)} hint={`Every purchase over ${r.farms} ${r.farms === 1 ? "farm" : "farms"}, counting recycled dollars each time · ${money(r.recycled)} recycled`} testId="warplan-rotation-deployed" />
-          <RotationStat label="Turns needed" value={turnsLabel(r.turnsNeeded)} hint={`Deployed ÷ peak · ${r.turnsCompleted} completed so far${r.cycleMonths === null ? "" : ` · ${r.cycleMonths.toFixed(1)} months each`}`} testId="warplan-rotation-turns" />
+          <RotationStat label={t.peakOutstanding} value={money(r.peakOutstanding)} hint={t.peakHint} tone="text-gold" testId="warplan-rotation-peak" />
+          <RotationStat label={t.totalDeployed} value={money(r.totalDeployed)} hint={`Every purchase over ${r.farms} ${r.farms === 1 ? "farm" : "farms"}, counting recycled dollars each time · ${money(r.recycled)} recycled`} testId="warplan-rotation-deployed" />
+          <RotationStat label={t.turnsNeeded} value={turnsLabel(r.turnsNeeded)} hint={`Deployed ÷ peak · ${r.turnsCompleted} completed so far${r.cycleMonths === null ? "" : ` · ${r.cycleMonths.toFixed(1)} months each`}`} testId="warplan-rotation-turns" />
           <RotationStat
-            label="First turn must start by"
+            label={t.firstTurnBy}
             value={r.firstTurnStartBy ? warPlanMonthLabel(r.firstTurnStartBy) : "—"}
             hint={r.lastTurnCompletes ? `Last turn completes ${warPlanMonthLabel(r.lastTurnCompletes)}` : r.farms > 0 && r.cycleMonths !== null ? "No planned turn completes before the deadline" : "No farm to buy"}
             tone={flagged ? "text-ember" : undefined}
@@ -425,7 +410,7 @@ function RotationSection({ plan }: { plan: WarPlan }) {
 
         {r.perInvestor.length > 0 && (
           <div className="mt-4">
-            <div className="stat-label mb-2">Turns per investor</div>
+            <div className="stat-label mb-2">{t.turnsPerInvestor}</div>
             <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="warplan-rotation-investors">
               {r.perInvestor.map((inv) => (
                 <li key={inv.mixIndex} className="rounded-md border border-border/60 bg-background/40 p-3 text-sm" data-testid="warplan-rotation-investor" data-name={inv.name}>
@@ -443,7 +428,7 @@ function RotationSection({ plan }: { plan: WarPlan }) {
         )}
       </div>
 
-      <BenchmarkPanel b={b} />
+      <BenchmarkPanel b={b} t={t} />
     </section>
   );
 }
@@ -460,14 +445,14 @@ function RotationStat({ label, value, hint, tone, testId }: { label: string; val
   );
 }
 
-function BenchmarkPanel({ b }: { b: RotationBenchmark }) {
+function BenchmarkPanel({ b, t }: { b: RotationBenchmark; t: WarPlanUiStrings }) {
   const bench = b.benchmark;
   const graded = b.grades.filter((g) => g.verdict !== "benchmark");
   return (
     <div className="border-t border-border/60" data-testid="warplan-benchmark">
       <div className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <div>
-          <div className="stat-label">Benchmark cycle</div>
+          <div className="stat-label">{t.benchmarkCycle}</div>
           {bench ? (
             <>
               <div className="mt-1 font-display text-2xl leading-none text-gold sm:text-3xl" data-testid="warplan-benchmark-farm">
@@ -513,7 +498,7 @@ function BenchmarkPanel({ b }: { b: RotationBenchmark }) {
         </div>
 
         <div className="min-w-0">
-          <div className="stat-label mb-2">Every farm against the benchmark</div>
+          <div className="stat-label mb-2">{t.everyFarmVs}</div>
           {bench?.projected && (
             <p className="mb-2 text-xs text-muted-foreground" data-testid="warplan-benchmark-projected">
               No sponsor-funded farm{b.sinceLabel ? ` funded ${b.sinceLabel}` : ""} has returned 100 % of its capital yet, so the benchmark is the median of every captive farm's projected liberation at the current pace (campaigns.ts) and no farm can be graded against a real curve. The first liberation{b.sinceLabel ? " of a farm funded in the era" : ""} turns this into a measured cycle.
@@ -537,7 +522,7 @@ function BenchmarkPanel({ b }: { b: RotationBenchmark }) {
                 </TableHeader>
                 <TableBody>
                   {graded.map((g) => (
-                    <GradeRow key={g.farmId} g={g} />
+                    <GradeRow key={g.farmId} g={g} t={t} />
                   ))}
                 </TableBody>
               </Table>
@@ -549,7 +534,7 @@ function BenchmarkPanel({ b }: { b: RotationBenchmark }) {
   );
 }
 
-function GradeRow({ g }: { g: FarmGrade }) {
+function GradeRow({ g, t }: { g: FarmGrade; t: WarPlanUiStrings }) {
   const cls = GRADE_CLASS[g.verdict];
   return (
     <TableRow data-testid="warplan-grade" data-farm={g.farmName} data-verdict={g.verdict}>
@@ -579,17 +564,20 @@ function GradeRow({ g }: { g: FarmGrade }) {
         {!g.freed && g.lotsLeftToCover !== null && <span className="block text-xs text-muted-foreground">{g.lotsLeftToCover === 0 ? "covered, awaiting payout" : `${number(g.lotsLeftToCover)} lots to cover`}</span>}
       </TableCell>
       <TableCell data-label="Grade" className={cn("text-right font-heading", cls)}>
-        {GRADE_LABEL[g.verdict]}
+        {t.grade[g.verdict]}
       </TableCell>
     </TableRow>
   );
 }
 
 function FieldFooter({ hint, real }: { hint: ReactNode; real: ReactNode }) {
+  const { realPrefix } = useCommonStrings();
   return (
     <div className="mt-1 flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground">
       <span>{hint}</span>
-      <span className="tabular">real: {real}</span>
+      <span className="tabular">
+        {realPrefix} {real}
+      </span>
     </div>
   );
 }
@@ -652,7 +640,7 @@ function NumberField({ id, label, value, onChange, real, hint, step = 1, min = 0
   );
 }
 
-function InvestorMixTable({ mix, onChange }: { mix: InvestorMixEntry[]; onChange: (mix: InvestorMixEntry[]) => void }) {
+function InvestorMixTable({ mix, onChange, t }: { mix: InvestorMixEntry[]; onChange: (mix: InvestorMixEntry[]) => void; t: WarPlanUiStrings }) {
   const updateEntry = (i: number, patch: Partial<InvestorMixEntry>) => onChange(mix.map((e, j) => (j === i ? { ...e, ...patch } : e)));
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir;
@@ -665,7 +653,7 @@ function InvestorMixTable({ mix, onChange }: { mix: InvestorMixEntry[]; onChange
     onChange(next);
   };
   const remove = (i: number) => onChange(mix.filter((_, j) => j !== i));
-  const add = () => onChange([...mix, { investorId: null, name: `Sponsor ${mix.length + 1}`, dealType: "fixed_interest", ratePct: 20, capital: 500_000 }]);
+  const add = () => onChange([...mix, { investorId: null, name: t.newSponsor(mix.length + 1), dealType: "fixed_interest", ratePct: 20, capital: 500_000 }]);
   const total = mix.reduce((a, e) => a + Math.max(0, e.capital), 0);
   const cell = "max-sm:!items-center";
 
@@ -694,9 +682,9 @@ function InvestorMixTable({ mix, onChange }: { mix: InvestorMixEntry[]; onChange
               </TableCell>
               <TableCell data-label="Deal" className={cell}>
                 <Select aria-label={`Sponsor ${i + 1} deal`} value={e.dealType} onChange={(ev) => updateEntry(i, { dealType: ev.target.value as MixDealType })}>
-                  {DEAL_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
+                  {(Object.keys(t.deal) as MixDealType[]).map((value) => (
+                    <option key={value} value={value}>
+                      {t.deal[value]}
                     </option>
                   ))}
                 </Select>
@@ -768,7 +756,7 @@ function InvestorMixTable({ mix, onChange }: { mix: InvestorMixEntry[]; onChange
   );
 }
 
-function ColumnCard({ c, plan, modeShort, selected, onSelect }: { c: WarPlanColumn; plan: WarPlan; modeShort: string; selected: boolean; onSelect: () => void }) {
+function ColumnCard({ c, plan, modeShort, selected, onSelect, t }: { c: WarPlanColumn; plan: WarPlan; modeShort: string; selected: boolean; onSelect: () => void; t: WarPlanUiStrings }) {
   const tone = c.hitsDeadline ? "text-stage-closed" : c.exitDate ? "text-ember" : "text-muted-foreground";
   const deadline = date(plan.goal.deadline);
   return (
@@ -780,7 +768,7 @@ function ColumnCard({ c, plan, modeShort, selected, onSelect }: { c: WarPlanColu
     >
       <div className="stat-label">{c.title}</div>
       <div className={cn("mt-2 font-display text-2xl leading-none sm:text-3xl", tone)} data-testid="warplan-column-exit">
-        {c.exitDate ? date(c.exitDate) : "beyond 10 years"}
+        {c.exitDate ? date(c.exitDate) : t.beyond10}
       </div>
       <div className="mt-1 text-sm text-muted-foreground">
         {c.exitDate ? (c.hitsDeadline ? `on or before the ${deadline} deadline` : `after the ${deadline} deadline`) : "the target is not reached within the horizon"}
@@ -869,13 +857,13 @@ function ColumnCard({ c, plan, modeShort, selected, onSelect }: { c: WarPlanColu
         )}
       </dl>
       <Button variant={selected ? "default" : "outline"} size="sm" className="mt-4 self-start" onClick={onSelect} aria-pressed={selected}>
-        {selected ? "Shown month by month" : "Show month by month"}
+        {selected ? t.shownMonthByMonth : t.showMonthByMonth}
       </Button>
     </article>
   );
 }
 
-function MonthTable({ plan, column, modeShort, onColumn }: { plan: WarPlan; column: WarPlanColumn; modeShort: string; onColumn: (id: WarPlanColumnId) => void }) {
+function MonthTable({ plan, column, modeShort, onColumn, t }: { plan: WarPlan; column: WarPlanColumn; modeShort: string; onColumn: (id: WarPlanColumnId) => void; t: WarPlanUiStrings }) {
   const funded = plan.inputs.investorMix
     .map((e, mixIndex) => ({ mixIndex, name: e.name }))
     .filter((e) => column.rows.some((r) => (r.capitalReturned[e.mixIndex] ?? 0) > 0) || column.funding.some((f) => f.mixIndex === e.mixIndex));
@@ -885,13 +873,13 @@ function MonthTable({ plan, column, modeShort, onColumn }: { plan: WarPlan; colu
   const seasonal = plan.inputs.seasonal && column.id !== "current_pace" && rows.some((r) => r.seasonalFactor !== 1);
 
   return (
-    <section aria-label="Month by month" className="parchment-card overflow-hidden" data-testid="warplan-months" data-column={column.id}>
+    <section aria-label={t.monthByMonth(column.title)} className="parchment-card overflow-hidden" data-testid="warplan-months" data-column={column.id}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 p-4">
-        <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">Month by month — {column.title}</h2>
-        <div role="group" aria-label="Plan shown" className="flex flex-wrap gap-2">
+        <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">{t.monthByMonth(column.title)}</h2>
+        <div role="group" aria-label={t.planShownAria} className="flex flex-wrap gap-2">
           {plan.all.map((c) => (
             <Button key={c.id} type="button" size="sm" variant={c.id === column.id ? "default" : "outline"} aria-pressed={c.id === column.id} onClick={() => onColumn(c.id)}>
-              {COLUMN_SHORT[c.id]}
+              {t.columnShort[c.id]}
             </Button>
           ))}
         </div>
@@ -966,7 +954,7 @@ function MonthTable({ plan, column, modeShort, onColumn }: { plan: WarPlan; colu
                   <div className="flex flex-wrap justify-end gap-1 sm:justify-start">
                     {r.flags.map((f) => (
                       <Badge key={f} variant="error" data-testid="warplan-flag" data-flag={f}>
-                        {FLAG_LABEL[f]}
+                        {t.flag[f]}
                       </Badge>
                     ))}
                   </div>

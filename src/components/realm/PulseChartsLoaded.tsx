@@ -5,8 +5,9 @@ import { DAYS_PER_MONTH } from "@/config/goal";
 import { useInViewOnce } from "@/hooks/useInViewOnce";
 import { useWideViewport } from "@/hooks/useWideViewport";
 import { useTheme } from "@/theme/ThemeProvider";
-import { money, moneyCompact } from "@/lib/format";
+import { money, moneyCompact, monthLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/i18n/lang";
 import { useRealmStrings, type RealmUiStrings } from "@/i18n/realm";
 import { BORDER, CURSOR, EMBER, GOLD, GREEN, MUTED, POPOVER, useChartReveal, type ChartReveal } from "./chartTokens";
 
@@ -100,9 +101,13 @@ export function PulseCharts({
   eraLabel: string | null;
 }) {
   const { d, reducedMotion } = useTheme();
+  const [lang] = useLang();
   const t = useRealmStrings().pulseCharts;
   const wide = useWideViewport();
-  const points = useMemo(() => (wide ? history : history.slice(-12)), [history, wide]);
+  const points = useMemo(() => {
+    const slice = wide ? history : history.slice(-12);
+    return slice.map((p) => ({ ...p, label: monthLabel(p.month, lang) }));
+  }, [history, wide, lang]);
   const duration = Math.min(Math.round(d(0.5) * 1000), MAX_BAR_DURATION_MS);
   const requiredProfit = requiredProfitPerDay === null ? null : requiredProfitPerDay * DAYS_PER_MONTH;
   const hasBeforeEra = points.some((p) => p.beforeEra);

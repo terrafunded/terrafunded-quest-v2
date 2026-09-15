@@ -7,7 +7,9 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Stat } from "@/components/realm/Stat";
 import { ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
-import { date, money, moneyCompact, number } from "@/lib/format";
+import { useCommonStrings } from "@/i18n/common";
+import { useOracleStrings, type OracleUiStrings } from "@/i18n/oracle";
+import { date, money, moneyCompact, monthLabel, number } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** The nine trailing averages the sliders drive; the War Plan extensions of OracleParams are not sliders. */
@@ -44,6 +46,8 @@ const SLIDERS: SliderDef[] = [
 
 export default function Oracle() {
   const { data, isLoading, error, refetch } = useRealm();
+  const t = useOracleStrings();
+  const { realPrefix } = useCommonStrings();
   const defaults = data?.realm.oracleDefaults;
   const [params, setParams] = useState<OracleParams | null>(null);
   // Whether the sliders' future starts with the live reservations on their expected dates (the current-pace future does).
@@ -71,10 +75,12 @@ export default function Oracle() {
   const series = result.series.filter((p) => p.monthIndex <= Math.max(24, (result.monthsToGoal ?? 0) + 3));
   const deadlineLabel = date(g.deadline);
   // THE ERA: the cadence only counts farms funded on or after ERA_START, and says so.
-  const sliderHint = (s: SliderDef) =>
-    s.key === "newFarmEveryMonths" && cadence.sinceLabel
-      ? `${s.hint} ${cadence.sinceLabel} (${cadence.farms} funding${cadence.farms === 1 ? "" : "s"}${cadence.excluded > 0 ? `, ${cadence.excluded} earlier left out` : ""})`
-      : s.hint;
+  const sliderHint = (s: SliderDef) => {
+    const base = t.slider[s.key as keyof typeof t.slider]?.hint ?? s.hint;
+    return s.key === "newFarmEveryMonths" && cadence.sinceLabel
+      ? t.fundingHint(base, cadence.sinceLabel, cadence.farms, cadence.excluded)
+      : base;
+  };
   const adopt = (f: Future) => {
     setParams(f.params);
     setWithReservations(f.scheduled.length > 0);
@@ -82,10 +88,7 @@ export default function Oracle() {
 
   return (
     <div>
-      <PageHeader
-        title="Oracle"
-        subtitle="Four futures from the real 90-day averages, then your own: the current pace lets every live reservation close on its expected date, then keeps reserving at the trailing pace; the last line is the old closings-only extrapolation for comparison."
-      >
+      <PageHeader title={t.title} subtitle={t.subtitle}>
         <Button
           variant="outline"
           size="sm"
@@ -94,19 +97,19 @@ export default function Oracle() {
             setWithReservations(true);
           }}
         >
-          <RotateCcw /> Reset to the current pace
+          <RotateCcw /> {t.reset}
         </Button>
       </PageHeader>
       <TableErrorsBanner errors={data.tableErrors} />
 
-      <section className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Four futures" data-testid="futures">
+      <section className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={t.futuresAria} data-testid="futures">
         {data.realm.futures.all.map((f, i) => (
-          <FutureCard key={f.id} f={f} index={i} onAdopt={() => adopt(f)} cadenceSince={f.params.newFarmEveryMonths === defaults.newFarmEveryMonths ? cadence.sinceLabel : null} />
+          <FutureCard key={f.id} f={f} index={i} onAdopt={() => adopt(f)} cadenceSince={f.params.newFarmEveryMonths === defaults.newFarmEveryMonths ? cadence.sinceLabel : null} t={t} />
         ))}
       </section>
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">Your own future</h2>
+        <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">{t.yourFuture}</h2>
         <Button
           variant="outline"
           size="sm"
@@ -115,23 +118,23 @@ export default function Oracle() {
           onClick={() => setWithReservations((v) => !v)}
           className={cn(withReservations && "border-stage-reserved/50 text-stage-reserved")}
         >
-          {withReservations ? `With the ${x.liveReservations} live reservations` : "Closings only"}
+          {withReservations ? t.withReservations(x.liveReservations) : t.closingsOnly}
         </Button>
       </div>
       <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-with-reservations={withReservations}>
         <Stat
-          label="Goal reached"
-          value={result.goalDate ? date(result.goalDate) : "Not within 10 years"}
+          label={t.goalReached}
+          value={result.goalDate ? date(result.goalDate) : t.notWithin10}
           hint={
-            (result.goalDate ? (result.hitsDeadline ? `Before the ${deadlineLabel} deadline` : `After the ${deadlineLabel} deadline`) : "Raise pace or margin") +
-            (withReservations ? ` · ${x.liveReservations} reservations scheduled first` : " · closings only")
+            (result.goalDate ? (result.hitsDeadline ? t.beforeDeadline(deadlineLabel) : t.afterDeadline(deadlineLabel)) : t.raisePace) +
+            (withReservations ? t.reservationsScheduledFirst(x.liveReservations) : t.closingsOnlyHint)
           }
           valueClassName={result.hitsDeadline ? "text-stage-closed" : "text-ember"}
           data-testid="oracle-goal-date"
         />
-        <Stat label="Months to goal" value={result.monthsToGoal === null ? "—" : `${result.monthsToGoal}`} hint={`${number(g.monthsToDeadline)} months left`} />
-        <Stat label="Net profit per lot" value={money(result.netProfitPerLot)} hint={`${result.lotsNeeded ?? "—"} lots still needed`} />
-        <Stat label="Net at deadline" value={money(result.netProfitAtDeadline)} hint={`${result.farmsBought} farms bought along the way`} valueClassName="text-gold" />
+        <Stat label={t.monthsToGoal} value={result.monthsToGoal === null ? "—" : `${result.monthsToGoal}`} hint={t.monthsLeft(number(g.monthsToDeadline))} />
+        <Stat label={t.netPerLot} value={money(result.netProfitPerLot)} hint={t.lotsStillNeeded(String(result.lotsNeeded ?? "—"))} />
+        <Stat label={t.netAtDeadline} value={money(result.netProfitAtDeadline)} hint={t.farmsBought(result.farmsBought)} valueClassName="text-gold" />
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
@@ -140,7 +143,7 @@ export default function Oracle() {
             <div key={s.key}>
               <div className="flex items-baseline justify-between gap-3">
                 <label className="text-sm" htmlFor={`slider-${s.key}`}>
-                  {s.label}
+                  {t.slider[s.key as keyof typeof t.slider]?.label ?? s.label}
                 </label>
                 <span className="font-heading tabular text-gold">{s.format(params[s.key])}</span>
               </div>
@@ -151,18 +154,18 @@ export default function Oracle() {
                 step={s.step}
                 value={[params[s.key]]}
                 onValueChange={([v]) => v !== undefined && setParams({ ...params, [s.key]: v })}
-                aria-label={s.label}
+                aria-label={t.slider[s.key as keyof typeof t.slider]?.label ?? s.label}
               />
               <div className="flex justify-between gap-3 text-[11px] text-muted-foreground">
                 <span data-testid={`slider-hint-${s.key}`}>{sliderHint(s)}</span>
-                <span className="shrink-0">real: {s.format(defaults[s.key])}</span>
+                <span className="shrink-0">{realPrefix} {s.format(defaults[s.key])}</span>
               </div>
             </div>
           ))}
         </div>
 
         <div className="parchment-card p-4">
-          <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-gold">Projected net profit</h2>
+          <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-gold">{t.projected}</h2>
           <div className="h-80 w-full">
             <ResponsiveContainer>
               <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -173,7 +176,7 @@ export default function Oracle() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(0, 7)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
+                <XAxis dataKey="date" tickFormatter={(d: string) => monthLabel(String(d).slice(0, 7))} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
                 <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={56} domain={[0, (max: number) => Math.max(max, g.goal * 1.05)]} />
                 <ChartTooltip
                   contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
@@ -182,19 +185,19 @@ export default function Oracle() {
                 />
                 <ReferenceLine y={g.goal} stroke="hsl(var(--gold))" strokeDasharray="4 4" label={{ value: "$10M", fill: "hsl(var(--gold))", fontSize: 11, position: "insideTopRight" }} />
                 {series.some((p) => p.date >= g.deadline) && (
-                  <ReferenceLine x={series.find((p) => p.date >= g.deadline)?.date} stroke="hsl(var(--sponsor))" strokeDasharray="4 4" label={{ value: "Deadline", fill: "hsl(var(--sponsor))", fontSize: 11, position: "insideTopLeft" }} />
+                  <ReferenceLine x={series.find((p) => p.date >= g.deadline)?.date} stroke="hsl(var(--sponsor))" strokeDasharray="4 4" label={{ value: t.deadline, fill: "hsl(var(--sponsor))", fontSize: 11, position: "insideTopLeft" }} />
                 )}
-                <Area type="monotone" dataKey="cumulativeNetProfit" name="Net profit" stroke="hsl(var(--gold))" fill="url(#oracle-fill)" strokeWidth={2} />
-                <Area type="monotone" dataKey="cumulativeCash" name="Cash realized" stroke="hsl(var(--stage-closed))" fill="transparent" strokeWidth={1.5} strokeDasharray="3 3" />
+                <Area type="monotone" dataKey="cumulativeNetProfit" name={t.netProfit} stroke="hsl(var(--gold))" fill="url(#oracle-fill)" strokeWidth={2} />
+                <Area type="monotone" dataKey="cumulativeCash" name={t.cashRealized} stroke="hsl(var(--stage-closed))" fill="transparent" strokeWidth={1.5} strokeDasharray="3 3" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
-            Starts at {money(g.netProfitToDate)} net and {number(g.availableLots + g.reservedLots)} lots of inventory (available + reserved).{" "}
+            {t.chartFootStart(money(g.netProfitToDate), number(g.availableLots + g.reservedLots))}
             {withReservations
-              ? `The ${x.liveReservations} live reservations close first, each on its expected date at ${x.conversionPct}% conversion and for its own net profit; the pace above only starts after the ${x.medianDaysToClose ?? 0}-day reservation → closing lag. `
-              : "Every closing comes from the pace above, from the first month on. "}
-            Each other closed lot books (price − land) × (1 − take); cash lands as {defaults.downPaymentPct}% down now and {defaults.noteSalePct}% of the balance {params.avgMonthsToSellNote} months later.
+              ? t.chartFootWithRes(x.liveReservations, x.conversionPct, x.medianDaysToClose ?? 0)
+              : t.chartFootClosingsOnly}
+            {t.chartFootCash(defaults.downPaymentPct, defaults.noteSalePct, params.avgMonthsToSellNote)}
           </p>
         </div>
       </div>
@@ -202,7 +205,7 @@ export default function Oracle() {
   );
 }
 
-function FutureCard({ f, index, onAdopt, cadenceSince }: { f: Future; index: number; onAdopt: () => void; cadenceSince: string | null }) {
+function FutureCard({ f, index, onAdopt, cadenceSince, t }: { f: Future; index: number; onAdopt: () => void; cadenceSince: string | null; t: OracleUiStrings }) {
   const tone = f.hitsDeadline ? "text-stage-closed" : f.exitDate ? "text-ember" : "text-muted-foreground";
   return (
     <article
@@ -213,15 +216,15 @@ function FutureCard({ f, index, onAdopt, cadenceSince }: { f: Future; index: num
     >
       <div className="stat-label">{f.title}</div>
       <div className={cn("mt-2 font-display text-2xl leading-none sm:text-3xl", tone)} data-testid="future-exit">
-        {f.exitDate ? date(f.exitDate) : "beyond 10 years"}
+        {f.exitDate ? date(f.exitDate) : t.beyond10}
       </div>
       <div className="mt-1 text-sm text-muted-foreground">
-        {f.exitDate ? (f.hitsDeadline ? `before the ${date(f.result.deadline)} deadline` : `after the ${date(f.result.deadline)} deadline`) : "the goal is not reached within the horizon"}
+        {f.exitDate ? (f.hitsDeadline ? t.beforeThe(date(f.result.deadline)) : t.afterThe(date(f.result.deadline))) : t.notReached}
         {f.daysEarlierThanCurrent !== null && f.id !== "current_pace" && (
           <>
             {" · "}
             <span className={f.daysEarlierThanCurrent > 0 ? "text-stage-closed" : f.daysEarlierThanCurrent < 0 ? "text-ember" : ""}>
-              {f.daysEarlierThanCurrent > 0 ? `${number(f.daysEarlierThanCurrent)} days earlier` : f.daysEarlierThanCurrent < 0 ? `${number(-f.daysEarlierThanCurrent)} days later` : "same day"}
+              {f.daysEarlierThanCurrent > 0 ? t.daysEarlier(number(f.daysEarlierThanCurrent)) : f.daysEarlierThanCurrent < 0 ? t.daysLater(number(-f.daysEarlierThanCurrent)) : t.sameDay}
             </span>
           </>
         )}
@@ -234,28 +237,28 @@ function FutureCard({ f, index, onAdopt, cadenceSince }: { f: Future; index: num
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
         {f.scheduled.length > 0 && (
           <>
-            <dt className="text-muted-foreground">Reservations scheduled</dt>
+            <dt className="text-muted-foreground">{t.reservationsScheduled}</dt>
             <dd className="text-right tabular text-stage-reserved" data-testid="future-scheduled">
-              {f.scheduled.length} → {number(Math.round(f.scheduled.reduce((a, s) => a + s.lots, 0) * 10) / 10)} closings
+              {f.scheduled.length}{t.closingsArrow(number(Math.round(f.scheduled.reduce((a, s) => a + s.lots, 0) * 10) / 10))}
             </dd>
           </>
         )}
-        <dt className="text-muted-foreground">{f.scheduled.length > 0 ? "Then lots / month" : "Lots / month"}</dt>
+        <dt className="text-muted-foreground">{f.scheduled.length > 0 ? t.thenLotsMonth : t.lotsMonth}</dt>
         <dd className="text-right tabular" data-testid="future-pace">
           {f.params.lotsPerMonth}
-          {f.id === "required_pace" && <span className="mt-0.5 block text-[11px] text-muted-foreground">replaying today's mix</span>}
+          {f.id === "required_pace" && <span className="mt-0.5 block text-[11px] text-muted-foreground">{t.replayingMix}</span>}
         </dd>
-        <dt className="text-muted-foreground">Farm every</dt>
+        <dt className="text-muted-foreground">{t.farmEvery}</dt>
         <dd className="text-right tabular" data-testid="future-cadence">
-          {f.params.newFarmEveryMonths} mo{cadenceSince ? <span className="ml-1 text-[11px] text-muted-foreground">{cadenceSince}</span> : null}
+          {f.params.newFarmEveryMonths} {t.mo}{cadenceSince ? <span className="ml-1 text-[11px] text-muted-foreground">{cadenceSince}</span> : null}
         </dd>
-        <dt className="text-muted-foreground">Inventory today</dt>
-        <dd className="text-right tabular">{number(f.startInventory)} lots</dd>
-        <dt className="text-muted-foreground">Net at deadline</dt>
+        <dt className="text-muted-foreground">{t.inventoryToday}</dt>
+        <dd className="text-right tabular">{t.lots(number(f.startInventory))}</dd>
+        <dt className="text-muted-foreground">{t.netAtDeadline}</dt>
         <dd className="text-right tabular">{moneyCompact(f.result.netProfitAtDeadline)}</dd>
       </dl>
       <Button variant="outline" size="sm" className="mt-4 self-start" onClick={onAdopt}>
-        Load into the sliders
+        {t.loadSliders}
       </Button>
     </article>
   );
