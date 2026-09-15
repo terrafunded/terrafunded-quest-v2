@@ -200,8 +200,10 @@ export function computeGoal(lots: Lot[], farms: FarmEconomics[], asOf: Date, opt
     opts.cycleMonths,
   );
 
+  // Authoritative current-pace exit is the era date (AUDIT.md §1). Lifetime stays beside it.
+  const exitAtCurrentPace = projectedDateRecent ?? projectedDate;
   const onTrack =
-    remaining === 0 ? true : projectedDate !== null ? (parseDate(projectedDate) ?? deadline) <= deadline : null;
+    remaining === 0 ? true : exitAtCurrentPace !== null ? (parseDate(exitAtCurrentPace) ?? deadline) <= deadline : null;
 
   return {
     goal,
@@ -260,8 +262,8 @@ export function buildVerdict(g: GoalStatus, fmtDate: (iso: string) => string = (
       const window = g.trailingEraClipped ? `desde ${fmtDate(g.trailingSince)}` : `en los últimos ${g.trailingWindowDays} días`;
       return `Necesitas ${g.requiredLotsPerMonthToHitDeadline ?? "?"} lotes/mes; no cerraste ninguno ${window}.`;
     }
-    if (g.onTrack && g.projectedDate) {
-      return `Al ritmo actual de ${g.closedLotsPerMonth} lotes/mes alcanzas la meta el ${fmtDate(g.projectedDate)}.`;
+    if (g.onTrack && (g.projectedDateRecent ?? g.projectedDate)) {
+      return `Al ritmo actual de ${g.closedLotsPerMonth} lotes/mes alcanzas la meta el ${fmtDate((g.projectedDateRecent ?? g.projectedDate) as string)}.`;
     }
     return `Necesitas ${g.requiredLotsPerMonthToHitDeadline ?? "?"} lotes/mes; vas a ${g.closedLotsPerMonth}.`;
   }
@@ -271,8 +273,8 @@ export function buildVerdict(g: GoalStatus, fmtDate: (iso: string) => string = (
     const window = g.trailingEraClipped ? `since ${fmtDate(g.trailingSince)}` : `in the last ${g.trailingWindowDays} days`;
     return `You need ${g.requiredLotsPerMonthToHitDeadline ?? "?"} lots/month; you closed none ${window}.`;
   }
-  if (g.onTrack && g.projectedDate) {
-    return `At the current pace of ${g.closedLotsPerMonth} lots/month you reach the goal on ${fmtDate(g.projectedDate)}.`;
+  if (g.onTrack && (g.projectedDateRecent ?? g.projectedDate)) {
+    return `At the current pace of ${g.closedLotsPerMonth} lots/month you reach the goal on ${fmtDate((g.projectedDateRecent ?? g.projectedDate) as string)}.`;
   }
   return `You need ${g.requiredLotsPerMonthToHitDeadline ?? "?"} lots/month; you are doing ${g.closedLotsPerMonth}.`;
 }

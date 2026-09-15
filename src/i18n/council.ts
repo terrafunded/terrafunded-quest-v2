@@ -20,6 +20,8 @@ export interface CouncilUiStrings {
   warning: string;
   ok: string;
   open: string;
+  projectedExitAtCurrentPace: string;
+  projectedExitFormula: string;
 }
 
 export const COUNCIL_UI: Record<QualityLang, CouncilUiStrings> = {
@@ -43,6 +45,8 @@ export const COUNCIL_UI: Record<QualityLang, CouncilUiStrings> = {
     warning: "Warning",
     ok: "Clear",
     open: "Open",
+    projectedExitAtCurrentPace: "Projected exit at current pace",
+    projectedExitFormula: "remaining ÷ era average net profit per lot ÷ trailing closings per month",
   },
   es: {
     title: "Recomendaciones",
@@ -64,6 +68,8 @@ export const COUNCIL_UI: Record<QualityLang, CouncilUiStrings> = {
     warning: "Aviso",
     ok: "En orden",
     open: "Abrir",
+    projectedExitAtCurrentPace: "Salida proyectada al ritmo actual",
+    projectedExitFormula: "restante ÷ utilidad neta promedio de la era por lote ÷ cierres/mes recientes",
   },
 };
 

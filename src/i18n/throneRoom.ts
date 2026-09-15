@@ -38,12 +38,22 @@ export interface ThroneRoomUiStrings {
   eraNote: string;
   era: string;
   lifetime: string;
-  perLotLotsFarms: (perLot: string, lots: string, farms: string, need: string, lands: string, closings: string) => string;
+  perLotLotsFarms: (perLot: string, lots: string, need: string, lands: string, closings: string) => string;
   /** Suffix after the lands date: " · 14 closings" / " · 14 cierres". Empty when n is 0. */
   closingsCount: (n: number) => string;
   daysToDeadline: (days: string, deadline: string) => string;
-  lotsStillNeeded: (lots: string, farms: string) => string;
-  eraLotsFarms: (lots: number, farms: string) => string;
+  projectedExitAtCurrentPace: string;
+  projectedExitFormula: string;
+  lifetimeDateAssumption: string;
+  lotsStillNeeded: (lots: string) => string;
+  lotsStillNeededHint: string;
+  lotsStillNeededEra: (lots: string) => string;
+  lotsStillNeededEraHint: string;
+  warPlanLotsNeeded: string;
+  warPlanLotsNeededHint: string;
+  rotationFarms: (farms: string) => string;
+  rotationFarmsHint: string;
+  interestCarryNote: (horizon: string, extra: string, vs2028: string, vs2029: string) => string;
   engineReconcile: string;
   seeEngine: string;
   verdictLotsMonth: string;
@@ -146,12 +156,25 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     eraNote: "Era average is the better estimator of today's business (excludes pre-operation closings). Lifetime keeps every closed lot.",
     era: "Era",
     lifetime: "Lifetime",
-    perLotLotsFarms: (perLot, lots, farms, need, lands, closings) =>
-      `: ${perLot}/lot · ${lots} lots · ${farms} farms · need ${need}/mo · lands ${lands}${closings}`,
+    perLotLotsFarms: (perLot, lots, need, lands, closings) =>
+      `: ${perLot}/lot · ${lots} closings · need ${need}/mo · lands ${lands}${closings}`,
     closingsCount: (n) => (n > 0 ? ` · ${n} closings` : ""),
     daysToDeadline: (days, deadline) => `${days} days to ${deadline}`,
-    lotsStillNeeded: (lots, farms) => `${lots} closings still needed to the deadline · ${farms} more farms (capital turns over before then)`,
-    eraLotsFarms: (lots, farms) => ` (era: ${lots} closings · ${farms} farms)`,
+    projectedExitAtCurrentPace: "Projected exit at current pace",
+    projectedExitFormula: "remaining ÷ era average net profit per lot ÷ trailing closings per month",
+    lifetimeDateAssumption: "Uses every closed lot's $/lot, including pre-operation closings — not the era estimator.",
+    lotsStillNeeded: (lots) => `${lots} closings still needed at the lifetime $/lot`,
+    lotsStillNeededHint: "ceil(remaining ÷ lifetime average) — how many closings the lifetime $/lot says are left. Same at every exit year.",
+    lotsStillNeededEra: (lots) => `${lots} closings still needed at the era $/lot`,
+    lotsStillNeededEraHint: "ceil(remaining ÷ era average) — the authoritative current-pace count. Same at every exit year.",
+    warPlanLotsNeeded: "Lots the required-pace plan closes by the deadline",
+    warPlanLotsNeededHint: "Fractional closings the required schedule actually books through the deadline — not ceil(remaining ÷ $/lot).",
+    rotationFarms: (farms) => `${farms} farms on the rotation schedule`,
+    rotationFarmsHint: "Farms the required War Plan buys with capital turning before the deadline — one figure, not per $/lot basis.",
+    interestCarryNote: (horizon, extra, vs2028, vs2029) =>
+      extra === "$0"
+        ? `Interest on capital already outstanding is not deducted from remaining or lots still needed. A 2028 exit would cost ${vs2028} more interest than 2027; 2029 would cost ${vs2029} more.`
+        : `Interest on capital already outstanding is not deducted from remaining or lots still needed. The ${horizon} exit costs ${extra} more interest than 2027.`,
     engineReconcile: "Overview pace is unconstrained; Capital projection caps inventory and capital turns",
     seeEngine: "see Capital projection →",
     verdictLotsMonth: "lots/month",
@@ -264,12 +287,25 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     eraNote: "El promedio de la Era estima mejor el negocio de hoy (excluye cierres previos a la operación). El de por vida guarda cada lote cerrado.",
     era: "Era",
     lifetime: "De por vida",
-    perLotLotsFarms: (perLot, lots, farms, need, lands, closings) =>
-      `: ${perLot}/lote · ${lots} lotes · ${farms} fincas · se necesitan ${need}/mes · aterriza ${lands}${closings}`,
+    perLotLotsFarms: (perLot, lots, need, lands, closings) =>
+      `: ${perLot}/lote · ${lots} cierres · se necesitan ${need}/mes · aterriza ${lands}${closings}`,
     closingsCount: (n) => (n > 0 ? ` · ${n} cierres` : ""),
     daysToDeadline: (days, deadline) => `${days} días hasta ${deadline}`,
-    lotsStillNeeded: (lots, farms) => `${lots} cierres aún necesarios hasta la fecha límite · ${farms} fincas más (el capital gira antes)`,
-    eraLotsFarms: (lots, farms) => ` (era: ${lots} cierres · ${farms} fincas)`,
+    projectedExitAtCurrentPace: "Salida proyectada al ritmo actual",
+    projectedExitFormula: "restante ÷ utilidad neta promedio de la era por lote ÷ cierres/mes recientes",
+    lifetimeDateAssumption: "Usa el $/lote de todos los lotes cerrados, incluidos los previos a la operación — no el estimador de la era.",
+    lotsStillNeeded: (lots) => `${lots} cierres aún necesarios al $/lote de por vida`,
+    lotsStillNeededHint: "ceil(restante ÷ promedio de por vida) — cuántos cierres dice el $/lote de por vida. Igual en cada año de salida.",
+    lotsStillNeededEra: (lots) => `${lots} cierres aún necesarios al $/lote de la era`,
+    lotsStillNeededEraHint: "ceil(restante ÷ promedio de la era) — la cuenta autoritativa al ritmo actual. Igual en cada año de salida.",
+    warPlanLotsNeeded: "Lotes que cierra el plan al ritmo requerido hasta la fecha límite",
+    warPlanLotsNeededHint: "Cierres fraccionarios que el calendario requerido registra hasta la fecha límite — no ceil(restante ÷ $/lote).",
+    rotationFarms: (farms) => `${farms} fincas en el calendario de rotación`,
+    rotationFarmsHint: "Fincas que el Plan requerido compra con el capital girando antes de la fecha límite — una cifra, no por base de $/lote.",
+    interestCarryNote: (horizon, extra, vs2028, vs2029) =>
+      extra === "$0"
+        ? `El interés sobre el capital ya adeudado no se resta del restante ni de los lotes que faltan. Una salida 2028 costaría ${vs2028} más de interés que 2027; 2029 costaría ${vs2029} más.`
+        : `El interés sobre el capital ya adeudado no se resta del restante ni de los lotes que faltan. La salida ${horizon} cuesta ${extra} más de interés que 2027.`,
     engineReconcile: "El ritmo de Resumen no tiene tope; Proyección de capital limita inventario y giros de capital",
     seeEngine: "ver Proyección de capital →",
     verdictLotsMonth: "lotes/mes",

@@ -9,6 +9,7 @@ import { buildWeeklyFacts } from "@/domain/weeklyCouncil";
 import { CouncilInsights } from "@/components/realm/CouncilInsights";
 import { WeeklyRead } from "@/components/realm/WeeklyRead";
 import { ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
+import { date } from "@/lib/format";
 
 export default function Council() {
   const { data, isLoading, error, refetch } = useRealm();
@@ -31,6 +32,13 @@ export default function Council() {
     <div lang={lang} data-testid="council-page" data-lang={lang} data-horizon={horizon}>
       <PageHeader title={t.title} subtitle={t.subtitle} />
       <TableErrorsBanner errors={data.tableErrors} />
+      <p data-testid="projected-exit-at-current-pace" className="mb-6 text-sm">
+        <span className="stat-label">{t.projectedExitAtCurrentPace}</span>{" "}
+        <span className="font-heading tabular text-foreground">
+          {data.realm.pathToGoal.projectedExitAtCurrentPace ? date(data.realm.pathToGoal.projectedExitAtCurrentPace) : "—"}
+        </span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">{t.projectedExitFormula}</span>
+      </p>
       <WeeklyRead
         lang={lang}
         response={weekly.response}

@@ -129,8 +129,11 @@ function throneFigures(realm: Realm): HorizonFigure[] {
     fig("/", "farmsStillNeededShared", "Farms to buy (shared pathToGoal)", sharedFarmsStillNeeded(realm), "horizon_dependent", {
       direction: "non_increase",
     }),
-    fig("/", "capitalToRaise", "Capital to raise (rotation peak)", realm.pathToGoal.capitalToRaise, "horizon_dependent", {
+    fig("/", "capitalToRaise", "Capital to raise (War Plan fresh)", realm.pathToGoal.capitalToRaise, "horizon_dependent", {
       direction: "non_increase",
+    }),
+    fig("/", "peakOutstanding", "Peak outstanding (War Plan new farms)", realm.pathToGoal.peakOutstanding, "horizon_dependent", {
+      direction: "decrease",
     }),
     fig("/", "inventoryRunwayMonths", "Inventory runway months", realm.pathToGoal.inventoryRunwayMonths, "historical", {
       labeled: true,
@@ -142,10 +145,16 @@ function throneFigures(realm: Realm): HorizonFigure[] {
       direction: "increase",
     }),
 
-    fig("/", "lotsStillNeeded", "Closings still needed to the deadline", g.lotsStillNeeded, "deliberately_independent", {
+    fig("/", "lotsStillNeeded", "Closings still needed at the lifetime $/lot", g.lotsStillNeeded, "deliberately_independent", {
       labeled: true,
     }),
-    fig("/", "projectedDate", "Projected goal date at current pace", g.projectedDate, "deliberately_independent", {
+    fig("/", "lotsStillNeededRecent", "Closings still needed at the era $/lot", g.lotsStillNeededRecent, "deliberately_independent", {
+      labeled: true,
+    }),
+    fig("/", "projectedExitAtCurrentPace", "Projected exit at current pace (era)", realm.pathToGoal.projectedExitAtCurrentPace, "deliberately_independent", {
+      labeled: true,
+    }),
+    fig("/", "projectedDateLifetime", "Projected goal date at lifetime $/lot", g.projectedDate, "deliberately_independent", {
       labeled: true,
     }),
   ];
@@ -204,7 +213,13 @@ function warPlanFigures(realm: Realm): HorizonFigure[] {
     fig("/warplan", "rotationFarms", "Plan rotation farms", w.rotation.farms, "horizon_dependent", {
       direction: "non_increase",
     }),
-    fig("/warplan", "rotationPeak", "Plan peak outstanding", w.rotation.peakOutstanding, "horizon_dependent", {
+    fig("/warplan", "rotationPeak", "Plan peak outstanding (new farms only)", w.rotation.peakOutstanding, "horizon_dependent", {
+      direction: "decrease",
+    }),
+    fig("/warplan", "requiredLotsNeeded", "Lots the required-pace plan closes by the deadline", w.required.lotsNeeded, "horizon_dependent", {
+      direction: "decrease",
+    }),
+    fig("/warplan", "requiredCapitalToRaise", "Plan capital to raise (fresh)", w.required.capitalToRaise, "horizon_dependent", {
       direction: "decrease",
     }),
     fig("/warplan", "deadlineRow", "Plan final row date", w.required.rows.at(-1)?.date ?? null, "horizon_dependent", {
@@ -357,6 +372,9 @@ function realmMapFigures(realm: Realm): HorizonFigure[] {
 function oracleFigures(realm: Realm): HorizonFigure[] {
   const current = realm.futures.current;
   return [
+    fig("/oracle", "projectedExitAtCurrentPace", "Projected exit at current pace (era)", realm.pathToGoal.projectedExitAtCurrentPace, "deliberately_independent", {
+      labeled: true,
+    }),
     fig("/oracle", "currentExitDate", "Simulator current-pace exit date", current.exitDate, "deliberately_independent", {
       labeled: true,
     }),
@@ -369,6 +387,9 @@ function oracleFigures(realm: Realm): HorizonFigure[] {
 
 function exodusFigures(realm: Realm): HorizonFigure[] {
   return [
+    fig("/exodus", "projectedExitAtCurrentPace", "Projected exit at current pace (era)", realm.pathToGoal.projectedExitAtCurrentPace, "deliberately_independent", {
+      labeled: true,
+    }),
     fig("/exodus", "deadline", "Exodus deadline", realm.goal.deadline, "horizon_dependent", { direction: "later_iso" }),
     fig("/exodus", "daysToDeadline", "Exodus days to deadline", realm.goal.daysToDeadline, "horizon_dependent", {
       direction: "increase",
@@ -402,6 +423,9 @@ export function captureHorizonFigures(realm: Realm, horizon: ExitHorizon): Horiz
     ...throneFigures(realm),
     ...engineFigures(realm, engine),
     ...warPlanFigures(realm),
+    fig("/council", "projectedExitAtCurrentPace", "Projected exit at current pace (era)", realm.pathToGoal.projectedExitAtCurrentPace, "deliberately_independent", {
+      labeled: true,
+    }),
     ...councilFigures(council),
     ...pipelineFigures(realm),
     ...sponsorsFigures(realm),

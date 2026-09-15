@@ -102,6 +102,14 @@ export default function Oracle() {
       </PageHeader>
       <TableErrorsBanner errors={data.tableErrors} />
 
+      <p data-testid="projected-exit-at-current-pace" className="mb-6 text-sm">
+        <span className="stat-label">{t.projectedExitAtCurrentPace}</span>{" "}
+        <span className="font-heading tabular text-foreground">
+          {data.realm.pathToGoal.projectedExitAtCurrentPace ? date(data.realm.pathToGoal.projectedExitAtCurrentPace) : "—"}
+        </span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">{t.projectedExitFormula}</span>
+      </p>
+
       <section className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={t.futuresAria} data-testid="futures">
         {data.realm.futures.all.map((f, i) => (
           <FutureCard key={f.id} f={f} index={i} onAdopt={() => adopt(f)} cadenceSince={f.params.newFarmEveryMonths === defaults.newFarmEveryMonths ? cadence.sinceLabel : null} t={t} />

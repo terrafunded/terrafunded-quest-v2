@@ -113,6 +113,8 @@ export interface ExodusUiStrings {
   releasedIn: (month: string) => string;
   farmsTitle: string;
   farmViable: (ratio: string) => string;
+  projectedExitAtCurrentPace: string;
+  projectedExitFormula: string;
 }
 
 export const EXODUS_UI: Record<QualityLang, ExodusUiStrings> = {
@@ -237,6 +239,8 @@ export const EXODUS_UI: Record<QualityLang, ExodusUiStrings> = {
     releasedIn: (month) => `released ${month}`,
     farmsTitle: "Farms bought with own cash in this scenario",
     farmViable: (ratio) => `settlement per dollar ${ratio}`,
+    projectedExitAtCurrentPace: "Projected exit at current pace",
+    projectedExitFormula: "remaining ÷ era average net profit per lot ÷ trailing closings per month",
   },
   es: {
     title: "Exodus",
@@ -359,5 +363,7 @@ export const EXODUS_UI: Record<QualityLang, ExodusUiStrings> = {
     releasedIn: (month) => `pagado ${month}`,
     farmsTitle: "Fincas compradas con efectivo propio en este escenario",
     farmViable: (ratio) => `liquidación por dólar ${ratio}`,
+    projectedExitAtCurrentPace: "Salida proyectada al ritmo actual",
+    projectedExitFormula: "restante ÷ utilidad neta promedio de la era por lote ÷ cierres/mes recientes",
   },
 };

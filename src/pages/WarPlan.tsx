@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Plus, RotateCcw, Save, Trash2, X } from "lucide-rea
 import { useRealm } from "@/data/useRealm";
 import { useHorizon } from "@/horizon/HorizonProvider";
 import {
+  extraInterestVersus2027,
   solveWarPlan,
   warPlanMonthLabel,
   type FarmGrade,
@@ -27,6 +28,7 @@ import { ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/compo
 import { useCommonStrings } from "@/i18n/common";
 import { useLang } from "@/i18n/lang";
 import { useWarPlanStrings, type WarPlanUiStrings } from "@/i18n/warPlan";
+import { type ExitHorizon } from "@/config/goal";
 import { date, money, moneyCompact, monthLabel, number, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -135,6 +137,11 @@ export default function WarPlanPage() {
   const cashMode = inputs.targetMode === "cash_in_bank";
   const modeShort = t.modeShort[inputs.targetMode];
   const lastUsefulPurchase = plan.required.rows.find((r) => r.monthIndex === plan.maxPurchaseMonth)?.date ?? null;
+  const interestPerDay = data.realm.debt.interestPerDay ?? 0;
+  const exitHorizon = Number(data.realm.goal.deadline.slice(0, 4)) as ExitHorizon;
+  const extraInterest = extraInterestVersus2027(interestPerDay, data.realm.asOf, exitHorizon);
+  const extra2028 = extraInterestVersus2027(interestPerDay, data.realm.asOf, 2028);
+  const extra2029 = extraInterestVersus2027(interestPerDay, data.realm.asOf, 2029);
 
   return (
     <div>
@@ -400,6 +407,9 @@ export default function WarPlanPage() {
               : ".",
           )}
           {cashMode && t.cashStart(money(plan.ledger.cashKept), money(plan.ledger.owedToday), money(plan.ledger.capitalOwed), money(plan.ledger.unpaidTake), money(plan.ledger.cashKept - plan.ledger.owedToday))}
+        </p>
+        <p className="mt-3 text-xs text-muted-foreground" data-testid="interest-carry-note">
+          {t.interestCarryNote(String(exitHorizon), money(extraInterest), money(extra2028), money(extra2029))}
         </p>
       </section>
 
@@ -875,7 +885,10 @@ function ColumnCard({ c, plan, modeShort, selected, onSelect, t, lang }: { c: Wa
         <dt className="text-muted-foreground">{t.noteSalesMonth}</dt>
         <dd className="text-right tabular">{number(c.noteSalesPerMonth)}</dd>
         <dt className="text-muted-foreground">{t.lotsClosedByDeadline}</dt>
-        <dd className="text-right tabular">{number(c.lotsNeeded)}</dd>
+        <dd className="text-right tabular">
+          {number(c.lotsNeeded)}
+          <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">{t.lotsClosedByDeadlineHint}</span>
+        </dd>
         <dt className="text-muted-foreground">{t.inventoryAtDeadline}</dt>
         <dd className="text-right tabular">{number(c.inventoryAtDeadline)}</dd>
         <dt className="text-muted-foreground">{t.cumulativeAtDeadline(modeShort)}</dt>

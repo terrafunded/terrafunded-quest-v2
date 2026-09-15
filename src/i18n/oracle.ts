@@ -37,6 +37,8 @@ export interface OracleUiStrings {
   notReached: string;
   /** On-screen note: current-pace exit date ignores the horizon selector. */
   paceExitNote: string;
+  projectedExitAtCurrentPace: string;
+  projectedExitFormula: string;
   daysEarlier: (n: string) => string;
   daysLater: (n: string) => string;
   sameDay: string;
@@ -101,7 +103,10 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     beforeThe: (d) => `before the ${d} deadline`,
     afterThe: (d) => `after the ${d} deadline`,
     notReached: "the goal is not reached within the horizon",
-    paceExitNote: "Pace projection — does not move with the exit horizon selector; only the deadline line does.",
+    paceExitNote:
+      "Includes live reservations closing on their expected dates first — that is why this date is earlier than the projected exit at current pace.",
+    projectedExitAtCurrentPace: "Projected exit at current pace",
+    projectedExitFormula: "remaining ÷ era average net profit per lot ÷ trailing closings per month",
     daysEarlier: (n) => `${n} days earlier`,
     daysLater: (n) => `${n} days later`,
     sameDay: "same day",
@@ -165,7 +170,10 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     beforeThe: (d) => `antes de la fecha límite ${d}`,
     afterThe: (d) => `después de la fecha límite ${d}`,
     notReached: "la meta no se alcanza dentro del horizonte",
-    paceExitNote: "Proyección al ritmo — no se mueve con el selector de horizonte; solo se mueve la línea de fecha límite.",
+    paceExitNote:
+      "Incluye las reservas vivas cerrando en sus fechas esperadas primero — por eso esta fecha es anterior a la salida proyectada al ritmo actual.",
+    projectedExitAtCurrentPace: "Salida proyectada al ritmo actual",
+    projectedExitFormula: "restante ÷ utilidad neta promedio de la era por lote ÷ cierres/mes recientes",
     daysEarlier: (n) => `${n} días antes`,
     daysLater: (n) => `${n} días después`,
     sameDay: "el mismo día",
