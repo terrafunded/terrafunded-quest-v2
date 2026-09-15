@@ -10,6 +10,7 @@ import {
   runSimulator,
   simulatorContextFromRealm,
   todayLevers,
+  type BindingConstraint,
   type SimulatorLevers,
   type SimulatorPresetId,
   type SimulatorResult,
@@ -18,7 +19,7 @@ import { parseDate } from "@/domain/dates";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
+import { ErrorState, LoadingState, TableErrorsBanner } from "@/components/realm/PageStates";
 import { ChartLegend } from "@/components/realm/ChartLegend";
 import { constraintLabel, useOracleStrings, type OracleUiStrings } from "@/i18n/oracle";
 import { date, money, moneyCompact, monthLabel, number } from "@/lib/format";
@@ -193,19 +194,19 @@ export default function Oracle() {
 
   return (
     <div className="space-y-3">
-      <PageHeader title={t.title} subtitle={t.subtitle}>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => adopt("today")}
-        >
+      <header className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="page-title font-display text-2xl text-gold sm:text-3xl">{t.title}</h1>
+          <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">{t.subtitle}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => adopt("today")}>
           <RotateCcw /> {t.reset}
         </Button>
-      </PageHeader>
+      </header>
       <TableErrorsBanner errors={data.tableErrors} />
 
       <div className="sticky top-14 z-20 space-y-2 bg-background/95 py-1 backdrop-blur md:static md:bg-transparent md:py-0 md:backdrop-blur-none">
-        <section className="parchment-card px-4 py-3" data-testid="simulator-hero" aria-label={t.freedomDate}>
+        <section className="parchment-card px-4 py-2.5" data-testid="simulator-hero" aria-label={t.freedomDate}>
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="stat-label">{t.freedomDate}</p>
@@ -264,7 +265,23 @@ export default function Oracle() {
       </section>
 
       <div className="grid gap-3 lg:grid-cols-[minmax(280px,380px)_1fr]">
-        <section className="parchment-card space-y-4 p-4" aria-label={t.leversAria} data-testid="simulator-levers">
+        <section className="parchment-card space-y-3 p-3" aria-label={t.leversAria} data-testid="simulator-levers">
+          <div className="flex flex-wrap gap-1.5" aria-label={t.presetsAria} data-testid="simulator-presets">
+            {PRESETS.map((id) => (
+              <Button
+                key={id}
+                variant="outline"
+                size="sm"
+                aria-pressed={preset === id}
+                data-testid={`preset-${id}`}
+                data-preset={id}
+                className={cn("h-8 px-2.5 text-xs", preset === id && "border-gold/60 bg-gold/10")}
+                onClick={() => adopt(id)}
+              >
+                {presetLabel(t, id)}
+              </Button>
+            ))}
+          </div>
           <Lever
             id="ads"
             label={t.adsLabel}
@@ -275,13 +292,7 @@ export default function Oracle() {
             format={money}
             hint={t.adsHint}
             onChange={(v) => onSlider("adSpendPerMonth", v)}
-            marginal={
-              plan.marginalAds.binds
-                ? t.leverBindsAds(constraintLabel(t, plan.marginalAds.binding))
-                : (plan.marginalAds.daysSooner ?? 0) >= 0
-                  ? t.marginalAdsSooner(number(plan.marginalAds.daysSooner ?? 0))
-                  : t.marginalAdsLater(number(-(plan.marginalAds.daysSooner ?? 0)))
-            }
+            marginal={marginalCopy(t, "ads", plan.marginalAds.binds, plan.marginalAds.binding, plan.marginalAds.daysSooner)}
             binds={plan.marginalAds.binds}
           />
           <Lever
@@ -294,13 +305,7 @@ export default function Oracle() {
             format={(v) => number(v)}
             hint={t.farmsHint}
             onChange={(v) => onSlider("farmsPerQuarter", v)}
-            marginal={
-              plan.marginalFarm.binds
-                ? t.leverBindsFarms(constraintLabel(t, plan.marginalFarm.binding))
-                : (plan.marginalFarm.daysSooner ?? 0) >= 0
-                  ? t.marginalFarmSooner(number(plan.marginalFarm.daysSooner ?? 0))
-                  : t.marginalFarmLater(number(-(plan.marginalFarm.daysSooner ?? 0)))
-            }
+            marginal={marginalCopy(t, "farms", plan.marginalFarm.binds, plan.marginalFarm.binding, plan.marginalFarm.daysSooner)}
             binds={plan.marginalFarm.binds}
           />
           <Lever
@@ -385,23 +390,6 @@ export default function Oracle() {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-1.5" aria-label={t.presetsAria} data-testid="simulator-presets">
-            {PRESETS.map((id) => (
-              <Button
-                key={id}
-                variant="outline"
-                size="sm"
-                aria-pressed={preset === id}
-                data-testid={`preset-${id}`}
-                data-preset={id}
-                className={cn("h-8 px-2.5 text-xs", preset === id && "border-gold/60 bg-gold/10")}
-                onClick={() => adopt(id)}
-              >
-                {presetLabel(t, id)}
-              </Button>
-            ))}
-          </div>
-
           <div className="flex gap-2">
             <Input
               value={saveName}
@@ -418,9 +406,9 @@ export default function Oracle() {
 
         <section className="parchment-card p-3" data-testid="simulator-chart">
           <h2 className="mb-2 font-heading text-sm uppercase tracking-[0.2em] text-gold">{t.chartTitle}</h2>
-          <div className="h-52 w-full sm:h-56">
+          <div className="h-48 w-full sm:h-52">
             <ResponsiveContainer>
-              <ComposedChart data={chartRows} margin={{ top: 12, right: 28, left: 0, bottom: 4 }}>
+              <ComposedChart data={chartRows} margin={{ top: 8, right: 36, left: 0, bottom: 4 }}>
                 <CartesianGrid stroke={DATA_AXIS} strokeOpacity={GRID_STROKE_OPACITY} vertical={false} />
                 <XAxis dataKey="date" tickFormatter={(d: string) => monthLabel(String(d).slice(0, 7))} tick={{ fill: DATA_AXIS, fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={28} />
                 <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: DATA_AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={52} domain={[0, (max: number) => Math.max(max, g.goal * 1.05)]} />
@@ -436,7 +424,7 @@ export default function Oracle() {
                     stroke={DATA_GOAL}
                     strokeWidth={SERIES_STROKE_WIDTH}
                     strokeDasharray="4 4"
-                    label={{ value: t.deadline, fill: DATA_GOAL, fontSize: 11, position: "insideTopLeft" }}
+                    label={{ value: t.deadline, fill: DATA_GOAL, fontSize: 11, position: "insideBottomLeft" }}
                   />
                 )}
                 <Area type="monotone" dataKey="savedHigh" name={t.legendSaved} stroke="none" fill={DATA_GOAL} fillOpacity={0.16} isAnimationActive={!reduceMotion} />
@@ -512,6 +500,20 @@ export default function Oracle() {
       </section>
     </div>
   );
+}
+
+function marginalCopy(
+  t: OracleUiStrings,
+  lever: "ads" | "farms",
+  binds: boolean,
+  binding: BindingConstraint | null,
+  daysSooner: number | null,
+): string {
+  if (binds) return lever === "ads" ? t.leverBindsAds(constraintLabel(t, binding)) : t.leverBindsFarms(constraintLabel(t, binding));
+  const days = daysSooner ?? 0;
+  if (Math.abs(days) >= 1000) return lever === "ads" ? t.marginalAdsReaches : t.marginalFarmReaches;
+  if (days >= 0) return lever === "ads" ? t.marginalAdsSooner(number(days)) : t.marginalFarmSooner(number(days));
+  return lever === "ads" ? t.marginalAdsLater(number(-days)) : t.marginalFarmLater(number(-days));
 }
 
 function CostCell({ label, value, color, wide }: { label: string; value: string; color: string; wide?: boolean }) {
@@ -623,7 +625,7 @@ function RaceBar({
         {todayPct !== null && (
           <span
             className="absolute top-1/2 h-3.5 w-1.5 -translate-y-1/2 rounded-sm"
-            style={{ left: `${todayPct}%`, background: DATA_INVENTORY }}
+            style={{ left: `calc(${todayPct}% + 4px)`, background: DATA_INVENTORY }}
             title={t.raceToday}
           />
         )}
@@ -636,14 +638,17 @@ function RaceBar({
         )}
       </div>
       <div className="relative mt-1 h-4 text-[10px] text-muted-foreground">
-        {todayPct !== null && (
-          <span className="absolute -translate-x-1/2" style={{ left: `${todayPct}%` }}>
-            {t.raceToday}
-          </span>
-        )}
         {deadlinePct !== null && (
           <span className="absolute -translate-x-1/2" style={{ left: `${deadlinePct}%`, color: DATA_GOAL }}>
             {t.raceDeadline}
+          </span>
+        )}
+        {todayPct !== null && (
+          <span
+            className="absolute whitespace-nowrap"
+            style={{ left: todayPct > 85 ? "auto" : `${todayPct}%`, right: todayPct > 85 ? 0 : "auto", transform: todayPct > 85 ? "none" : "translateX(-50%)" }}
+          >
+            {t.raceToday}
           </span>
         )}
       </div>

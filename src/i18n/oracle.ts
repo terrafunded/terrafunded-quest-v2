@@ -35,6 +35,8 @@ export interface OracleUiStrings {
   marginalFarmSooner: (n: string) => string;
   marginalAdsLater: (n: string) => string;
   marginalFarmLater: (n: string) => string;
+  marginalAdsReaches: string;
+  marginalFarmReaches: string;
   leverBindsAds: (constraint: string) => string;
   leverBindsFarms: (constraint: string) => string;
   constraintDemand: string;
@@ -117,6 +119,8 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     marginalFarmSooner: (n) => `+1 farm/quarter = ${n} days sooner`,
     marginalAdsLater: (n) => `+$5K/month ads = ${n} days later`,
     marginalFarmLater: (n) => `+1 farm/quarter = ${n} days later`,
+    marginalAdsReaches: "+$5K/month ads = now reaches the goal",
+    marginalFarmReaches: "+1 farm/quarter = now reaches the goal",
     leverBindsAds: (constraint) => `More ads will not move the date — ${constraint} binds`,
     leverBindsFarms: (constraint) => `More farms will not move the date — ${constraint} binds`,
     constraintDemand: "demand",
@@ -197,6 +201,8 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     marginalFarmSooner: (n) => `+1 finca/trimestre = ${n} días antes`,
     marginalAdsLater: (n) => `+$5K/mes en anuncios = ${n} días después`,
     marginalFarmLater: (n) => `+1 finca/trimestre = ${n} días después`,
+    marginalAdsReaches: "+$5K/mes en anuncios = ahora llega a la meta",
+    marginalFarmReaches: "+1 finca/trimestre = ahora llega a la meta",
     leverBindsAds: (constraint) => `Más anuncios no mueven la fecha — ata ${constraint}`,
     leverBindsFarms: (constraint) => `Más fincas no mueven la fecha — ata ${constraint}`,
     constraintDemand: "la demanda",
