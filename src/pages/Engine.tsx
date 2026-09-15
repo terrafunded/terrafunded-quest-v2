@@ -138,7 +138,7 @@ export default function EnginePage() {
   const cycleMin = Math.max(1, (real.cycleMonths ?? 6) - 4);
   const cycleMax = (real.cycleMonths ?? 6) + 6;
   const g = data.realm.goal;
-  const reconcile = reconcileThroneAndEngine(g, result, inputs.profitBasis === "era" ? "era" : "lifetime");
+  const reconcile = reconcileThroneAndEngine(g, result, inputs.profitBasis === "era" ? "era" : "lifetime", lang);
   const eraAvg = g.recentAvgNetProfitPerClosedLot;
   const lifetimeAvg = g.avgNetProfitPerClosedLot;
 
@@ -239,7 +239,7 @@ export default function EnginePage() {
               <AssumptionBadge label={real.cycleMonths !== null ? t.measured : t.assumption} />
             </label>
             <span className="font-numeric text-sm" data-testid="engine-cycle-value">
-              {inputs.cycleMonths.toFixed(1)} mo → {t.effectiveCycle(result.effectiveCycleMonths.toFixed(1))}
+              {t.cycleArrow(inputs.cycleMonths.toFixed(1), t.effectiveCycle(result.effectiveCycleMonths.toFixed(1)))}
             </span>
           </div>
           <Slider

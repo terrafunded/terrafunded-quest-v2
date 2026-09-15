@@ -816,7 +816,7 @@ function buildVerdict(
   const reached = usdCompact(args.reachable);
   const short = usdCompact(args.shortfall);
   const fresh = usdCompact(args.freshCapital);
-  const deadlineLabel = warPlanMonthLabel(args.deadline);
+  const deadlineLabel = warPlanMonthLabel(args.deadline, lang);
   if (lang === "es") {
     if (args.hits || args.shortfall <= 0) {
       return `Con el capital desplegado hoy, vendiendo a ${pace} lotes/mes, llegas a ${reached} para ${deadlineLabel} — no hace falta capital fresco.`;
@@ -826,7 +826,7 @@ function buildVerdict(
     }
     const farmWord = args.farmsNeeded === 1 ? "finca" : "fincas";
     const byWhen = args.capitalDeadlineIso
-      ? `y tiene que llegar antes de ${warPlanMonthLabel(args.capitalDeadlineIso)} o no alcanza a completar un giro`
+      ? `y tiene que llegar antes de ${warPlanMonthLabel(args.capitalDeadlineIso, lang)} o no alcanza a completar un giro`
       : "pero el horizonte es demasiado cerca para un giro completo de capital fresco";
     return `Con el capital desplegado hoy, vendiendo a ${pace} lotes/mes, llegas a ${reached} para ${deadlineLabel} — faltan ${short}. Cerrar ese hueco necesita ${args.farmsNeeded} ${farmWord} más y ${fresh} de capital fresco, ${byWhen}.`;
   }
@@ -838,7 +838,7 @@ function buildVerdict(
   }
   const farmWord = args.farmsNeeded === 1 ? "farm" : "farms";
   const byWhen = args.capitalDeadlineIso
-    ? `and it must land before ${warPlanMonthLabel(args.capitalDeadlineIso)} or it cannot complete a turn in time`
+    ? `and it must land before ${warPlanMonthLabel(args.capitalDeadlineIso, lang)} or it cannot complete a turn in time`
     : "but the horizon is too close for a full turn of fresh capital";
   return `With capital deployed today, selling at ${pace} lots/month, you reach ${reached} by ${deadlineLabel} — ${short} short. Closing that gap needs ${args.farmsNeeded} more ${farmWord} and ${fresh} of fresh capital, ${byWhen}.`;
 }

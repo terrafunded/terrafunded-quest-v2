@@ -15,7 +15,6 @@ import {
   type WarPlan,
   type WarPlanColumn,
   type WarPlanColumnId,
-  type WarPlanFlag,
   type WarPlanInputs,
 } from "@/domain";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +24,10 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FarmCalendar } from "@/components/realm/FarmCalendar";
 import { ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
-import { date, money, moneyCompact, number, pct } from "@/lib/format";
+import { useCommonStrings } from "@/i18n/common";
+import { useLang } from "@/i18n/lang";
+import { useWarPlanStrings, type WarPlanUiStrings } from "@/i18n/warPlan";
+import { date, money, moneyCompact, monthLabel, number, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const SCENARIOS_KEY = "quest.warplan.scenarios";
@@ -60,30 +62,16 @@ function persistScenarios(list: SavedScenario[]) {
   }
 }
 
-const MODE_LABEL: Record<TargetMode, string> = { profit_at_closing: "net profit at closing", cash_in_bank: "cash in the bank" };
-const MODE_SHORT: Record<TargetMode, string> = { profit_at_closing: "net profit", cash_in_bank: "cash" };
-const DEAL_OPTIONS: { value: MixDealType; label: string }[] = [
-  { value: "fixed_interest", label: "Fixed interest" },
-  { value: "profit_share", label: "Profit share" },
-  { value: "own_capital", label: "Own capital" },
-];
-const FLAG_LABEL: Record<WarPlanFlag, string> = {
-  shortfall: "Closings exceed inventory",
-  too_late: "Farm bought too late to convert",
-  turn_incomplete: "Capital turn cannot complete before the deadline",
-};
-const COLUMN_SHORT: Record<WarPlanColumnId, string> = { current_pace: "Current pace", required_plan: "Required plan", required_plus_buffer: "+1 buffer farm" };
-const GRADE_LABEL: Record<FarmGradeVerdict, string> = { benchmark: "Benchmark", ahead: "Ahead", on_pace: "On pace", behind: "Behind", unrated: "Unrated" };
 const GRADE_CLASS: Record<FarmGradeVerdict, string> = { benchmark: "text-gold", ahead: "text-stage-closed", on_pace: "text-foreground", behind: "text-ember", unrated: "text-muted-foreground" };
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 const signed = (n: number, digits = 1) => `${n > 0 ? "+" : ""}${n.toFixed(digits)}`;
-const days = (n: number) => `${number(n)} ${Math.abs(n) === 1 ? "day" : "days"}`;
-const turnsLabel = (n: number | null) => (n === null ? "—" : `${Number.isInteger(n) ? String(n) : n.toFixed(1)} ${n === 1 ? "turn" : "turns"}`);
+const daysLabel = (n: number, t: WarPlanUiStrings) => t.days(n);
+const turnsLabel = (n: number | null, t: WarPlanUiStrings) => (n === null ? "—" : t.turns(Number.isInteger(n) ? String(n) : n.toFixed(1)));
 
 export default function WarPlanPage() {
   const { data, isLoading, error, refetch } = useRealm();
   const { deadline: horizonDeadline } = useHorizon();
+  const [lang] = useLang();
+  const t = useWarPlanStrings();
   const defaults = data?.realm.warPlanDefaults;
   const [inputs, setInputs] = useState<WarPlanInputs | null>(null);
   const [farmCostTouched, setFarmCostTouched] = useState(false);
@@ -105,7 +93,7 @@ export default function WarPlanPage() {
     }
   }, [defaults, horizonDeadline]);
 
-  const plan = useMemo(() => (data && inputs ? solveWarPlan(inputs, data.realm) : null), [data, inputs]);
+  const plan = useMemo(() => (data && inputs ? solveWarPlan(inputs, data.realm, lang) : null), [data, inputs, lang]);
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
@@ -145,56 +133,53 @@ export default function WarPlanPage() {
 
   const selected = plan.all.find((c) => c.id === column) ?? plan.required;
   const cashMode = inputs.targetMode === "cash_in_bank";
-  const modeShort = MODE_SHORT[inputs.targetMode];
+  const modeShort = t.modeShort[inputs.targetMode];
   const lastUsefulPurchase = plan.required.rows.find((r) => r.monthIndex === plan.maxPurchaseMonth)?.date ?? null;
 
   return (
     <div>
-      <PageHeader
-        title="War Plan"
-        subtitle={`The Oracle in reverse: the Oracle takes a pace and returns a date; the War Plan takes the deadline and returns what must happen — closings, farms and when to buy them, capital and who funds it, ad spend, note sales, and what comes back to every sponsor. Every input starts at the real figure${real.eraSince ? `; rates and trends are measured ${real.eraSince}, when sales operations started in earnest` : ""}.`}
-      >
+      <PageHeader title={t.title} subtitle={t.subtitle(real.eraSince)}>
         <Button variant="outline" size="sm" onClick={reset} data-testid="warplan-reset">
-          <RotateCcw /> Reset to real data
+          <RotateCcw /> {t.reset}
         </Button>
       </PageHeader>
       <TableErrorsBanner errors={data.tableErrors} />
 
-      <section aria-label="Inputs" className="parchment-card mb-6 p-4 sm:p-5" data-testid="warplan-inputs">
+      <section aria-label={t.inputsAria} className="parchment-card mb-6 p-4 sm:p-5" data-testid="warplan-inputs">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <NumberField id="wp-target" label="Target" value={inputs.target} onChange={(v) => update({ target: v })} step={100_000} prefix="$" real={money(real.target)} hint={`Measured on ${MODE_LABEL[inputs.targetMode]}`} />
+          <NumberField id="wp-target" label={t.target} value={inputs.target} onChange={(v) => update({ target: v })} step={100_000} prefix="$" real={money(real.target)} hint={`${t.modeLabel[inputs.targetMode]}`} />
           <div className="min-w-0">
             <label htmlFor="wp-deadline" className="mb-1 block text-sm">
-              Deadline
+              {t.deadline}
             </label>
             <Input id="wp-deadline" type="date" className="tabular" value={inputs.deadline} min={plan.asOf} onChange={(e) => e.target.value && update({ deadline: e.target.value })} data-testid="warplan-deadline" />
-            <FieldFooter hint={`${number(plan.monthsToDeadline)} months from today`} real={date(real.deadline)} />
+            <FieldFooter hint={t.monthsFromToday(number(plan.monthsToDeadline))} real={date(real.deadline)} />
           </div>
           <div className="min-w-0">
             <label htmlFor="wp-mode" className="mb-1 block text-sm">
-              Target mode
+              {t.targetMode}
             </label>
             <Select id="wp-mode" value={inputs.targetMode} onChange={(e) => update({ targetMode: e.target.value as TargetMode })}>
-              <option value="profit_at_closing">Net profit at closing</option>
-              <option value="cash_in_bank">Cash in the bank, sponsors paid out</option>
+              <option value="profit_at_closing">{t.modeOption.profit_at_closing}</option>
+              <option value="cash_in_bank">{t.modeOption.cash_in_bank}</option>
             </Select>
-            <FieldFooter hint={cashMode ? "Down payments + note sales − farm outlays − every sponsor's capital and take" : "(price − land) × (1 − take), booked at closing"} real={cashMode ? `${money(plan.ledger.cashKept)} kept, ${money(plan.ledger.owedToday)} owed` : money(data.realm.goal.netProfitToDate)} />
+            <FieldFooter hint={cashMode ? t.modeHintCash : t.modeHintProfit} real={cashMode ? t.keptOwed(money(plan.ledger.cashKept), money(plan.ledger.owedToday)) : money(data.realm.goal.netProfitToDate)} />
           </div>
           <NumberField
             id="wp-lots-per-farm"
-            label="Lots per new farm"
+            label={t.lotsPerFarm}
             value={inputs.lotsPerFarm}
             onChange={(v) =>
               setInputs((prev) => (prev ? { ...prev, lotsPerFarm: v, farmCost: farmCostTouched ? prev.farmCost : Math.round(v * real.defaultLandCostPerLot) } : prev))
             }
             step={1}
             min={1}
-            real={real.lotsPerFarm === null ? "—" : `${number(real.lotsPerFarm)} (mean total_lots)`}
-            hint="The brief's 10; the farm cost follows until you edit it"
+            real={real.lotsPerFarm === null ? "—" : t.lotsPerFarmReal(number(real.lotsPerFarm))}
+            hint={t.lotsPerFarmHint}
           />
           <NumberField
             id="wp-farm-cost"
-            label="Farm cost"
+            label={t.farmCost}
             value={inputs.farmCost}
             onChange={(v) => {
               setFarmCostTouched(true);
@@ -205,17 +190,21 @@ export default function WarPlanPage() {
             real={
               <span data-testid="warplan-farm-cost-real">
                 {real.recentLandCostPerLot === null
-                  ? `no purchase ${real.eraSince ?? "on record"}`
-                  : `${money(real.recentLandCostPerLot * inputs.lotsPerFarm)} recent${real.eraSince ? `, ${real.eraSince}` : ""} (${real.recentFarms.join(", ")}: ${money(real.recentLandCostPerLot)}/lot)`}{" "}
-                · {money(real.landCostPerLot * inputs.lotsPerFarm)} all-time ({money(real.landCostPerLot)}/lot)
+                  ? t.noPurchase(real.eraSince ?? "on record")
+                  : `${t.recentCost(money(real.recentLandCostPerLot * inputs.lotsPerFarm), real.eraSince ? `, ${real.eraSince}` : "", real.recentFarms.join(", "), money(real.recentLandCostPerLot))} · ${t.allTimeCost(money(real.landCostPerLot * inputs.lotsPerFarm), money(real.landCostPerLot))}`}
               </span>
             }
-            hint={`${number(inputs.lotsPerFarm)} lots × the per-lot cost of the ${real.recentFarms.length > 0 ? `${real.recentFarms.length} most recent farms${real.eraSince ? ` bought ${real.eraSince}` : ""}` : "all-time average"}`}
+            hint={t.farmCostHint(
+              number(inputs.lotsPerFarm),
+              real.recentFarms.length > 0
+                ? `${real.recentFarms.length} most recent farms${real.eraSince ? ` bought ${real.eraSince}` : ""}`
+                : "all-time average",
+            )}
           />
-          <NumberField id="wp-ad-spend" label="Ad spend per closing" value={inputs.adSpendPerClosing} onChange={(v) => update({ adSpendPerClosing: v })} step={100} prefix="$" real="no source in the data — assumption" hint="Monthly ads = closings ÷ conversion × this" />
+          <NumberField id="wp-ad-spend" label={t.adSpend} value={inputs.adSpendPerClosing} onChange={(v) => update({ adSpendPerClosing: v })} step={100} prefix="$" real={t.adSpendReal} hint={t.adSpendHint} />
           <NumberField
             id="wp-conversion"
-            label="Reservation → closing conversion"
+            label={t.conversion}
             value={inputs.conversionPct}
             onChange={(v) => update({ conversionPct: v })}
             step={1}
@@ -226,25 +215,34 @@ export default function WarPlanPage() {
               <span data-testid="warplan-conversion-real">
                 {real.conversionWithCancellationsPct === null
                   ? "—"
-                  : `${pct(real.conversionWithCancellationsPct, 2)} incl. cancellations (${number(data.realm.pipeline.conversion.closed)} of ${number(data.realm.pipeline.conversion.cohortWithCancellations)}) · ${pct(real.conversionPct, 2)} live only`}
+                  : t.conversionIncl(
+                      pct(real.conversionWithCancellationsPct, 2),
+                      number(data.realm.pipeline.conversion.closed),
+                      number(data.realm.pipeline.conversion.cohortWithCancellations),
+                      pct(real.conversionPct, 2),
+                    )}
               </span>
             }
-            hint={real.cancellationRatePct === null ? "Cancelled reservations count as failures" : `Cancellation rate ${pct(real.cancellationRatePct, 1)} — ${number(data.realm.pipeline.conversion.cancelled)} matured reservations cancelled, ${number(real.cancelledReservations)} cancelled in all`}
+            hint={t.conversionHint(
+              real.cancellationRatePct === null ? null : pct(real.cancellationRatePct, 1),
+              number(data.realm.pipeline.conversion.cancelled),
+              number(real.cancelledReservations),
+            )}
           />
           <NumberField
             id="wp-farm-lag"
-            label="Farm purchase → first closing"
+            label={t.farmLag}
             value={inputs.farmToFirstCloseMonths}
             onChange={(v) => update({ farmToFirstCloseMonths: v })}
             step={0.5}
-            suffix="mo"
-            real={real.farmToFirstCloseMonths === null ? "no farm has closed a lot yet" : `${number(real.farmToFirstCloseMonths)} mo (median of ${real.farmToFirstCloseFarms} farms)`}
-            hint={`Plus ${real.medianDaysToClose === null ? "—" : number(real.medianDaysToClose)} median days to close a reservation`}
+            suffix={t.mo}
+            real={real.farmToFirstCloseMonths === null ? t.farmLagNone : t.farmLagReal(number(real.farmToFirstCloseMonths), real.farmToFirstCloseFarms)}
+            hint={t.farmLagHint(real.medianDaysToClose === null ? "—" : number(real.medianDaysToClose))}
           />
-          <NumberField id="wp-note-lag" label="Note-sale lag" value={inputs.noteSaleLagMonths} onChange={(v) => update({ noteSaleLagMonths: v })} step={0.5} suffix="mo" real={`${number(real.noteSaleLagMonths)} mo (closing → note sale)`} hint="When the financed balance turns into cash" />
+          <NumberField id="wp-note-lag" label={t.noteLag} value={inputs.noteSaleLagMonths} onChange={(v) => update({ noteSaleLagMonths: v })} step={0.5} suffix={t.mo} real={t.noteLagReal(number(real.noteSaleLagMonths))} hint={t.noteLagHint} />
           <div className="min-w-0">
             <label htmlFor="wp-cycle" className="mb-1 block text-sm">
-              Capital turn
+              {t.capitalTurn}
             </label>
             <div className="relative">
               <Input
@@ -255,7 +253,7 @@ export default function WarPlanPage() {
                 min={0}
                 className="tabular pr-12"
                 value={inputs.cycleMonths ?? ""}
-                placeholder="never returns"
+                placeholder={t.neverReturns}
                 onChange={(e) => {
                   const raw = e.target.value.trim();
                   const n = Number(raw);
@@ -263,23 +261,27 @@ export default function WarPlanPage() {
                   else if (Number.isFinite(n)) update({ cycleMonths: n });
                 }}
               />
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">mo</span>
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">{t.mo}</span>
             </div>
             <FieldFooter
-              hint="Farm bought → lots close → notes sold → capital back → next farm. Blank: capital never rotates."
+              hint={t.capitalTurnHint}
               real={
                 <span data-testid="warplan-cycle-real">
                   {real.cycleDays === null || real.cycleMonths === null
-                    ? `no farm freed${real.eraSince ? ` ${real.eraSince}` : ""}, none projectable`
-                    : `${number(real.cycleDays)} days / ${real.cycleMonths.toFixed(1)} mo (${real.cycleSource === "freed_farms" ? `median of ${real.cycleFarms} freed ${real.cycleFarms === 1 ? "farm" : "farms"}` : `projected from ${real.cycleFarms} captive ${real.cycleFarms === 1 ? "farm" : "farms"}`}${real.eraSince ? ` funded ${real.eraSince}` : ""})`}
-                  {real.cycleExcludedFarms.length > 0 && ` · ${real.cycleExcludedFarms.join(", ")} freed before then: on record, not measured`}
+                    ? t.cycleNone(real.eraSince)
+                    : t.cycleReal(
+                        number(real.cycleDays),
+                        real.cycleMonths.toFixed(1),
+                        `${real.cycleSource === "freed_farms" ? t.cycleFreed(real.cycleFarms) : t.cycleProjected(real.cycleFarms)}${real.eraSince ? ` funded ${real.eraSince}` : ""}`,
+                      )}
+                  {real.cycleExcludedFarms.length > 0 && t.cycleExcluded(real.cycleExcludedFarms.join(", "))}
                 </span>
               }
             />
           </div>
           <div className="min-w-0">
-            <span className="mb-1 block text-sm">Required pace</span>
-            <div role="group" aria-label="Required pace shape" className="flex gap-2" data-seasonality-applied={seasonality.applied}>
+            <span className="mb-1 block text-sm">{t.requiredPace}</span>
+            <div role="group" aria-label={t.paceShapeAria} className="flex gap-2" data-seasonality-applied={seasonality.applied}>
               <Button
                 type="button"
                 size="sm"
@@ -290,27 +292,42 @@ export default function WarPlanPage() {
                 onClick={() => update({ seasonal: true })}
                 data-testid="warplan-seasonal-on"
               >
-                Seasonal
+                {t.seasonal}
               </Button>
               <Button type="button" size="sm" variant={inputs.seasonal && seasonality.applied ? "outline" : "default"} aria-pressed={!inputs.seasonal || !seasonality.applied} onClick={() => update({ seasonal: false })} data-testid="warplan-seasonal-off">
-                Flat
+                {t.flat}
               </Button>
             </div>
             <FieldFooter
               hint={
                 !seasonality.applied
-                  ? `Every month asks the same average — ${seasonality.reason ?? "no seasonal profile"}`
+                  ? t.paceHintNone(t.seasonalityReason(seasonality.reason))
                   : inputs.seasonal
-                    ? "Each month asks what its calendar month really delivers; the flat average sits alongside"
-                    : "Every month asks the same average"
+                    ? t.paceHintSeasonal
+                    : t.paceHintFlat
               }
               real={
                 <span data-testid="warplan-seasonality-real">
                   {!seasonality.applied
-                    ? `${seasonality.reason ?? "no seasonal profile"}: ${seasonality.monthsOfHistory ?? 0} of ${seasonality.monthsRequired} months ${seasonality.sinceLabel ?? "of closings"} (${number(seasonality.closings)} closings${seasonality.excluded > 0 ? `, ${seasonality.excluded} earlier left out` : ""})`
+                    ? t.seasonalityNone(
+                        t.seasonalityReason(seasonality.reason),
+                        seasonality.monthsOfHistory ?? 0,
+                        seasonality.monthsRequired,
+                        seasonality.sinceLabel ?? "",
+                        number(seasonality.closings),
+                        seasonality.excluded,
+                      )
                     : seasonality.peakMonth === null || seasonality.troughMonth === null
-                      ? "no dated closings"
-                      : `${number(seasonality.closings)} closings${seasonality.sinceLabel ? ` ${seasonality.sinceLabel}` : ""} · peak ${MONTH_NAMES[seasonality.peakMonth]} ×${(seasonality.factors[seasonality.peakMonth] ?? 1).toFixed(2)}, trough ${MONTH_NAMES[seasonality.troughMonth]} ×${(seasonality.factors[seasonality.troughMonth] ?? 1).toFixed(2)} (floor ${pct(seasonality.floor * 100, 0)})`}
+                      ? t.noDatedClosings
+                      : t.seasonalityPeak(
+                          number(seasonality.closings),
+                          seasonality.sinceLabel ? ` ${seasonality.sinceLabel}` : "",
+                          monthLabel(`2020-${String(seasonality.peakMonth + 1).padStart(2, "0")}`, lang),
+                          (seasonality.factors[seasonality.peakMonth] ?? 1).toFixed(2),
+                          monthLabel(`2020-${String(seasonality.troughMonth + 1).padStart(2, "0")}`, lang),
+                          (seasonality.factors[seasonality.troughMonth] ?? 1).toFixed(2),
+                          pct(seasonality.floor * 100, 0),
+                        )}
                 </span>
               }
             />
@@ -319,28 +336,28 @@ export default function WarPlanPage() {
 
         <div className="mt-6">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">Investor mix</h2>
-            <span className="text-xs text-muted-foreground">New farms are funded top to bottom; each new lot pays its own farm's deal. Prefilled from the sponsors' real positions.</span>
+            <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">{t.investorMix}</h2>
+            <span className="text-xs text-muted-foreground">{t.investorMixHint}</span>
           </div>
-          <InvestorMixTable mix={inputs.investorMix} onChange={setMix} />
+          <InvestorMixTable mix={inputs.investorMix} onChange={setMix} t={t} />
         </div>
 
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-end" data-testid="warplan-scenarios">
           <div className="min-w-0 flex-1">
             <label htmlFor="wp-scenario-name" className="mb-1 block text-sm">
-              Scenario name
+              {t.scenarioName}
             </label>
-            <Input id="wp-scenario-name" value={scenarioName} onChange={(e) => setScenarioName(e.target.value)} placeholder="e.g. Two farms before spring" maxLength={60} />
+            <Input id="wp-scenario-name" value={scenarioName} onChange={(e) => setScenarioName(e.target.value)} placeholder={t.scenarioPlaceholder} maxLength={60} />
           </div>
           <Button variant="outline" size="sm" onClick={saveScenario} disabled={!scenarioName.trim()} data-testid="warplan-save">
-            <Save /> Save
+            <Save /> {t.save}
           </Button>
           <div className="min-w-0 flex-1">
             <label htmlFor="wp-scenario-load" className="mb-1 block text-sm">
-              Saved scenarios
+              {t.savedScenarios}
             </label>
             <Select id="wp-scenario-load" value={selectedScenario} onChange={(e) => loadScenario(e.target.value)}>
-              <option value="">{scenarios.length > 0 ? "Load a scenario…" : "None saved yet"}</option>
+              <option value="">{scenarios.length > 0 ? t.loadScenario : t.noneSaved}</option>
               {scenarios.map((s) => (
                 <option key={s.name} value={s.name}>
                   {s.name} · {date(s.savedAt)}
@@ -349,56 +366,65 @@ export default function WarPlanPage() {
             </Select>
           </div>
           <Button variant="outline" size="sm" onClick={deleteScenario} disabled={!selectedScenario} data-testid="warplan-delete">
-            <Trash2 /> Delete
+            <Trash2 /> {t.delete}
           </Button>
         </div>
       </section>
 
-      <section aria-label="Verdict" className={cn("parchment-card mb-6 p-5", plan.feasible ? "border-gold/40" : "border-destructive/50")}>
-        <div className="stat-label">The verdict</div>
+      <section aria-label={t.verdict} className={cn("parchment-card mb-6 p-5", plan.feasible ? "border-gold/40" : "border-destructive/50")}>
+        <div className="stat-label">{t.verdict}</div>
         <p className="mt-2 font-heading text-lg leading-snug sm:text-xl" data-testid="warplan-verdict" data-feasible={plan.feasible}>
           {plan.verdict.includes("lots/month")
-            ? plan.verdict.replace("lots/month", "lots/month per the War Plan's real deal terms")
-            : plan.verdict}
+            ? plan.verdict.replace("lots/month", `lots/month ${t.realDealTerms}`)
+            : plan.verdict.includes("lotes/mes")
+              ? plan.verdict.replace("lotes/mes", `lotes/mes ${t.realDealTerms}`)
+              : plan.verdict}
         </p>
         <p className="mt-3 text-sm text-muted-foreground">
-          Measured on {MODE_LABEL[inputs.targetMode]}. {number(plan.monthsToDeadline)} months to {date(plan.goal.deadline)}, {number(plan.startInventory)} lots in inventory today (available + reserved). A new farm needs {plan.landLag} {plan.landLag === 1 ? "month" : "months"} to its first closing and {plan.closeLag} more to close a reservation
-          {cashMode ? `, then ${plan.noteLag} to sell the note` : ""}
-          {plan.deadlineMonthIndex > 0 ? (lastUsefulPurchase ? `, so the last useful purchase is ${warPlanMonthLabel(lastUsefulPurchase)}.` : ", so no farm bought now converts before the deadline.") : "."}
-          {cashMode && (
-            <>
-              {" "}
-              The fund has kept {money(plan.ledger.cashKept)} and owes sponsors {money(plan.ledger.owedToday)} ({money(plan.ledger.capitalOwed)} of capital and {money(plan.ledger.unpaidTake)} of accrued take), so the plan starts at {money(plan.ledger.cashKept - plan.ledger.owedToday)}.
-            </>
+          {t.measuredOn(t.modeLabel[inputs.targetMode])}
+          {t.verdictFoot(
+            number(plan.monthsToDeadline),
+            date(plan.goal.deadline),
+            number(plan.startInventory),
+            String(plan.landLag),
+            t.monthWord(plan.landLag),
+            String(plan.closeLag),
+            cashMode ? t.noteLagPart(plan.noteLag) : "",
+            plan.deadlineMonthIndex > 0
+              ? lastUsefulPurchase
+                ? t.lastPurchase(warPlanMonthLabel(lastUsefulPurchase, lang))
+                : t.noPurchaseConverts
+              : ".",
           )}
+          {cashMode && t.cashStart(money(plan.ledger.cashKept), money(plan.ledger.owedToday), money(plan.ledger.capitalOwed), money(plan.ledger.unpaidTake), money(plan.ledger.cashKept - plan.ledger.owedToday))}
         </p>
       </section>
 
-      <RotationSection plan={plan} />
+      <RotationSection plan={plan} t={t} lang={lang} />
 
-      <section aria-label="Three plans" className="mb-6 grid gap-3 lg:grid-cols-3" data-testid="warplan-columns">
+      <section aria-label={t.threePlansAria} className="mb-6 grid gap-3 lg:grid-cols-3" data-testid="warplan-columns">
         {plan.all.map((c) => (
-          <ColumnCard key={c.id} c={c} plan={plan} modeShort={modeShort} selected={c.id === column} onSelect={() => setColumn(c.id)} />
+          <ColumnCard key={c.id} c={c} plan={plan} modeShort={modeShort} selected={c.id === column} onSelect={() => setColumn(c.id)} t={t} lang={lang} />
         ))}
       </section>
 
-      <MonthTable plan={plan} column={selected} modeShort={modeShort} onColumn={setColumn} />
+      <MonthTable plan={plan} column={selected} modeShort={modeShort} onColumn={setColumn} t={t} lang={lang} />
 
       <FarmCalendar plan={plan} real={real} />
     </div>
   );
 }
 
-function RotationSection({ plan }: { plan: WarPlan }) {
+function RotationSection({ plan, t, lang }: { plan: WarPlan; t: WarPlanUiStrings; lang: import("@/domain/quality_human").QualityLang }) {
   const r: RotationPlan = plan.rotation;
   const b: RotationBenchmark = plan.benchmark;
   const flagged = r.turnsIncomplete > 0;
   return (
-    <section aria-label="Capital rotation" className={cn("parchment-card mb-6 overflow-hidden", plan.feasible && !flagged ? "border-gold/40" : "border-ember/40")} data-testid="warplan-rotation">
+    <section aria-label={t.rotationAria} className={cn("parchment-card mb-6 overflow-hidden", plan.feasible && !flagged ? "border-gold/40" : "border-ember/40")} data-testid="warplan-rotation">
       <div className="p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <div className="stat-label">Capital rotation — the required plan</div>
-          <span className="text-xs text-muted-foreground">Land only: houses, receivables and overhead are out of scope by design.</span>
+          <div className="stat-label">{t.rotationTitle}</div>
+          <span className="text-xs text-muted-foreground">{t.rotationScope}</span>
         </div>
         <p className="mt-2 font-heading text-lg leading-snug sm:text-xl" data-testid="warplan-rotation-headline" data-turns={r.turnsNeeded ?? ""} data-incomplete={r.turnsIncomplete}>
           {r.headline}
@@ -406,35 +432,35 @@ function RotationSection({ plan }: { plan: WarPlan }) {
         {flagged && (
           <div className="mt-3">
             <Badge variant="error" data-testid="warplan-rotation-flag">
-              {r.turnsIncomplete} of {r.farms} {r.farms === 1 ? "turn" : "turns"} cannot complete before the deadline
+              {t.turnsIncomplete(r.turnsIncomplete, r.farms, r.farms === 1 ? t.turns("1").replace(/^1\s+/, "") : t.turns("2").replace(/^2\s+/, ""))}
             </Badge>
           </div>
         )}
 
         <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="warplan-rotation-stats">
-          <RotationStat label="Peak capital outstanding" value={money(r.peakOutstanding)} hint="The most land capital out at once — what actually has to be raised" tone="text-gold" testId="warplan-rotation-peak" />
-          <RotationStat label="Total capital deployed" value={money(r.totalDeployed)} hint={`Every purchase over ${r.farms} ${r.farms === 1 ? "farm" : "farms"}, counting recycled dollars each time · ${money(r.recycled)} recycled`} testId="warplan-rotation-deployed" />
-          <RotationStat label="Turns needed" value={turnsLabel(r.turnsNeeded)} hint={`Deployed ÷ peak · ${r.turnsCompleted} completed so far${r.cycleMonths === null ? "" : ` · ${r.cycleMonths.toFixed(1)} months each`}`} testId="warplan-rotation-turns" />
+          <RotationStat label={t.peakOutstanding} value={money(r.peakOutstanding)} hint={t.peakHint} tone="text-gold" testId="warplan-rotation-peak" />
+          <RotationStat label={t.totalDeployed} value={money(r.totalDeployed)} hint={t.totalDeployedHint(r.farms, r.farms === 1 ? "farm" : "farms", money(r.recycled))} testId="warplan-rotation-deployed" />
+          <RotationStat label={t.turnsNeeded} value={turnsLabel(r.turnsNeeded, t)} hint={t.turnsNeededHint(r.turnsCompleted, r.cycleMonths === null ? "" : ` · ${r.cycleMonths.toFixed(1)} months each`)} testId="warplan-rotation-turns" />
           <RotationStat
-            label="First turn must start by"
-            value={r.firstTurnStartBy ? warPlanMonthLabel(r.firstTurnStartBy) : "—"}
-            hint={r.lastTurnCompletes ? `Last turn completes ${warPlanMonthLabel(r.lastTurnCompletes)}` : r.farms > 0 && r.cycleMonths !== null ? "No planned turn completes before the deadline" : "No farm to buy"}
+            label={t.firstTurnBy}
+            value={r.firstTurnStartBy ? warPlanMonthLabel(r.firstTurnStartBy, lang) : "—"}
+            hint={r.lastTurnCompletes ? t.lastTurnCompletes(warPlanMonthLabel(r.lastTurnCompletes, lang)) : r.farms > 0 && r.cycleMonths !== null ? t.noTurnCompletes : t.noFarmToBuy}
             tone={flagged ? "text-ember" : undefined}
           />
         </dl>
 
         {r.perInvestor.length > 0 && (
           <div className="mt-4">
-            <div className="stat-label mb-2">Turns per investor</div>
+            <div className="stat-label mb-2">{t.turnsPerInvestor}</div>
             <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="warplan-rotation-investors">
               {r.perInvestor.map((inv) => (
                 <li key={inv.mixIndex} className="rounded-md border border-border/60 bg-background/40 p-3 text-sm" data-testid="warplan-rotation-investor" data-name={inv.name}>
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="truncate font-heading">{inv.name}</span>
-                    <span className="tabular text-gold">{turnsLabel(inv.turns)}</span>
+                    <span className="tabular text-gold">{turnsLabel(inv.turns, t)}</span>
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground tabular">
-                    {money(inv.peakOutstanding)} out at peak · {money(inv.deployed)} deployed · {money(inv.fresh)} fresh
+                    {t.investorLine(money(inv.peakOutstanding), money(inv.deployed), money(inv.fresh))}
                   </div>
                 </li>
               ))}
@@ -443,7 +469,7 @@ function RotationSection({ plan }: { plan: WarPlan }) {
         )}
       </div>
 
-      <BenchmarkPanel b={b} />
+      <BenchmarkPanel b={b} t={t} lang={lang} />
     </section>
   );
 }
@@ -460,29 +486,27 @@ function RotationStat({ label, value, hint, tone, testId }: { label: string; val
   );
 }
 
-function BenchmarkPanel({ b }: { b: RotationBenchmark }) {
+function BenchmarkPanel({ b, t, lang: _lang }: { b: RotationBenchmark; t: WarPlanUiStrings; lang: import("@/domain/quality_human").QualityLang }) {
   const bench = b.benchmark;
   const graded = b.grades.filter((g) => g.verdict !== "benchmark");
   return (
     <div className="border-t border-border/60" data-testid="warplan-benchmark">
       <div className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <div>
-          <div className="stat-label">Benchmark cycle</div>
+          <div className="stat-label">{t.benchmarkCycle}</div>
           {bench ? (
             <>
               <div className="mt-1 font-display text-2xl leading-none text-gold sm:text-3xl" data-testid="warplan-benchmark-farm">
                 {bench.farmName}
               </div>
               <div className="mt-2 text-sm tabular" data-testid="warplan-benchmark-cycle">
-                <strong>{number(bench.days)} days</strong> · {bench.months.toFixed(1)} months{bench.projected ? " (projected)" : ""}
+                {t.daysMonths(number(bench.days), bench.months.toFixed(1), bench.projected)}
               </div>
               <div className="mt-1 text-xs text-muted-foreground" data-testid="warplan-benchmark-scope">
-                {bench.investorName} funded {date(bench.fundingDate)} → {bench.projected ? "projected free" : "100 % of capital back"} {date(bench.liberationDate)}
-                {b.cycles.length > 1 ? ` · median of ${b.cycles.length} ${b.source === "freed_farms" ? "freed" : "projected"} cycles` : ""}
-                {b.sinceLabel ? ` · farms funded ${b.sinceLabel}` : ""}
+                {t.fundedToFree(bench.investorName, date(bench.fundingDate), bench.projected ? t.projectedFree : t.capitalBack, date(bench.liberationDate), b.cycles.length > 1 ? t.medianCycles(b.cycles.length, b.source === "freed_farms" ? t.freed : t.projected) : "", b.sinceLabel ? t.farmsFunded(b.sinceLabel) : "")}
               </div>
               {b.curve.length > 0 && (
-                <ol className="mt-3 flex flex-wrap gap-1 text-[11px] tabular text-muted-foreground" aria-label="Capital returned over the benchmark cycle">
+                <ol className="mt-3 flex flex-wrap gap-1 text-[11px] tabular text-muted-foreground" aria-label={t.curveAria}>
                   {b.curve.map((p) => (
                     <li key={p.day} className="rounded bg-background/50 px-1.5 py-0.5">
                       d{p.day} · {p.pct.toFixed(0)}%
@@ -492,52 +516,51 @@ function BenchmarkPanel({ b }: { b: RotationBenchmark }) {
               )}
             </>
           ) : (
-            <p className="mt-1 text-sm text-muted-foreground">No sponsor-funded farm{b.sinceLabel ? ` funded ${b.sinceLabel}` : ""} has been freed and none can be projected, so there is no benchmark cycle yet.</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t.noBenchmark(b.sinceLabel)}</p>
           )}
           {b.excludedCycles.length > 0 && (
             <p className="mt-2 text-xs text-muted-foreground" data-testid="warplan-benchmark-excluded">
-              On record, not measured: {b.excludedCycles.map((c) => `${c.farmName} (funded ${date(c.fundingDate)}, freed ${date(c.liberationDate)} in ${number(c.days)} days)`).join("; ")} — funded before {b.sinceLabel?.replace(/^since /, "") ?? "the era"}, so
-              real money but not today's pace.
+              {t.excludedRecord(b.excludedCycles.map((c) => `${c.farmName} (funded ${date(c.fundingDate)}, freed ${date(c.liberationDate)} in ${number(c.days)} days)`).join("; "), b.sinceLabel?.replace(/^since /, "") ?? "the era")}
             </p>
           )}
           <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
-            <dt className="text-muted-foreground">Turns completed</dt>
+            <dt className="text-muted-foreground">{t.turnsCompleted}</dt>
             <dd className="text-right tabular" data-testid="warplan-turns-completed">
               {b.turnsCompleted}
             </dd>
-            <dt className="text-muted-foreground">Capital outstanding</dt>
+            <dt className="text-muted-foreground">{t.capitalOutstanding}</dt>
             <dd className="text-right tabular">{money(b.capitalOutstanding)}</dd>
-            <dt className="text-muted-foreground">Next liberation</dt>
-            <dd className="text-right tabular">{b.nextLiberation ? `${b.nextLiberation.farmName}${b.nextLiberation.daysToGo === null ? "" : ` · ${days(b.nextLiberation.daysToGo)}`}` : "—"}</dd>
+            <dt className="text-muted-foreground">{t.nextLiberation}</dt>
+            <dd className="text-right tabular">{b.nextLiberation ? `${b.nextLiberation.farmName}${b.nextLiberation.daysToGo === null ? "" : ` · ${daysLabel(b.nextLiberation.daysToGo, t)}`}` : "—"}</dd>
           </dl>
         </div>
 
         <div className="min-w-0">
-          <div className="stat-label mb-2">Every farm against the benchmark</div>
+          <div className="stat-label mb-2">{t.everyFarmVs}</div>
           {bench?.projected && (
             <p className="mb-2 text-xs text-muted-foreground" data-testid="warplan-benchmark-projected">
-              No sponsor-funded farm{b.sinceLabel ? ` funded ${b.sinceLabel}` : ""} has returned 100 % of its capital yet, so the benchmark is the median of every captive farm's projected liberation at the current pace (campaigns.ts) and no farm can be graded against a real curve. The first liberation{b.sinceLabel ? " of a farm funded in the era" : ""} turns this into a measured cycle.
+              {t.projectedBenchmarkNote(b.sinceLabel)}
             </p>
           )}
           {graded.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No other sponsor-funded farm to grade.</p>
+            <p className="text-sm text-muted-foreground">{t.noOtherFarm}</p>
           ) : (
             <div className="rounded-lg border border-border/60">
               <Table className="min-w-[720px] max-sm:min-w-0" data-mobile="cards" data-testid="warplan-grades">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Farm</TableHead>
-                    <TableHead className="text-right">Days in</TableHead>
-                    <TableHead className="text-right">Returned</TableHead>
-                    <TableHead className="text-right">{bench?.farmName ?? "Benchmark"} at the same day</TableHead>
-                    <TableHead className="text-right">vs benchmark</TableHead>
-                    <TableHead className="text-right">Liberation</TableHead>
-                    <TableHead className="text-right">Grade</TableHead>
+                    <TableHead>{t.gradeCol.farm}</TableHead>
+                    <TableHead className="text-right">{t.gradeCol.daysIn}</TableHead>
+                    <TableHead className="text-right">{t.gradeCol.returned}</TableHead>
+                    <TableHead className="text-right">{t.gradeCol.benchmarkSameDay(bench?.farmName ?? t.grade.benchmark)}</TableHead>
+                    <TableHead className="text-right">{t.gradeCol.vsBenchmark}</TableHead>
+                    <TableHead className="text-right">{t.gradeCol.liberation}</TableHead>
+                    <TableHead className="text-right">{t.gradeCol.grade}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {graded.map((g) => (
-                    <GradeRow key={g.farmId} g={g} />
+                    <GradeRow key={g.farmId} g={g} t={t} />
                   ))}
                 </TableBody>
               </Table>
@@ -549,47 +572,50 @@ function BenchmarkPanel({ b }: { b: RotationBenchmark }) {
   );
 }
 
-function GradeRow({ g }: { g: FarmGrade }) {
+function GradeRow({ g, t }: { g: FarmGrade; t: WarPlanUiStrings }) {
   const cls = GRADE_CLASS[g.verdict];
   return (
     <TableRow data-testid="warplan-grade" data-farm={g.farmName} data-verdict={g.verdict}>
-      <TableCell data-label="Farm" className="font-medium">
+      <TableCell data-label={t.gradeCol.farm} className="font-medium">
         {g.farmName}
         <span className="block text-xs font-normal text-muted-foreground">
           {g.investorName} · {money(g.capital)}
           {g.fundingDate ? ` · ${date(g.fundingDate)}` : ""}
         </span>
       </TableCell>
-      <TableCell data-label="Days in" className="text-right tabular">
+      <TableCell data-label={t.gradeCol.daysIn} className="text-right tabular">
         {g.daysElapsed === null ? "—" : number(g.daysElapsed)}
       </TableCell>
-      <TableCell data-label="Returned" className="text-right tabular">
+      <TableCell data-label={t.gradeCol.returned} className="text-right tabular">
         {pct(g.pctReturned, 1)}
         <span className="block text-xs text-muted-foreground">{money(g.capitalReturned)}</span>
       </TableCell>
-      <TableCell data-label="Benchmark at the same day" className="text-right tabular text-muted-foreground">
+      <TableCell data-label={t.gradeCol.benchmarkSameDay("")} className="text-right tabular text-muted-foreground">
         {g.benchmarkPctAtSameDay === null ? "—" : pct(g.benchmarkPctAtSameDay, 1)}
       </TableCell>
-      <TableCell data-label="vs benchmark" className={cn("text-right tabular", cls)}>
-        {g.pctVsBenchmark === null ? "—" : `${signed(g.pctVsBenchmark)} pts`}
-        {g.daysVsBenchmark !== null && <span className="block text-xs">{g.daysVsBenchmark >= 0 ? `${days(g.daysVsBenchmark)} ahead` : `${days(-g.daysVsBenchmark)} behind`}</span>}
+      <TableCell data-label={t.gradeCol.vsBenchmark} className={cn("text-right tabular", cls)}>
+        {g.pctVsBenchmark === null ? "—" : t.pts(signed(g.pctVsBenchmark))}
+        {g.daysVsBenchmark !== null && <span className="block text-xs">{g.daysVsBenchmark >= 0 ? t.ahead(daysLabel(g.daysVsBenchmark, t)) : t.behind(daysLabel(-g.daysVsBenchmark, t))}</span>}
       </TableCell>
-      <TableCell data-label="Liberation" className="text-right tabular">
-        {g.freed ? `freed ${date(g.projectedLiberationDate)}` : g.projectedLiberationDate ? `${date(g.projectedLiberationDate)}${g.daysToGo === null ? "" : ` · ${days(g.daysToGo)}`}` : "—"}
-        {!g.freed && g.lotsLeftToCover !== null && <span className="block text-xs text-muted-foreground">{g.lotsLeftToCover === 0 ? "covered, awaiting payout" : `${number(g.lotsLeftToCover)} lots to cover`}</span>}
+      <TableCell data-label={t.gradeCol.liberation} className="text-right tabular">
+        {g.freed ? t.freedOn(date(g.projectedLiberationDate)) : g.projectedLiberationDate ? `${date(g.projectedLiberationDate)}${g.daysToGo === null ? "" : ` · ${daysLabel(g.daysToGo, t)}`}` : "—"}
+        {!g.freed && g.lotsLeftToCover !== null && <span className="block text-xs text-muted-foreground">{g.lotsLeftToCover === 0 ? t.coveredAwaiting : t.lotsToCover(number(g.lotsLeftToCover))}</span>}
       </TableCell>
-      <TableCell data-label="Grade" className={cn("text-right font-heading", cls)}>
-        {GRADE_LABEL[g.verdict]}
+      <TableCell data-label={t.gradeCol.grade} className={cn("text-right font-heading", cls)}>
+        {t.grade[g.verdict]}
       </TableCell>
     </TableRow>
   );
 }
 
 function FieldFooter({ hint, real }: { hint: ReactNode; real: ReactNode }) {
+  const { realPrefix } = useCommonStrings();
   return (
     <div className="mt-1 flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground">
       <span>{hint}</span>
-      <span className="tabular">real: {real}</span>
+      <span className="tabular">
+        {realPrefix} {real}
+      </span>
     </div>
   );
 }
@@ -652,7 +678,7 @@ function NumberField({ id, label, value, onChange, real, hint, step = 1, min = 0
   );
 }
 
-function InvestorMixTable({ mix, onChange }: { mix: InvestorMixEntry[]; onChange: (mix: InvestorMixEntry[]) => void }) {
+function InvestorMixTable({ mix, onChange, t }: { mix: InvestorMixEntry[]; onChange: (mix: InvestorMixEntry[]) => void; t: WarPlanUiStrings }) {
   const updateEntry = (i: number, patch: Partial<InvestorMixEntry>) => onChange(mix.map((e, j) => (j === i ? { ...e, ...patch } : e)));
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir;
@@ -665,7 +691,7 @@ function InvestorMixTable({ mix, onChange }: { mix: InvestorMixEntry[]; onChange
     onChange(next);
   };
   const remove = (i: number) => onChange(mix.filter((_, j) => j !== i));
-  const add = () => onChange([...mix, { investorId: null, name: `Sponsor ${mix.length + 1}`, dealType: "fixed_interest", ratePct: 20, capital: 500_000 }]);
+  const add = () => onChange([...mix, { investorId: null, name: t.newSponsor(mix.length + 1), dealType: "fixed_interest", ratePct: 20, capital: 500_000 }]);
   const total = mix.reduce((a, e) => a + Math.max(0, e.capital), 0);
   const cell = "max-sm:!items-center";
 
@@ -674,37 +700,37 @@ function InvestorMixTable({ mix, onChange }: { mix: InvestorMixEntry[]; onChange
       <Table className="min-w-[760px] max-sm:min-w-0" data-mobile="cards" data-testid="warplan-mix">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="w-8">#</TableHead>
-            <TableHead>Sponsor</TableHead>
-            <TableHead>Deal</TableHead>
-            <TableHead className="text-right">Rate</TableHead>
-            <TableHead className="text-right">Capital for new farms</TableHead>
-            <TableHead className="text-right">Order</TableHead>
+            <TableHead className="w-8">{t.mixCol.order}</TableHead>
+            <TableHead>{t.mixCol.sponsor}</TableHead>
+            <TableHead>{t.mixCol.deal}</TableHead>
+            <TableHead className="text-right">{t.mixCol.rate}</TableHead>
+            <TableHead className="text-right">{t.mixCol.capital}</TableHead>
+            <TableHead className="text-right">{t.mixCol.orderCol}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {mix.map((e, i) => (
             <TableRow key={`${e.investorId ?? "new"}-${i}`} data-testid="warplan-mix-row" data-name={e.name}>
-              <TableCell data-label="Funding order" className={cn("font-heading text-gold", cell)}>
-                <span className="mr-2 text-xs font-normal uppercase tracking-wider text-muted-foreground sm:hidden">Funding order</span>
+              <TableCell data-label={t.fundingOrder} className={cn("font-heading text-gold", cell)}>
+                <span className="mr-2 text-xs font-normal uppercase tracking-wider text-muted-foreground sm:hidden">{t.fundingOrder}</span>
                 {i + 1}
               </TableCell>
-              <TableCell data-label="Sponsor" className={cell}>
-                <Input aria-label={`Sponsor ${i + 1} name`} value={e.name} onChange={(ev) => updateEntry(i, { name: ev.target.value })} className="min-w-[10rem] sm:w-full" maxLength={60} />
+              <TableCell data-label={t.mixCol.sponsor} className={cell}>
+                <Input aria-label={`${t.mixCol.sponsor} ${i + 1}`} value={e.name} onChange={(ev) => updateEntry(i, { name: ev.target.value })} className="min-w-[10rem] sm:w-full" maxLength={60} />
               </TableCell>
-              <TableCell data-label="Deal" className={cell}>
-                <Select aria-label={`Sponsor ${i + 1} deal`} value={e.dealType} onChange={(ev) => updateEntry(i, { dealType: ev.target.value as MixDealType })}>
-                  {DEAL_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
+              <TableCell data-label={t.mixCol.deal} className={cell}>
+                <Select aria-label={`${t.mixCol.deal} ${i + 1}`} value={e.dealType} onChange={(ev) => updateEntry(i, { dealType: ev.target.value as MixDealType })}>
+                  {(Object.keys(t.deal) as MixDealType[]).map((value) => (
+                    <option key={value} value={value}>
+                      {t.deal[value]}
                     </option>
                   ))}
                 </Select>
               </TableCell>
-              <TableCell data-label={e.dealType === "profit_share" ? "Share of gross" : "Annual rate"} className={cn("text-right", cell)}>
+              <TableCell data-label={e.dealType === "profit_share" ? t.shareOfGross : t.annualRate} className={cn("text-right", cell)}>
                 <div className="relative ml-auto w-28">
                   <Input
-                    aria-label={`Sponsor ${i + 1} rate`}
+                    aria-label={`${t.mixCol.rate} ${i + 1}`}
                     type="number"
                     inputMode="decimal"
                     min={0}
@@ -717,11 +743,11 @@ function InvestorMixTable({ mix, onChange }: { mix: InvestorMixEntry[]; onChange
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                 </div>
               </TableCell>
-              <TableCell data-label="Capital" className={cn("text-right", cell)}>
+              <TableCell data-label={t.mixCol.capital} className={cn("text-right", cell)}>
                 <div className="relative ml-auto w-40">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                   <Input
-                    aria-label={`Sponsor ${i + 1} capital`}
+                    aria-label={`${t.mixCol.capital} ${i + 1}`}
                     type="number"
                     inputMode="numeric"
                     min={0}
@@ -732,15 +758,15 @@ function InvestorMixTable({ mix, onChange }: { mix: InvestorMixEntry[]; onChange
                   />
                 </div>
               </TableCell>
-              <TableCell data-label="Order" className={cn("text-right", cell)}>
+              <TableCell data-label={t.mixCol.orderCol} className={cn("text-right", cell)}>
                 <div className="flex justify-end gap-1">
-                  <Button type="button" variant="ghost" size="icon" aria-label={`Move ${e.name} up`} disabled={i === 0} onClick={() => move(i, -1)}>
+                  <Button type="button" variant="ghost" size="icon" aria-label={t.moveUp(e.name)} disabled={i === 0} onClick={() => move(i, -1)}>
                     <ArrowUp />
                   </Button>
-                  <Button type="button" variant="ghost" size="icon" aria-label={`Move ${e.name} down`} disabled={i === mix.length - 1} onClick={() => move(i, 1)}>
+                  <Button type="button" variant="ghost" size="icon" aria-label={t.moveDown(e.name)} disabled={i === mix.length - 1} onClick={() => move(i, 1)}>
                     <ArrowDown />
                   </Button>
-                  <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${e.name}`} onClick={() => remove(i)}>
+                  <Button type="button" variant="ghost" size="icon" aria-label={t.remove(e.name)} onClick={() => remove(i)}>
                     <X />
                   </Button>
                 </div>
@@ -750,15 +776,15 @@ function InvestorMixTable({ mix, onChange }: { mix: InvestorMixEntry[]; onChange
         </TableBody>
         <TableFooter>
           <TableRow className="hover:bg-transparent">
-            <TableCell data-label="Sponsors" className={cn("font-heading", cell)} colSpan={4}>
-              {mix.length} {mix.length === 1 ? "sponsor" : "sponsors"} in the mix
+            <TableCell data-label={t.mixCol.sponsor} className={cn("font-heading", cell)} colSpan={4}>
+              {t.sponsorsInMix(mix.length)}
             </TableCell>
-            <TableCell data-label="Total capital" className={cn("text-right tabular font-heading text-gold", cell)} data-testid="warplan-mix-total">
+            <TableCell data-label={t.mixCol.capital} className={cn("text-right tabular font-heading text-gold", cell)} data-testid="warplan-mix-total">
               {money(total)}
             </TableCell>
             <TableCell data-label="" className={cn("text-right", cell)}>
               <Button type="button" variant="outline" size="sm" onClick={add} data-testid="warplan-mix-add">
-                <Plus /> Add sponsor
+                <Plus /> {t.addSponsor}
               </Button>
             </TableCell>
           </TableRow>
@@ -768,7 +794,7 @@ function InvestorMixTable({ mix, onChange }: { mix: InvestorMixEntry[]; onChange
   );
 }
 
-function ColumnCard({ c, plan, modeShort, selected, onSelect }: { c: WarPlanColumn; plan: WarPlan; modeShort: string; selected: boolean; onSelect: () => void }) {
+function ColumnCard({ c, plan, modeShort, selected, onSelect, t, lang }: { c: WarPlanColumn; plan: WarPlan; modeShort: string; selected: boolean; onSelect: () => void; t: WarPlanUiStrings; lang: import("@/domain/quality_human").QualityLang }) {
   const tone = c.hitsDeadline ? "text-stage-closed" : c.exitDate ? "text-ember" : "text-muted-foreground";
   const deadline = date(plan.goal.deadline);
   return (
@@ -780,34 +806,34 @@ function ColumnCard({ c, plan, modeShort, selected, onSelect }: { c: WarPlanColu
     >
       <div className="stat-label">{c.title}</div>
       <div className={cn("mt-2 font-display text-2xl leading-none sm:text-3xl", tone)} data-testid="warplan-column-exit">
-        {c.exitDate ? date(c.exitDate) : "beyond 10 years"}
+        {c.exitDate ? date(c.exitDate) : t.beyond10}
       </div>
       <div className="mt-1 text-sm text-muted-foreground">
-        {c.exitDate ? (c.hitsDeadline ? `on or before the ${deadline} deadline` : `after the ${deadline} deadline`) : "the target is not reached within the horizon"}
+        {c.exitDate ? (c.hitsDeadline ? t.onOrBefore(deadline) : t.afterDeadline(deadline)) : t.notReached}
         {c.daysEarlierThanCurrent !== null && c.id !== "current_pace" && c.daysEarlierThanCurrent !== 0 && (
           <>
             {" · "}
             <span className={c.daysEarlierThanCurrent > 0 ? "text-stage-closed" : "text-ember"}>
-              {c.daysEarlierThanCurrent > 0 ? `${number(c.daysEarlierThanCurrent)} days earlier than the current pace` : `${number(-c.daysEarlierThanCurrent)} days later than the current pace`}
+              {c.daysEarlierThanCurrent > 0 ? t.daysEarlierPace(number(c.daysEarlierThanCurrent)) : t.daysLaterPace(number(-c.daysEarlierThanCurrent))}
             </span>
           </>
         )}
       </div>
       <p className="mt-3 text-sm text-foreground/85">{c.premise}</p>
       <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">Lots / month</dt>
+        <dt className="text-muted-foreground">{t.lotsMonth}</dt>
         <dd className="text-right tabular" data-testid="warplan-column-pace">
           {number(c.closingsPerMonth)}
           {(c.id === "required_plan" || c.id === "required_plus_buffer") && (
-            <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">per the War Plan's real deal terms</span>
+            <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">{t.realDealTerms}</span>
           )}
         </dd>
-        <dt className="text-muted-foreground">Farms to buy</dt>
+        <dt className="text-muted-foreground">{t.farmsToBuy}</dt>
         <dd className="text-right tabular" data-testid="warplan-column-farms">
           {c.farmsToBuy}
-          {c.lastPurchaseDate && c.farmsToBuy > 0 ? ` · last by ${warPlanMonthLabel(c.lastPurchaseDate)}` : ""}
+          {c.lastPurchaseDate && c.farmsToBuy > 0 ? t.lastBy(warPlanMonthLabel(c.lastPurchaseDate, lang)) : ""}
         </dd>
-        <dt className="text-muted-foreground">Capital to raise</dt>
+        <dt className="text-muted-foreground">{t.capitalToRaise}</dt>
         <dd className="text-right tabular font-medium" data-testid="warplan-column-capital">
           {money(c.capitalToRaise)}
         </dd>
@@ -819,7 +845,7 @@ function ColumnCard({ c, plan, modeShort, selected, onSelect }: { c: WarPlanColu
         ))}
         {c.unfunded > 0 && (
           <>
-            <dt className="pl-3 text-ember">Unfunded</dt>
+            <dt className="pl-3 text-ember">{t.unfunded}</dt>
             <dd className="text-right">
               <Badge variant="error" data-testid="warplan-unfunded">
                 {money(c.unfunded)}
@@ -829,53 +855,53 @@ function ColumnCard({ c, plan, modeShort, selected, onSelect }: { c: WarPlanColu
         )}
         {c.farmsToBuy > 0 && (
           <>
-            <dt className="text-muted-foreground">Peak outstanding</dt>
+            <dt className="text-muted-foreground">{t.peakOutstandingShort}</dt>
             <dd className="text-right tabular" data-testid="warplan-column-peak">
               {money(c.peakOutstanding)}
             </dd>
-            <dt className="text-muted-foreground">Total deployed</dt>
+            <dt className="text-muted-foreground">{t.totalDeployedShort}</dt>
             <dd className="text-right tabular">{money(c.totalDeployed)}</dd>
           </>
         )}
-        <dt className="text-muted-foreground">Reservations / month</dt>
+        <dt className="text-muted-foreground">{t.reservationsMonth}</dt>
         <dd className="text-right tabular" data-testid="warplan-column-reservations">
           {number(c.reservationsPerMonth)}
         </dd>
-        <dt className="text-muted-foreground">Ad spend / month</dt>
+        <dt className="text-muted-foreground">{t.adSpendMonth}</dt>
         <dd className="text-right tabular">{money(c.adSpendPerMonth)}</dd>
-        <dt className="text-muted-foreground">Note sales / month</dt>
+        <dt className="text-muted-foreground">{t.noteSalesMonth}</dt>
         <dd className="text-right tabular">{number(c.noteSalesPerMonth)}</dd>
-        <dt className="text-muted-foreground">Lots closed by the deadline</dt>
+        <dt className="text-muted-foreground">{t.lotsClosedByDeadline}</dt>
         <dd className="text-right tabular">{number(c.lotsNeeded)}</dd>
-        <dt className="text-muted-foreground">Inventory at the deadline</dt>
-        <dd className="text-right tabular">{number(c.inventoryAtDeadline)} lots</dd>
-        <dt className="text-muted-foreground">Cumulative {modeShort} at the deadline</dt>
+        <dt className="text-muted-foreground">{t.inventoryAtDeadline}</dt>
+        <dd className="text-right tabular">{number(c.inventoryAtDeadline)}</dd>
+        <dt className="text-muted-foreground">{t.cumulativeAtDeadline(modeShort)}</dt>
         <dd className={cn("text-right tabular font-medium", c.targetAtDeadline >= plan.goal.goal ? "text-stage-closed" : "text-ember")}>{moneyCompact(c.targetAtDeadline)}</dd>
         {c.turnsIncomplete > 0 && (
           <>
-            <dt className="text-ember">Turns not back by the deadline</dt>
+            <dt className="text-ember">{t.turnsNotBack}</dt>
             <dd className="text-right tabular text-ember" data-testid="warplan-column-incomplete">
-              {c.turnsIncomplete} of {c.farmsToBuy}
+              {t.ofFarms(c.turnsIncomplete, c.farmsToBuy)}
             </dd>
           </>
         )}
         {c.flaggedMonths > 0 && (
           <>
-            <dt className="text-ember">Red flags</dt>
+            <dt className="text-ember">{t.redFlags}</dt>
             <dd className="text-right tabular text-ember">
-              {c.flaggedMonths} {c.flaggedMonths === 1 ? "month" : "months"}
+              {t.months(c.flaggedMonths)}
             </dd>
           </>
         )}
       </dl>
       <Button variant={selected ? "default" : "outline"} size="sm" className="mt-4 self-start" onClick={onSelect} aria-pressed={selected}>
-        {selected ? "Shown month by month" : "Show month by month"}
+        {selected ? t.shownMonthByMonth : t.showMonthByMonth}
       </Button>
     </article>
   );
 }
 
-function MonthTable({ plan, column, modeShort, onColumn }: { plan: WarPlan; column: WarPlanColumn; modeShort: string; onColumn: (id: WarPlanColumnId) => void }) {
+function MonthTable({ plan, column, modeShort, onColumn, t, lang }: { plan: WarPlan; column: WarPlanColumn; modeShort: string; onColumn: (id: WarPlanColumnId) => void; t: WarPlanUiStrings; lang: import("@/domain/quality_human").QualityLang }) {
   const funded = plan.inputs.investorMix
     .map((e, mixIndex) => ({ mixIndex, name: e.name }))
     .filter((e) => column.rows.some((r) => (r.capitalReturned[e.mixIndex] ?? 0) > 0) || column.funding.some((f) => f.mixIndex === e.mixIndex));
@@ -885,13 +911,13 @@ function MonthTable({ plan, column, modeShort, onColumn }: { plan: WarPlan; colu
   const seasonal = plan.inputs.seasonal && column.id !== "current_pace" && rows.some((r) => r.seasonalFactor !== 1);
 
   return (
-    <section aria-label="Month by month" className="parchment-card overflow-hidden" data-testid="warplan-months" data-column={column.id}>
+    <section aria-label={t.monthByMonth(column.title)} className="parchment-card overflow-hidden" data-testid="warplan-months" data-column={column.id}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 p-4">
-        <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">Month by month — {column.title}</h2>
-        <div role="group" aria-label="Plan shown" className="flex flex-wrap gap-2">
+        <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">{t.monthByMonth(column.title)}</h2>
+        <div role="group" aria-label={t.planShownAria} className="flex flex-wrap gap-2">
           {plan.all.map((c) => (
             <Button key={c.id} type="button" size="sm" variant={c.id === column.id ? "default" : "outline"} aria-pressed={c.id === column.id} onClick={() => onColumn(c.id)}>
-              {COLUMN_SHORT[c.id]}
+              {t.columnShort[c.id]}
             </Button>
           ))}
         </div>
@@ -899,74 +925,74 @@ function MonthTable({ plan, column, modeShort, onColumn }: { plan: WarPlan; colu
       <Table className="min-w-[1100px] max-sm:min-w-0" data-mobile="cards">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead>Month</TableHead>
-            <TableHead className="text-right">Farms bought</TableHead>
-            <TableHead className="text-right">Capital deployed</TableHead>
-            <TableHead className="text-right">{seasonal ? "Lots closed (seasonal)" : "Lots closed"}</TableHead>
-            {seasonal && <TableHead className="text-right">Flat average</TableHead>}
-            <TableHead className="text-right">Notes sold</TableHead>
-            <TableHead className="text-right">Ad spend</TableHead>
-            <TableHead className="text-right">Cumulative {modeShort}</TableHead>
-            <TableHead className="text-right">Capital owed</TableHead>
+            <TableHead>{t.monthCol.month}</TableHead>
+            <TableHead className="text-right">{t.monthCol.farmsBought}</TableHead>
+            <TableHead className="text-right">{t.monthCol.capitalDeployed}</TableHead>
+            <TableHead className="text-right">{seasonal ? t.monthCol.lotsClosedSeasonal : t.monthCol.lotsClosed}</TableHead>
+            {seasonal && <TableHead className="text-right">{t.monthCol.flatAverage}</TableHead>}
+            <TableHead className="text-right">{t.monthCol.notesSold}</TableHead>
+            <TableHead className="text-right">{t.monthCol.adSpend}</TableHead>
+            <TableHead className="text-right">{t.monthCol.cumulative(modeShort)}</TableHead>
+            <TableHead className="text-right">{t.monthCol.capitalOwed}</TableHead>
             {funded.map((f) => (
               <TableHead key={f.mixIndex} className="text-right">
-                Returned · {f.name}
+                {t.monthCol.returned(f.name)}
               </TableHead>
             ))}
-            <TableHead className="text-right">Inventory</TableHead>
-            <TableHead>Flags</TableHead>
+            <TableHead className="text-right">{t.monthCol.inventory}</TableHead>
+            <TableHead>{t.monthCol.flags}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.map((r) => (
             <TableRow key={r.monthIndex} data-testid="warplan-month" data-flags={r.flags.join(" ")} className={cn(r.flags.length > 0 && "bg-destructive/10 hover:bg-destructive/15")}>
-              <TableCell data-label="Month" className="whitespace-nowrap font-medium">
-                {warPlanMonthLabel(r.date)}
-                {r.monthIndex === 1 && <span className="block text-xs font-normal text-muted-foreground">from {date(plan.asOf)}</span>}
+              <TableCell data-label={t.monthCol.month} className="whitespace-nowrap font-medium">
+                {warPlanMonthLabel(r.date, lang)}
+                {r.monthIndex === 1 && <span className="block text-xs font-normal text-muted-foreground">{t.fromDate(date(plan.asOf))}</span>}
               </TableCell>
-              <TableCell data-label="Farms bought" className={cn("text-right tabular", r.farmsBought === 0 && "max-sm:!hidden")}>
+              <TableCell data-label={t.monthCol.farmsBought} className={cn("text-right tabular", r.farmsBought === 0 && "max-sm:!hidden")}>
                 {r.farmsBought > 0 ? r.farmsBought : "—"}
               </TableCell>
-              <TableCell data-label="Capital deployed" className={cn("text-right tabular", r.capitalDeployed === 0 && "max-sm:!hidden")}>
+              <TableCell data-label={t.monthCol.capitalDeployed} className={cn("text-right tabular", r.capitalDeployed === 0 && "max-sm:!hidden")}>
                 {r.capitalDeployed > 0 ? money(r.capitalDeployed) : "—"}
               </TableCell>
-              <TableCell data-label={seasonal ? "Lots closed (seasonal)" : "Lots closed"} className="text-right tabular" data-testid="warplan-month-lots">
+              <TableCell data-label={seasonal ? t.monthCol.lotsClosedSeasonal : t.monthCol.lotsClosed} className="text-right tabular" data-testid="warplan-month-lots">
                 {number(r.lotsClosed)}
                 {seasonal && r.lotsClosed > 0 && <span className={cn("block text-xs", r.seasonalFactor > 1 ? "text-stage-closed" : r.seasonalFactor < 1 ? "text-ember" : "text-muted-foreground")}>×{r.seasonalFactor.toFixed(2)}</span>}
               </TableCell>
               {seasonal && (
-                <TableCell data-label="Flat average" className="text-right tabular text-muted-foreground">
+                <TableCell data-label={t.monthCol.flatAverage} className="text-right tabular text-muted-foreground">
                   {number(r.flatLotsClosed)}
                 </TableCell>
               )}
-              <TableCell data-label="Notes sold" className="text-right tabular">
+              <TableCell data-label={t.monthCol.notesSold} className="text-right tabular">
                 {number(r.notesSold)}
               </TableCell>
-              <TableCell data-label="Ad spend" className="text-right tabular">
+              <TableCell data-label={t.monthCol.adSpend} className="text-right tabular">
                 {money(r.adSpend)}
               </TableCell>
-              <TableCell data-label={`Cumulative ${modeShort}`} className={cn("text-right tabular font-medium", r.cumulativeNet >= plan.goal.goal ? "text-stage-closed" : r.cumulativeNet < 0 ? "text-ember" : "")}>
+              <TableCell data-label={t.monthCol.cumulative(modeShort)} className={cn("text-right tabular font-medium", r.cumulativeNet >= plan.goal.goal ? "text-stage-closed" : r.cumulativeNet < 0 ? "text-ember" : "")}>
                 {money(r.cumulativeNet)}
               </TableCell>
-              <TableCell data-label="Capital owed" className="text-right tabular text-muted-foreground">
+              <TableCell data-label={t.monthCol.capitalOwed} className="text-right tabular text-muted-foreground">
                 {money(r.capitalOwed)}
               </TableCell>
               {funded.map((f) => (
-                <TableCell key={f.mixIndex} data-label={`Returned · ${f.name}`} className="text-right tabular">
+                <TableCell key={f.mixIndex} data-label={t.monthCol.returned(f.name)} className="text-right tabular">
                   {money(r.capitalReturned[f.mixIndex] ?? 0)}
                 </TableCell>
               ))}
-              <TableCell data-label="Inventory" className="text-right tabular">
+              <TableCell data-label={t.monthCol.inventory} className="text-right tabular">
                 {number(r.inventory)}
               </TableCell>
-              <TableCell data-label="Flags" className={cn(r.flags.length === 0 && "max-sm:!hidden")}>
+              <TableCell data-label={t.monthCol.flags} className={cn(r.flags.length === 0 && "max-sm:!hidden")}>
                 {r.flags.length === 0 ? (
                   <span className="text-muted-foreground">—</span>
                 ) : (
                   <div className="flex flex-wrap justify-end gap-1 sm:justify-start">
                     {r.flags.map((f) => (
                       <Badge key={f} variant="error" data-testid="warplan-flag" data-flag={f}>
-                        {FLAG_LABEL[f]}
+                        {t.flag[f]}
                       </Badge>
                     ))}
                   </div>
@@ -977,51 +1003,51 @@ function MonthTable({ plan, column, modeShort, onColumn }: { plan: WarPlan; colu
         </TableBody>
         <TableFooter>
           <TableRow className="hover:bg-transparent">
-            <TableCell data-label="Total" className="font-heading">
-              By {date(plan.goal.deadline)}
+            <TableCell data-label={t.byDeadline(date(plan.goal.deadline))} className="font-heading">
+              {t.byDeadline(date(plan.goal.deadline))}
             </TableCell>
-            <TableCell data-label="Farms bought" className="text-right tabular">
+            <TableCell data-label={t.monthCol.farmsBought} className="text-right tabular">
               {sum((r) => r.farmsBought)}
             </TableCell>
-            <TableCell data-label="Capital deployed" className="text-right tabular">
+            <TableCell data-label={t.monthCol.capitalDeployed} className="text-right tabular">
               {money(sum((r) => r.capitalDeployed))}
             </TableCell>
-            <TableCell data-label={seasonal ? "Lots closed (seasonal)" : "Lots closed"} className="text-right tabular">
+            <TableCell data-label={seasonal ? t.monthCol.lotsClosedSeasonal : t.monthCol.lotsClosed} className="text-right tabular">
               {number(Math.round(sum((r) => r.lotsClosed) * 100) / 100)}
             </TableCell>
             {seasonal && (
-              <TableCell data-label="Flat average" className="text-right tabular text-muted-foreground">
+              <TableCell data-label={t.monthCol.flatAverage} className="text-right tabular text-muted-foreground">
                 {number(Math.round(sum((r) => r.flatLotsClosed) * 100) / 100)}
               </TableCell>
             )}
-            <TableCell data-label="Notes sold" className="text-right tabular">
+            <TableCell data-label={t.monthCol.notesSold} className="text-right tabular">
               {number(Math.round(sum((r) => r.notesSold) * 100) / 100)}
             </TableCell>
-            <TableCell data-label="Ad spend" className="text-right tabular">
+            <TableCell data-label={t.monthCol.adSpend} className="text-right tabular">
               {money(sum((r) => r.adSpend))}
             </TableCell>
-            <TableCell data-label={`Cumulative ${modeShort}`} className={cn("text-right tabular font-heading", (last?.cumulativeNet ?? 0) >= plan.goal.goal ? "text-stage-closed" : "text-ember")}>
+            <TableCell data-label={t.monthCol.cumulative(modeShort)} className={cn("text-right tabular font-heading", (last?.cumulativeNet ?? 0) >= plan.goal.goal ? "text-stage-closed" : "text-ember")}>
               {money(last?.cumulativeNet)}
             </TableCell>
-            <TableCell data-label="Capital owed" className="text-right tabular text-muted-foreground">
+            <TableCell data-label={t.monthCol.capitalOwed} className="text-right tabular text-muted-foreground">
               {money(last?.capitalOwed)}
             </TableCell>
             {funded.map((f) => (
-              <TableCell key={f.mixIndex} data-label={`Returned · ${f.name}`} className="text-right tabular">
+              <TableCell key={f.mixIndex} data-label={t.monthCol.returned(f.name)} className="text-right tabular">
                 {money(last?.capitalReturned[f.mixIndex] ?? 0)}
               </TableCell>
             ))}
-            <TableCell data-label="Inventory" className="text-right tabular">
+            <TableCell data-label={t.monthCol.inventory} className="text-right tabular">
               {number(last?.inventory)}
             </TableCell>
-            <TableCell data-label="Flags" className="tabular">
-              {column.flaggedMonths > 0 ? <span className="text-ember">{column.flaggedMonths} flagged</span> : <span className="text-muted-foreground">none</span>}
+            <TableCell data-label={t.monthCol.flags} className="tabular">
+              {column.flaggedMonths > 0 ? <span className="text-ember">{t.flagged(column.flaggedMonths)}</span> : <span className="text-muted-foreground">{t.none}</span>}
             </TableCell>
           </TableRow>
         </TableFooter>
       </Table>
       <p className="border-t border-border/60 p-4 text-sm text-muted-foreground">
-        The first row runs from today to the end of the month, so its closings are prorated.{seasonal ? " Seasonal closings follow the realm's month-of-year profile of real closing dates (smoothed, floored at 25% of the flat rate) and average out to the flat pace over the plan." : ""} Capital owed is what sponsors are still due at month end (today's positions repaid pro rata as the existing lots close, new farms as their lots close). Red rows are months where the required closings exceed the inventory, a farm is bought too late to convert before the deadline, or a farm's capital turn cannot complete before it.
+        {t.monthFoot}{seasonal ? t.monthFootSeasonal : ""}
       </p>
     </section>
   );

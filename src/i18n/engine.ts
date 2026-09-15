@@ -82,6 +82,9 @@ export interface EngineUiStrings {
   months: string;
   never: string;
   chartAria: string;
+  inventoryDry: string;
+  cycleArrow: (from: string, to: string) => string;
+  blockRecycledFresh: (farm: string, cost: string, recycled: string, fresh: string) => string;
 }
 
 export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
@@ -203,6 +206,10 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     months: "months",
     never: "never",
     chartAria: "The Engine charts",
+    inventoryDry: "Inventory dry",
+    cycleArrow: (from, to) => `${from} mo → ${to}`,
+    blockRecycledFresh: (farm, cost, recycled, fresh) =>
+      `${farm}: ${cost} · recycled ${recycled} · fresh ${fresh}`,
   },
   es: {
     title: "El Motor",
@@ -322,5 +329,9 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     months: "meses",
     never: "nunca",
     chartAria: "Gráficas del Motor",
+    inventoryDry: "Inventario agotado",
+    cycleArrow: (from, to) => `${from} mo → ${to}`,
+    blockRecycledFresh: (farm, cost, recycled, fresh) =>
+      `${farm}: ${cost} · reciclado ${recycled} · fresco ${fresh}`,
   },
 };

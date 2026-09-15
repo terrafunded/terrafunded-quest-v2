@@ -16,7 +16,7 @@ import type { EngineUiStrings } from "@/i18n/engine";
 import { useInViewOnce } from "@/hooks/useInViewOnce";
 import { useWideViewport } from "@/hooks/useWideViewport";
 import { useTheme } from "@/theme/ThemeProvider";
-import { money, moneyCompact } from "@/lib/format";
+import { money, moneyCompact, monthLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   BORDER,
@@ -37,12 +37,6 @@ type Props = {
   result: EngineResult;
   t: EngineUiStrings;
   onLoadSensitivity: (cell: EngineSensitivityCell) => void;
-};
-
-const monthLabel = (iso: string) => {
-  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat("en-US", { month: "short", year: "2-digit", timeZone: "UTC" }).format(d);
 };
 
 function ChartCard({
@@ -154,7 +148,7 @@ function TurnsTimeline({
                             key={`${lane.id}-${bi}-${block.farmName}`}
                             className="absolute top-0 h-full rounded-sm"
                             style={{ left: `${left}%`, width: `${width}%`, background: color, opacity: 0.85 }}
-                            title={`${block.farmName}: ${moneyCompact(block.cost)} · recycled ${moneyCompact(block.recycled)} · fresh ${moneyCompact(block.fresh)}`}
+                            title={t.blockRecycledFresh(block.farmName, moneyCompact(block.cost), moneyCompact(block.recycled), moneyCompact(block.fresh))}
                           />
                         );
                       })}
@@ -168,7 +162,7 @@ function TurnsTimeline({
                   key={`dry-${m}`}
                   className="absolute bottom-0 top-6 w-px bg-ember/60"
                   style={{ left: `${((m - 1) / maxMonth) * 100}%` }}
-                  title="Inventory dry"
+                  title={t.inventoryDry}
                 />
               ))}
               {k > 0 && (

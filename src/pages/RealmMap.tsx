@@ -9,7 +9,9 @@ import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } f
 import { PointerTooltip } from "@/components/realm/PointerTooltip";
 import { FarmCard } from "@/components/realm/FarmCard";
 import { CAMPAIGN_META, RING_STROKE, STAGE_FILL } from "@/components/realm/realmTokens";
-import { DEAL_LABEL, STAGE_LABEL, date, money, moneyExact, pct } from "@/lib/format";
+import { useCommonStrings } from "@/i18n/common";
+import { useRealmMapStrings } from "@/i18n/realmMap";
+import { dealLabel, date, money, moneyExact, pct, stageLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** Farms with at least this many lots take two columns so a 32-lot plat is not drawn at the size of a 6-lot one. */
@@ -60,6 +62,8 @@ function FollowTooltip({ lot, origin }: { lot: Lot; origin: { x: number; y: numb
 
 export default function RealmMap() {
   const { data, isLoading, error, refetch } = useRealm();
+  const t = useRealmMapStrings();
+  const common = useCommonStrings();
   const [openFarm, setOpenFarm] = useState<FarmEconomics | null>(null);
 
   const farms = useMemo(() => [...(data?.realm.farms ?? [])].sort((a, b) => b.totalLots - a.totalLots), [data]);
@@ -76,17 +80,14 @@ export default function RealmMap() {
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
   if (!data) return null;
-  if (farms.length === 0) return <EmptyState title="No territories" body="No subdivided farms were found." />;
+  if (farms.length === 0) return <EmptyState title={t.emptyTitle} body={t.emptyBody} />;
 
   const realMaps = reconciliations.filter((r) => r.status === "ok").length;
 
   return (
     <div>
-      <PageHeader
-        title="The Realm"
-        subtitle={`One card per farm on its surveyed parcel map — the same drawing Payments' availability map uses, over the aerial it serves — with every lot tinted by its Quest state. Farms whose drawing is missing or disagrees with the ledger get a schematic plat instead (${realMaps} of ${farms.length} mapped). Each farm fights its own campaign: sell enough lots to cover its capital and accrued interest. Hover a lot for its economics; click a farm for the campaign.`}
-      >
-        <ul className="flex flex-wrap gap-3 text-xs text-muted-foreground" aria-label="Legend">
+      <PageHeader title={t.title} subtitle={t.subtitle(realMaps, farms.length)}>
+        <ul className="flex flex-wrap gap-3 text-xs text-muted-foreground" aria-label={t.legendAria}>
           {(Object.keys(STAGE_FILL) as LotStage[]).map((s) => (
             <li key={s} className="inline-flex items-center gap-1.5">
               {s === "reserved" ? (
@@ -94,17 +95,17 @@ export default function RealmMap() {
               ) : (
                 <span className="inline-block h-3 w-3 rounded-sm" style={{ background: STAGE_FILL[s] }} />
               )}
-              {STAGE_LABEL[s]}
+              {stageLabel(s)}
             </li>
           ))}
           <li className="inline-flex items-center gap-1.5">
             <span className="inline-block h-3 w-3 rounded-sm border-2 border-dashed" style={{ borderColor: RING_STROKE.stuck }} />
-            Stuck 60+ days
+            {t.stuck60}
           </li>
           {(Object.keys(CAMPAIGN_META) as CampaignState[]).map((c) => (
             <li key={c} className="inline-flex items-center gap-1.5">
               <span className="inline-block h-3 w-3 rounded-full border-2" style={{ borderColor: CAMPAIGN_META[c].stroke }} />
-              {CAMPAIGN_META[c].label}
+              {common.campaign[c]}
             </li>
           ))}
         </ul>
@@ -134,7 +135,7 @@ export default function RealmMap() {
 
       <Sheet open={!!openFarm} onOpenChange={(o) => !o && setOpenFarm(null)}>
         {openFarm && (
-          <SheetContent title={openFarm.name} description={`${openFarm.county ?? ""} · ${DEAL_LABEL[openFarm.dealType ?? ""] ?? openFarm.dealType} · ${openFarm.investorName ?? "own capital"}`}>
+          <SheetContent title={openFarm.name} description={`${openFarm.county ?? ""} · ${openFarm.dealType ? dealLabel(openFarm.dealType) : ""} · ${openFarm.investorName ?? t.ownCapital}`}>
             <FarmDetail farm={openFarm} campaign={campaignByFarm?.get(openFarm.farmId)} pipeline={pipeline?.farmById.get(openFarm.farmId)} realmMedianDaysToClose={pipeline?.medianDaysToClose ?? null} />
           </SheetContent>
         )}
@@ -144,6 +145,7 @@ export default function RealmMap() {
 }
 
 export function LotEconomics({ lot }: { lot: Lot }) {
+  const t = useRealmMapStrings().lot;
   const row = (label: string, value: string, className?: string) => (
     <div className="flex justify-between gap-3">
       <span className="text-muted-foreground">{label}</span>
@@ -156,17 +158,17 @@ export function LotEconomics({ lot }: { lot: Lot }) {
         <div className="font-heading text-sm text-gold">{lot.name}</div>
         <StageBadge stage={lot.stage} />
       </div>
-      {lot.buyerName && <div className="text-muted-foreground">Buyer: {lot.buyerName}</div>}
-      {row("Sale price", moneyExact(lot.salePrice))}
-      {row("Land cost", moneyExact(lot.landCost))}
-      {row("Gross", moneyExact(lot.grossProfit))}
-      {row("Investor take", moneyExact(lot.investorTake))}
-      {row("Net", moneyExact(lot.netProfit), "font-medium")}
-      {row("Cash realized", moneyExact(lot.cashRealized), "text-stage-closed")}
-      {lot.noteSalePrice !== null && row("Note sold for", moneyExact(lot.noteSalePrice))}
-      {lot.reservationDate && row("Reserved", date(lot.reservationDate))}
-      {lot.closeDate && row("Closed", date(lot.closeDate))}
-      {lot.daysInPipeline !== null && row("Days in pipeline", `${lot.daysInPipeline}`)}
+      {lot.buyerName && <div className="text-muted-foreground">{t.buyer(lot.buyerName)}</div>}
+      {row(t.salePrice, moneyExact(lot.salePrice))}
+      {row(t.landCost, moneyExact(lot.landCost))}
+      {row(t.gross, moneyExact(lot.grossProfit))}
+      {row(t.investorTake, moneyExact(lot.investorTake))}
+      {row(t.net, moneyExact(lot.netProfit), "font-medium")}
+      {row(t.cashRealized, moneyExact(lot.cashRealized), "text-stage-closed")}
+      {lot.noteSalePrice !== null && row(t.noteSoldFor, moneyExact(lot.noteSalePrice))}
+      {lot.reservationDate && row(t.reserved, date(lot.reservationDate))}
+      {lot.closeDate && row(t.closed, date(lot.closeDate))}
+      {lot.daysInPipeline !== null && row(t.daysInPipeline, `${lot.daysInPipeline}`)}
     </div>
   );
 }
@@ -182,6 +184,7 @@ export function FarmDetail({
   pipeline?: FarmPipeline;
   realmMedianDaysToClose?: number | null;
 }) {
+  const t = useRealmMapStrings().farm;
   const stat = (label: string, value: string, className?: string) => (
     <div className="rounded-md bg-muted/40 p-3">
       <div className="stat-label">{label}</div>
@@ -192,32 +195,31 @@ export function FarmDetail({
     <div className="space-y-5 text-sm">
       {campaign && <CampaignPanel c={campaign} />}
       <div className="grid grid-cols-2 gap-2">
-        {stat("Capital deployed", money(farm.capitalDeployed))}
-        {stat("Land cost / lot", money(farm.landCostPerLot))}
-        {stat("Revenue", money(farm.revenue))}
-        {stat("Net profit", money(farm.netProfit), "text-gold")}
-        {stat("Cash realized", money(farm.cashRealized), "text-stage-closed")}
-        {stat("Capital outstanding", money(farm.capitalOutstanding))}
-        {farm.dealType === "fixed_interest" && stat(`Interest accrued @ ${farm.annualRatePct}%`, money(farm.interest.accruedToDate))}
-        {farm.dealType === "profit_share" && stat(`Investor share @ ${farm.profitSharePct}%`, money(farm.investorTake))}
-        {stat("Funded", date(farm.fundingDate ?? farm.closingDate))}
-        {stat("Months since funding", farm.monthsSinceFunding === null ? "not yet" : `${farm.monthsSinceFunding}`)}
+        {stat(t.capitalDeployed, money(farm.capitalDeployed))}
+        {stat(t.landCostPerLot, money(farm.landCostPerLot))}
+        {stat(t.revenue, money(farm.revenue))}
+        {stat(t.netProfit, money(farm.netProfit), "text-gold")}
+        {stat(t.cashRealized, money(farm.cashRealized), "text-stage-closed")}
+        {stat(t.capitalOutstanding, money(farm.capitalOutstanding))}
+        {farm.dealType === "fixed_interest" && stat(t.interestAccrued(farm.annualRatePct ?? 0), money(farm.interest.accruedToDate))}
+        {farm.dealType === "profit_share" && stat(t.investorShare(farm.profitSharePct ?? 0), money(farm.investorTake))}
+        {stat(t.funded, date(farm.fundingDate ?? farm.closingDate))}
+        {stat(t.monthsSinceFunding, farm.monthsSinceFunding === null ? t.notYet : `${farm.monthsSinceFunding}`)}
       </div>
       {pipeline && (
         <div className="rounded-lg border border-siege/24 bg-siege/8 p-3" data-testid="farm-pipeline">
-          <div className="stat-label">Reservation → closing</div>
+          <div className="stat-label">{t.reservationClosing}</div>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="font-heading text-xl tabular" data-testid="farm-median-days" data-value={pipeline.medianDaysToClose ?? ""}>
-              {pipeline.medianDaysToClose === null ? "—" : `${pipeline.medianDaysToClose} days`}
+              {pipeline.medianDaysToClose === null ? "—" : `${pipeline.medianDaysToClose}d`}
             </span>
             <span className="text-xs text-muted-foreground">
-              median over {pipeline.closedWithBothDates} closed lot{pipeline.closedWithBothDates === 1 ? "" : "s"}
-              {realmMedianDaysToClose !== null && ` · realm ${realmMedianDaysToClose}d`}
+              {t.medianOver(pipeline.closedWithBothDates, realmMedianDaysToClose !== null ? `${realmMedianDaysToClose}d` : null)}
             </span>
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            {pipeline.reserved} reserved · <span className={cn(pipeline.stuck > 0 && "text-siege")}>{pipeline.stuck} stuck</span>
-            {pipeline.stuck > 0 && <> · {money(pipeline.netProfitTrapped)} of profit trapped</>}
+            {t.reservedStuck(pipeline.reserved, pipeline.stuck)}
+            {pipeline.stuck > 0 && <>{t.profitTrapped(money(pipeline.netProfitTrapped))}</>}
           </div>
         </div>
       )}
@@ -234,8 +236,8 @@ export function FarmDetail({
           .map((l) => (
             <li key={l.propertyId} className="flex items-center justify-between gap-3 py-2">
               <div className="min-w-0">
-                <div className="truncate">Lot {l.lotNumber ?? "?"}</div>
-                <div className="truncate text-xs text-muted-foreground">{l.buyerName ?? (l.stage === "available" ? "unsold" : "—")}</div>
+                <div className="truncate">{t.lotNumber(String(l.lotNumber ?? "?"))}</div>
+                <div className="truncate text-xs text-muted-foreground">{l.buyerName ?? (l.stage === "available" ? t.unsold : "—")}</div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="tabular text-xs">{moneyExact(l.netProfit)}</span>
@@ -250,35 +252,38 @@ export function FarmDetail({
 
 export function CampaignPanel({ c }: { c: Campaign }) {
   const meta = CAMPAIGN_META[c.state];
+  const common = useCommonStrings();
+  const t = useRealmMapStrings().campaign;
+  const label = common.campaign[c.state];
   return (
-    <section className={cn("rounded-lg border p-3", meta.badge)} aria-label="Campaign" data-testid="campaign" data-state={c.state}>
+    <section className={cn("rounded-lg border p-3", meta.badge)} aria-label={t.aria} data-testid="campaign" data-state={c.state}>
       <div className="flex items-baseline justify-between gap-3">
-        <div className="font-heading text-xs uppercase tracking-[0.2em]">Campaign · {meta.label}</div>
-        <div className="text-xs tabular">{pct(c.pctCovered, 0)} covered</div>
+        <div className="font-heading text-xs uppercase tracking-[0.2em]">{t.title(label)}</div>
+        <div className="text-xs tabular">{t.covered(pct(c.pctCovered, 0))}</div>
       </div>
       <div className="mt-1 text-xs text-foreground/80">{c.reason}</div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background/60">
         <motion.div className="h-full rounded-full bg-current" initial={{ width: 0 }} animate={{ width: `${c.pctCovered}%` }} transition={{ duration: 1 }} />
       </div>
       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-foreground/90">
-        <dt className="text-muted-foreground">Goal (capital + interest)</dt>
+        <dt className="text-muted-foreground">{t.goal}</dt>
         <dd className="text-right tabular">{money(c.target)}</dd>
-        <dt className="text-muted-foreground">Sold so far</dt>
+        <dt className="text-muted-foreground">{t.soldSoFar}</dt>
         <dd className="text-right tabular">{money(c.recovered)}</dd>
-        <dt className="text-muted-foreground">Lots left to cover</dt>
+        <dt className="text-muted-foreground">{t.lotsLeft}</dt>
         <dd className="text-right tabular">
-          {c.lotsLeftToCover ?? "—"} of {c.lotsUnsold} unsold
-          {c.lotsShort > 0 ? ` (${c.lotsShort} short)` : ""}
+          {t.ofUnsold(String(c.lotsLeftToCover ?? "—"), c.lotsUnsold)}
+          {c.lotsShort > 0 ? t.short(c.lotsShort) : ""}
         </dd>
-        <dt className="text-muted-foreground">Reservations waiting</dt>
+        <dt className="text-muted-foreground">{t.reservationsWaiting}</dt>
         <dd className={cn("text-right tabular", c.reservedLots > 0 && "text-stage-reserved")} data-testid="campaign-reserved" data-value={c.reservedLots}>
           {c.reservedLots}
         </dd>
-        <dt className="text-muted-foreground">Last closing</dt>
-        <dd className="text-right tabular">{c.lastClosingDate ? `${date(c.lastClosingDate)} · ${c.daysSinceLastClosing}d ago` : "none yet"}</dd>
+        <dt className="text-muted-foreground">{t.lastClosing}</dt>
+        <dd className="text-right tabular">{c.lastClosingDate ? `${date(c.lastClosingDate)} · ${t.daysAgo(c.daysSinceLastClosing ?? 0)}` : t.noneYet}</dd>
         {c.interestAccruing && (
           <>
-            <dt className="text-muted-foreground">Interest accrued</dt>
+            <dt className="text-muted-foreground">{t.interestAccrued}</dt>
             <dd className="text-right tabular">{money(c.accruedInterest)}</dd>
           </>
         )}

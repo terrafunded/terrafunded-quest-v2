@@ -10,9 +10,28 @@
  * `QUEST_ALLOWED_TEST_EMAIL`. Nothing else bypasses the role check.
  */
 
+import type { QualityLang } from "./quality_human";
+
 export const ADMIN_ROLE = "admin";
 
+/** English canonical — auth stores this; the Login UI re-localizes via {@link accessDeniedMessage}. */
 export const ACCESS_DENIED_MESSAGE = "Quest is for the TerraFunded team only.";
+
+const ACCESS_DENIED: Record<QualityLang, string> = {
+  en: ACCESS_DENIED_MESSAGE,
+  es: "Quest es solo para el equipo TerraFunded.",
+};
+
+export function accessDeniedMessage(lang: QualityLang = "en"): string {
+  return ACCESS_DENIED[lang];
+}
+
+/** Profile-read failure suffix; English is stored, Login re-localizes. */
+export function profileUnreadableMessage(lang: QualityLang, detail: string): string {
+  return lang === "es"
+    ? `${ACCESS_DENIED.es} No se pudo leer tu perfil: ${detail}`
+    : `${ACCESS_DENIED_MESSAGE} Your profile could not be read: ${detail}`;
+}
 
 export interface AccessInput {
   /** `profiles.role` of the signed-in user; `null` when the row is missing. */

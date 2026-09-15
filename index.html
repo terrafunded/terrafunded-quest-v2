@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="es" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/crown.svg" />
@@ -28,6 +28,14 @@
         root.style.colorScheme = light ? "light" : "dark";
         var meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.setAttribute("content", themes[id]);
+        // Boot language before paint (quest.lang); React syncDocumentLang confirms on mount.
+        var bootLang = "es";
+        try {
+          var ql = localStorage.getItem("quest.lang");
+          if (ql === "en" || ql === "es") bootLang = ql;
+        } catch (e) {}
+        root.lang = bootLang;
+        window.__QUEST_BOOT_LANG__ = bootLang;
       })();
     </script>
   </head>
@@ -36,9 +44,17 @@
       <!-- Painted before the bundle runs; React replaces it on mount. Uses the theme tokens from the stylesheet. -->
       <div class="boot-shell" aria-hidden="true">
         <div class="boot-shell__brand">Quest</div>
-        <div class="boot-shell__hint">Entering the war room…</div>
+        <div class="boot-shell__hint" id="boot-hint">Entrando a la sala de guerra…</div>
       </div>
     </div>
+    <script>
+      (function () {
+        var hint = document.getElementById("boot-hint");
+        if (!hint) return;
+        var lang = window.__QUEST_BOOT_LANG__ || "es";
+        hint.textContent = lang === "en" ? "Entering the war room…" : "Entrando a la sala de guerra…";
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

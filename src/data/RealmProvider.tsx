@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { buildRealm, type PaymentsSnapshot, type Realm } from "@/domain";
+import { useLang } from "@/i18n/lang";
 import { fetchPaymentsSnapshot, type PaymentsQueryError } from "./queries";
 import { getSupabase } from "./client";
 import { useAuth } from "./auth";
@@ -41,6 +42,7 @@ export function RealmProvider({ children }: { children: ReactNode }) {
 function useSharedRealm(): RealmQueryResult {
   const { session, access } = useAuth();
   const { deadline } = useHorizon();
+  const [lang] = useLang();
   const query = useQuery<SnapshotCache, Error>({
     queryKey: [...REALM_QUERY_KEY, session?.user.id ?? "anon"],
     // Never before the Payments-staff check has passed (RequireAuth already guarantees this).
@@ -56,8 +58,8 @@ function useSharedRealm(): RealmQueryResult {
   });
 
   const realm = useMemo(
-    () => (query.data ? buildRealm(query.data.snapshot, query.data.fetchedAt, { deadline }) : undefined),
-    [query.data, deadline],
+    () => (query.data ? buildRealm(query.data.snapshot, query.data.fetchedAt, { deadline, lang }) : undefined),
+    [query.data, deadline, lang],
   );
 
   const data = useMemo<RealmData | undefined>(() => {

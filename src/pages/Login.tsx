@@ -2,9 +2,12 @@ import { useState, type FormEvent } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { ACCESS_DENIED_MESSAGE, accessDeniedMessage, profileUnreadableMessage } from "@/domain/access";
 import { useAuth } from "@/data/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLoginStrings } from "@/i18n/login";
+import { useLang } from "@/i18n/lang";
 import { useTheme } from "@/theme/ThemeProvider";
 import { themeIcon } from "@/theme/icons";
 
@@ -13,6 +16,8 @@ export function Login() {
   const { themeId } = useTheme();
   const Brand = themeIcon(themeId, "brand");
   const location = useLocation();
+  const t = useLoginStrings();
+  const [lang] = useLang();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +27,8 @@ export function Login() {
   if (ready && session && access === "granted") return <Navigate to={from} replace />;
   // The password was accepted; the profiles row is still being read.
   const checking = access === "checking";
-  const alert = error ?? refusal;
+  const localizedRefusal = localizeRefusal(refusal, lang);
+  const alert = error ?? localizedRefusal;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -43,26 +49,25 @@ export function Login() {
       >
         <div className="mb-6 text-center">
           <Brand className="mx-auto h-8 w-8 text-gold" />
-          <h1 className="mt-3 font-display text-2xl uppercase tracking-[var(--brand-tracking)] text-gold">Quest</h1>
-          <p className="mt-1 text-xs uppercase tracking-[0.3em] text-muted-foreground">Enter the war room</p>
+          <h1 className="mt-3 font-display text-2xl uppercase tracking-[var(--brand-tracking)] text-gold">{t.brand}</h1>
+          <p className="mt-1 text-xs uppercase tracking-[0.3em] text-muted-foreground">{t.tagline}</p>
         </div>
 
         {!configured ? (
           <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm" role="alert">
-            Supabase is not configured. Copy <code>.env.example</code> to <code>.env</code> and set <code>VITE_SUPABASE_URL</code> and{" "}
-            <code>VITE_SUPABASE_ANON_KEY</code>.
+            {t.notConfigured}
           </p>
         ) : (
-          <form onSubmit={onSubmit} className="space-y-4" aria-label="Sign in">
+          <form onSubmit={onSubmit} className="space-y-4" aria-label={t.signInAria}>
             <div className="space-y-1.5">
               <label htmlFor="email" className="stat-label">
-                Email
+                {t.email}
               </label>
               <Input id="email" name="email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="password" className="stat-label">
-                Password
+                {t.password}
               </label>
               <Input
                 id="password"
@@ -85,14 +90,26 @@ export function Login() {
             )}
             <Button type="submit" className="w-full" disabled={busy || checking}>
               {busy || checking ? <Loader2 className="animate-spin" /> : null}
-              Enter
+              {t.submit}
             </Button>
             <p className="text-center text-xs text-muted-foreground" data-testid="login-footer">
-              Read-only, and for the TerraFunded team only: Payments staff (role <code>admin</code>) may enter; nothing here can write.
+              {t.footer}
             </p>
           </form>
         )}
       </motion.div>
     </div>
   );
+}
+
+/** Auth stores English refusal strings; re-localize when the UI language changes. */
+function localizeRefusal(refusal: string | null, lang: "en" | "es"): string | null {
+  if (!refusal) return null;
+  if (refusal === ACCESS_DENIED_MESSAGE) return accessDeniedMessage(lang);
+  const marker = " Your profile could not be read: ";
+  const idx = refusal.indexOf(marker);
+  if (refusal.startsWith(ACCESS_DENIED_MESSAGE) && idx >= 0) {
+    return profileUnreadableMessage(lang, refusal.slice(idx + marker.length));
+  }
+  return refusal;
 }

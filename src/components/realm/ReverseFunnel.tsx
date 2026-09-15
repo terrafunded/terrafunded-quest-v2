@@ -5,6 +5,7 @@ import { eraMonthLabel } from "@/domain/era";
 import { Input } from "@/components/ui/input";
 import { useInViewOnce } from "@/hooks/useInViewOnce";
 import { useWideViewport } from "@/hooks/useWideViewport";
+import { usePipelineStrings, type PipelineUiStrings } from "@/i18n/pipeline";
 import { useTheme } from "@/theme/ThemeProvider";
 import { money, moneyCompact, number, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ const STEP_WIDTHS: Record<FunnelStep["id"] | "adSpend", number> = { remaining: 1
 const AXIS_MAX = 168;
 
 type Series = "single" | "lifetime" | "recent";
+type FunnelStrings = PipelineUiStrings["funnel"];
 
 interface FunnelRow {
   key: string;
@@ -55,28 +57,39 @@ function persistCostPerConversation(value: number | null) {
   }
 }
 
-const lotsLabel = (n: number) => `${number(n)} ${n === 1 ? "lot" : "lots"}`;
-const resLabel = (n: number) => `${number(n)} ${n === 1 ? "reservation" : "reservations"}`;
-
-function buildRows(f: ReverseFunnelShape, eraMonth: string | null, cost: number | null): FunnelRow[] {
+function buildRows(f: ReverseFunnelShape, eraMonth: string | null, cost: number | null, t: FunnelStrings): FunnelRow[] {
   const rows: FunnelRow[] = [];
   const months = number(f.monthsToDeadline);
   const conv = pct(f.conversionPct, 1);
-  const tag = (s: Series) => (s === "recent" ? `since-${eraMonth ?? "era"} average ${money(f.recentAvgNetProfitPerClosedLot)}/lot` : `ledger average ${money(f.avgNetProfitPerClosedLot)}/lot`);
+  const tag = (s: Series) =>
+    s === "recent" ? t.tagRecent(eraMonth ?? "era", money(f.recentAvgNetProfitPerClosedLot)) : t.tagLedger(money(f.avgNetProfitPerClosedLot));
   const both: Series[] = f.recentAvgNetProfitPerClosedLot !== null ? ["lifetime", "recent"] : ["lifetime"];
   const pick = (p: { lifetime: number | null; recent: number | null }, s: Series) => (s === "recent" ? p.recent : p.lifetime);
+  const suffix = (s: Series) => (s === "recent" ? t.sinceEraSuffix(eraMonth ?? "era") : t.ledgerAvgSuffix);
+  const sourceNote =
+    f.conversionSource === "resolved"
+      ? t.resSourceResolved
+      : f.conversionSource === "with_cancellations"
+        ? t.resSourceWithCanc
+        : f.conversionSource === "assumed"
+          ? t.resSourceAssumed
+          : "";
 
   const remaining = f.steps.find((s) => s.id === "remaining");
   if (remaining) {
+    const perMonth = remaining.perMonth.lifetime;
     rows.push({
       key: "remaining",
       step: "remaining",
       series: "single",
-      name: "Remaining net profit",
+      name: t.remaining,
       width: STEP_WIDTHS.remaining,
       value: money(f.remaining),
-      perMonth: remaining.perMonth.lifetime === null ? "the deadline has passed" : `${moneyCompact(remaining.perMonth.lifetime)}/month`,
-      explain: `${money(f.remaining)} still to book by the deadline — ${remaining.perMonth.lifetime === null ? "no months left" : `${moneyCompact(remaining.perMonth.lifetime)} every month for ${months} months`}.`,
+      perMonth: perMonth === null ? t.deadlinePassed : t.remainingPerMonth(moneyCompact(perMonth)),
+      explain:
+        perMonth === null
+          ? t.remainingExplainNoMonths(money(f.remaining))
+          : t.remainingExplain(money(f.remaining), moneyCompact(perMonth), months),
       raw: f.remaining,
     });
   }
@@ -86,30 +99,29 @@ function buildRows(f: ReverseFunnelShape, eraMonth: string | null, cost: number 
       const total = pick(step.total, s);
       const perMonth = pick(step.perMonth, s);
       if (total === null) continue;
-      const suffix = s === "recent" ? ` · since ${eraMonth ?? "the era"}` : " · ledger average";
       let name = "";
       let value = "";
       let explain = "";
       switch (step.id) {
         case "lots":
-          name = `Lots to close${suffix}`;
-          value = lotsLabel(total);
-          explain = `${lotsLabel(total)} at the ${tag(s)} — ${number(perMonth)} lots/month over ${months} months.`;
+          name = t.lotsToClose(suffix(s));
+          value = t.lots(number(total), total === 1);
+          explain = t.lotsExplain(value, tag(s), number(perMonth), months);
           break;
         case "reservations":
-          name = `Reservations needed${suffix}`;
-          value = resLabel(total);
-          explain = `${resLabel(total)}: those lots ÷ the measured ${conv} reservation → closing conversion${f.conversionSource === "resolved" ? " (resolved: open matured reservations excluded — feeds forecasts)" : f.conversionSource === "with_cancellations" ? " (cancellations counted as failures)" : f.conversionSource === "assumed" ? " (assumed 100 %: no matured cohort yet)" : ""}.`;
+          name = t.reservationsNeeded(suffix(s));
+          value = t.reservations(number(total), total === 1);
+          explain = t.resExplain(value, conv, sourceNote);
           break;
         case "perMonth":
-          name = `Reservations per month${suffix}`;
-          value = `${number(total)}/month`;
-          explain = `${number(total)} reservations every month for ${months} months, at the ${tag(s)}.`;
+          name = t.perMonthLabel(suffix(s));
+          value = t.perMonthValue(number(total));
+          explain = t.perMonthExplain(number(total), months, tag(s));
           break;
         case "perWeek":
-          name = `Reservations per week${suffix}`;
-          value = `${number(total)}/week`;
-          explain = `${number(total)} reservations a week (${number(perMonth)}/month over 30.44 ÷ 7 weeks), at the ${tag(s)}.`;
+          name = t.perWeekLabel(suffix(s));
+          value = t.perWeekValue(number(total));
+          explain = t.perWeekExplain(number(total), number(perMonth), tag(s));
           break;
         default:
           break;
@@ -121,7 +133,7 @@ function buildRows(f: ReverseFunnelShape, eraMonth: string | null, cost: number 
         name,
         width: STEP_WIDTHS[step.id],
         value,
-        perMonth: step.id === "perMonth" ? "" : perMonth === null ? "—" : step.id === "lots" ? `${number(perMonth)} lots/month` : `${number(perMonth)}/month`,
+        perMonth: step.id === "perMonth" ? "" : perMonth === null ? "—" : step.id === "lots" ? t.lotsPerMonth(number(perMonth)) : t.perMonthShort(number(perMonth)),
         explain,
         raw: total,
       });
@@ -137,11 +149,11 @@ function buildRows(f: ReverseFunnelShape, eraMonth: string | null, cost: number 
         key: `adSpend-${s}`,
         step: "adSpend",
         series: s,
-        name: `Implied ad spend per month${s === "recent" ? ` · since ${eraMonth ?? "the era"}` : " · ledger average"}`,
+        name: t.adSpendLabel(suffix(s)),
         width: STEP_WIDTHS.adSpend,
-        value: `${money(spend)}/month`,
-        perMonth: `${number(perMonth)} conversations/month × ${money(cost)}`,
-        explain: `${money(spend)} a month if every reservation takes one paid conversation at ${money(cost)} — your figure, not Payments'.`,
+        value: t.adSpendValue(money(spend)),
+        perMonth: t.adSpendDetail(number(perMonth), money(cost)),
+        explain: t.adExplain(money(spend), money(cost)),
         raw: spend,
       });
     }
@@ -216,13 +228,14 @@ export function ReverseFunnel({ goal, expected }: { goal: GoalStatus; expected: 
   const wide = useWideViewport();
   const [ref, inView] = useInViewOnce<HTMLDivElement>();
   const reveal = useChartReveal(reducedMotion);
+  const t = usePipelineStrings().funnel;
   const [cost, setCost] = useState<number | null>(() => readCostPerConversation());
   const [costText, setCostText] = useState(() => (cost === null ? "" : String(cost)));
   useEffect(() => persistCostPerConversation(cost), [cost]);
 
   const funnel = useMemo(() => buildReverseFunnel(goal, expected), [goal, expected]);
   const eraMonth = goal.recentSince ? eraMonthLabel(goal.recentSince) : null;
-  const rows = useMemo(() => buildRows(funnel, eraMonth, cost), [funnel, eraMonth, cost]);
+  const rows = useMemo(() => buildRows(funnel, eraMonth, cost, t), [funnel, eraMonth, cost, t]);
   const duration = Math.min(Math.round(d(0.5) * 1000), MAX_BAR_DURATION_MS);
   const rowHeight = wide ? 40 : 60;
   const at = (step: FunnelRow["step"], series: Series) => rows.find((r) => r.step === step && r.series === series)?.raw ?? "";
@@ -233,9 +246,18 @@ export function ReverseFunnel({ goal, expected }: { goal: GoalStatus; expected: 
     setCost(text.trim() === "" || !Number.isFinite(n) || n < 0 ? null : n);
   };
 
+  const conversionSource =
+    funnel.conversionSource === "resolved"
+      ? t.conversionResolved
+      : funnel.conversionSource === "with_cancellations"
+        ? t.conversionWithCanc
+        : funnel.conversionSource === "assumed"
+          ? t.conversionAssumed
+          : "";
+
   return (
     <section
-      aria-label="Reverse funnel"
+      aria-label={t.aria}
       className="parchment-card mb-6 overflow-hidden p-4 sm:p-5"
       data-testid="reverse-funnel"
       data-revealed={inView}
@@ -256,37 +278,23 @@ export function ReverseFunnel({ goal, expected }: { goal: GoalStatus; expected: 
       data-ad-spend-recent={at("adSpend", "recent")}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">The reverse funnel · what {money(funnel.remaining)} demands</h2>
+        <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">{t.title(money(funnel.remaining))}</h2>
         <span className="text-xs text-muted-foreground">
-          {number(funnel.monthsToDeadline)} months to {goal.deadline} · {pct(funnel.conversionPct, 1)} conversion
-          {funnel.conversionSource === "resolved"
-            ? ", resolved (feeds forecasts)"
-            : funnel.conversionSource === "with_cancellations"
-              ? ", cancellations included"
-              : funnel.conversionSource === "assumed"
-                ? ", assumed"
-                : ""}
+          {t.monthsConversion(number(funnel.monthsToDeadline), goal.deadline, pct(funnel.conversionPct, 1), conversionSource)}
         </span>
       </div>
       <p className="mt-1 text-[11px] text-muted-foreground">
-        Two figures per step, never one: at the ledger average ({money(funnel.avgNetProfitPerClosedLot)}/lot over every closed lot)
-        {funnel.recentAvgNetProfitPerClosedLot !== null && eraMonth ? (
-          <>
-            {" "}
-            and at the since-{eraMonth} average ({money(funnel.recentAvgNetProfitPerClosedLot)}/lot, {goal.recentClosedLots} closings), the two the audit compares.
-          </>
-        ) : (
-          <> — no era average yet.</>
-        )}
+        {t.twoFigures(money(funnel.avgNetProfitPerClosedLot))}
+        {funnel.recentAvgNetProfitPerClosedLot !== null && eraMonth ? t.andEraAvg(eraMonth, money(funnel.recentAvgNetProfitPerClosedLot), goal.recentClosedLots) : t.noEraAvg}
       </p>
 
       {funnel.met ? (
         <p className="mt-4 font-heading text-lg text-oxygen" data-testid="reverse-funnel-status">
-          The goal is met: nothing remains to reserve.
+          {t.goalMet}
         </p>
       ) : funnel.noHistory ? (
         <p className="mt-4 font-heading text-lg text-muted-foreground" data-testid="reverse-funnel-status">
-          No closed lot yet, so there is no average to turn {money(funnel.remaining)} into lots.
+          {t.noHistory(money(funnel.remaining))}
         </p>
       ) : (
         <div ref={ref} className="mt-3 w-full" style={{ height: rows.length * rowHeight + 8 }}>
@@ -309,32 +317,30 @@ export function ReverseFunnel({ goal, expected }: { goal: GoalStatus; expected: 
       )}
 
       <div className="mt-3 flex flex-col gap-3 border-t border-border/60 pt-3 sm:flex-row sm:items-end">
-        <div className="min-w-0 flex-1 text-xs text-muted-foreground">
-          Payments holds no lead or inquiry volume, so the funnel stops at reservations. Your cost per conversation turns reservations per month into ad spend — if every reservation takes one paid conversation. It is kept on this device only and feeds nothing else.
-        </div>
+        <div className="min-w-0 flex-1 text-xs text-muted-foreground">{t.paymentsHint}</div>
         <label className="flex items-center gap-2 text-xs">
-          <span className="whitespace-nowrap text-muted-foreground">Cost per conversation ($)</span>
+          <span className="whitespace-nowrap text-muted-foreground">{t.costLabel}</span>
           <Input
             type="number"
             inputMode="decimal"
             min={0}
             step={1}
-            placeholder="e.g. 40"
+            placeholder={t.costPlaceholder}
             value={costText}
             onChange={(e) => onCost(e.target.value)}
             className="w-28"
-            aria-label="Cost per conversation in dollars"
+            aria-label={t.costAria}
             data-testid="funnel-cost-input"
           />
         </label>
       </div>
-      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-muted-foreground" aria-label="legend">
+      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-muted-foreground" aria-label={t.legendAria}>
         <li className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: GOLD }} /> ledger average
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: GOLD }} /> {t.legendLedger}
         </li>
         {funnel.recentAvgNetProfitPerClosedLot !== null && (
           <li className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: OXYGEN, opacity: 0.8 }} /> since-{eraMonth} average
+            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: OXYGEN, opacity: 0.8 }} /> {t.legendRecent(eraMonth ?? "")}
           </li>
         )}
       </ul>

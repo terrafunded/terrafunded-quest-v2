@@ -123,6 +123,8 @@ export interface RealmUiStrings {
     noHistory: string;
     met: string;
     hint: (eraMonth: string | null) => string;
+    /** Compact title attribute on the gauge card. */
+    title: (lots: string, dollars: string, days: string | null) => string;
   };
   pipeline: {
     aria: string;
@@ -341,6 +343,7 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       met: "The goal is met. Nothing is behind.",
       hint: (era) =>
         `Lots the trailing pace closes by the deadline minus the lots still needed at the ledger average; those lots in dollars; those dollars at today's net profit per day. Same root as the Curve's marker${era ? `; the since-${era} average is the dotted line above` : ""}.`,
+      title: (lots, dollars, days) => `${lots} lots · ${dollars} · ${days === null ? "—" : `${days} days`}`,
     },
     pipeline: {
       aria: "Pipeline",
@@ -564,6 +567,7 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       met: "La meta está cumplida. Nada queda atrás.",
       hint: (era) =>
         `Lotes que el ritmo actual cierra hasta el límite menos los lotes que aún faltan al promedio del libro; esos lotes en dólares; esos dólares al ritmo de utilidad neta por día de hoy. Misma raíz que el marcador de la Curva${era ? `; el promedio desde ${era} es la línea punteada de arriba` : ""}.`,
+      title: (lots, dollars, days) => `${lots} lotes · ${dollars} · ${days === null ? "—" : `${days} días`}`,
     },
     pipeline: {
       aria: "Pipeline",

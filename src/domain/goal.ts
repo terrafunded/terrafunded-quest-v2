@@ -4,6 +4,7 @@ import { isSold } from "./lot";
 import { addMonths, daysBetween, monthsBetween, parseDate, toIsoDate } from "./dates";
 import { mean, round2, sum } from "./math";
 import { inEra, trailingWindow, type EraStart } from "./era";
+import type { QualityLang } from "./quality_human";
 import { DAYS_PER_MONTH, GOAL_DEADLINE, GOAL_NET_PROFIT, TRAILING_WINDOW_DAYS } from "../config/goal";
 
 export interface GoalStatus {
@@ -196,8 +197,20 @@ export function computeGoal(lots: Lot[], farms: FarmEconomics[], asOf: Date, opt
   };
 }
 
-/** One sentence the Throne Room speaks. Pure so it can be tested. */
-export function buildVerdict(g: GoalStatus, fmtDate: (iso: string) => string = (s) => s): string {
+/** One sentence the Throne Room speaks. Pure so it can be tested. Defaults to English. */
+export function buildVerdict(g: GoalStatus, fmtDate: (iso: string) => string = (s) => s, lang: QualityLang = "en"): string {
+  if (lang === "es") {
+    if (g.remaining === 0) return "La meta está cumplida. El reino es tuyo.";
+    if (g.lotsStillNeeded === null) return "Aún no hay lotes cerrados — la crónica no tiene ritmo que medir.";
+    if (g.closedLotsPerMonth <= 0) {
+      const window = g.trailingEraClipped ? `desde ${fmtDate(g.trailingSince)}` : `en los últimos ${g.trailingWindowDays} días`;
+      return `Necesitas ${g.requiredLotsPerMonthToHitDeadline ?? "?"} lotes/mes; no cerraste ninguno ${window}.`;
+    }
+    if (g.onTrack && g.projectedDate) {
+      return `Al ritmo actual de ${g.closedLotsPerMonth} lotes/mes alcanzas la meta el ${fmtDate(g.projectedDate)}.`;
+    }
+    return `Necesitas ${g.requiredLotsPerMonthToHitDeadline ?? "?"} lotes/mes; vas a ${g.closedLotsPerMonth}.`;
+  }
   if (g.remaining === 0) return "The goal is met. The realm is yours.";
   if (g.lotsStillNeeded === null) return "No closed lots yet — the chronicle has no pace to measure.";
   if (g.closedLotsPerMonth <= 0) {
@@ -210,6 +223,6 @@ export function buildVerdict(g: GoalStatus, fmtDate: (iso: string) => string = (
   return `You need ${g.requiredLotsPerMonthToHitDeadline ?? "?"} lots/month; you are doing ${g.closedLotsPerMonth}.`;
 }
 
-export function withVerdict(g: GoalStatus, fmtDate?: (iso: string) => string): GoalStatus {
-  return { ...g, verdict: buildVerdict(g, fmtDate) };
+export function withVerdict(g: GoalStatus, fmtDate?: (iso: string) => string, lang: QualityLang = "en"): GoalStatus {
+  return { ...g, verdict: buildVerdict(g, fmtDate, lang) };
 }

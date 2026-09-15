@@ -25,6 +25,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { date, money, moneyCompact, number, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useCommonStrings } from "@/i18n/common";
 import { useLang } from "@/i18n/lang";
 import { EXODUS_UI, type ExodusUiStrings } from "@/i18n/exodus";
 import type { PaymentsQueryError } from "@/data/queries";
@@ -371,10 +372,13 @@ function Stat({ label, value, hint, tone, testId, dataValue }: { label: string; 
 }
 
 function FieldFooter({ hint, real }: { hint: ReactNode; real: ReactNode }) {
+  const { realPrefix } = useCommonStrings();
   return (
     <div className="mt-1 flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground">
       <span>{hint}</span>
-      <span className="tabular">real: {real}</span>
+      <span className="tabular">
+        {realPrefix} {real}
+      </span>
     </div>
   );
 }

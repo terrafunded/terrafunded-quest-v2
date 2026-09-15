@@ -2,7 +2,8 @@ import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type RefObj
 import { motion } from "framer-motion";
 import type { FarmEconomics, FarmGeometry, Lot, Pipeline } from "@/domain";
 import { tileUrl } from "@/data/useFarmGeometry";
-import { STAGE_LABEL } from "@/lib/format";
+import { useRealmMapStrings } from "@/i18n/realmMap";
+import { stageLabel } from "@/lib/format";
 import { HOVER_STROKE, MAP_BOX_ASPECT, RING_STROKE, STAGE_FILL, ringFor, territoryFill } from "./realmTokens";
 
 /** Lot-number label target size in CSS pixels; converted to viewBox units per farm. */
@@ -80,6 +81,7 @@ export function FarmParcelMap({
   onSelect: () => void;
 }) {
   const uid = useId().replace(/:/g, "");
+  const t = useRealmMapStrings();
   const [svgRef, widthPx] = useMeasuredWidth<SVGSVGElement>();
   const [failedTiles, setFailedTiles] = useState<ReadonlySet<string>>(() => new Set());
   const [loadedTiles, setLoadedTiles] = useState<ReadonlySet<string>>(() => new Set());
@@ -181,7 +183,7 @@ export function FarmParcelMap({
                 data-stage={lot.stage}
                 data-ring={ring ?? undefined}
                 data-hovered={hoveredLotId === lot.propertyId || undefined}
-                aria-label={`${lot.name}: ${STAGE_LABEL[lot.stage]}${ring === "stuck" ? ", stuck reservation" : ""}`}
+                aria-label={t.lotAria(lot.name, stageLabel(lot.stage), ring === "stuck")}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelect();

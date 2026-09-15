@@ -1,3 +1,34 @@
+
+## Full bilingual i18n — 2026-09-15
+
+Language selector owns the entire app (NavDrawer English-only caption removed). Locale-aware dates/numbers; EN↔ES key parity + JSX literal AST guard + Playwright bilingual marker sweep.
+
+| | |
+|---|---|
+| **Branch** | `cursor/i18n-full-1d6b` |
+| **Glossary** | `docs/glossary.md` |
+| **Screenshots** | `docs/screenshots/i18n/{en,es}/*-{1280,380}.jpg` (15 routes × 2 widths × 2 langs) |
+| **Guards** | `npm run test:i18n` — parity + literal detector (allowlist size 1: `"Quest ·"`); `e2e/i18n-markers.spec.ts` 30/30 |
+| **Unit tests** | 497 passing |
+
+### Per-screen (what was untranslated → now i18n)
+
+| Screen | Was | Now |
+|---|---|---|
+| Login | Hard-coded EN | `login.ts` |
+| NavDrawer / AppShell | EN labels + "rest stays English" | `nav.ts`; caption = entire app |
+| Throne Room | Mixed chrome | `throneRoom.ts` + domain verdict `lang` |
+| War Plan | Entirely EN | `warPlan.ts` + bilingual verdict |
+| Exodus | Mostly done; `real:` leak | `common.realPrefix` |
+| Realm / Quests / Pipeline | EN shells + STAGE_LABEL | `realmMap` / `quests` / `pipeline` + `stageLabel` |
+| Sponsors | Farm/Capital/Terms EN in ES | Already in `sponsors.ts` (Capital kept EN/ES) |
+| Treasury / Oracle / Chronicle / Trophies | EN | dedicated modules + domain `lang` |
+| Engine / Council / Quality | Mostly done | engine/council/quality + bottleneck i18n |
+| Charts / dates | en-US months | `monthLabel` / `date` follow `quest.lang` |
+
+Deliberate English keeps: Quest, Exodus, Sponsors (team vocabulary). See glossary.
+
+
 # PROGRESS — Quest v2 ("Exodus")
 
 ## The Engine defects pass — 2026-09-15
