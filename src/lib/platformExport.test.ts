@@ -38,9 +38,14 @@ describe("platformExport", () => {
     expect(doc.figures.some((f) => f.id === "throne.closingsToDate")).toBe(true);
     expect(doc.figures.some((f) => f.id === "throne.capitalReturnedToDate")).toBe(true);
     expect(doc.figures.find((f) => f.id === "throne.netProfitToDate")?.label).toContain("at closing");
-    expect(doc.figures.some((f) => f.id === "throne.netCashRealized")).toBe(true);
+    expect(doc.figures.some((f) => f.id === "throne.netCashRealized")).toBe(false);
+    expect(doc.figures.some((f) => f.id === "throne.noteLiquidityCost")).toBe(true);
+    expect(doc.figures.find((f) => f.id === "throne.noteLiquidityCost")?.formula).toContain("noteFinancedAmount − noteSalePrice");
     expect(doc.figures.some((f) => f.id === "throne.notesHeldFace")).toBe(true);
     expect(doc.reconciliations.some((c) => c.id === "sale_price_layers" && c.pass)).toBe(true);
+    const liquidity = doc.reconciliations.find((c) => c.id === "note_liquidity_cost_realized");
+    expect(liquidity?.pass).toBe(true);
+    expect(liquidity?.tolerance).toBe(TOL_DOLLAR);
     expect(doc.figures.length).toBeGreaterThan(10);
     expect(doc.rows.lots.length).toBeGreaterThan(50);
     expect(doc.rows.farms.length).toBeGreaterThan(5);
@@ -78,6 +83,7 @@ describe("platformExport", () => {
     expect(profit?.label).toBe("Ganancia afectada por diferencias de precio");
     const atClosing = doc.figures.find((f) => f.id === "throne.netProfitToDate");
     expect(atClosing?.label).toContain("al cierre");
+    expect(doc.figures.find((f) => f.id === "throne.noteLiquidityCost")?.label).toBe("Costo de liquidez de las notas");
   });
 
   it("a deliberately broken net-profit figure makes the sold-lots check FAIL", () => {

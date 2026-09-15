@@ -134,17 +134,26 @@ export function ThroneRoom() {
             </div>
           </div>
           <div className="flex min-h-full min-w-0 flex-col items-center justify-center rounded-xl border border-gold/20 bg-background/40 px-4 py-3">
-            <div className="stat-label">{t.netCashRealized}</div>
+            <div className="stat-label">{t.noteLiquidityCost}</div>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
               className="mx-auto mt-1 w-full max-w-full font-display text-[clamp(1.5rem,6vw,3.25rem)] leading-none"
             >
-              <FitMoney value={layers.netCashRealized} className="text-center" data-testid="net-cash-realized-counter" />
+              <FitMoney value={layers.liquidityCostTotal} className="text-center" data-testid="note-liquidity-cost-counter" />
             </motion.div>
-            <div className="mt-2 text-xs text-muted-foreground" data-testid="net-cash-realized-formula">
-              {t.netCashRealizedFormula}
+            <div className="mt-2 text-xs text-muted-foreground" data-testid="note-liquidity-cost-breakdown">
+              {t.noteLiquidityBreakdown(
+                money(layers.liquidityCostRealized),
+                layers.notesSoldCount,
+                money(layers.liquidityCostUnrealized),
+                layers.notesHeldCount,
+                pct(layers.liquidityCostSharePct, 0),
+              )}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground" data-testid="note-liquidity-cost-subtitle">
+              {t.noteLiquiditySubtitle}
             </div>
           </div>
           <div className="flex min-h-full min-w-0 flex-col items-center justify-center rounded-xl border border-gold/20 bg-background/40 px-4 py-3">

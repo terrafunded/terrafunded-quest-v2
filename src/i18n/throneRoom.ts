@@ -9,8 +9,9 @@ export interface ThroneRoomUiStrings {
   asOf: (date: string) => string;
   profitAtClosing: string;
   ofGoal: (goal: string, remaining: string) => string;
-  netCashRealized: string;
-  netCashRealizedFormula: string;
+  noteLiquidityCost: string;
+  noteLiquidityBreakdown: (realized: string, realizedCount: number, unrealized: string, unrealizedCount: number, share: string) => string;
+  noteLiquiditySubtitle: string;
   notesHeldFace: string;
   notesHeldHint: (count: number, atRatio: string, pct: string) => string;
   profitLayersContext: (pct: string) => string;
@@ -112,8 +113,11 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     asOf: (d) => `Overview · Net profit at closing · as of ${d}`,
     profitAtClosing: "Net profit at closing",
     ofGoal: (goal, remaining) => `of ${goal} · ${remaining} remaining · closings only`,
-    netCashRealized: "Net cash realized",
-    netCashRealizedFormula: "Down payments + note-sale proceeds − land − sponsor take, on closed lots",
+    noteLiquidityCost: "Note liquidity cost",
+    noteLiquidityBreakdown: (realized, realizedCount, unrealized, unrealizedCount, share) =>
+      `Realized ${realized} (${realizedCount} ${realizedCount === 1 ? "note" : "notes"}) · Unrealized ${unrealized} (${unrealizedCount} ${unrealizedCount === 1 ? "note" : "notes"}) · ${share} of net profit at closing`,
+    noteLiquiditySubtitle:
+      "what converting every note to cash costs at the measured ratio — zero if notes are collected to term or delivered to LPs at face value",
     notesHeldFace: "Notes held at face value",
     notesHeldHint: (count, atRatio, pct) =>
       `${count} ${count === 1 ? "note" : "notes"} · ${atRatio} if sold at the measured ${pct} of balance`,
@@ -227,8 +231,11 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     asOf: (d) => `Resumen · Utilidad neta al cierre · al ${d}`,
     profitAtClosing: "Utilidad neta al cierre",
     ofGoal: (goal, remaining) => `de ${goal} · ${remaining} restantes · solo cierres`,
-    netCashRealized: "Efectivo neto realizado",
-    netCashRealizedFormula: "Enganches + venta de pagarés − tierra − parte del sponsor, en lotes cerrados",
+    noteLiquidityCost: "Costo de liquidez de las notas",
+    noteLiquidityBreakdown: (realized, realizedCount, unrealized, unrealizedCount, share) =>
+      `Realizado ${realized} (${realizedCount} ${realizedCount === 1 ? "pagaré" : "pagarés"}) · No realizado ${unrealized} (${unrealizedCount} ${unrealizedCount === 1 ? "pagaré" : "pagarés"}) · ${share} de la utilidad neta al cierre`,
+    noteLiquiditySubtitle:
+      "lo que cuesta convertir cada pagaré a efectivo al ratio medido — cero si se cobran a plazo o se entregan a limited partners a valor nominal",
     notesHeldFace: "Notas en cartera a valor nominal",
     notesHeldHint: (count, atRatio, pct) =>
       `${count} ${count === 1 ? "pagaré" : "pagarés"} · ${atRatio} si se venden al ${pct} del saldo medido`,

@@ -288,21 +288,26 @@ function collectFigures(
       formula: "Σ (salePrice − landCost − sponsor take) of sold lots",
     },
     {
-      id: "throne.netCashRealized",
+      id: "throne.noteLiquidityCost",
       page: "/",
       section: "headline",
-      label: t.netCashRealized,
-      displayed: moneyCompact(realm.profitLayers.netCashRealized, lang),
-      raw: realm.profitLayers.netCashRealized,
-      subtitle: t.netCashRealizedFormula,
+      label: t.noteLiquidityCost,
+      displayed: moneyCompact(realm.profitLayers.liquidityCostTotal, lang),
+      raw: realm.profitLayers.liquidityCostTotal,
+      subtitle: t.noteLiquiditySubtitle,
       units: "USD",
       source: { file: "src/domain/profitLayers.ts", export: "computeProfitLayers" },
       inputs: {
-        cashRealized: g.cashRealized,
-        land: round2(sum(realm.lots.filter((l) => isSold(l)).map((l) => l.landCost))),
-        sponsorTake: g.investorTakeToDate,
+        realized: realm.profitLayers.liquidityCostRealized,
+        notesSoldCount: realm.profitLayers.notesSoldCount,
+        unrealized: realm.profitLayers.liquidityCostUnrealized,
+        notesHeldCount: realm.profitLayers.notesHeldCount,
+        noteSaleRatio: realm.profitLayers.noteSaleRatio,
+        netProfitAtClosing: realm.profitLayers.netProfitAtClosing,
+        sharePct: realm.profitLayers.liquidityCostSharePct,
       },
-      formula: "Σ (down + note-sale proceeds − land − sponsor take) of sold lots",
+      formula:
+        "realized Σ(noteFinancedAmount − noteSalePrice) over sold notes + unrealized Σ(noteFinancedAmount × (1 − measured note-sale ratio)) over held notes",
     },
     {
       id: "throne.notesHeldFace",
@@ -931,6 +936,9 @@ function runReconciliations(
   const salePriceLayersSum = round2(
     layers.cashAtClosing + layers.notesHeldFace + layers.noteSaleProceeds + layers.salePriceResidual,
   );
+  const realizedLiquidityFromLots = round2(
+    sum(realm.lots.filter((l) => l.noteIsSold || l.noteSaleId).map((l) => (l.noteFinancedAmount ?? 0) - (l.noteSalePrice ?? 0))),
+  );
 
   return [
     mkCheck(
@@ -967,6 +975,18 @@ function runReconciliations(
       lang === "es"
         ? `El residual (${layers.salePriceResidual}) es el descuento en pagarés ya vendidos (precio − enganche − venta) más cualquier hueco entre el contrato y enganche + financiado en pagarés aún en cartera.`
         : `Residual (${layers.salePriceResidual}) is the discount on notes already sold (contract price − down − sale proceeds) plus any gap between contract price and down + financed on notes still held.`,
+    ),
+    mkCheck(
+      "note_liquidity_cost_realized",
+      lang === "es"
+        ? "costo de liquidez realizado == Σ(financiado − precio de venta) sobre notas vendidas"
+        : "realized liquidity cost == Σ(noteFinancedAmount − noteSalePrice) over sold notes",
+      { label: "profitLayers.liquidityCostRealized", value: layers.liquidityCostRealized },
+      { label: "Σ (noteFinancedAmount − noteSalePrice) sold notes", value: realizedLiquidityFromLots },
+      TOL_DOLLAR,
+      lang === "es"
+        ? "El costo de liquidez realizado no cuadra con la suma de las notas vendidas."
+        : "Realized liquidity cost does not match the sum over sold notes.",
     ),
     mkCheck(
       "goal_identity",

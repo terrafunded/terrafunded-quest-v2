@@ -97,7 +97,9 @@ function throneFigures(realm: Realm): HorizonFigure[] {
   const ratio = pulseRatioPct(producing, needed);
   return [
     fig("/", "netProfitToDate", "Net profit at closing", g.netProfitToDate, "historical"),
-    fig("/", "netCashRealized", "Net cash realized", realm.profitLayers.netCashRealized, "historical"),
+    fig("/", "noteLiquidityCost", "Note liquidity cost", realm.profitLayers.liquidityCostTotal, "historical"),
+    fig("/", "noteLiquidityCostRealized", "Note liquidity cost realized", realm.profitLayers.liquidityCostRealized, "historical"),
+    fig("/", "noteLiquidityCostUnrealized", "Note liquidity cost unrealized", realm.profitLayers.liquidityCostUnrealized, "historical"),
     fig("/", "notesHeldFace", "Notes held at face value", realm.profitLayers.notesHeldFace, "historical"),
     fig("/", "notesHeldAtRatio", "Notes held at measured sale ratio", realm.profitLayers.notesHeldAtRatio, "historical"),
     fig("/", "cashRealized", "Cash realized", g.cashRealized, "historical"),
