@@ -7,6 +7,7 @@ import { ENGINE_UI } from "@/i18n/engine";
 import {
   costPerClosing,
   engineDefaultsFromRealm,
+  engineVerdict,
   resolveFarmCost,
   runEngine,
   type EngineInputs,
@@ -154,7 +155,7 @@ export default function EnginePage() {
       >
         <p className="mb-2 text-sm font-heading uppercase tracking-wide text-muted-foreground">{t.verdictLabel}</p>
         <p className="font-display text-2xl leading-snug text-foreground sm:text-3xl md:text-4xl" data-testid="engine-verdict-text">
-          {result.verdict}
+          {engineVerdict(result, lang)}
         </p>
         <p className="mt-3 text-sm text-muted-foreground">{t.band[result.band]}</p>
       </section>

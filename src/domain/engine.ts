@@ -599,30 +599,68 @@ function simulateOnce(
   };
 }
 
-function buildVerdict(args: {
-  salesPace: number;
-  reachable: number;
-  deadline: string;
-  goal: number;
-  shortfall: number;
-  farmsNeeded: number;
-  freshCapital: number;
-  capitalDeadlineIso: string | null;
-  hits: boolean;
-}): string {
+function buildVerdict(
+  args: {
+    salesPace: number;
+    reachable: number;
+    deadline: string;
+    goal: number;
+    shortfall: number;
+    farmsNeeded: number;
+    freshCapital: number;
+    capitalDeadlineIso: string | null;
+    hits: boolean;
+  },
+  lang: "en" | "es" = "en",
+): string {
   const pace = args.salesPace.toFixed(1);
   const reached = usdCompact(args.reachable);
   const short = usdCompact(args.shortfall);
   const fresh = usdCompact(args.freshCapital);
   const deadlineLabel = warPlanMonthLabel(args.deadline);
+  if (lang === "es") {
+    if (args.hits || args.shortfall <= 0) {
+      return `Con el capital desplegado hoy, vendiendo a ${pace} lotes/mes, llegas a ${reached} para ${deadlineLabel} — no hace falta capital fresco.`;
+    }
+    if (!(args.freshCapital > 0)) {
+      return `Con el capital desplegado hoy, vendiendo a ${pace} lotes/mes, llegas a ${reached} para ${deadlineLabel} — faltan ${short}. El capital fresco no cierra ese hueco a tiempo para un giro completo; sube el ritmo o compra tierra que convierta a tiempo.`;
+    }
+    const farmWord = args.farmsNeeded === 1 ? "finca" : "fincas";
+    const byWhen = args.capitalDeadlineIso
+      ? `y tiene que llegar antes de ${warPlanMonthLabel(args.capitalDeadlineIso)} o no alcanza a completar un giro`
+      : "pero el horizonte es demasiado cerca para un giro completo de capital fresco";
+    return `Con el capital desplegado hoy, vendiendo a ${pace} lotes/mes, llegas a ${reached} para ${deadlineLabel} — faltan ${short}. Cerrar ese hueco necesita ${args.farmsNeeded} ${farmWord} más y ${fresh} de capital fresco, ${byWhen}.`;
+  }
   if (args.hits || args.shortfall <= 0) {
     return `With capital deployed today, selling at ${pace} lots/month, you reach ${reached} by ${deadlineLabel} — no fresh capital needed.`;
+  }
+  if (!(args.freshCapital > 0)) {
+    return `With capital deployed today, selling at ${pace} lots/month, you reach ${reached} by ${deadlineLabel} — ${short} short. Fresh capital cannot close that gap before a full turn fits; raise the pace or buy land that converts in time.`;
   }
   const farmWord = args.farmsNeeded === 1 ? "farm" : "farms";
   const byWhen = args.capitalDeadlineIso
     ? `and it must land before ${warPlanMonthLabel(args.capitalDeadlineIso)} or it cannot complete a turn in time`
     : "but the horizon is too close for a full turn of fresh capital";
   return `With capital deployed today, selling at ${pace} lots/month, you reach ${reached} by ${deadlineLabel} — ${short} short. Closing that gap needs ${args.farmsNeeded} more ${farmWord} and ${fresh} of fresh capital, ${byWhen}.`;
+}
+
+/** Plain-language verdict in the page language. Pure so it can be tested. */
+export function engineVerdict(result: Pick<EngineResult, "figures" | "inputs" | "deadline" | "goal" | "band"> & { capitalDeadlineIso?: string | null }, lang: "en" | "es" = "en"): string {
+  const f = result.figures;
+  return buildVerdict(
+    {
+      salesPace: result.inputs.salesPace,
+      reachable: f.netProfitAtDeadline,
+      deadline: result.deadline,
+      goal: result.goal,
+      shortfall: f.shortfallDollars,
+      farmsNeeded: Math.max(f.farmsBought > 0 ? f.shortfallFarms : f.shortfallFarms, f.shortfallFarms),
+      freshCapital: f.freshCapital,
+      capitalDeadlineIso: f.capitalDeadlineIso,
+      hits: f.shortfallDollars <= 0,
+    },
+    lang,
+  );
 }
 
 function bottleneckOf(
@@ -773,14 +811,17 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
     hits,
   });
 
-  const { bottleneck, detail } = bottleneckOf(
-    withFresh.series,
-    withFresh.schedule,
-    effectiveCycle,
-    capDeadline,
-    shortfall,
-    inventoryMonths,
-  );
+  const { bottleneck, detail } = (() => {
+    const base = bottleneckOf(withFresh.series, withFresh.schedule, effectiveCycle, capDeadline, shortfall, inventoryMonths);
+    // If we are still short and fresh capital cannot close the gap, do not blame a raise.
+    if (shortfall > 0.005 && freshCapital <= 0 && base.bottleneck === "capital") {
+      return {
+        bottleneck: "sales_pace" as const,
+        detail: `At ${inputs.salesPace.toFixed(1)} lots/month the deployed capital cannot reach the goal before the deadline even with a raise that still completes a turn. Speed (or land that converts sooner) moves the needle more than capital.`,
+      };
+    }
+    return base;
+  })();
 
   const figures: EngineFigures = {
     availableLots: inv.availableLots,
