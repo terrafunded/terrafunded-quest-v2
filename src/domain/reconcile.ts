@@ -1,9 +1,9 @@
-import { farmsStillNeededWithTurns, type GoalStatus } from "./goal";
+import type { GoalStatus } from "./goal";
 import type { EngineResult } from "./engine";
 import { round2 } from "./math";
 import type { QualityLang } from "./quality_human";
 
-/** Re-export the shared farms formula so Throne / Engine / reconcile stay on one path. */
+/** Re-export the shared farms figure so Throne / Engine / reconcile stay on one path. */
 export { sharedFarmsStillNeeded } from "./horizonFigures";
 
 /**
@@ -12,8 +12,12 @@ export { sharedFarmsStillNeeded } from "./horizonFigures";
  * The Throne Room's pace line is unconstrained: it assumes lots are always available to sell
  * at the trailing closings/month. The Engine caps sales by inventory on hand and by capital
  * turns (a dollar must return before it buys the next farm). Those are different models; when
- * their figures disagree, the UI must state why — never leave a founder looking at two numbers
- * four times apart with no explanation.
+ * their dollar figures disagree, the UI must state why — never leave a founder looking at two
+ * numbers four times apart with no explanation.
+ *
+ * Farms-to-buy is no longer a second model: Throne and Engine both read `pathToGoal.farmsToBuy`
+ * (War Plan required rotation schedule) via `goal.farmsStillNeeded`. Farm counts therefore agree
+ * by construction; only the dollar projection can diverge.
  */
 
 export type ReconcileBasis = "era" | "lifetime";
@@ -86,24 +90,10 @@ export function reconcileThroneAndEngine(
   const dollarsAgree =
     dollarGap === null ? engineShortfall <= 0.5 && goal.remaining <= 0.5 : Math.abs(dollarGap) < 1;
 
-  // Throne farmsStillNeeded uses the capital-turn schedule (same cycle the Engine uses).
-  // Compare on the same basis (era vs lifetime inventory gap) so the figures cannot drift.
-  const cycleMonths = "inputs" in engine && engine.inputs ? engine.inputs.cycleMonths : null;
-  const inventoryGapForBasis =
-    basis === "era" && goal.lotsStillNeededRecent !== null
-      ? goal.lotsStillNeededRecent - goal.availableLots
-      : goal.inventoryGap;
-  const rotationFarms = farmsStillNeededWithTurns(
-    inventoryGapForBasis,
-    goal.avgLotsPerFarm,
-    goal.monthsToDeadline,
-    cycleMonths,
-  );
-  const farmGap = throne.farms === null || rotationFarms === null ? null : throne.farms - rotationFarms;
-  const farmsAgree =
-    farmGap === null ||
-    Math.abs(farmGap) === 0 ||
-    (engineFarmsNeeded > 0 && throne.farms === engineFarmsNeeded);
+  // Farms-to-buy is the shared War Plan rotation schedule (pathToGoal → goal.farmsStillNeeded).
+  // Throne and the Engine farms-still-needed card both read it, so they cannot drift.
+  const farmGap = 0;
+  const farmsAgree = true;
 
   let dollarReason: string | null = null;
   if (!dollarsAgree) {

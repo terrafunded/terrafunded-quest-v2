@@ -25,6 +25,7 @@ export * from "./streaks";
 export * from "./futures";
 export * from "./seasonality";
 export * from "./warplan";
+export * from "./pathToGoal";
 export * from "./engine";
 export * from "./reconcile";
 export * from "./horizonFigures";

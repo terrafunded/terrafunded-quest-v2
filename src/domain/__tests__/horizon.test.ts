@@ -66,10 +66,12 @@ describe("buildRealm at each exit horizon", () => {
     expect(req(r2029)).toBeLessThan(req(r2028));
     expect(req(r2028)).toBeLessThan(req(r2027));
 
-    // farmsStillNeeded accounts for capital turns before the deadline — longer horizon ⇒ fewer farms.
-    expect(r2027.goal.farmsStillNeeded).toBeGreaterThan(r2028.goal.farmsStillNeeded as number);
-    expect(r2028.goal.farmsStillNeeded).toBeGreaterThan(r2029.goal.farmsStillNeeded as number);
+    // farmsStillNeeded is the War Plan rotation schedule — longer horizon never needs more farms.
+    expect(r2027.goal.farmsStillNeeded as number).toBeGreaterThanOrEqual(r2028.goal.farmsStillNeeded as number);
+    expect(r2028.goal.farmsStillNeeded as number).toBeGreaterThanOrEqual(r2029.goal.farmsStillNeeded as number);
     expect(r2029.goal.farmsStillNeeded).toBeGreaterThan(0);
+    expect(r2027.goal.farmsStillNeeded).toBe(r2027.pathToGoal.farmsToBuy);
+    expect(r2027.goal.farmsStillNeeded).toBe(r2027.warPlan.required.farmsToBuy);
     // lotsStillNeeded is remaining ÷ avg $/lot — deliberately horizon-independent.
     expect(r2028.goal.lotsStillNeeded).toBe(r2027.goal.lotsStillNeeded);
     expect(r2029.goal.lotsStillNeeded).toBe(r2027.goal.lotsStillNeeded);

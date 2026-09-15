@@ -82,11 +82,15 @@ describe("horizon figure catalog", () => {
       expect(engineFig?.value).toBe(throneFig?.value);
     }
     // Longer horizon → fewer farms (capital turns).
-    expect(sets[2027]!.figures.find((f) => f.id === "/.farmsStillNeeded")!.value).toBeGreaterThan(
+    expect(sets[2027]!.figures.find((f) => f.id === "/.farmsStillNeeded")!.value as number).toBeGreaterThanOrEqual(
       sets[2028]!.figures.find((f) => f.id === "/.farmsStillNeeded")!.value as number,
     );
-    expect(sets[2028]!.figures.find((f) => f.id === "/.farmsStillNeeded")!.value).toBeGreaterThan(
+    expect(sets[2028]!.figures.find((f) => f.id === "/.farmsStillNeeded")!.value as number).toBeGreaterThanOrEqual(
       sets[2029]!.figures.find((f) => f.id === "/.farmsStillNeeded")!.value as number,
+    );
+    // Strict drop somewhere across the three (War Plan: 5 → 5 → 4).
+    expect(sets[2027]!.figures.find((f) => f.id === "/.farmsStillNeeded")!.value).not.toBe(
+      sets[2029]!.figures.find((f) => f.id === "/.farmsStillNeeded")!.value,
     );
   });
 

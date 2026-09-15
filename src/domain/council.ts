@@ -195,28 +195,45 @@ function stuckInsight(realm: Realm, lang: QualityLang): Insight {
 
 function inventoryInsight(realm: Realm, lang: QualityLang): Insight {
   const g = realm.goal;
-  const needed = g.lotsStillNeeded;
-  const available = g.availableLots;
+  const path = realm.pathToGoal;
+  const available = path.inventoryOnHand;
+  const runway = path.inventoryRunwayMonths;
+  const zeroDate = path.inventoryZeroDate;
+  const fundBy = path.nextFarmFundByDate;
+  const lag = path.farmToFirstCloseLagMonths;
+  const severity =
+    path.inventorySeverity === "critical" ? "critical" : path.inventorySeverity === "warning" ? "warning" : "ok";
   const figures = {
     available: String(available),
     reserved: String(g.reservedLots),
-    needed: needed === null ? "—" : String(needed),
-    inventoryGap: g.inventoryGap === null ? "—" : String(g.inventoryGap),
+    runwayMonths: runway === null ? "—" : String(runway),
+    inventoryZeroDate: zeroDate ?? "—",
+    nextFarmFundByDate: fundBy ?? "—",
+    farmToFirstCloseLagMonths: String(lag),
+    farmsToBuy: String(path.farmsToBuy),
+    lotsToSell: path.lotsToSell === null ? "—" : String(path.lotsToSell),
   };
-  const short = needed !== null && available < needed;
+  const urgent = severity !== "ok";
   return {
     id: "inventory",
     rule: "inventory",
-    severity: short ? "warning" : "ok",
-    title: lang === "es" ? (short ? "No hay lotes suficientes en inventario" : "El inventario cubre lo que falta") : short ? "Inventory will not cover the remaining lots" : "Inventory covers the remaining lots",
+    severity,
+    title:
+      lang === "es"
+        ? urgent
+          ? "El inventario se agota — hay que fondear la próxima finca"
+          : "El inventario tiene pista suficiente"
+        : urgent
+          ? "Inventory is running out — fund the next farm"
+          : "Inventory runway is healthy",
     body:
       lang === "es"
-        ? needed === null
-          ? `${lotsWord(available, lang)} disponibles; no hay promedio de utilidad por lote para decir cuántos faltan.`
-          : `${lotsWord(available, lang)} disponibles; ${lotsWord(needed, lang)} cierres aún necesarios hasta la meta (restante ÷ utilidad media por lote — la misma cifra en 2027, 2028 y 2029; no es un pedido de inventario en anaquel)${short ? `; faltan ${g.inventoryGap} frente al inventario de hoy` : ""}.`
-        : needed === null
-          ? `${lotsWord(available, lang)} available; there is no average net profit per lot to say how many are still needed.`
-          : `${lotsWord(available, lang)} available; ${lotsWord(needed, lang)} closings still needed to the goal (remaining ÷ avg net profit per lot — the same figure at 2027, 2028, and 2029; not a shelf-inventory request)${short ? `; ${g.inventoryGap} short of today's inventory` : ""}.`,
+        ? runway === null
+          ? `${lotsWord(available, lang)} en mano; el ritmo de cierres es cero, así que no hay pista de inventario que medir.`
+          : `${lotsWord(available, lang)} en mano duran ~${runway} meses al ritmo actual de cierres; el inventario llega a cero hacia ${zeroDate ?? "—"}. Con ${lag} meses de desfase finca→primer cierre, la próxima finca debe fondearse para ${fundBy ?? "—"} (no es un hueco contra los ${path.lotsToSell ?? "—"} cierres totales hasta la meta).`
+        : runway === null
+          ? `${lotsWord(available, lang)} on hand; closing pace is zero, so there is no inventory runway to measure.`
+          : `${lotsWord(available, lang)} on hand last ~${runway} months at the current closing pace; inventory hits zero around ${zeroDate ?? "—"}. With a ${lag}-month farm→first-close lag, the next farm must be funded by ${fundBy ?? "—"} (not a gap against the ${path.lotsToSell ?? "—"} total closings to the goal).`,
     figures,
     impact: impact(null, null),
     href: "/warplan",

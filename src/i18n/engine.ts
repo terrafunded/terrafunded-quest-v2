@@ -137,9 +137,9 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     shortfallFarms: "Shortfall in farms (fresh capital)",
     shortfallFarmsHint:
       "Farms that need fresh capital only — zero when the recycled pool covers the gap. Not the Throne Room farms figure.",
-    farmsStillNeeded: "Farms still needed (capital turns)",
+    farmsStillNeeded: "Farms to buy (rotation schedule)",
     farmsStillNeededHint:
-      "Same formula as the Throne Room — inventory gap ÷ (lots/farm × capital turns before the deadline).",
+      "Same War Plan rotation schedule as the Throne Room — farms the required plan buys with capital turning before the deadline, not lots ÷ lots-per-farm.",
     freshCapital: "Fresh capital required",
     peakOutstanding: "Peak outstanding",
     peakHint: "The maximum owed across all sponsors in any month — what actually has to be raised, not the sum of farm costs. Same powder under more turns does not raise the peak.",
@@ -265,9 +265,9 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     shortfallFarms: "Faltante en fincas (capital fresco)",
     shortfallFarmsHint:
       "Fincas que necesitan capital fresco — cero cuando el pool reciclado cubre el hueco. No es la cifra de fincas del Trono.",
-    farmsStillNeeded: "Fincas aún necesarias (giros de capital)",
+    farmsStillNeeded: "Fincas a comprar (calendario de rotación)",
     farmsStillNeededHint:
-      "La misma fórmula que el Trono — hueco de inventario ÷ (lotes/finca × giros de capital antes de la fecha límite).",
+      "El mismo calendario de rotación del Plan de Guerra que el Trono — fincas que el plan requerido compra con el capital girando antes de la fecha límite, no lotes ÷ lotes-por-finca.",
     freshCapital: "Capital fresco requerido",
     peakOutstanding: "Pico adeudado",
     peakHint: "Lo máximo adeudado a sponsors en un mes — lo que realmente hay que levantar, no la suma de costos de finca. El mismo polvo con más giros no sube el pico.",

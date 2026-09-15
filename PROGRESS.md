@@ -1,3 +1,40 @@
+# Path-to-goal unification (flat vs rotation)
+
+**Diagnosis:** Quest was running two incompatible models side by side — a flat closings count (`lotsStillNeeded`) treated as an inventory ask, and a closed-form `farmsStillNeededWithTurns` that disagreed with the War Plan / Engine rotation schedule.
+
+**Fix (model, not card copy):**
+
+1. **`src/domain/pathToGoal.ts`** — single shared reading:
+   - `lotsToSell` — flat closings to the deadline (unchanged arithmetic)
+   - `farmsToBuy` / `capitalToRaise` — War Plan **required** rotation schedule (never lots ÷ lots-per-farm)
+   - inventory **runway** months, zero-date, next-farm fund-by date (lag = farm→first-close)
+2. `buildRealm` overlays `goal.farmsStillNeeded` from `pathToGoal` and stops applying `withCapitalTurns` for display.
+3. Council inventory card rewritten as a runway statement; severity from fund-by urgency.
+4. Throne / Engine copy: closings-to-deadline + farms from rotation (capital turns over).
+5. Test `pathToGoal.test.ts` asserts Throne = War Plan required = shared helper = `pathToGoal`.
+
+### Old vs new (fixture as-of 2026-09-11)
+
+| Horizon | lots to sell | farms (old closed-form) | farms to buy (new) | capital to raise | runway months | next farm fund-by |
+|---|---:|---:|---:|---:|---:|---|
+| 2027 | 132 | 4 | 5 | $2,342,600 | 10.57 | 2027-04-28 |
+| 2028 | 132 | 3 | 5 | $1,874,080 | 10.57 | 2027-04-28 |
+| 2029 | 132 | 2 | 4 | $937,040 | 10.57 | 2027-04-28 |
+
+### Stock-vs-flow audit (other cards)
+
+| Location | Issue | Status |
+|---|---|---|
+| Council inventory | Compared today's available lots (stock) to `lotsStillNeeded` (cumulative flow) | **Fixed** — runway |
+| Throne / Engine "farms still needed" | Closed-form turns formula ≠ War Plan schedule | **Fixed** — `pathToGoal.farmsToBuy` |
+| Engine `farmsBought` chart | Capacity schedule under capital constraint (grows with horizon) | **OK as separate figure** — not the path-to-goal farms card |
+| Council recycle (90-day returns) | Flow of returns from the required plan | OK — not stock-vs-flow |
+| Council pace / conversion | Rate vs required rate | OK |
+| `goal.inventoryGap` field | Still `lotsStillNeeded − available` in the goal object | Residual; no longer drives farms or Council severity |
+| Oracle "lots still needed" | Scenario lots under Oracle assumptions | Different question; keep labeled as Oracle |
+
+---
+
 # Horizon figure audit (2027 / 2028 / 2029)
 
 Captured from the payments fixture at as-of 2026-09-11 by `captureHorizonFigures` — values, not source reading.

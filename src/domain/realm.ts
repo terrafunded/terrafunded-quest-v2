@@ -2,7 +2,8 @@ import type { PaymentsSnapshot } from "./types";
 import { buildInterestLedger, type InterestLedger } from "./interest";
 import { computeLots, isSold, type Lot } from "./lot";
 import { computeFarms, type FarmEconomics } from "./farm";
-import { computeGoal, withCapitalTurns, withVerdict, type GoalStatus } from "./goal";
+import { computeGoal, withVerdict, type GoalStatus } from "./goal";
+import { computePathToGoal, withPathToGoalFarms, type PathToGoal } from "./pathToGoal";
 import { computeQualityIssues, type QualityIssue } from "./quality";
 import { computeEvents, withLiberationEvents, type RealmEvent } from "./events";
 import { computeInvestors, type InvestorSummary } from "./investors";
@@ -63,6 +64,11 @@ export interface Realm {
   warPlanDefaults: WarPlanDefaults;
   /** The War Plan solved on the real defaults (the Throne Room's rotation strip reads it). */
   warPlan: WarPlan;
+  /**
+   * Shared path-to-goal reading: flat lots-to-sell, rotation farms-to-buy / capital-to-raise,
+   * and inventory runway. Throne, Council, Engine and War Plan all read farms/capital from here.
+   */
+  pathToGoal: PathToGoal;
   /** The realm's capital cycle: the benchmark farm and every sponsor farm graded against it. */
   rotation: RotationBenchmark;
   /** Month-of-year shape of the realm's closings since the era start (not applied with under 12 months of history). */
@@ -265,9 +271,10 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
   };
   const warPlanDefaults = stage(timings, "deriveWarPlanDefaults", () => deriveWarPlanDefaults(warPlanContext));
   const warPlan = stage(timings, "solveWarPlan", () => solveWarPlan(warPlanDefaults.inputs, warPlanContext, lang));
-  // Farms-still-needed must account for capital turns before the deadline (same cycle the
-  // Engine / War Plan use). computeGoal runs before the benchmark exists, so we overlay here.
-  const goalWithTurns = withCapitalTurns(goal, warPlan.benchmark.cycleMonths);
+  // Farms-to-buy and capital-to-raise come from the War Plan rotation schedule (one source of
+  // truth). The closed-form turns formula is not used for display — see pathToGoal.ts.
+  const pathToGoal = stage(timings, "computePathToGoal", () => computePathToGoal(goal, warPlan, asOf));
+  const goalAligned = withPathToGoalFarms(goal, pathToGoal);
   if (timings) timings.total = performance.now() - t0;
 
   return {
@@ -275,7 +282,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
     lots,
     farms,
     interestByFarm,
-    goal: goalWithTurns,
+    goal: goalAligned,
     get quality() {
       return getQuality();
     },
@@ -309,6 +316,7 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
     expected,
     warPlanDefaults,
     warPlan,
+    pathToGoal,
     rotation: warPlan.benchmark,
     seasonality,
     era,
