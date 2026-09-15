@@ -124,30 +124,57 @@ function TurnsTable({
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t.turnsEmpty}</p>
       ) : (
-        <Table data-testid="engine-turns-table">
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t.turnsColFarm}</TableHead>
-              <TableHead>{t.turnsColCapital}</TableHead>
-              <TableHead>{t.turnsColLots}</TableHead>
-              <TableHead>{t.turnsColReturn}</TableHead>
-              <TableHead>{t.turnsColNext}</TableHead>
-              <TableHead>{t.turnsColSource}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <div data-testid="engine-turns-table">
+          <ul className="space-y-2 sm:hidden">
             {rows.map((row) => (
-              <TableRow key={row.id} data-existing={row.isExisting ? "true" : "false"}>
-                <TableCell className="font-heading text-foreground">{farmDisplayName(row, t)}</TableCell>
-                <TableCell className="font-numeric">{money(row.capital)}</TableCell>
-                <TableCell className="font-numeric">{row.lotsLeft}</TableCell>
-                <TableCell>{row.returnIso ? monthLabel(row.returnIso) : t.never}</TableCell>
-                <TableCell>{nextLabel(row, t)}</TableCell>
-                <TableCell>{sourceLabel(row, t)}</TableCell>
-              </TableRow>
+              <li
+                key={row.id}
+                className="rounded-md border border-border/60 p-3"
+                data-existing={row.isExisting ? "true" : "false"}
+              >
+                <div className="font-heading text-foreground">{farmDisplayName(row, t)}</div>
+                <dl className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 text-xs">
+                  <dt className="text-muted-foreground">{t.turnsColCapital}</dt>
+                  <dd className="text-right font-numeric">{money(row.capital)}</dd>
+                  <dt className="text-muted-foreground">{t.turnsColLots}</dt>
+                  <dd className="text-right font-numeric">{row.lotsLeft}</dd>
+                  <dt className="text-muted-foreground">{t.turnsColReturn}</dt>
+                  <dd className="text-right">{row.returnIso ? monthLabel(row.returnIso) : t.never}</dd>
+                  <dt className="text-muted-foreground">{t.turnsColNext}</dt>
+                  <dd className="text-right">{nextLabel(row, t)}</dd>
+                  <dt className="text-muted-foreground">{t.turnsColSource}</dt>
+                  <dd className="text-right">{sourceLabel(row, t)}</dd>
+                </dl>
+              </li>
             ))}
-          </TableBody>
-        </Table>
+          </ul>
+          <div className="hidden sm:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t.turnsColFarm}</TableHead>
+                  <TableHead>{t.turnsColCapital}</TableHead>
+                  <TableHead>{t.turnsColLots}</TableHead>
+                  <TableHead>{t.turnsColReturn}</TableHead>
+                  <TableHead>{t.turnsColNext}</TableHead>
+                  <TableHead>{t.turnsColSource}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={row.id} data-existing={row.isExisting ? "true" : "false"}>
+                    <TableCell className="font-heading text-foreground">{farmDisplayName(row, t)}</TableCell>
+                    <TableCell className="font-numeric">{money(row.capital)}</TableCell>
+                    <TableCell className="font-numeric">{row.lotsLeft}</TableCell>
+                    <TableCell className="whitespace-nowrap">{row.returnIso ? monthLabel(row.returnIso) : t.never}</TableCell>
+                    <TableCell>{nextLabel(row, t)}</TableCell>
+                    <TableCell>{sourceLabel(row, t)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       )}
     </ChartCard>
   );
