@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RealmEvent } from "@/domain";
 import { REALM_UI } from "@/i18n/realm";
-import { celebrationHeadline, celebrationUsesDate } from "./Celebration";
+import { celebrationHeadline, celebrationUsesDate } from "./celebrationCopy";
 
 function ev(over: Partial<RealmEvent> & Pick<RealmEvent, "id" | "kind" | "date">): RealmEvent {
   return {

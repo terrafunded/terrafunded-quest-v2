@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PAGE_PRESETS, PAGE_TRANSITION_CLEAR } from "./PageTransition";
+import { PAGE_PRESETS, PAGE_TRANSITION_CLEAR } from "./pagePresets";
 
 describe("PageTransition end state", () => {
   it("clears filter and transform after every enter preset so fixed children use the viewport", () => {

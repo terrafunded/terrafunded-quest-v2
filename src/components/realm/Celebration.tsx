@@ -8,14 +8,13 @@ import { Button } from "@/components/ui/button";
 import { TOPBAR_HEIGHT_PX } from "@/components/layout/chrome";
 import { date, money } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useRealmStrings, type RealmUiStrings } from "@/i18n/realm";
+import { useRealmStrings } from "@/i18n/realm";
 import { useTheme } from "@/theme/ThemeProvider";
 import { DATA_GOAL, DATA_PROFIT_INVENTORY } from "./chartTokens";
+import { celebrationHeadline } from "./celebrationCopy";
 
 const AUTO_DISMISS_MS = 8_000;
 const MAX_VISIBLE = 3;
-const FRESH_DAYS = 7;
-const MS_PER_DAY = 86_400_000;
 
 interface CelebrationProps {
   events: RealmEvent[];
@@ -25,26 +24,6 @@ interface CelebrationProps {
   /** Sponsors replay: never use "just" / "acaba de" in the headline. */
   replay?: boolean;
   now?: Date;
-}
-
-export function celebrationAgeDays(iso: string, now: Date): number {
-  const stamp = Date.parse(iso.length <= 10 ? `${iso}T00:00:00Z` : iso);
-  if (Number.isNaN(stamp)) return Number.POSITIVE_INFINITY;
-  return (now.getTime() - stamp) / MS_PER_DAY;
-}
-
-export function celebrationUsesDate(events: RealmEvent[], replay: boolean, now: Date): boolean {
-  if (replay) return true;
-  return events.some((e) => celebrationAgeDays(e.date, now) >= FRESH_DAYS);
-}
-
-export function celebrationHeadline(events: RealmEvent[], t: RealmUiStrings["celebration"], replay: boolean, now: Date, formatDate: (iso: string) => string): string {
-  if (events.length === 0) return t.sinceLastVisit;
-  const dated = celebrationUsesDate(events, replay, now);
-  if (events.length > 1) return replay ? t.replayMany(events.length) : t.thingsHappened(events.length);
-  const first = events[0]!;
-  if (dated) return t.kindOn[first.kind]?.(formatDate(first.date)) ?? t.sinceLastVisit;
-  return t.kind[first.kind] ?? t.sinceLastVisit;
 }
 
 /**
