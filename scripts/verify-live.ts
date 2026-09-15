@@ -33,7 +33,7 @@ async function sessionKeys(page: Page): Promise<string[]> {
 }
 
 async function waitForRealm(page: Page) {
-  await page.locator('[role="status"][aria-label="Loading realm data"]').waitFor({ state: "detached", timeout: 60_000 }).catch(() => undefined);
+  await page.locator('[role="status"][aria-label="Loading farm and lot data"], [role="status"][aria-label="Cargando fincas y lotes"]').waitFor({ state: "detached", timeout: 60_000 }).catch(() => undefined);
   await page.evaluate(() => sessionStorage.setItem("quest.intro.seen", "1"));
   await page.keyboard.press("Escape").catch(() => undefined);
 }

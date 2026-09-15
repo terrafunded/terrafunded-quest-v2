@@ -106,9 +106,9 @@ test.describe("Council", () => {
     });
     await page.goto("/council");
     await waitForRealm(page);
-    await expect(page.getByRole("heading", { level: 1, name: "El Consejo" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Recomendaciones" })).toBeVisible();
     await expect(page.getByTestId("weekly-read-label")).toContainText("Lectura semanal");
     await expect(page.getByTestId("weekly-read-unavailable")).toContainText("no disponible");
-    await expect(page.getByTestId("council-insights-label")).toHaveText("Del libro");
+    await expect(page.getByTestId("council-insights-label")).toHaveText("De los registros");
   });
 });

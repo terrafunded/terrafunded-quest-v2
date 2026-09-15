@@ -21,6 +21,7 @@ import { THRONE_ROOM_UI } from "../throneRoom";
 import { TREASURY_UI } from "../treasury";
 import { TROPHIES_UI } from "../trophies";
 import { WAR_PLAN_UI } from "../warPlan";
+import { buildPlatformExport } from "../../lib/platformExport";
 
 /**
  * User-visible copy must not use the retired medieval / game vocabulary.
@@ -188,6 +189,24 @@ describe("banned medieval / game vocabulary", () => {
       }
       for (const campaign of realm.campaigns) {
         hits.push(...findBanned(`campaign.${lang}.${campaign.farmId}`, campaign.reason));
+      }
+    }
+    expect(hits, hits.map((h) => `${h.path} [${h.banned}]: ${h.text}`).join("\n")).toEqual([]);
+  });
+
+  it("export figure labels and reconciliation copy are clean in both languages", () => {
+    const fixture = raw as unknown as PaymentsSnapshot;
+    const hits: Hit[] = [];
+    for (const lang of ["en", "es"] as const) {
+      const realm = buildRealm(fixture, new Date("2026-09-11T00:00:00Z"), { lang });
+      const doc = buildPlatformExport(realm, { lang, exitHorizon: 2027 });
+      for (const figure of doc.figures) {
+        hits.push(...findBanned(`export.${lang}.${figure.id}.label`, figure.label));
+        if (figure.subtitle) hits.push(...findBanned(`export.${lang}.${figure.id}.subtitle`, figure.subtitle));
+      }
+      for (const check of doc.reconciliations) {
+        hits.push(...findBanned(`export.${lang}.${check.id}.name`, check.name));
+        hits.push(...findBanned(`export.${lang}.${check.id}.failMeans`, check.failMeans));
       }
     }
     expect(hits, hits.map((h) => `${h.path} [${h.banned}]: ${h.text}`).join("\n")).toEqual([]);

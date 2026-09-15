@@ -450,7 +450,7 @@ test.describe("Quests ledger", () => {
     const thisMonth = new Date().toISOString().slice(0, 7);
     await page.getByLabel("Filter by stage").selectOption("expected");
     if (due === 0) {
-      await expect(page.getByText("No quests match")).toBeVisible();
+      await expect(page.getByText("No lots match")).toBeVisible();
     } else {
       await expect(rows).toHaveCount(due);
       const months = await page.getByTestId("ledger-expected").evaluateAll((els) => els.map((el) => el.getAttribute("data-month")));
@@ -1273,15 +1273,15 @@ test.describe("Phase 2: Epic", () => {
     await waitForRealm(page);
     const prose = page.getByTestId("chronicle-prose");
     expect(await prose.count()).toBeGreaterThan(10);
-    await expect(prose.filter({ hasText: /claimed Lot \d+ of/ }).first()).toBeVisible();
-    await expect(prose.filter({ hasText: /The realm gained \d+ days?\./ }).first()).toBeVisible();
+    await expect(prose.filter({ hasText: /reserved Lot \d+ of/ }).first()).toBeVisible();
+    await expect(prose.filter({ hasText: /Pace gained \d+ days?\./ }).first()).toBeVisible();
     // Reservations are narrated with their expected closing; the closing points back to the reservation.
     await expect(prose.filter({ hasText: /reserved Lot \d+ of .+ — the closing (is|was) expected around/ }).first()).toBeVisible();
     await expect(prose.filter({ hasText: /\d+ days? after (\w+'s|the) reservation\./ }).first()).toBeVisible();
     // The Cancelled filter exists; whether any cancellation is on file is live data, so only the empty state or cancellation prose may follow.
     await page.locator("[data-testid='chronicle-filter'][data-kind='cancellation']").click();
     const cancellations = page.locator("[data-testid='chronicle-event'][data-kind='cancellation']");
-    if ((await cancellations.count()) > 0) await expect(cancellations.first().getByTestId("chronicle-prose")).toContainText(/withdrew the pledge/);
+    if ((await cancellations.count()) > 0) await expect(cancellations.first().getByTestId("chronicle-prose")).toContainText(/cancelled the reservation/);
     else await expect(page.locator("[data-testid='chronicle-event']:not([data-kind='milestone'])")).toHaveCount(0);
   });
 });

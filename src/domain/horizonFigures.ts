@@ -334,17 +334,17 @@ function qualityFigures(realm: Realm): HorizonFigure[] {
 function questsFigures(realm: Realm): HorizonFigure[] {
   const byStage = (stage: string) => realm.lots.filter((l) => l.stage === stage).length;
   return [
-    fig("/quests", "available", "Quests · available lots", byStage("available"), "historical"),
-    fig("/quests", "reserved", "Quests · reserved lots", byStage("reserved"), "historical"),
-    fig("/quests", "closed", "Quests · closed lots", byStage("closed"), "historical"),
-    fig("/quests", "noteSold", "Quests · note-sold lots", byStage("note_sold"), "historical"),
+    fig("/quests", "available", "Lots · available", byStage("available"), "historical"),
+    fig("/quests", "reserved", "Lots · reserved", byStage("reserved"), "historical"),
+    fig("/quests", "closed", "Lots · closed", byStage("closed"), "historical"),
+    fig("/quests", "noteSold", "Lots · note sold", byStage("note_sold"), "historical"),
   ];
 }
 
 function realmMapFigures(realm: Realm): HorizonFigure[] {
   return [
-    fig("/realm", "farmCount", "Realm · farms", realm.farms.length, "historical"),
-    fig("/realm", "lotCount", "Realm · lots", realm.lots.length, "historical"),
+    fig("/realm", "farmCount", "Farms and lots · farms", realm.farms.length, "historical"),
+    fig("/realm", "lotCount", "Farms and lots · lots", realm.lots.length, "historical"),
   ];
 }
 
