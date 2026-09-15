@@ -3,7 +3,9 @@ import raw from "../__fixtures__/payments.json";
 import type { PaymentsSnapshot } from "../types";
 import { buildRealm } from "../realm";
 import { computeCouncil } from "../council";
+import { computeStageBottleneck } from "../pipeline";
 import { buildWeeklyFacts, collectAllowedNumbers, validateWeeklyRead } from "../weeklyCouncil";
+import { money } from "../../lib/format";
 
 const fixture = raw as unknown as PaymentsSnapshot;
 const realm = buildRealm(fixture, new Date("2026-09-11T00:00:00Z"));
@@ -27,7 +29,7 @@ function validRead(over: Partial<{ headline: string; why: string; worth: string;
 
 describe("computeCouncil", () => {
   it("emits every rule, each figure a formatted string, never NaN", () => {
-    expect(insights.map((i) => i.rule)).toEqual(["pace", "stuck", "inventory", "concentration", "losing_ground", "conversion", "recycle", "quality"]);
+    expect(insights.map((i) => i.rule)).toEqual(["pace", "stuck", "stage_bottleneck", "inventory", "concentration", "losing_ground", "conversion", "recycle", "quality"]);
     for (const i of insights) {
       expect(i.title.length).toBeGreaterThan(4);
       expect(i.body.length).toBeGreaterThan(8);
@@ -47,6 +49,16 @@ describe("computeCouncil", () => {
     expect(conc!.figures.largestName).toBe(largest!.name);
   });
 
+  it("stage bottleneck insight quotes the same trapped sale value as computeStageBottleneck", () => {
+    const stages = computeStageBottleneck(realm.lots, new Date("2026-09-11T00:00:00Z"));
+    const insight = insights.find((i) => i.rule === "stage_bottleneck");
+    expect(stages[0]).toBeDefined();
+    expect(insight).toBeDefined();
+    expect(insight!.figures.salePrice).toBe(money(stages[0]!.salePrice));
+    expect(insight!.impact.dollars).toBe(money(stages[0]!.salePrice));
+    expect(insight!.figures.count).toBe(String(stages[0]!.count));
+  });
+
   it("Spanish insights contain no English marker strings", () => {
     const es = computeCouncil(realm, "es");
     const blob = es.map((i) => `${i.title} ${i.body}`).join("\n");
@@ -61,7 +73,7 @@ describe("buildWeeklyFacts", () => {
     expect(facts.summary.thisWeekDays).toBe("7");
     expect(facts.historyLast6).toHaveLength(Math.min(6, realm.history.length));
     expect(facts.historyLast6.map((h) => h.month)).toEqual(realm.history.slice(-6).map((h) => h.month));
-    expect(facts.insights).toHaveLength(8);
+    expect(facts.insights).toHaveLength(9);
     expect(JSON.stringify(facts)).not.toMatch(/NaN/);
   });
 });

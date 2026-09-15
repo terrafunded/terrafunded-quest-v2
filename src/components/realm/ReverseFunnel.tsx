@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, Cell, LabelList, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from "recharts";
-import { buildReverseFunnel, type Expected, type FunnelStep, type GoalStatus, type ReverseFunnel as ReverseFunnelShape } from "@/domain";
+import { buildReverseFunnel, type Conversion, type Expected, type FunnelStep, type GoalStatus, type ReverseFunnel as ReverseFunnelShape } from "@/domain";
 import { eraMonthLabel } from "@/domain/era";
 import { Input } from "@/components/ui/input";
 import { useInViewOnce } from "@/hooks/useInViewOnce";
@@ -223,7 +223,15 @@ function FunnelTooltip({ active, payload }: TooltipProps) {
  * measured conversion. Payments holds no lead or inquiry volume, so the last step is the user's
  * own cost per conversation (kept in localStorage) and the ad spend it implies, labelled as such.
  */
-export function ReverseFunnel({ goal, expected }: { goal: GoalStatus; expected: Expected }) {
+export function ReverseFunnel({
+  goal,
+  expected,
+  conversion,
+}: {
+  goal: GoalStatus;
+  expected: Expected;
+  conversion?: Conversion;
+}) {
   const { d, reducedMotion } = useTheme();
   const wide = useWideViewport();
   const [ref, inView] = useInViewOnce<HTMLDivElement>();
@@ -248,7 +256,9 @@ export function ReverseFunnel({ goal, expected }: { goal: GoalStatus; expected: 
 
   const conversionSource =
     funnel.conversionSource === "resolved"
-      ? t.conversionResolved
+      ? conversion
+        ? t.conversionResolvedOpen(conversion.closed, conversion.resolvedDenominator, conversion.stillReserved)
+        : t.conversionResolved
       : funnel.conversionSource === "with_cancellations"
         ? t.conversionWithCanc
         : funnel.conversionSource === "assumed"

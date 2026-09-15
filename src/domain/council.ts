@@ -3,6 +3,7 @@ import type { Realm } from "./realm";
 import { addDays, parseDate, toIsoDate } from "./dates";
 import { round2, sum } from "./math";
 import { money, moneyExact, number, pct } from "../lib/format";
+import { computeStageBottleneck } from "./pipeline";
 
 /**
  * Above this share of total deployed capital for one outside sponsor, the concentration rule
@@ -36,6 +37,7 @@ export interface Insight {
   rule:
     | "pace"
     | "stuck"
+    | "stage_bottleneck"
     | "inventory"
     | "concentration"
     | "losing_ground"
@@ -54,6 +56,7 @@ export interface Insight {
 export const COUNCIL_RULES: readonly Insight["rule"][] = [
   "pace",
   "stuck",
+  "stage_bottleneck",
   "inventory",
   "concentration",
   "losing_ground",
@@ -193,6 +196,48 @@ function stuckInsight(realm: Realm, lang: QualityLang): Insight {
   };
 }
 
+function stageBottleneckInsight(realm: Realm, lang: QualityLang): Insight {
+  const asOf = parseDate(realm.goal.asOf) ?? new Date(`${realm.goal.asOf}T00:00:00Z`);
+  const stages = computeStageBottleneck(realm.lots, asOf);
+  const top = stages[0];
+  const figures = {
+    stageName: top?.stageName || "—",
+    count: top ? String(top.count) : "0",
+    salePrice: top ? money(top.salePrice) : money(0),
+    medianDays: top?.medianDaysWaiting === null || top?.medianDaysWaiting === undefined ? "—" : String(top.medianDaysWaiting),
+    stages: String(stages.length),
+  };
+  if (!top || top.count === 0) {
+    return {
+      id: "stage_bottleneck",
+      rule: "stage_bottleneck",
+      severity: "ok",
+      title: lang === "es" ? "Ninguna etapa retiene reservas" : "No stage is holding reservations",
+      body:
+        lang === "es"
+          ? "No hay reservas abiertas agrupadas por etapa de Payments."
+          : "There are no open reservations to group by Payments stage.",
+      figures,
+      impact: impact(null, null),
+      href: "/pipeline",
+    };
+  }
+  const named = top.stageName || (lang === "es" ? "Sin etapa en Payments" : "No stage in Payments");
+  return {
+    id: "stage_bottleneck",
+    rule: "stage_bottleneck",
+    severity: top.count >= 3 ? "critical" : "warning",
+    title: lang === "es" ? `Cuello de botella: ${named}` : `Stage bottleneck: ${named}`,
+    body:
+      lang === "es"
+        ? `${top.count} reservas abiertas están en «${named}», ${money(top.salePrice)} de precio de venta, mediana ${top.medianDaysWaiting ?? "—"} días esperando. Es la etapa que más valor retiene.`
+        : `${top.count} open reservations sit in “${named}”, ${money(top.salePrice)} of sale price, median ${top.medianDaysWaiting ?? "—"} days waiting. That stage holds the most value.`,
+    figures,
+    impact: impact(money(top.salePrice), top.medianDaysWaiting === null ? null : daysWord(top.medianDaysWaiting, lang)),
+    href: "/pipeline",
+  };
+}
+
 function inventoryInsight(realm: Realm, lang: QualityLang): Insight {
   const g = realm.goal;
   const path = realm.pathToGoal;
@@ -315,11 +360,17 @@ function losingGroundInsight(realm: Realm, lang: QualityLang): Insight {
 }
 
 function conversionInsight(realm: Realm, lang: QualityLang): Insight {
-  const conv = realm.pipeline.conversion.pct;
+  const c = realm.pipeline.conversion;
   const e = realm.expected;
+  const resolved = c.resolvedPct === null ? "—" : pct(c.resolvedPct);
+  const blended = c.pct === null ? "—" : pct(c.pct);
   const figures = {
-    conversion: conv === null ? "—" : pct(conv, 0),
-    cohort: String(realm.pipeline.conversion.cohort),
+    conversion: blended,
+    resolved: resolved,
+    closed: String(c.closed),
+    resolvedDenominator: String(c.resolvedDenominator),
+    stillOpen: String(c.stillReserved),
+    cohort: String(c.cohort),
     reservationsPerMonth: number(e.reservationsPerMonth),
     requiredReservationsPerMonth: e.requiredReservationsPerMonth === null ? "—" : number(e.requiredReservationsPerMonth),
     closingsPerMonth: number(e.closingsPerMonth),
@@ -333,8 +384,8 @@ function conversionInsight(realm: Realm, lang: QualityLang): Insight {
     title: lang === "es" ? "Reservas contra lo que pide el horizonte" : "Reservations against what the horizon asks",
     body:
       lang === "es"
-        ? `Conversión medida ${figures.conversion} sobre ${figures.cohort} reservas maduras. Se reservan ${figures.reservationsPerMonth}/mes; el horizonte pide ${figures.requiredReservationsPerMonth}/mes para cerrar ${figures.requiredClosingsPerMonth}/mes.`
-        : `Measured conversion ${figures.conversion} on ${figures.cohort} matured reservations. Reservations run ${figures.reservationsPerMonth}/month; the horizon asks ${figures.requiredReservationsPerMonth}/month to close ${figures.requiredClosingsPerMonth}/month.`,
+        ? `Conversión resuelta ${resolved} — ${c.closed} de ${c.resolvedDenominator} resueltas · ${c.stillReserved} aún abiertas. Mezclada (incluye sin resolver) ${blended}. Se reservan ${figures.reservationsPerMonth}/mes; el horizonte pide ${figures.requiredReservationsPerMonth}/mes para cerrar ${figures.requiredClosingsPerMonth}/mes.`
+        : `Resolved conversion ${resolved} — ${c.closed} of ${c.resolvedDenominator} resolved · ${c.stillReserved} still open. Blended (includes unresolved) ${blended}. Reservations run ${figures.reservationsPerMonth}/month; the horizon asks ${figures.requiredReservationsPerMonth}/month to close ${figures.requiredClosingsPerMonth}/month.`,
     figures,
     impact: impact(null, null),
     href: "/pipeline",
@@ -393,13 +444,14 @@ function qualityInsight(realm: Realm, lang: QualityLang): Insight {
 }
 
 /**
- * The eight rules, in a fixed order. A zero-farm realm still returns every rule (with empty
+ * The nine rules, in a fixed order. A zero-farm realm still returns every rule (with empty
  * figures) so the weekly payload's shape never depends on which alarms fired.
  */
 export function computeCouncil(realm: Realm, lang: QualityLang = "en"): Insight[] {
   return [
     paceInsight(realm, lang),
     stuckInsight(realm, lang),
+    stageBottleneckInsight(realm, lang),
     inventoryInsight(realm, lang),
     concentrationInsight(realm, lang),
     losingGroundInsight(realm, lang),

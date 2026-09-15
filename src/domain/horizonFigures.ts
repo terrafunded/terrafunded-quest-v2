@@ -211,6 +211,7 @@ function warPlanFigures(realm: Realm): HorizonFigure[] {
 /** Council severities that read today's books and do not consult the exit horizon. */
 const HISTORICAL_COUNCIL_SEVERITY = new Set([
   "stuck",
+  "stage_bottleneck",
   "inventory",
   "concentration",
   "losing_ground",

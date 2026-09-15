@@ -11,7 +11,7 @@ export const PROPERTY_COLUMNS =
   "id, name, lot_number, farm_acquisition_id, investor_id, county, state, acres, created_at";
 
 export const FILE_CASE_COLUMNS =
-  "id, client_id, property_id, status, deal_type, business_line, asset_type, project_name, lot_number, sale_price, down_payment, monthly_payment, interest_rate, term_years, reservation_date, reservation_amount, closing_date, estimated_closing_date, note_buyer_destination, assigned_seller, current_stage_name, progress_pct, days_since_start, created_at, updated_at";
+  "id, client_id, property_id, status, deal_type, business_line, asset_type, project_name, lot_number, sale_price, down_payment, monthly_payment, interest_rate, term_years, reservation_date, reservation_amount, closing_date, estimated_closing_date, note_buyer_destination, assigned_seller, current_stage_number, current_stage_name, progress_pct, has_blocked_stages, has_overdue_stages, days_since_start, created_at, updated_at";
 
 export const NOTE_COLUMNS =
   "id, client_id, property_id, note_code, original_amount, down_payment, financed_amount, interest_rate, term_months, monthly_payment, start_date, first_payment_date, status, current_upb, is_sold, is_historical, is_test, asset_type, business_line, commercial_status, created_at";

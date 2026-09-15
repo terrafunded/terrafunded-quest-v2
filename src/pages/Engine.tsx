@@ -305,6 +305,9 @@ export default function EnginePage() {
                 : real.conversionWithCancellationsPct !== null
                   ? pct(real.conversionWithCancellationsPct)
                   : "—",
+              data.realm.pipeline.conversion.closed,
+              data.realm.pipeline.conversion.resolvedDenominator,
+              data.realm.pipeline.conversion.stillReserved,
             )}
           />
           <NumberField

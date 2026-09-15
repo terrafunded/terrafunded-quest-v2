@@ -63,8 +63,11 @@ export interface FileCaseRow {
   estimated_closing_date: string | null;
   note_buyer_destination: string | null;
   assigned_seller: string | null;
+  current_stage_number: number | null;
   current_stage_name: string | null;
   progress_pct: number | null;
+  has_blocked_stages: boolean | null;
+  has_overdue_stages: boolean | null;
   days_since_start: number | null;
   created_at: string | null;
   updated_at: string | null;

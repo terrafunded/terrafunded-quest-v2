@@ -15,10 +15,13 @@ export interface PipelineUiStrings {
   paceHintTrailing: (windowDays: number, waiting: number, made: number) => string;
   paceHintSince: (since: string, days: number, waiting: number, made: number) => string;
   resolvedConversion: string;
+  resolvedStatement: (pct: string, closed: number, denom: number, open: number) => string;
   resolvedHint: (closed: number, denom: string, feeding: boolean) => string;
+  resolvedWarning: string;
   stillOpen: string;
   stillOpenHint: (cutoff: string) => string;
   blendedConversion: string;
+  blendedLabel: string;
   inclCancellations: (pct: string) => string;
   blendedHint: (closed: number, cohort: number, waiting: number, cancelled: number) => string;
   cancellationRate: string;
@@ -31,6 +34,21 @@ export interface PipelineUiStrings {
   trappedAmount: (amount: string) => string;
   emptyTitle: string;
   emptyBody: (days: number, farm: string) => string;
+  bottleneckAria: string;
+  bottleneckTitle: string;
+  bottleneckHint: string;
+  bottleneckStage: string;
+  bottleneckCount: string;
+  bottleneckValue: string;
+  bottleneckMedian: string;
+  noStage: string;
+  flaggedAria: string;
+  flaggedTitle: string;
+  flaggedHint: string;
+  nearClosingAria: string;
+  nearClosingTitle: string;
+  nearClosingHint: string;
+  stuckTitle: string;
   col: {
     daysWaiting: string;
     lot: string;
@@ -39,7 +57,13 @@ export interface PipelineUiStrings {
     estClosing: string;
     salePrice: string;
     netAtStake: string;
+    stage: string;
+    progress: string;
+    lastUpdate: string;
   };
+  flagBlocked: string;
+  flagOverdue: string;
+  flagNear: string;
   testClient: string;
   totals: (n: number) => string;
   funnel: {
@@ -47,6 +71,7 @@ export interface PipelineUiStrings {
     title: (remaining: string) => string;
     monthsConversion: (months: string, deadline: string, conv: string, source: string) => string;
     conversionResolved: string;
+    conversionResolvedOpen: (closed: number, denom: number, open: number) => string;
     conversionWithCanc: string;
     conversionAssumed: string;
     twoFigures: (ledgerAvg: string) => string;
@@ -99,7 +124,7 @@ export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
   en: {
     title: "Pipeline",
     subtitle: (d) =>
-      `Reservations lead, closings pay. Every reserved lot with no closing after ${d} days, sorted by days waiting. Nothing on this page counts toward net profit or the goal date until it closes.`,
+      `Reservations lead, closings pay. Every reserved lot with no closing after ${d} days, ranked by days waiting and lack of progress. Nothing on this page counts toward net profit or the goal date until it closes.`,
     filterFarm: "Filter stuck lots by farm",
     allFarms: "All farms",
     inLedger: "in Payments",
@@ -110,11 +135,14 @@ export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
     paceHintTrailing: (w, waiting, made) => `trailing ${w} days · ${waiting} new reservations still waiting, ${made} made in total`,
     paceHintSince: (since, days, waiting, made) => `since ${since} (${days} days) · ${waiting} new reservations still waiting, ${made} made in total`,
     resolvedConversion: "Resolved conversion (forecasts)",
+    resolvedStatement: (p, closed, denom, open) => `${p} — ${closed} of ${denom} resolved · ${open} still open`,
     resolvedHint: (closed, denom, feeding) =>
       `closed ÷ (closed + cancelled) = ${closed} ÷ ${denom} · used for Expected, Capital projection, Plan${feeding ? " · feeding forecasts now" : ""}`,
+    resolvedWarning: "This estimate rests on few resolved outcomes relative to how many reservations are still open.",
     stillOpen: "Still open",
     stillOpenHint: (cutoff) => `matured reservations still waiting — not failures yet · cohort cutoff ${cutoff}`,
     blendedConversion: "Blended conversion",
+    blendedLabel: "including unresolved reservations",
     inclCancellations: (p) => ` · ${p} incl. cancellations`,
     blendedHint: (closed, cohort, waiting, cancelled) =>
       `including unresolved reservations: ${closed} of ${cohort} closed; ${waiting} still waiting; ${cancelled} cancelled`,
@@ -129,6 +157,21 @@ export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
     trappedAmount: (a) => ` · ${a} trapped`,
     emptyTitle: "Nothing stuck",
     emptyBody: (days, farm) => `No reservation has waited ${days} days without closing${farm ? ` on ${farm}` : ""}.`,
+    bottleneckAria: "Stage bottleneck",
+    bottleneckTitle: "Stage bottleneck",
+    bottleneckHint: "Open reservations grouped by the Payments stage they sit in, ordered by sale price held.",
+    bottleneckStage: "Stage",
+    bottleneckCount: "Reservations",
+    bottleneckValue: "Sale price",
+    bottleneckMedian: "Median days waiting",
+    noStage: "No stage in Payments",
+    flaggedAria: "Blocked or overdue stages",
+    flaggedTitle: "Blocked or overdue",
+    flaggedHint: "Payments marked a blocked or overdue stage. These need a different action than a slow case.",
+    nearClosingAria: "Near closing",
+    nearClosingTitle: "Near closing",
+    nearClosingHint: "Progress at or above 70%, or an estimated closing date in the next 30 days. Shown here, not among the slow reservations.",
+    stuckTitle: "Stuck reservations",
     col: {
       daysWaiting: "Days waiting",
       lot: "Lot",
@@ -137,7 +180,13 @@ export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
       estClosing: "Est. closing",
       salePrice: "Sale price",
       netAtStake: "Net profit at stake",
+      stage: "Stage",
+      progress: "Progress",
+      lastUpdate: "Last update",
     },
+    flagBlocked: "Blocked",
+    flagOverdue: "Overdue",
+    flagNear: "Near closing",
     testClient: "test client",
     totals: (n) => `Totals · ${n} stuck reservations`,
     funnel: {
@@ -145,6 +194,8 @@ export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
       title: (remaining) => `The reverse funnel · what ${remaining} demands`,
       monthsConversion: (months, deadline, conv, source) => `${months} months to ${deadline} · ${conv} conversion${source}`,
       conversionResolved: ", resolved (feeds forecasts)",
+      conversionResolvedOpen: (closed, denom, open) =>
+        `, resolved — ${closed} of ${denom} · ${open} still open`,
       conversionWithCanc: ", cancellations included",
       conversionAssumed: ", assumed",
       twoFigures: (ledgerAvg) =>
@@ -202,7 +253,7 @@ export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
   es: {
     title: "Pipeline",
     subtitle: (d) =>
-      `Las reservas adelantan, los cierres pagan. Cada lote reservado sin cierre después de ${d} días, ordenado por días de espera. Nada en esta pantalla cuenta para la utilidad neta ni la fecha meta hasta que cierre.`,
+      `Las reservas adelantan, los cierres pagan. Cada lote reservado sin cierre después de ${d} días, ordenado por días de espera y falta de avance. Nada en esta pantalla cuenta para la utilidad neta ni la fecha meta hasta que cierre.`,
     filterFarm: "Filtrar lotes atascados por finca",
     allFarms: "Todas las fincas",
     inLedger: "en Payments",
@@ -213,11 +264,14 @@ export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
     paceHintTrailing: (w, waiting, made) => `últimos ${w} días · ${waiting} reservas nuevas aún esperando, ${made} hechas en total`,
     paceHintSince: (since, days, waiting, made) => `desde ${since} (${days} días) · ${waiting} reservas nuevas aún esperando, ${made} hechas en total`,
     resolvedConversion: "Conversión resuelta (pronósticos)",
+    resolvedStatement: (p, closed, denom, open) => `${p} — ${closed} de ${denom} resueltas · ${open} aún abiertas`,
     resolvedHint: (closed, denom, feeding) =>
       `cerrados ÷ (cerrados + cancelados) = ${closed} ÷ ${denom} · usado en Esperado, Proyección de capital, Plan${feeding ? " · alimentando pronósticos ahora" : ""}`,
+    resolvedWarning: "Esta estimación descansa en pocos desenlaces resueltos frente a las reservas que siguen abiertas.",
     stillOpen: "Aún abiertas",
     stillOpenHint: (cutoff) => `reservas maduras aún esperando — aún no son fallos · corte de cohorte ${cutoff}`,
     blendedConversion: "Conversión mezclada",
+    blendedLabel: "incluye reservas sin resolver",
     inclCancellations: (p) => ` · ${p} incl. cancelaciones`,
     blendedHint: (closed, cohort, waiting, cancelled) =>
       `incluyendo reservas sin resolver: ${closed} de ${cohort} cerrados; ${waiting} aún esperando; ${cancelled} cancelados`,
@@ -232,6 +286,21 @@ export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
     trappedAmount: (a) => ` · ${a} atrapados`,
     emptyTitle: "Nada atascado",
     emptyBody: (days, farm) => `Ninguna reserva ha esperado ${days} días sin cerrar${farm ? ` en ${farm}` : ""}.`,
+    bottleneckAria: "Cuello de botella por etapa",
+    bottleneckTitle: "Cuello de botella por etapa",
+    bottleneckHint: "Reservas abiertas agrupadas por la etapa de Payments en la que están, ordenadas por precio de venta retenido.",
+    bottleneckStage: "Etapa",
+    bottleneckCount: "Reservas",
+    bottleneckValue: "Precio de venta",
+    bottleneckMedian: "Mediana de días esperando",
+    noStage: "Sin etapa en Payments",
+    flaggedAria: "Etapas bloqueadas o vencidas",
+    flaggedTitle: "Bloqueadas o vencidas",
+    flaggedHint: "Payments marcó una etapa bloqueada o vencida. Piden una acción distinta a un caso lento.",
+    nearClosingAria: "Cerca del cierre",
+    nearClosingTitle: "Cerca del cierre",
+    nearClosingHint: "Avance de 70% o más, o una fecha de cierre estimada en los próximos 30 días. No se mezclan con la lista atascada.",
+    stuckTitle: "Reservas atascadas",
     col: {
       daysWaiting: "Días esperando",
       lot: "Lote",
@@ -240,7 +309,13 @@ export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
       estClosing: "Cierre est.",
       salePrice: "Precio de venta",
       netAtStake: "Utilidad neta en juego",
+      stage: "Etapa",
+      progress: "Avance",
+      lastUpdate: "Última actualización",
     },
+    flagBlocked: "Bloqueada",
+    flagOverdue: "Vencida",
+    flagNear: "Cerca del cierre",
     testClient: "cliente de prueba",
     totals: (n) => `Totales · ${n} reservas atascadas`,
     funnel: {
@@ -248,6 +323,8 @@ export const PIPELINE_UI: Record<QualityLang, PipelineUiStrings> = {
       title: (remaining) => `El pipeline inverso · lo que exige ${remaining}`,
       monthsConversion: (months, deadline, conv, source) => `${months} meses hasta ${deadline} · ${conv} de conversión${source}`,
       conversionResolved: ", resuelta (alimenta pronósticos)",
+      conversionResolvedOpen: (closed, denom, open) =>
+        `, resuelta — ${closed} de ${denom} · ${open} aún abiertas`,
       conversionWithCanc: ", cancelaciones incluidas",
       conversionAssumed: ", asumida",
       twoFigures: (ledgerAvg) =>

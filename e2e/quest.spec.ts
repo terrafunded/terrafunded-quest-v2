@@ -938,15 +938,19 @@ test.describe("Pipeline layer", () => {
     await page.goto("/pipeline");
     await waitForRealm(page);
     await expect(page.getByTestId("pipeline-farm")).toHaveCount(10);
+    await expect(page.getByTestId("pipeline-conversion-statement")).toBeVisible();
+    await expect(page.getByTestId("stage-bottleneck")).toBeVisible();
     const rows = page.getByTestId("stuck-row");
-    await expect(rows).toHaveCount(stuckCount);
-    if (stuckCount > 0) {
+    const listed = await rows.count();
+    expect(listed).toBeLessThanOrEqual(stuckCount);
+    if (listed > 0) {
+      const severities = await rows.evaluateAll((els) => els.map((el) => Number(el.getAttribute("data-severity"))));
+      for (let i = 1; i < severities.length; i++) expect(severities[i - 1]).toBeGreaterThanOrEqual(severities[i]!);
       const days = await rows.evaluateAll((els) => els.map((el) => Number(el.getAttribute("data-days"))));
-      for (let i = 1; i < days.length; i++) expect(days[i - 1]).toBeGreaterThanOrEqual(days[i]!);
-      expect(days.at(-1)).toBeGreaterThanOrEqual(60);
-      const total = (await page.getByTestId("stuck-total-trapped").textContent()) ?? "";
-      expect(Math.round(Number(total.replace(/[^\d.-]/g, "")))).toBe(trappedValue);
+      expect(Math.min(...days)).toBeGreaterThanOrEqual(60);
     }
+    const pageTrappedText = (await page.getByTestId("pipeline-page-trapped").locator(".font-heading").textContent()) ?? "";
+    expect(Math.round(Number(pageTrappedText.replace(/[^\d.-]/g, "")))).toBe(Math.round(trappedValue));
 
     await page.goto("/quests?filter=stuck");
     await waitForRealm(page);

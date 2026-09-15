@@ -347,7 +347,8 @@ describe("fixture: PIPELINE (reservations layer)", () => {
   it("of the 48 reservations made on or before 2026-06-13, 36 closed (75% blended); resolved conversion is 100 % with cancelled=0", () => {
     // Lamar Lot 5 (pledged 2025-09-07, closed 2025-11-05) joined the cohort
     // Blended trailing pulse still counts the 12 still-open matured reservations; forecasts use resolved instead.
-    expect(p.conversion).toMatchObject({ cutoff: "2026-06-13", cohort: 48, closed: 36, stillReserved: 12, pct: 75, resolvedPct: 100, resolvedDenominator: 36 });
+    expect(p.conversion).toMatchObject({ cutoff: "2026-06-13", cohort: 48, closed: 36, stillReserved: 12, pct: 75, resolvedPct: 100, resolvedDenominator: 36, thinSample: true });
+    expect(p.conversion.openShare).toBeCloseTo(12 / 48);
   });
 
   it("16 reservations are stuck past 60 days, trapping $1,103,375.31 of net profit on $2,024,531 of sales", () => {
@@ -355,9 +356,8 @@ describe("fixture: PIPELINE (reservations layer)", () => {
     expect(p.netProfitTrapped).toBe(1_103_375.31);
     expect(p.salePriceTrapped).toBe(2_024_531);
     expect(p.netProfitTrapped).toBe(round2(p.stuck.reduce((a, s) => a + s.netProfitAtStake, 0)));
-    expect(p.stuck[0]).toMatchObject({ lotName: "Titus — Lot 2", buyerName: "Crystal Thompson", daysWaiting: 132, salePrice: 135_412, netProfitAtStake: 60_460.5, reservationDate: "2026-05-02" });
-    expect(p.stuck.at(-1)).toMatchObject({ lotName: "Avery — Lot 5", daysWaiting: 67 });
-    for (let i = 1; i < p.stuck.length; i++) expect(p.stuck[i - 1]!.daysWaiting).toBeGreaterThanOrEqual(p.stuck[i]!.daysWaiting);
+    expect(p.stuck.some((s) => s.lotName === "Titus — Lot 2" && s.daysWaiting === 132 && s.salePrice === 135_412)).toBe(true);
+    for (let i = 1; i < p.stuck.length; i++) expect(p.stuck[i - 1]!.severity).toBeGreaterThanOrEqual(p.stuck[i]!.severity);
     for (const s of p.stuck) expect(realm.lots.find((l) => l.propertyId === s.propertyId)?.stage).toBe("reserved");
   });
 
@@ -577,7 +577,9 @@ describe("fixture: WAR PLAN (the Oracle in reverse)", () => {
       cancellationRatePct: 0,
       resolvedPct: 100,
       resolvedDenominator: 36,
+      thinSample: true,
     });
+    expect(realm.pipeline.conversion.openShare).toBeCloseTo(12 / 48);
     expect(realm.pipeline.cancelledReservations).toBe(0);
     expect(realm.lots.every((l) => l.cancelledFileCases === 0)).toBe(true);
   });

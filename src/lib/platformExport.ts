@@ -489,17 +489,26 @@ function collectFigures(
       displayed:
         realm.pipeline.conversion.resolvedPct === null
           ? "—"
-          : `${realm.pipeline.conversion.resolvedPct}%`,
+          : lang === "es"
+            ? `${realm.pipeline.conversion.resolvedPct}% — ${realm.pipeline.conversion.closed} de ${realm.pipeline.conversion.resolvedDenominator} resueltas · ${realm.pipeline.conversion.stillReserved} aún abiertas`
+            : `${realm.pipeline.conversion.resolvedPct}% — ${realm.pipeline.conversion.closed} of ${realm.pipeline.conversion.resolvedDenominator} resolved · ${realm.pipeline.conversion.stillReserved} still open`,
       raw: realm.pipeline.conversion.resolvedPct,
-      subtitle: null,
+      subtitle:
+        realm.pipeline.conversion.pct === null
+          ? null
+          : lang === "es"
+            ? `${realm.pipeline.conversion.pct}% incluye reservas sin resolver`
+            : `${realm.pipeline.conversion.pct}% including unresolved reservations`,
       units: "%",
       source: { file: "src/domain/pipeline.ts", export: "computePipeline" },
       inputs: {
         closed: realm.pipeline.conversion.closed,
         cancelled: realm.pipeline.conversion.cancelled,
         resolvedDenominator: realm.pipeline.conversion.resolvedDenominator,
+        stillReserved: realm.pipeline.conversion.stillReserved,
+        blendedPct: realm.pipeline.conversion.pct,
       },
-      formula: "closed ÷ (closed + cancelled)",
+      formula: "closed ÷ (closed + cancelled); open count is part of the displayed figure",
     },
     {
       id: "treasury.cashIn",
