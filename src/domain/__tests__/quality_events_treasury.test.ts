@@ -24,6 +24,46 @@ describe("computeQualityIssues", () => {
     expect(issues.find((i) => i.kind === "price_mismatch")?.severity).toBe("error");
   });
 
+  it("compares the file case with the note Quest uses (pickNote), not with the first note in query order", () => {
+    const f = farm();
+    const p = property(f.id, 1);
+    // Two notes on one lot: the stale one comes first in query order, the one Quest uses (newest start_date) second.
+    const stale = note(p.id, { note_code: "TST-L01-OLD", original_amount: 118_000, down_payment: 5_900, start_date: "2026-03-01" });
+    const current = note(p.id, { note_code: "TST-L01", original_amount: 120_000, down_payment: 6_000, start_date: "2026-05-01" });
+    const base = { farms: [f], properties: [p], noteSales: [], clients: [client()] };
+
+    // The file case agrees with the note Quest uses → no price / down-payment disagreement to report.
+    const agreeing = computeQualityIssues({
+      ...base,
+      fileCases: [fileCase(p.id, { status: "completed", closing_date: "2026-05-01", sale_price: 120_000, down_payment: 6_000, reservation_date: "2026-04-01" })],
+      notes: [stale, current],
+    });
+    expect(agreeing.map((i) => i.kind)).toContain("multiple_notes_on_lot");
+    expect(agreeing.map((i) => i.kind)).not.toContain("price_mismatch");
+    expect(agreeing.map((i) => i.kind)).not.toContain("down_payment_mismatch");
+
+    // The file case agrees with the stale first note only → the disagreement is against the note Quest uses, and it names it.
+    const disagreeing = computeQualityIssues({
+      ...base,
+      fileCases: [fileCase(p.id, { status: "completed", closing_date: "2026-05-01", sale_price: 118_000, down_payment: 5_900, reservation_date: "2026-04-01" })],
+      notes: [stale, current],
+    });
+    const price = disagreeing.find((i) => i.kind === "price_mismatch");
+    expect(price?.details).toMatchObject({ fileCaseSalePrice: 118_000, noteOriginalAmount: 120_000, noteCode: "TST-L01" });
+    expect(disagreeing.find((i) => i.kind === "down_payment_mismatch")?.details).toMatchObject({ noteDownPayment: 6_000, noteCode: "TST-L01" });
+
+    // A sold note wins over a newer unsold one, exactly as computeLot picks it.
+    const soldOld = note(p.id, { note_code: "TST-L01-SOLD", original_amount: 118_000, down_payment: 5_900, start_date: "2026-03-01", is_sold: true });
+    const withSold = computeQualityIssues({
+      ...base,
+      fileCases: [fileCase(p.id, { status: "completed", closing_date: "2026-05-01", sale_price: 118_000, down_payment: 5_900, reservation_date: "2026-02-01" })],
+      notes: [current, soldOld],
+      noteSales: [noteSale(soldOld.id, { sale_date: "2026-06-01" })],
+    });
+    expect(withSold.map((i) => i.kind)).not.toContain("price_mismatch");
+    expect(withSold.map((i) => i.kind)).not.toContain("down_payment_mismatch");
+  });
+
   it("flags NULL investor_capital, sold notes without sales, and sales without the sold flag", () => {
     const f = farm({ investor_capital: null });
     const p1 = property(f.id, 1);

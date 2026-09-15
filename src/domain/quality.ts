@@ -195,7 +195,8 @@ export function computeQualityIssues(i: QualityInputs): QualityIssue[] {
     }
 
     if (fileCase) {
-      const note = notes[0];
+      // Compare against the note Quest actually uses (computeLot → pickNote: sold first, newest start), not query order.
+      const note = pickNote(notes);
       if (!note) continue;
       const pairSince = latest(fileCase.reservation_date, fileCase.closing_date, note.start_date);
       if (!nearlyEqual(fileCase.sale_price, note.original_amount)) {
