@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Story } from "@/domain";
 import { useHorizon } from "@/horizon/HorizonProvider";
 import { useRealmStrings } from "@/i18n/realm";
@@ -56,7 +57,9 @@ export function CinematicIntro({ story }: { story: Story }) {
 
   const card = index >= 0 ? story.cards[index] : undefined;
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <AnimatePresence>
       {show && (
         <motion.div
@@ -105,6 +108,7 @@ export function CinematicIntro({ story }: { story: Story }) {
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

@@ -173,8 +173,12 @@ export interface RealmUiStrings {
     aria: string;
     close: string;
     kind: Partial<Record<RealmEvent["kind"], string>>;
+    /** Headline when the event is older than 7 days or opened via replay — no "just". */
+    kindOn: Partial<Record<RealmEvent["kind"], (when: string) => string>>;
     sinceLastVisit: string;
     thingsHappened: (n: number) => string;
+    replayMany: (n: number) => string;
+    andMore: (n: number) => string;
     onward: string;
   };
   intro: {
@@ -398,8 +402,15 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       aria: "Update",
       close: "Close update",
       kind: { closing: "A lot just sold", note_sale: "A note was sold", liberation: "A sponsor just got capital back" },
+      kindOn: {
+        closing: (when) => `A lot sold on ${when}`,
+        note_sale: (when) => `A note sold on ${when}`,
+        liberation: (when) => `Capital returned on ${when}`,
+      },
       sinceLastVisit: "Since your last visit",
       thingsHappened: (n) => `${n} things happened since your last visit`,
+      replayMany: (n) => `${n} capital returns`,
+      andMore: (n) => `and ${n} more`,
       onward: "Continue",
     },
     intro: {
@@ -627,8 +638,15 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       aria: "Actualización",
       close: "Cerrar la actualización",
       kind: { closing: "Un lote acaba de venderse", note_sale: "Se vendió un pagaré", liberation: "Un sponsor acaba de recibir capital de vuelta" },
+      kindOn: {
+        closing: (when) => `Un lote se vendió el ${when}`,
+        note_sale: (when) => `Se vendió un pagaré el ${when}`,
+        liberation: (when) => `Capital devuelto el ${when}`,
+      },
       sinceLastVisit: "Desde tu última visita",
       thingsHappened: (n) => `${n} cosas pasaron desde tu última visita`,
+      replayMany: (n) => `${n} capitales devueltos`,
+      andMore: (n) => `y ${n} más`,
       onward: "Continuar",
     },
     intro: {
