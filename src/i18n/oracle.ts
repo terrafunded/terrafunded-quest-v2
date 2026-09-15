@@ -27,6 +27,8 @@ export interface OracleUiStrings {
   deadline: string;
   netProfit: string;
   cashRealized: string;
+  chartLegendAria: string;
+  legendGoal: string;
   chartFootStart: (net: string, lots: string) => string;
   chartFootWithRes: (n: number, conv: number, lag: number) => string;
   chartFootClosingsOnly: string;
@@ -93,6 +95,8 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     deadline: "Deadline",
     netProfit: "Net profit",
     cashRealized: "Cash realized",
+    chartLegendAria: "Chart legend",
+    legendGoal: "Goal",
     chartFootStart: (net, lots) => `Starts at ${net} net and ${lots} lots of inventory (available + reserved). `,
     chartFootWithRes: (n, conv, lag) =>
       `The ${n} live reservations close first, each on its expected date at ${conv}% conversion and for its own net profit; the pace above only starts after the ${lag}-day reservation → closing lag. `,
@@ -160,6 +164,8 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     deadline: "Fecha límite",
     netProfit: "Utilidad neta",
     cashRealized: "Efectivo realizado",
+    chartLegendAria: "Leyenda de la gráfica",
+    legendGoal: "Meta",
     chartFootStart: (net, lots) => `Parte de ${net} netos y ${lots} lotes de inventario (disponibles + reservados). `,
     chartFootWithRes: (n, conv, lag) =>
       `Las ${n} reservas vivas cierran primero, cada una en su fecha esperada a ${conv}% de conversión y con su propia utilidad neta; el ritmo de arriba solo empieza después del desfase de ${lag} días reserva → cierre. `,

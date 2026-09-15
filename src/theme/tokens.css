@@ -55,6 +55,26 @@
   --territory-from: 214 12% 15%;
   --territory-to: 36 48% 26%;
 
+  /* Semantic data series — one color, one meaning. Source hex: #34C77B #2BB8B0 #A3E36B #E0607E #F28C38 #9B8CF0 #4FA3F0 #E3B04B #5C6570. */
+  --data-profit-inventory: 149 59% 49%;
+  --data-profit-recycled: 177 62% 45%;
+  --data-profit-fresh: 92 68% 65%;
+  --data-owed: 346 67% 63%;
+  --data-interest: 27 88% 58%;
+  --data-raise: 249 77% 75%;
+  --data-inventory: 209 84% 63%;
+  --data-goal: 40 73% 59%;
+  --data-axis: 213 10% 40%;
+  --data-status-far: 346 67% 63%;
+  --data-status-near: 40 73% 59%;
+  --data-status-hit: 149 59% 49%;
+  --data-cat-1: 218 68% 58%;
+  --data-cat-2: 274 52% 64%;
+  --data-cat-3: 312 56% 62%;
+  --data-cat-4: 6 70% 56%;
+  --data-cat-5: 72 48% 46%;
+  --data-cat-6: 192 52% 48%;
+
   --font-display: "Cinzel", "Georgia", serif;
   --font-heading: "Cinzel", "Georgia", serif;
   --font-body: "Crimson Pro", "Georgia", "Times New Roman", serif;
@@ -113,6 +133,25 @@
   --territory-from: 40 30% 82%;
   --territory-to: 42 72% 60%;
 
+  --data-profit-inventory: 149 59% 49%;
+  --data-profit-recycled: 177 62% 45%;
+  --data-profit-fresh: 92 55% 42%;
+  --data-owed: 346 67% 48%;
+  --data-interest: 27 88% 42%;
+  --data-raise: 249 55% 48%;
+  --data-inventory: 209 70% 42%;
+  --data-goal: 40 73% 42%;
+  --data-axis: 213 10% 40%;
+  --data-status-far: 346 67% 48%;
+  --data-status-near: 40 73% 42%;
+  --data-status-hit: 149 59% 38%;
+  --data-cat-1: 218 55% 42%;
+  --data-cat-2: 274 45% 44%;
+  --data-cat-3: 312 50% 42%;
+  --data-cat-4: 6 70% 42%;
+  --data-cat-5: 72 48% 32%;
+  --data-cat-6: 192 52% 34%;
+
   --font-display: "Cinzel Decorative", "Cinzel", "Georgia", serif;
   --font-heading: "Cormorant Garamond", "Georgia", serif;
   --font-body: "EB Garamond", "Georgia", "Times New Roman", serif;
@@ -170,6 +209,25 @@
   --stage-note-sold: 48 100% 58%;
   --territory-from: 250 22% 10%;
   --territory-to: 48 70% 24%;
+
+  --data-profit-inventory: 149 59% 49%;
+  --data-profit-recycled: 177 62% 45%;
+  --data-profit-fresh: 92 68% 65%;
+  --data-owed: 346 67% 63%;
+  --data-interest: 27 88% 58%;
+  --data-raise: 249 77% 75%;
+  --data-inventory: 209 84% 63%;
+  --data-goal: 40 73% 59%;
+  --data-axis: 213 10% 40%;
+  --data-status-far: 346 67% 63%;
+  --data-status-near: 40 73% 59%;
+  --data-status-hit: 149 59% 49%;
+  --data-cat-1: 218 68% 58%;
+  --data-cat-2: 274 52% 64%;
+  --data-cat-3: 312 56% 62%;
+  --data-cat-4: 6 70% 56%;
+  --data-cat-5: 72 48% 46%;
+  --data-cat-6: 192 52% 48%;
 
   --font-display: "Orbitron", "Rajdhani", system-ui, sans-serif;
   --font-heading: "Rajdhani", "Orbitron", system-ui, sans-serif;

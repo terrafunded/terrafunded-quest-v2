@@ -9,7 +9,24 @@ import { money, moneyCompact, monthLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/i18n/lang";
 import { useRealmStrings, type RealmUiStrings } from "@/i18n/realm";
-import { BORDER, CURSOR, EMBER, GOLD, GREEN, MUTED, POPOVER, useChartReveal, type ChartReveal } from "./chartTokens";
+import { ChartLegend } from "./ChartLegend";
+import {
+  BORDER,
+  CURSOR,
+  DATA_AXIS,
+  DATA_CAT,
+  DATA_GOAL,
+  DATA_INVENTORY,
+  DATA_PROFIT_INVENTORY,
+  GRID_STROKE_OPACITY,
+  POPOVER,
+  SERIES_STROKE_WIDTH,
+  useChartReveal,
+  type ChartReveal,
+} from "./chartTokens";
+
+const RESERVATIONS = DATA_CAT[2];
+const CLOSINGS = DATA_INVENTORY;
 
 /**
  * Every bar gets its own tick. With `minTickGap` recharts dropped alternate months, so a bar in an
@@ -17,7 +34,7 @@ import { BORDER, CURSOR, EMBER, GOLD, GREEN, MUTED, POPOVER, useChartReveal, typ
  * beside the "Mar 26" tick looked like Mar 26 having profit while its tooltip said $0). Rotated
  * labels fit the narrowest band (12 months at 390px ≈ 23px) without overlapping.
  */
-const X_TICK = { fill: MUTED, fontSize: 10 };
+const X_TICK = { fill: DATA_AXIS, fontSize: 10 };
 const X_AXIS_HEIGHT = 34;
 
 /**
@@ -124,16 +141,21 @@ export function PulseCharts({
           requiredClosings={requiredClosings}
           requiredReservations={requiredReservations}
           reducedMotion={reducedMotion}
+          swatches={[
+            { color: RESERVATIONS, label: t.reservations },
+            { color: CLOSINGS, label: t.closings },
+            { color: DATA_GOAL, label: t.required, dashed: true },
+          ]}
         >
           {(reveal) => (
             <ResponsiveContainer>
               <BarChart data={points} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke={BORDER} vertical={false} />
+                <CartesianGrid stroke={DATA_AXIS} strokeOpacity={GRID_STROKE_OPACITY} vertical={false} />
                 <XAxis dataKey="label" interval={0} angle={-45} textAnchor="end" height={X_AXIS_HEIGHT} tick={X_TICK} tickLine={false} axisLine={false} />
                 <YAxis
                   allowDecimals={false}
                   domain={[0, (max: number) => Math.max(max, requiredClosings ?? 0, requiredReservations ?? 0, 1)]}
-                  tick={{ fill: MUTED, fontSize: 11 }}
+                  tick={{ fill: DATA_AXIS, fontSize: 11 }}
                   tickLine={false}
                   axisLine={false}
                   width={32}
@@ -142,38 +164,40 @@ export function PulseCharts({
                 {requiredReservations !== null && (
                   <ReferenceLine
                     y={requiredReservations}
-                    stroke={EMBER}
+                    stroke={DATA_GOAL}
+                    strokeWidth={SERIES_STROKE_WIDTH}
                     strokeDasharray="4 4"
                     ifOverflow="extendDomain"
-                    label={{ value: t.required, fill: EMBER, fontSize: 11, position: "insideTopLeft" }}
+                    label={{ value: t.required, fill: DATA_GOAL, fontSize: 11, position: "insideTopLeft" }}
                   />
               )}
               {requiredClosings !== null && (
                 <ReferenceLine
                   y={requiredClosings}
-                  stroke={GREEN}
-                  strokeDasharray="4 4"
-                  ifOverflow="extendDomain"
-                  label={{ value: t.required, fill: GREEN, fontSize: 11, position: "insideTopRight" }}
+                    stroke={DATA_GOAL}
+                    strokeWidth={SERIES_STROKE_WIDTH}
+                    strokeDasharray="4 4"
+                    ifOverflow="extendDomain"
+                    label={{ value: t.required, fill: DATA_GOAL, fontSize: 11, position: "insideTopRight" }}
                 />
               )}
               <Bar
                 dataKey="reservations"
                 name={t.reservations}
-                fill={EMBER}
+                fill={RESERVATIONS}
                 radius={[3, 3, 0, 0]}
                 isAnimationActive={reveal.animate}
                 animationBegin={0}
                 animationDuration={duration}
               >
                 {points.map((p) => (
-                  <Cell key={`r-${p.month}`} fill={EMBER} fillOpacity={fillOpacity(p)} />
+                  <Cell key={`r-${p.month}`} fill={RESERVATIONS} fillOpacity={fillOpacity(p)} />
                 ))}
               </Bar>
               <Bar
                 dataKey="closings"
                 name={t.closings}
-                fill={GREEN}
+                fill={CLOSINGS}
                 radius={[3, 3, 0, 0]}
                 isAnimationActive={reveal.animate}
                 animationBegin={SECOND_SERIES_BEGIN_MS}
@@ -181,7 +205,7 @@ export function PulseCharts({
                 onAnimationEnd={reveal.settle}
               >
                 {points.map((p) => (
-                  <Cell key={`c-${p.month}`} fill={GREEN} fillOpacity={fillOpacity(p)} />
+                  <Cell key={`c-${p.month}`} fill={CLOSINGS} fillOpacity={fillOpacity(p)} />
                 ))}
               </Bar>
             </BarChart>
@@ -195,16 +219,20 @@ export function PulseCharts({
           testId="pulse-chart-profit"
           requiredProfit={requiredProfit}
           reducedMotion={reducedMotion}
+          swatches={[
+            { color: DATA_PROFIT_INVENTORY, label: t.netProfit },
+            { color: DATA_GOAL, label: t.required, dashed: true },
+          ]}
         >
           {(reveal) => (
             <ResponsiveContainer>
               <BarChart data={points} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke={BORDER} vertical={false} />
+                <CartesianGrid stroke={DATA_AXIS} strokeOpacity={GRID_STROKE_OPACITY} vertical={false} />
                 <XAxis dataKey="label" interval={0} angle={-45} textAnchor="end" height={X_AXIS_HEIGHT} tick={X_TICK} tickLine={false} axisLine={false} />
                 <YAxis
                   domain={[0, (max: number) => Math.max(max, requiredProfit ?? 0, 1)]}
                   tickFormatter={(v: number) => moneyCompact(v)}
-                  tick={{ fill: MUTED, fontSize: 11 }}
+                  tick={{ fill: DATA_AXIS, fontSize: 11 }}
                   tickLine={false}
                   axisLine={false}
                   width={40}
@@ -213,16 +241,17 @@ export function PulseCharts({
                 {requiredProfit !== null && (
                   <ReferenceLine
                     y={requiredProfit}
-                    stroke={GOLD}
+                    stroke={DATA_GOAL}
+                    strokeWidth={SERIES_STROKE_WIDTH}
                     strokeDasharray="4 4"
                     ifOverflow="extendDomain"
-                    label={{ value: t.required, fill: GOLD, fontSize: 11, position: "insideTopRight" }}
+                    label={{ value: t.required, fill: DATA_GOAL, fontSize: 11, position: "insideTopRight" }}
                   />
               )}
               <Bar
                 dataKey="netProfit"
                 name={t.netProfit}
-                fill={GOLD}
+                fill={DATA_PROFIT_INVENTORY}
                 radius={[3, 3, 0, 0]}
                 isAnimationActive={reveal.animate}
                 animationBegin={0}
@@ -230,7 +259,7 @@ export function PulseCharts({
                 onAnimationEnd={reveal.settle}
               >
                 {points.map((p) => (
-                  <Cell key={`p-${p.month}`} fill={GOLD} fillOpacity={fillOpacity(p)} />
+                  <Cell key={`p-${p.month}`} fill={DATA_PROFIT_INVENTORY} fillOpacity={fillOpacity(p)} />
                 ))}
               </Bar>
             </BarChart>
@@ -261,6 +290,7 @@ function ChartCard({
   requiredReservations,
   requiredProfit,
   reducedMotion,
+  swatches,
   children,
 }: {
   title: string;
@@ -270,6 +300,7 @@ function ChartCard({
   requiredReservations?: number | null;
   requiredProfit?: number | null;
   reducedMotion: boolean;
+  swatches: { color: string; label: string; dashed?: boolean }[];
   children: (reveal: ChartReveal) => ReactNode;
 }) {
   const [ref, inView] = useInViewOnce<HTMLDivElement>();
@@ -289,6 +320,7 @@ function ChartCard({
       <div ref={ref} className="mt-2 h-56 w-full sm:h-72">
         {inView && children(reveal)}
       </div>
+      <ChartLegend aria={title} items={swatches} />
     </div>
   );
 }

@@ -81,6 +81,16 @@ export interface EngineUiStrings {
   inventoryChartHint: string;
   capitalChart: string;
   capitalChartHint: string;
+  chartLegendAria: string;
+  legendProfitInventory: string;
+  legendProfitRecycled: string;
+  legendProfitFresh: string;
+  legendGoal: string;
+  legendLots: string;
+  legendDry: string;
+  legendOwed: string;
+  legendInterest: string;
+  legendPeak: string;
   sensitivity: string;
   sensitivityHint: string;
   sensitivityPace: string;
@@ -227,6 +237,16 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     inventoryChartHint: "Sawtooth down as lots sell, up as farms land. Troughs at zero are the gaps this page exists to prevent.",
     capitalChart: "Capital outstanding",
     capitalChartHint: "Total owed to sponsors per month; peak annotated. Interest accrued on the secondary axis.",
+    chartLegendAria: "Chart legend",
+    legendProfitInventory: "Inventory",
+    legendProfitRecycled: "Turn 2+",
+    legendProfitFresh: "Fresh capital",
+    legendGoal: "Goal",
+    legendLots: "Lots",
+    legendDry: "Dry",
+    legendOwed: "Outstanding",
+    legendInterest: "Interest",
+    legendPeak: "Peak",
     sensitivity: "Sensitivity grid",
     sensitivityHint: "Pace (current · ×1.5 · ×2) against cycle (benchmark ±60 days). Hover for the verdict; click to load those inputs.",
     sensitivityPace: "Sales pace",
@@ -373,6 +393,16 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     inventoryChartHint: "Diente de sierra: baja al vender, sube al aterrizar fincas. Los valles en cero son los huecos que esta página evita.",
     capitalChart: "Capital adeudado",
     capitalChartHint: "Total adeudado a sponsors por mes; pico anotado. Interés acumulado en el eje secundario.",
+    chartLegendAria: "Leyenda de la gráfica",
+    legendProfitInventory: "Inventario",
+    legendProfitRecycled: "Giro 2+",
+    legendProfitFresh: "Capital fresco",
+    legendGoal: "Meta",
+    legendLots: "Lotes",
+    legendDry: "Agotado",
+    legendOwed: "Adeudado",
+    legendInterest: "Interés",
+    legendPeak: "Pico",
     sensitivity: "Cuadrícula de sensibilidad",
     sensitivityHint: "Ritmo (actual · ×1.5 · ×2) contra ciclo (benchmark ±60 días). Pasa el cursor para el veredicto; clic para cargar esas entradas.",
     sensitivityPace: "Ritmo de ventas",

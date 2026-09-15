@@ -4,7 +4,8 @@ import type { FarmEconomics, FarmGeometry, Lot, Pipeline } from "@/domain";
 import { tileUrl } from "@/data/useFarmGeometry";
 import { useRealmMapStrings } from "@/i18n/realmMap";
 import { stageLabel } from "@/lib/format";
-import { HOVER_STROKE, MAP_BOX_ASPECT, RING_STROKE, STAGE_FILL, ringFor, territoryFill } from "./realmTokens";
+import { BACKGROUND, FOREGROUND } from "./chartTokens";
+import { HOVER_STROKE, MAP_BOX_ASPECT, MAP_PLATE_STROKE, RING_STROKE, STAGE_FILL, ringFor, territoryFill } from "./realmTokens";
 
 /** Lot-number label target size in CSS pixels; converted to viewBox units per farm. */
 const LABEL_PX = 11;
@@ -140,7 +141,7 @@ export function FarmParcelMap({
       </defs>
 
       {/* The tract — roads and everything between parcels — in the farm's ground colour, gold as it sells out. */}
-      {geometry.tract && <polygon points={geometry.tract} fill={territoryFill(farm.pctClosed)} stroke="hsl(var(--gold) / 0.35)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
+      {geometry.tract && <polygon points={geometry.tract} fill={territoryFill(farm.pctClosed)} stroke={MAP_PLATE_STROKE} strokeOpacity={0.35} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
 
       <motion.g variants={stagger} initial="hidden" animate={inView ? "show" : "hidden"}>
         {parcels.map(({ p, lot, labelUnits, showLabel }) => {
@@ -198,7 +199,7 @@ export function FarmParcelMap({
                   fontSize={labelUnits}
                   fontWeight={700}
                   className="pointer-events-none select-none tabular"
-                  style={{ fill: "hsl(var(--foreground))", paintOrder: "stroke", stroke: "hsl(var(--background) / 0.9)", strokeWidth: labelUnits * 0.28, strokeLinejoin: "round" }}
+                  style={{ fill: FOREGROUND, paintOrder: "stroke", stroke: BACKGROUND, strokeOpacity: 0.9, strokeWidth: labelUnits * 0.28, strokeLinejoin: "round" }}
                   data-testid="lot-number"
                 >
                   {p.lot}

@@ -18,19 +18,24 @@ import { useTheme } from "@/theme/ThemeProvider";
 import { date, money, moneyCompact, monthLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ChartLegend } from "./ChartLegend";
 import {
-  BORDER,
-  EMBER,
-  GOLD,
-  LIBERTY,
-  MUTED,
-  OXYGEN,
-  SPONSOR,
-  STEEL,
+  AREA_FILL_OPACITY,
+  CURSOR,
+  DATA_AXIS,
+  DATA_GOAL,
+  DATA_INTEREST,
+  DATA_INVENTORY,
+  DATA_OWED,
+  DATA_PROFIT_FRESH,
+  DATA_PROFIT_INVENTORY,
+  DATA_PROFIT_RECYCLED,
+  DATA_STATUS_FAR,
+  GRID_STROKE_OPACITY,
+  SERIES_STROKE_WIDTH,
   TOOLTIP_CLASS,
   TOOLTIP_STYLE,
   useChartReveal,
-  CURSOR,
 } from "./chartTokens";
 
 type Props = {
@@ -209,9 +214,9 @@ function ProfitStack({
       <div className="h-64 min-w-0 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke={BORDER} strokeOpacity={0.4} vertical={false} />
-            <XAxis dataKey="label" tick={{ fill: MUTED, fontSize: 11 }} interval="preserveStartEnd" minTickGap={28} />
-            <YAxis tickFormatter={(v) => moneyCompact(Number(v))} tick={{ fill: MUTED, fontSize: 11 }} width={56} />
+            <CartesianGrid stroke={DATA_AXIS} strokeOpacity={GRID_STROKE_OPACITY} vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: DATA_AXIS, fontSize: 11 }} interval="preserveStartEnd" minTickGap={28} />
+            <YAxis tickFormatter={(v) => moneyCompact(Number(v))} tick={{ fill: DATA_AXIS, fontSize: 11 }} width={56} />
             <ChartTooltip
               cursor={CURSOR}
               contentStyle={TOOLTIP_STYLE}
@@ -221,40 +226,52 @@ function ProfitStack({
             <Area
               type="monotone"
               dataKey="inventory"
-              name="Inventory"
+              name={t.legendProfitInventory}
               stackId="1"
-              stroke={STEEL}
-              fill={STEEL}
-              fillOpacity={0.35}
+              stroke={DATA_PROFIT_INVENTORY}
+              strokeWidth={SERIES_STROKE_WIDTH}
+              fill={DATA_PROFIT_INVENTORY}
+              fillOpacity={AREA_FILL_OPACITY}
               isAnimationActive={reveal.animate}
               animationDuration={duration}
             />
             <Area
               type="monotone"
               dataKey="recycled"
-              name="Turns"
-              stroke={LIBERTY}
-              fill={LIBERTY}
-              fillOpacity={0.25}
+              name={t.legendProfitRecycled}
+              stroke={DATA_PROFIT_RECYCLED}
+              strokeWidth={SERIES_STROKE_WIDTH}
+              fill={DATA_PROFIT_RECYCLED}
+              fillOpacity={AREA_FILL_OPACITY}
               isAnimationActive={reveal.animate}
               animationDuration={duration}
             />
             <Area
               type="monotone"
               dataKey="fresh"
-              name="Fresh"
-              stroke={SPONSOR}
-              fill={SPONSOR}
-              fillOpacity={0.2}
+              name={t.legendProfitFresh}
+              stroke={DATA_PROFIT_FRESH}
+              strokeWidth={SERIES_STROKE_WIDTH}
+              fill={DATA_PROFIT_FRESH}
+              fillOpacity={AREA_FILL_OPACITY}
               isAnimationActive={reveal.animate}
               animationDuration={duration}
               onAnimationEnd={reveal.settle}
             />
-            <Line type="monotone" dataKey="goal" name="Goal" stroke={GOLD} strokeDasharray="4 4" dot={false} isAnimationActive={false} />
-            <ReferenceLine y={result.goal} stroke={GOLD} strokeOpacity={0.5} />
+            <Line type="monotone" dataKey="goal" name={t.legendGoal} stroke={DATA_GOAL} strokeWidth={SERIES_STROKE_WIDTH} strokeDasharray="4 4" dot={false} isAnimationActive={false} />
+            <ReferenceLine y={result.goal} stroke={DATA_GOAL} strokeWidth={SERIES_STROKE_WIDTH} strokeDasharray="4 4" />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+      <ChartLegend
+        aria={t.chartLegendAria}
+        items={[
+          { color: DATA_PROFIT_INVENTORY, label: t.legendProfitInventory },
+          { color: DATA_PROFIT_RECYCLED, label: t.legendProfitRecycled },
+          { color: DATA_PROFIT_FRESH, label: t.legendProfitFresh },
+          { color: DATA_GOAL, label: t.legendGoal, dashed: true },
+        ]}
+      />
     </ChartCard>
   );
 }
@@ -281,31 +298,48 @@ function InventoryChart({
       <div className="h-56 min-w-0 sm:h-64">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke={BORDER} strokeOpacity={0.4} vertical={false} />
-            <XAxis dataKey="label" tick={{ fill: MUTED, fontSize: 11 }} interval="preserveStartEnd" minTickGap={28} />
-            <YAxis tick={{ fill: MUTED, fontSize: 11 }} width={40} />
+            <CartesianGrid stroke={DATA_AXIS} strokeOpacity={GRID_STROKE_OPACITY} vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: DATA_AXIS, fontSize: 11 }} interval="preserveStartEnd" minTickGap={28} />
+            <YAxis tick={{ fill: DATA_AXIS, fontSize: 11 }} width={40} />
             <ChartTooltip cursor={CURSOR} contentStyle={TOOLTIP_STYLE} wrapperClassName={TOOLTIP_CLASS} />
             <Area
               type="stepAfter"
               dataKey="inventory"
-              name="Lots"
-              stroke={OXYGEN}
-              fill={OXYGEN}
-              fillOpacity={0.25}
+              name={t.legendLots}
+              stroke={DATA_INVENTORY}
+              strokeWidth={SERIES_STROKE_WIDTH}
+              fill={DATA_INVENTORY}
+              fillOpacity={AREA_FILL_OPACITY}
               isAnimationActive={reveal.animate}
               animationDuration={duration}
             />
-            <Area type="stepAfter" dataKey="dry" name="Dry" stroke={EMBER} fill={EMBER} fillOpacity={0.45} isAnimationActive={false} />
+            <Area
+              type="stepAfter"
+              dataKey="dry"
+              name={t.legendDry}
+              stroke={DATA_STATUS_FAR}
+              strokeWidth={SERIES_STROKE_WIDTH}
+              fill={DATA_STATUS_FAR}
+              fillOpacity={AREA_FILL_OPACITY}
+              isAnimationActive={false}
+            />
             {result.inventoryDryMonths[0] !== undefined && (
               <ReferenceLine
                 x={monthLabel(result.series.find((s) => s.monthIndex === result.inventoryDryMonths[0])?.date ?? "")}
-                stroke={EMBER}
-                strokeDasharray="3 3"
+                stroke={DATA_STATUS_FAR}
+                strokeWidth={SERIES_STROKE_WIDTH}
               />
             )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+      <ChartLegend
+        aria={t.chartLegendAria}
+        items={[
+          { color: DATA_INVENTORY, label: t.legendLots },
+          { color: DATA_STATUS_FAR, label: t.legendDry },
+        ]}
+      />
     </ChartCard>
   );
 }
@@ -334,19 +368,20 @@ function CapitalChart({
       <div className="h-56 min-w-0 sm:h-64">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke={BORDER} strokeOpacity={0.4} vertical={false} />
-            <XAxis dataKey="label" tick={{ fill: MUTED, fontSize: 11 }} interval="preserveStartEnd" minTickGap={28} />
-            <YAxis yAxisId="l" tickFormatter={(v) => moneyCompact(Number(v))} tick={{ fill: MUTED, fontSize: 11 }} width={56} />
-            <YAxis yAxisId="r" orientation="right" tickFormatter={(v) => moneyCompact(Number(v))} tick={{ fill: MUTED, fontSize: 11 }} width={48} />
+            <CartesianGrid stroke={DATA_AXIS} strokeOpacity={GRID_STROKE_OPACITY} vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: DATA_AXIS, fontSize: 11 }} interval="preserveStartEnd" minTickGap={28} />
+            <YAxis yAxisId="l" tickFormatter={(v) => moneyCompact(Number(v))} tick={{ fill: DATA_AXIS, fontSize: 11 }} width={56} />
+            <YAxis yAxisId="r" orientation="right" tickFormatter={(v) => moneyCompact(Number(v))} tick={{ fill: DATA_AXIS, fontSize: 11 }} width={48} />
             <ChartTooltip cursor={CURSOR} contentStyle={TOOLTIP_STYLE} wrapperClassName={TOOLTIP_CLASS} formatter={(v: number) => money(v)} />
             <Area
               yAxisId="l"
               type="monotone"
               dataKey="owed"
-              name="Outstanding"
-              stroke={SPONSOR}
-              fill={SPONSOR}
-              fillOpacity={0.3}
+              name={t.legendOwed}
+              stroke={DATA_OWED}
+              strokeWidth={SERIES_STROKE_WIDTH}
+              fill={DATA_OWED}
+              fillOpacity={AREA_FILL_OPACITY}
               isAnimationActive={reveal.animate}
               animationDuration={duration}
             />
@@ -354,17 +389,35 @@ function CapitalChart({
               yAxisId="r"
               type="monotone"
               dataKey="interest"
-              name="Interest"
-              stroke={EMBER}
+              name={t.legendInterest}
+              stroke={DATA_INTEREST}
+              strokeWidth={SERIES_STROKE_WIDTH}
               dot={false}
               isAnimationActive={reveal.animate}
               animationDuration={duration}
               onAnimationEnd={reveal.settle}
             />
-            {peak > 0 && <ReferenceLine yAxisId="l" y={peak} stroke={GOLD} strokeDasharray="4 4" label={{ value: `peak ${moneyCompact(peak)}`, fill: GOLD, fontSize: 11 }} />}
+            {peak > 0 && (
+              <ReferenceLine
+                yAxisId="l"
+                y={peak}
+                stroke={DATA_GOAL}
+                strokeWidth={SERIES_STROKE_WIDTH}
+                strokeDasharray="4 4"
+                label={{ value: `${t.legendPeak} ${moneyCompact(peak)}`, fill: DATA_GOAL, fontSize: 11 }}
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+      <ChartLegend
+        aria={t.chartLegendAria}
+        items={[
+          { color: DATA_OWED, label: t.legendOwed },
+          { color: DATA_INTEREST, label: t.legendInterest },
+          { color: DATA_GOAL, label: t.legendPeak, dashed: true },
+        ]}
+      />
     </ChartCard>
   );
 }
@@ -382,14 +435,13 @@ function SensitivityGrid({
   const cells = result.sensitivity;
   const paces = [1, 1.5, 2];
   const cycles = [-60, 0, 60];
-  const bandClass: Record<string, string> = {
-    met: "bg-stage-closed/40 text-foreground",
-    close: "bg-oxygen/30 text-foreground",
-    short: "bg-ember/25 text-foreground",
-    far: "bg-ember/50 text-foreground",
-  };
-
   const cellAt = (mult: number, offset: number) => cells.find((c) => c.paceMultiplier === mult && c.cycleOffsetDays === offset);
+
+  const statusToken = (band: string) => {
+    if (band === "met") return "var(--data-status-hit)";
+    if (band === "close") return "var(--data-status-near)";
+    return "var(--data-status-far)";
+  };
 
   return (
     <ChartCard testId="engine-chart-sensitivity" title={t.sensitivity} hint={t.sensitivityHint}>
@@ -411,14 +463,17 @@ function SensitivityGrid({
               {paces.map((mult) => {
                 const cell = cellAt(mult, offset);
                 if (!cell) return <div key={mult} className="min-h-11 rounded-md bg-muted/30" />;
+                const token = statusToken(cell.band);
                 return (
                   <button
                     key={mult}
                     type="button"
-                    className={cn(
-                      "min-h-11 rounded-md border border-border/50 px-1 py-2 text-center text-xs font-numeric transition-colors hover:ring-2 hover:ring-gold/50",
-                      bandClass[cell.band],
-                    )}
+                    className="min-h-11 rounded-md px-1 py-2 text-center text-xs font-numeric transition-colors hover:ring-2 hover:ring-[hsl(var(--data-goal)/0.5)]"
+                    style={{
+                      background: `hsl(${token} / 0.22)`,
+                      border: `1px solid hsl(${token})`,
+                      color: `color-mix(in srgb, hsl(${token}) 58%, white)`,
+                    }}
                     onMouseEnter={() => setHover(cell)}
                     onFocus={() => setHover(cell)}
                     onClick={() => onLoad(cell)}

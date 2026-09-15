@@ -6,9 +6,24 @@ import { useInViewOnce } from "@/hooks/useInViewOnce";
 import { useWideViewport } from "@/hooks/useWideViewport";
 import { useTheme } from "@/theme/ThemeProvider";
 import { date, money, moneyCompact } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { useRealmStrings, type RealmUiStrings } from "@/i18n/realm";
-import { BORDER, EMBER, FOREGROUND, GOLD, GREEN, MUTED, OXYGEN, POPOVER, TOOLTIP_CLASS, TOOLTIP_STYLE, useChartReveal } from "./chartTokens";
+import {
+  AREA_FILL_OPACITY,
+  DATA_AXIS,
+  DATA_GOAL,
+  DATA_PROFIT_FRESH,
+  DATA_PROFIT_INVENTORY,
+  DATA_PROFIT_RECYCLED,
+  DATA_STATUS_FAR,
+  DATA_STATUS_HIT,
+  FOREGROUND,
+  GRID_STROKE_OPACITY,
+  POPOVER,
+  SERIES_STROKE_WIDTH,
+  TOOLTIP_CLASS,
+  TOOLTIP_STYLE,
+  useChartReveal,
+} from "./chartTokens";
 
 const MS_PER_MONTH = (365.25 / 12) * 86_400_000;
 const MAX_LINE_DURATION_MS = 900;
@@ -121,7 +136,7 @@ function DotLabel({ viewBox, text, sub, fill, anchorEnd, strong, side }: DotLabe
         {text}
       </text>
       {sub && (
-        <text x={x + dx} y={y + 14} textAnchor={anchor} fill={MUTED} fontSize={10} style={{ textTransform: "none" }}>
+        <text x={x + dx} y={y + 14} textAnchor={anchor} fill={DATA_AXIS} fontSize={10} style={{ textTransform: "none" }}>
           {sub}
         </text>
       )}
@@ -140,10 +155,10 @@ function CurveTooltip({ active, label, payload, t }: TooltipProps) {
   if (!active || !payload?.[0] || typeof label !== "number") return null;
   const row = payload[0].payload;
   const rows: { key: string; label: string; value: number | undefined; color: string }[] = [
-    { key: "actual", label: t.tooltipActual, value: row.actual, color: GREEN },
-    { key: "required", label: t.tooltipRequired, value: row.required, color: GOLD },
-    { key: "lifetime", label: t.tooltipProjected, value: row.lifetime, color: FOREGROUND },
-    { key: "recent", label: t.tooltipProjectedRecent, value: row.recent, color: MUTED },
+    { key: "actual", label: t.tooltipActual, value: row.actual, color: DATA_PROFIT_INVENTORY },
+    { key: "required", label: t.tooltipRequired, value: row.required, color: DATA_GOAL },
+    { key: "lifetime", label: t.tooltipProjected, value: row.lifetime, color: DATA_PROFIT_FRESH },
+    { key: "recent", label: t.tooltipProjectedRecent, value: row.recent, color: DATA_PROFIT_RECYCLED },
   ];
   return (
     <div className={TOOLTIP_CLASS} style={TOOLTIP_STYLE} data-testid="goal-curve-tooltip">
@@ -183,7 +198,7 @@ export function GoalCurve({ goal, history }: { goal: GoalStatus; history: Monthl
   const ticks = useMemo(() => monthTicks(curve.axis.from, curve.axis.to, wide), [curve.axis.from, curve.axis.to, wide]);
   const duration = Math.min(Math.round(d(0.7) * 1000), MAX_LINE_DURATION_MS);
 
-  const sideColor = curve.onTrack === null ? null : curve.onTrack ? OXYGEN : EMBER;
+  const sideColor = curve.onTrack === null ? null : curve.onTrack ? DATA_STATUS_HIT : DATA_STATUS_FAR;
   const horizonYear = Number(curve.deadline.slice(0, 4));
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * curve.goal);
   const anchorEnd = (x: number) => (x - curve.axis.from) / Math.max(1, curve.axis.to - curve.axis.from) > 0.62;
@@ -215,7 +230,7 @@ export function GoalCurve({ goal, history }: { goal: GoalStatus; history: Monthl
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="font-heading text-sm uppercase tracking-[0.2em] text-gold">{t.title}</h2>
         {sideColor && (
-          <span className={cn("font-heading text-sm", curve.onTrack ? "text-oxygen" : "text-ember")} data-testid="goal-curve-side">
+          <span className={`font-heading text-sm ${curve.onTrack ? "text-oxygen" : "text-ember"}`} style={{ color: sideColor ?? undefined }} data-testid="goal-curve-side">
             {curve.onTrack ? t.ahead : t.behind}
           </span>
         )}
@@ -226,14 +241,14 @@ export function GoalCurve({ goal, history }: { goal: GoalStatus; history: Monthl
         {inView && (
           <ResponsiveContainer>
             <ComposedChart data={rows} margin={{ top: wide ? 26 : 12, right: wide ? 16 : 8, left: 0, bottom: 0 }}>
-              {wide && <CartesianGrid stroke={BORDER} vertical={false} />}
+              {wide && <CartesianGrid stroke={DATA_AXIS} strokeOpacity={GRID_STROKE_OPACITY} vertical={false} />}
               <XAxis
                 type="number"
                 dataKey="t"
                 domain={[curve.axis.from, curve.axis.to]}
                 ticks={ticks}
                 tickFormatter={(v: number) => historyMonthLabel(isoOf(v))}
-                tick={{ fill: MUTED, fontSize: 11 }}
+                tick={{ fill: DATA_AXIS, fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={8}
@@ -243,7 +258,7 @@ export function GoalCurve({ goal, history }: { goal: GoalStatus; history: Monthl
                 domain={[0, curve.goal]}
                 ticks={yTicks}
                 tickFormatter={(v: number) => moneyCompact(v)}
-                tick={{ fill: MUTED, fontSize: 11 }}
+                tick={{ fill: DATA_AXIS, fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 width={wide ? 48 : 40}
@@ -257,7 +272,7 @@ export function GoalCurve({ goal, history }: { goal: GoalStatus; history: Monthl
                   dataKey="shade"
                   stroke="none"
                   fill={sideColor}
-                  fillOpacity={0.18}
+                  fillOpacity={AREA_FILL_OPACITY}
                   connectNulls
                   isAnimationActive={reveal.animate}
                   animationDuration={duration}
@@ -270,8 +285,8 @@ export function GoalCurve({ goal, history }: { goal: GoalStatus; history: Monthl
                   type="linear"
                   dataKey="band"
                   stroke="none"
-                  fill={FOREGROUND}
-                  fillOpacity={0.08}
+                  fill={DATA_PROFIT_RECYCLED}
+                  fillOpacity={0.12}
                   connectNulls
                   isAnimationActive={reveal.animate}
                   animationDuration={duration}
@@ -280,19 +295,20 @@ export function GoalCurve({ goal, history }: { goal: GoalStatus; history: Monthl
                 />
               )}
 
-              <ReferenceLine x={curve.required[0].t} stroke={MUTED} strokeDasharray="3 3" label={{ value: t.today, fill: MUTED, fontSize: 10, position: "insideTopLeft" }} />
+              <ReferenceLine x={curve.required[0].t} stroke={DATA_AXIS} strokeWidth={SERIES_STROKE_WIDTH} label={{ value: t.today, fill: DATA_AXIS, fontSize: 10, position: "insideTopLeft" }} />
               <ReferenceLine
                 x={curve.required[1].t}
-                stroke={GOLD}
-                strokeOpacity={0.7}
-                label={{ value: t.deadline(horizonYear), fill: GOLD, fontSize: 10, position: anchorEnd(curve.required[1].t) ? "insideTopRight" : "insideTopLeft" }}
+                stroke={DATA_GOAL}
+                strokeWidth={SERIES_STROKE_WIDTH}
+                strokeDasharray="4 4"
+                label={{ value: t.deadline(horizonYear), fill: DATA_GOAL, fontSize: 10, position: anchorEnd(curve.required[1].t) ? "insideTopRight" : "insideTopLeft" }}
               />
 
               <Line
                 type="linear"
                 dataKey="required"
-                stroke={GOLD}
-                strokeWidth={1.5}
+                stroke={DATA_GOAL}
+                strokeWidth={SERIES_STROKE_WIDTH}
                 strokeDasharray="5 4"
                 dot={false}
                 activeDot={false}
@@ -301,18 +317,16 @@ export function GoalCurve({ goal, history }: { goal: GoalStatus; history: Monthl
                 animationDuration={duration}
                 onAnimationEnd={reveal.settle}
               />
-              <Line type="linear" dataKey="actual" stroke={GREEN} strokeWidth={2.5} dot={false} activeDot={{ r: 3 }} connectNulls isAnimationActive={reveal.animate} animationDuration={duration} />
+              <Line type="linear" dataKey="actual" stroke={DATA_PROFIT_INVENTORY} strokeWidth={SERIES_STROKE_WIDTH} dot={false} activeDot={{ r: 3 }} connectNulls isAnimationActive={reveal.animate} animationDuration={duration} />
               {curve.lifetime && (
-                <Line type="linear" dataKey="lifetime" stroke={FOREGROUND} strokeWidth={1.75} dot={false} activeDot={false} connectNulls isAnimationActive={reveal.animate} animationDuration={duration} />
+                <Line type="linear" dataKey="lifetime" stroke={DATA_PROFIT_FRESH} strokeWidth={SERIES_STROKE_WIDTH} dot={false} activeDot={false} connectNulls isAnimationActive={reveal.animate} animationDuration={duration} />
               )}
               {curve.recent && (
                 <Line
                   type="linear"
                   dataKey="recent"
-                  stroke={FOREGROUND}
-                  strokeOpacity={0.7}
-                  strokeWidth={1.25}
-                  strokeDasharray="2 4"
+                  stroke={DATA_PROFIT_RECYCLED}
+                  strokeWidth={SERIES_STROKE_WIDTH}
                   dot={false}
                   activeDot={false}
                   connectNulls
@@ -332,7 +346,7 @@ export function GoalCurve({ goal, history }: { goal: GoalStatus; history: Monthl
                   label={
                     wide
                       ? (props: DotLabelProps) => (
-                          <DotLabel {...props} text={recentLabel} fill={MUTED} anchorEnd={anchorEnd(endOf(recent).t)} strong={false} side="below" />
+                          <DotLabel {...props} text={recentLabel} fill={DATA_PROFIT_RECYCLED} anchorEnd={anchorEnd(endOf(recent).t)} strong={false} side="below" />
                         )
                       : undefined
                   }
@@ -356,24 +370,26 @@ export function GoalCurve({ goal, history }: { goal: GoalStatus; history: Monthl
 
       <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-muted-foreground" aria-label="legend">
         <li className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-4" style={{ background: GREEN }} /> {t.actual}
+          <span className="inline-block h-0.5 w-4" style={{ background: DATA_PROFIT_INVENTORY }} /> {t.actual}
         </li>
         <li className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-0 w-4 border-t border-dashed" style={{ borderColor: GOLD }} /> {t.required}
+          <span className="inline-block h-0 w-4 border-t border-dashed" style={{ borderColor: DATA_GOAL }} /> {t.required}
         </li>
-        {curve.lifetime && (
-          <li className="inline-flex items-center gap-1.5" data-testid="goal-curve-legend-lifetime">
-            <span className="inline-block h-0.5 w-4" style={{ background: FOREGROUND }} /> {t.projectedLifetime(money(curve.lifetime.avgNetProfitPerClosedLot), curve.lifetime.closedLots)}
-          </li>
-        )}
-        {recent && eraMonth && (
-          <li className="inline-flex items-center gap-1.5" data-testid="goal-curve-legend-recent">
-            <span className="inline-block h-0 w-4 border-t border-dotted" style={{ borderColor: FOREGROUND }} /> {t.projectedRecent(money(recent.avgNetProfitPerClosedLot), recent.closedLots, eraMonth)}
-          </li>
-        )}
+        <li className="inline-flex items-center gap-1.5" data-testid="goal-curve-legend-lifetime">
+          <span className="inline-block h-0.5 w-4" style={{ background: DATA_PROFIT_FRESH }} />{" "}
+          {curve.lifetime
+            ? t.projectedLifetime(money(curve.lifetime.avgNetProfitPerClosedLot), curve.lifetime.closedLots)
+            : t.tooltipProjected}
+        </li>
+        <li className="inline-flex items-center gap-1.5" data-testid="goal-curve-legend-recent">
+          <span className="inline-block h-0.5 w-4" style={{ background: DATA_PROFIT_RECYCLED }} />{" "}
+          {recent && eraMonth
+            ? t.projectedRecent(money(recent.avgNetProfitPerClosedLot), recent.closedLots, eraMonth)
+            : t.tooltipProjectedRecent}
+        </li>
       </ul>
       {lifetimeLabel && (
-        <p className={cn("mt-2 text-sm", curve.onTrack ? "text-oxygen" : "text-ember")} data-testid="goal-curve-marker">
+        <p className="mt-2 text-sm" style={{ color: sideColor ?? undefined }} data-testid="goal-curve-marker">
           {lifetimeLabel}
           {recentLabel && eraMonth && (
             <span className="text-muted-foreground">

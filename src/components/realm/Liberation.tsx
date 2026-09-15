@@ -4,6 +4,7 @@ import type { Hostage, Liberation as LiberationModel } from "@/domain";
 import { money, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useRealmStrings } from "@/i18n/realm";
+import { DATA_OWED, DATA_PROFIT_RECYCLED } from "./chartTokens";
 
 /**
  * INVESTOR LIBERATION — every sponsor position is a hostage with a capital-returned bar built
@@ -38,7 +39,8 @@ export function HostageBar({ h, index = 0 }: { h: Hostage; index?: number }) {
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-background/70">
         <motion.div
-          className={cn("h-full rounded-full", h.freed ? "bg-liberty" : "bg-gradient-to-r from-sponsor/70 to-gold")}
+          className="h-full rounded-full"
+          style={{ background: h.freed ? DATA_PROFIT_RECYCLED : DATA_OWED }}
           initial={{ width: 0 }}
           animate={{ width: `${h.pctReturned}%` }}
           transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: index * 0.05 }}

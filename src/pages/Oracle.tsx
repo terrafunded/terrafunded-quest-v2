@@ -11,6 +11,19 @@ import { useCommonStrings } from "@/i18n/common";
 import { useOracleStrings, type OracleUiStrings } from "@/i18n/oracle";
 import { date, money, moneyCompact, monthLabel, number } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ChartLegend } from "@/components/realm/ChartLegend";
+import {
+  AREA_FILL_OPACITY,
+  DATA_AXIS,
+  DATA_GOAL,
+  DATA_INVENTORY,
+  DATA_PROFIT_INVENTORY,
+  GRID_STROKE_OPACITY,
+  POPOVER,
+  BORDER,
+  SERIES_STROKE_WIDTH,
+  TOOLTIP_STYLE,
+} from "@/components/realm/chartTokens";
 
 /** The nine trailing averages the sliders drive; the War Plan extensions of OracleParams are not sliders. */
 type SliderKey =
@@ -177,29 +190,32 @@ export default function Oracle() {
           <div className="h-80 w-full">
             <ResponsiveContainer>
               <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="oracle-fill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--gold))" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="hsl(var(--gold))" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="date" tickFormatter={(d: string) => monthLabel(String(d).slice(0, 7))} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
-                <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={56} domain={[0, (max: number) => Math.max(max, g.goal * 1.05)]} />
+                <CartesianGrid stroke={DATA_AXIS} strokeOpacity={GRID_STROKE_OPACITY} vertical={false} />
+                <XAxis dataKey="date" tickFormatter={(d: string) => monthLabel(String(d).slice(0, 7))} tick={{ fill: DATA_AXIS, fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
+                <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: DATA_AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={56} domain={[0, (max: number) => Math.max(max, g.goal * 1.05)]} />
                 <ChartTooltip
-                  contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                  contentStyle={{ ...TOOLTIP_STYLE, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12, background: POPOVER }}
                   formatter={(v: number, name: string) => [money(v), name]}
                   labelFormatter={(d) => date(String(d))}
                 />
-                <ReferenceLine y={g.goal} stroke="hsl(var(--gold))" strokeDasharray="4 4" label={{ value: "$10M", fill: "hsl(var(--gold))", fontSize: 11, position: "insideTopRight" }} />
+                <ReferenceLine y={g.goal} stroke={DATA_GOAL} strokeWidth={SERIES_STROKE_WIDTH} strokeDasharray="4 4" label={{ value: "$10M", fill: DATA_GOAL, fontSize: 11, position: "insideTopRight" }} />
                 {series.some((p) => p.date >= g.deadline) && (
-                  <ReferenceLine x={series.find((p) => p.date >= g.deadline)?.date} stroke="hsl(var(--sponsor))" strokeDasharray="4 4" label={{ value: t.deadline, fill: "hsl(var(--sponsor))", fontSize: 11, position: "insideTopLeft" }} />
+                  <ReferenceLine x={series.find((p) => p.date >= g.deadline)?.date} stroke={DATA_GOAL} strokeWidth={SERIES_STROKE_WIDTH} strokeDasharray="4 4" label={{ value: t.deadline, fill: DATA_GOAL, fontSize: 11, position: "insideTopLeft" }} />
                 )}
-                <Area type="monotone" dataKey="cumulativeNetProfit" name={t.netProfit} stroke="hsl(var(--gold))" fill="url(#oracle-fill)" strokeWidth={2} />
-                <Area type="monotone" dataKey="cumulativeCash" name={t.cashRealized} stroke="hsl(var(--stage-closed))" fill="transparent" strokeWidth={1.5} strokeDasharray="3 3" />
+                <Area type="monotone" dataKey="cumulativeNetProfit" name={t.netProfit} stroke={DATA_PROFIT_INVENTORY} fill={DATA_PROFIT_INVENTORY} fillOpacity={AREA_FILL_OPACITY} strokeWidth={SERIES_STROKE_WIDTH} />
+                <Area type="monotone" dataKey="cumulativeCash" name={t.cashRealized} stroke={DATA_INVENTORY} fill={DATA_INVENTORY} fillOpacity={AREA_FILL_OPACITY} strokeWidth={SERIES_STROKE_WIDTH} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          <ChartLegend
+            aria={t.chartLegendAria}
+            items={[
+              { color: DATA_PROFIT_INVENTORY, label: t.netProfit },
+              { color: DATA_INVENTORY, label: t.cashRealized },
+              { color: DATA_GOAL, label: t.legendGoal, dashed: true },
+              { color: DATA_GOAL, label: t.deadline, dashed: true },
+            ]}
+          />
           <p className="mt-3 text-sm text-muted-foreground">
             {t.chartFootStart(money(g.netProfitToDate), number(g.availableLots + g.reservedLots))}
             {withReservations

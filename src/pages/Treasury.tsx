@@ -5,11 +5,18 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { useTreasuryStrings } from "@/i18n/treasury";
 import { money, moneyCompact, moneyExact, monthLabel } from "@/lib/format";
-
-const GOLD = "hsl(var(--gold))";
-const GREEN = "hsl(var(--stage-closed))";
-const PINK = "hsl(var(--sponsor))";
-const VIOLET = "hsl(var(--arcane))";
+import {
+  DATA_AXIS,
+  DATA_CAT,
+  DATA_GOAL,
+  DATA_OWED,
+  DATA_PROFIT_FRESH,
+  DATA_PROFIT_INVENTORY,
+  DATA_PROFIT_RECYCLED,
+  GRID_STROKE_OPACITY,
+  SERIES_STROKE_WIDTH,
+  TOOLTIP_STYLE,
+} from "@/components/realm/chartTokens";
 
 export default function Treasury() {
   const { data, isLoading, error, refetch } = useRealm();
@@ -65,20 +72,20 @@ export default function Treasury() {
             <div className="h-72 w-full">
               <ResponsiveContainer>
                 <ComposedChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} stackOffset="sign">
-                  <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={56} />
+                  <CartesianGrid stroke={DATA_AXIS} strokeOpacity={GRID_STROKE_OPACITY} vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: DATA_AXIS, fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: DATA_AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={56} />
                   <ChartTooltip
-                    contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                    contentStyle={{ ...TOOLTIP_STYLE, borderRadius: 8, fontSize: 12 }}
                     formatter={(v: number, name: string) => [moneyExact(Math.abs(v)), name]}
-                    labelStyle={{ color: GOLD }}
+                    labelStyle={{ color: DATA_GOAL }}
                   />
                   <Legend wrapperStyle={{ fontSize: 15 }} />
-                  <Bar dataKey="downPayments" name={s.downPayments} stackId="in" fill={GREEN} radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="noteSales" name={s.noteSales} stackId="in" fill={GOLD} />
-                  <Bar dataKey="otherNoteSales" name={s.otherNotes} stackId="in" fill="hsl(var(--gold-dim))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="cashOutNeg" name={s.toSponsors} stackId="out" fill={PINK} radius={[0, 0, 4, 4]} />
-                  <Line type="monotone" dataKey="cumulativeNet" name={s.cumulativeNet} stroke={VIOLET} strokeWidth={2} dot={false} />
+                  <Bar dataKey="downPayments" name={s.downPayments} stackId="in" fill={DATA_PROFIT_INVENTORY} radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="noteSales" name={s.noteSales} stackId="in" fill={DATA_PROFIT_RECYCLED} />
+                  <Bar dataKey="otherNoteSales" name={s.otherNotes} stackId="in" fill={DATA_CAT[3]} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="cashOutNeg" name={s.toSponsors} stackId="out" fill={DATA_OWED} radius={[0, 0, 4, 4]} />
+                  <Line type="monotone" dataKey="cumulativeNet" name={s.cumulativeNet} stroke={DATA_PROFIT_FRESH} strokeWidth={SERIES_STROKE_WIDTH} dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -89,17 +96,17 @@ export default function Treasury() {
             <div className="h-56 w-full">
               <ResponsiveContainer>
                 <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={56} />
+                  <CartesianGrid stroke={DATA_AXIS} strokeOpacity={GRID_STROKE_OPACITY} vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: DATA_AXIS, fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <YAxis tickFormatter={(v: number) => moneyCompact(v)} tick={{ fill: DATA_AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={56} />
                   <ChartTooltip
-                    contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                    contentStyle={{ ...TOOLTIP_STYLE, borderRadius: 8, fontSize: 12 }}
                     formatter={(v: number, name: string) => [moneyExact(v), name]}
-                    labelStyle={{ color: GOLD }}
+                    labelStyle={{ color: DATA_GOAL }}
                   />
                   <Legend wrapperStyle={{ fontSize: 15 }} />
-                  <Bar dataKey="cumulativeCashIn" name={s.cumulativeIn} fill={GREEN} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="cumulativeCashOut" name={s.cumulativeOut} fill={PINK} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="cumulativeCashIn" name={s.cumulativeIn} fill={DATA_PROFIT_INVENTORY} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="cumulativeCashOut" name={s.cumulativeOut} fill={DATA_OWED} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

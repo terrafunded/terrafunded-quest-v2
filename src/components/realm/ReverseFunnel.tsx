@@ -9,7 +9,7 @@ import { usePipelineStrings, type PipelineUiStrings } from "@/i18n/pipeline";
 import { useTheme } from "@/theme/ThemeProvider";
 import { money, moneyCompact, number, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CURSOR, FOREGROUND, GOLD, MUTED, OXYGEN, TOOLTIP_CLASS, TOOLTIP_STYLE, useChartReveal } from "./chartTokens";
+import { CURSOR, DATA_AXIS, DATA_GOAL, DATA_PROFIT_RECYCLED, FOREGROUND, TOOLTIP_CLASS, TOOLTIP_STYLE, useChartReveal } from "./chartTokens";
 
 /** Persisted like the War Plan scenarios (`quest.warplan.scenarios`): on this device only. */
 const COST_PER_CONVERSATION_KEY = "quest.funnel.costPerConversation";
@@ -180,21 +180,21 @@ function RowLabel({ x = 0, y = 0, width = 0, height = 0, index = 0, rows, wide }
   return (
     <g style={{ textTransform: "none" }}>
       {!wide && (
-        <text x={x} y={cy - 10} fill={MUTED} fontSize={10}>
+        <text x={x} y={cy - 10} fill={DATA_AXIS} fontSize={10}>
           {row.name}
         </text>
       )}
       <text x={cx} y={cy} dominantBaseline="middle" fill={FOREGROUND} fontSize={wide ? 13 : 12} fontWeight={600}>
         {row.value}
         {wide && row.perMonth && (
-          <tspan fill={MUTED} fontWeight={400} fontSize={11}>
+          <tspan fill={DATA_AXIS} fontWeight={400} fontSize={11}>
             {" "}
             · {row.perMonth}
           </tspan>
         )}
       </text>
       {!wide && row.perMonth && (
-        <text x={cx} y={cy + 13} dominantBaseline="middle" fill={MUTED} fontSize={10}>
+        <text x={cx} y={cy + 13} dominantBaseline="middle" fill={DATA_AXIS} fontSize={10}>
           {row.perMonth}
         </text>
       )}
@@ -312,11 +312,11 @@ export function ReverseFunnel({
             <ResponsiveContainer>
               <BarChart data={rows} layout="vertical" margin={{ top: wide ? 4 : 14, right: 8, left: 0, bottom: 0 }} barCategoryGap={wide ? "30%" : "58%"}>
                 <XAxis type="number" domain={[0, AXIS_MAX]} hide />
-                <YAxis type="category" dataKey="name" width={wide ? 272 : 0} hide={!wide} interval={0} tick={{ fill: MUTED, fontSize: 11 }} tickLine={false} axisLine={false} />
+                <YAxis type="category" dataKey="name" width={wide ? 272 : 0} hide={!wide} interval={0} tick={{ fill: DATA_AXIS, fontSize: 11 }} tickLine={false} axisLine={false} />
                 <ChartTooltip content={<FunnelTooltip />} cursor={CURSOR} />
                 <Bar dataKey="width" radius={[0, 3, 3, 0]} isAnimationActive={reveal.animate} animationDuration={duration} onAnimationEnd={reveal.settle}>
                   {rows.map((r) => (
-                    <Cell key={r.key} fill={r.series === "recent" ? OXYGEN : GOLD} fillOpacity={r.series === "recent" ? 0.8 : r.step === "adSpend" ? 0.7 : 1} />
+                    <Cell key={r.key} fill={r.series === "recent" ? DATA_PROFIT_RECYCLED : DATA_GOAL} fillOpacity={r.series === "recent" ? 0.85 : r.step === "adSpend" ? 0.7 : 1} />
                   ))}
                   <LabelList dataKey="value" content={(props) => <RowLabel {...(props as LabelProps)} rows={rows} wide={wide} />} />
                 </Bar>
@@ -346,11 +346,11 @@ export function ReverseFunnel({
       </div>
       <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-muted-foreground" aria-label={t.legendAria}>
         <li className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: GOLD }} /> {t.legendLedger}
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: DATA_GOAL }} /> {t.legendLedger}
         </li>
         {funnel.recentAvgNetProfitPerClosedLot !== null && (
           <li className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: OXYGEN, opacity: 0.8 }} /> {t.legendRecent(eraMonth ?? "")}
+            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: DATA_PROFIT_RECYCLED, opacity: 0.85 }} /> {t.legendRecent(eraMonth ?? "")}
           </li>
         )}
       </ul>

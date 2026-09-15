@@ -8,7 +8,20 @@ import { useWarPlanStrings, type WarPlanUiStrings } from "@/i18n/warPlan";
 import { useTheme } from "@/theme/ThemeProvider";
 import { date, moneyCompact, number } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { BORDER, CURSOR, EMBER, GOLD, LIBERTY, MUTED, TOOLTIP_CLASS, TOOLTIP_STYLE, useChartReveal } from "./chartTokens";
+import {
+  CURSOR,
+  DATA_AXIS,
+  DATA_GOAL,
+  DATA_INVENTORY,
+  DATA_PROFIT_RECYCLED,
+  DATA_RAISE,
+  DATA_STATUS_FAR,
+  GRID_STROKE_OPACITY,
+  SERIES_STROKE_WIDTH,
+  TOOLTIP_CLASS,
+  TOOLTIP_STYLE,
+  useChartReveal,
+} from "./chartTokens";
 
 const MAX_BAR_DURATION_MS = 600;
 const ROW_HEIGHT_PX = 30;
@@ -159,7 +172,7 @@ export function FarmCalendar({ plan, real }: { plan: WarPlan; real: Pick<WarPlan
   const afterDeadline = cal.returns.filter((r) => r.afterDeadline);
   const inventoryLabel = cal.inventoryOut.monthIndex !== null ? rows.find((r) => r.index === cal.inventoryOut.monthIndex)?.label : undefined;
   const deadlineLabel = rows.find((r) => r.isDeadline)?.label;
-  const tick = { fill: MUTED, fontSize: 10 };
+  const tick = { fill: DATA_AXIS, fontSize: 10 };
   const dollars = (v: number) => moneyCompact(v);
 
   return (
@@ -203,7 +216,7 @@ export function FarmCalendar({ plan, real }: { plan: WarPlan; real: Pick<WarPlan
         {inView && rows.length > 0 && (
           <ResponsiveContainer>
             <ComposedChart data={rows} layout={wide ? "horizontal" : "vertical"} margin={{ top: 16, right: wide ? 12 : 16, left: 0, bottom: 0 }} barCategoryGap="20%">
-              {wide && <CartesianGrid stroke={BORDER} vertical={false} />}
+              {wide && <CartesianGrid stroke={DATA_AXIS} strokeOpacity={GRID_STROKE_OPACITY} vertical={false} />}
               {wide ? (
                 <>
                   <XAxis dataKey="label" interval={0} angle={-45} textAnchor="end" height={40} tick={tick} tickLine={false} axisLine={false} />
@@ -219,23 +232,24 @@ export function FarmCalendar({ plan, real }: { plan: WarPlan; real: Pick<WarPlan
               {inventoryLabel && (
                 <ReferenceLine
                   {...(wide ? { x: inventoryLabel } : { y: inventoryLabel })}
-                  stroke={EMBER}
-                  strokeDasharray="4 4"
-                  label={{ value: c.inventoryOut, fill: EMBER, fontSize: 10, position: wide ? "insideTopRight" : "insideRight" }}
+                  stroke={DATA_INVENTORY}
+                  strokeWidth={SERIES_STROKE_WIDTH}
+                  label={{ value: c.inventoryOut, fill: DATA_INVENTORY, fontSize: 10, position: wide ? "insideTopRight" : "insideRight" }}
                 />
               )}
               {deadlineLabel && (
                 <ReferenceLine
                   {...(wide ? { x: deadlineLabel } : { y: deadlineLabel })}
-                  stroke={GOLD}
-                  strokeOpacity={0.7}
-                  label={{ value: c.deadline, fill: GOLD, fontSize: 10, position: wide ? "insideTopLeft" : "insideLeft" }}
+                  stroke={DATA_GOAL}
+                  strokeWidth={SERIES_STROKE_WIDTH}
+                  strokeDasharray="4 4"
+                  label={{ value: c.deadline, fill: DATA_GOAL, fontSize: 10, position: wide ? "insideTopLeft" : "insideLeft" }}
                 />
               )}
-              <Bar dataKey="recycled" name={c.barRecycled} stackId="farm" fill={LIBERTY} isAnimationActive={reveal.animate} animationDuration={duration} />
-              <Bar dataKey="fresh" name={c.barFresh} stackId="farm" fill={GOLD} isAnimationActive={reveal.animate} animationDuration={duration} />
-              <Bar dataKey="unfunded" name={c.barUnfunded} stackId="farm" fill={EMBER} fillOpacity={0.7} isAnimationActive={reveal.animate} animationDuration={duration} onAnimationEnd={reveal.settle} />
-              <Bar dataKey="returned" name={c.barReturned} stackId="return" fill={LIBERTY} fillOpacity={0.45} isAnimationActive={reveal.animate} animationDuration={duration} />
+              <Bar dataKey="recycled" name={c.barRecycled} stackId="farm" fill={DATA_PROFIT_RECYCLED} isAnimationActive={reveal.animate} animationDuration={duration} />
+              <Bar dataKey="fresh" name={c.barFresh} stackId="farm" fill={DATA_RAISE} isAnimationActive={reveal.animate} animationDuration={duration} />
+              <Bar dataKey="unfunded" name={c.barUnfunded} stackId="farm" fill={DATA_STATUS_FAR} isAnimationActive={reveal.animate} animationDuration={duration} onAnimationEnd={reveal.settle} />
+              <Bar dataKey="returned" name={c.barReturned} stackId="return" fill={DATA_PROFIT_RECYCLED} fillOpacity={0.45} isAnimationActive={reveal.animate} animationDuration={duration} />
             </ComposedChart>
           </ResponsiveContainer>
         )}
@@ -243,19 +257,22 @@ export function FarmCalendar({ plan, real }: { plan: WarPlan; real: Pick<WarPlan
 
       <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-muted-foreground" aria-label={c.legendAria}>
         <li className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: GOLD }} /> {c.legendFresh}
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: DATA_RAISE }} /> {c.legendFresh}
         </li>
         <li className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: LIBERTY }} /> {c.legendRecycled}
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: DATA_PROFIT_RECYCLED }} /> {c.legendRecycled}
         </li>
         <li className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: EMBER, opacity: 0.7 }} /> {c.legendUnfunded}
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: DATA_STATUS_FAR }} /> {c.legendUnfunded}
         </li>
         <li className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: LIBERTY, opacity: 0.45 }} /> {c.legendReturned}
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: DATA_PROFIT_RECYCLED, opacity: 0.45 }} /> {c.legendReturned}
         </li>
         <li className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-0 w-4 border-t border-dashed" style={{ borderColor: EMBER }} /> {c.legendInventoryOut}
+          <span className="inline-block h-0 w-4 border-t" style={{ borderColor: DATA_INVENTORY }} /> {c.legendInventoryOut}
+        </li>
+        <li className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-0 w-4 border-t border-dashed" style={{ borderColor: DATA_GOAL }} /> {c.deadline}
         </li>
       </ul>
 
@@ -275,9 +292,9 @@ export function FarmCalendar({ plan, real }: { plan: WarPlan; real: Pick<WarPlan
               <span className="tabular text-muted-foreground">{moneyCompact(f.cost)}</span>
             </div>
             <div className="mt-1.5 flex h-2 w-full overflow-hidden rounded-full bg-border/40" aria-hidden>
-              {f.recycled > 0 && <span style={{ width: `${(f.recycled / f.cost) * 100}%`, background: LIBERTY }} />}
-              {f.fresh > 0 && <span style={{ width: `${(f.fresh / f.cost) * 100}%`, background: GOLD }} />}
-              {f.unfunded > 0 && <span style={{ width: `${(f.unfunded / f.cost) * 100}%`, background: EMBER, opacity: 0.7 }} />}
+              {f.recycled > 0 && <span style={{ width: `${(f.recycled / f.cost) * 100}%`, background: DATA_PROFIT_RECYCLED }} />}
+              {f.fresh > 0 && <span style={{ width: `${(f.fresh / f.cost) * 100}%`, background: DATA_RAISE }} />}
+              {f.unfunded > 0 && <span style={{ width: `${(f.unfunded / f.cost) * 100}%`, background: DATA_STATUS_FAR }} />}
             </div>
             <div className="mt-1 text-muted-foreground tabular">
               {f.recycled > 0 && <span className="text-liberty">{c.recycledAmount(moneyCompact(f.recycled))}</span>}

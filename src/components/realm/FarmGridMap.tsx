@@ -3,7 +3,8 @@ import { motion } from "framer-motion";
 import type { FarmEconomics, Pipeline } from "@/domain";
 import { useRealmMapStrings } from "@/i18n/realmMap";
 import { stageLabel } from "@/lib/format";
-import { HOVER_STROKE, RING_STROKE, STAGE_FILL, ringFor, territoryFill } from "./realmTokens";
+import { BACKGROUND, FOREGROUND } from "./chartTokens";
+import { HOVER_STROKE, MAP_GRID_STROKE, MAP_PLATE_STROKE, RING_STROKE, STAGE_FILL, ringFor, territoryFill } from "./realmTokens";
 
 const TILE = 26;
 const GAP = 6;
@@ -52,7 +53,7 @@ export function FarmGridMap({ farm, pipeline, hoveredLotId, inView, onSelect }: 
     <svg viewBox={`0 0 ${layout.w} ${layout.h}`} preserveAspectRatio="xMidYMid meet" className="block h-full w-full" role="img" aria-label={`${farm.name}: schematic lot grid, ${farm.lots.length} lots`} data-testid="farm-grid-map">
       <defs>
         <pattern id={`${uid}-paper`} width={TILE + GAP} height={TILE + GAP} patternUnits="userSpaceOnUse" x={layout.originX} y={layout.originY}>
-          <path d={`M ${TILE + GAP} 0 L 0 0 0 ${TILE + GAP}`} fill="none" stroke="hsl(var(--gold) / 0.14)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+          <path d={`M ${TILE + GAP} 0 L 0 0 0 ${TILE + GAP}`} fill="none" stroke={MAP_GRID_STROKE} strokeOpacity={0.14} strokeWidth={1} vectorEffect="non-scaling-stroke" />
         </pattern>
         <filter id={`${uid}-glow`} x="-20%" y="-20%" width="140%" height="140%">
           <feGaussianBlur stdDeviation="3" result="b" />
@@ -63,7 +64,7 @@ export function FarmGridMap({ farm, pipeline, hoveredLotId, inView, onSelect }: 
         </filter>
       </defs>
 
-      <rect x={0} y={0} width={layout.w} height={layout.h} rx={RADIUS} fill={territoryFill(farm.pctClosed)} stroke="hsl(var(--gold) / 0.35)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+      <rect x={0} y={0} width={layout.w} height={layout.h} rx={RADIUS} fill={territoryFill(farm.pctClosed)} stroke={MAP_PLATE_STROKE} strokeOpacity={0.35} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
       <rect x={0} y={0} width={layout.w} height={layout.h} rx={RADIUS} fill={`url(#${uid}-paper)`} className="pointer-events-none" />
 
       <motion.g variants={stagger} initial="hidden" animate={inView ? "show" : "hidden"}>
@@ -93,7 +94,7 @@ export function FarmGridMap({ farm, pipeline, hoveredLotId, inView, onSelect }: 
                 aria-label={t.lotAria(lot.name, stageLabel(lot.stage), ring === "stuck")}
               />
               {lot.lotNumber !== null && (
-                <text x={x + TILE / 2} y={y + TILE / 2 + 0.5} textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={700} className="pointer-events-none select-none tabular" style={{ fill: "hsl(var(--foreground))", paintOrder: "stroke", stroke: "hsl(var(--background) / 0.75)", strokeWidth: 2.4, strokeLinejoin: "round" }} data-testid="lot-number">
+                <text x={x + TILE / 2} y={y + TILE / 2 + 0.5} textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={700} className="pointer-events-none select-none tabular" style={{ fill: FOREGROUND, paintOrder: "stroke", stroke: BACKGROUND, strokeOpacity: 0.75, strokeWidth: 2.4, strokeLinejoin: "round" }} data-testid="lot-number">
                   {lot.lotNumber}
                 </text>
               )}

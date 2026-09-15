@@ -1,11 +1,17 @@
 import type { Campaign, CampaignState, Lot, LotStage, Pipeline } from "@/domain";
+import { DATA_AXIS, DATA_GOAL, DATA_STATUS_FAR, GREEN } from "./chartTokens";
+
+const STAGE_RESERVED = "hsl(var(--stage-reserved))";
+const STAGE_AVAILABLE = "hsl(var(--stage-available))";
+const STAGE_CLOSED = "hsl(var(--stage-closed))";
+const STAGE_NOTE_SOLD = "hsl(var(--stage-note-sold))";
 
 /** Farm-level framing: stroke colour and badge classes per campaign state. Labels live in `common.campaign`. */
 export const CAMPAIGN_META: Record<CampaignState, { stroke: string; text: string; badge: string }> = {
-  conquered: { stroke: "hsl(var(--stage-closed))", text: "text-stage-closed", badge: "bg-stage-closed/15 text-stage-closed border-stage-closed/40" },
-  under_siege: { stroke: "hsl(var(--gold))", text: "text-gold", badge: "bg-gold/15 text-gold border-gold/40" },
-  closing_pending: { stroke: "hsl(var(--stage-reserved))", text: "text-stage-reserved", badge: "bg-stage-reserved/15 text-stage-reserved border-stage-reserved/40" },
-  losing_ground: { stroke: "hsl(var(--ember))", text: "text-ember", badge: "bg-ember/15 text-ember border-ember/40" },
+  conquered: { stroke: GREEN, text: "text-stage-closed", badge: "bg-stage-closed/15 text-stage-closed border-stage-closed/40" },
+  under_siege: { stroke: DATA_GOAL, text: "text-gold", badge: "bg-gold/15 text-gold border-gold/40" },
+  closing_pending: { stroke: STAGE_RESERVED, text: "text-stage-reserved", badge: "bg-stage-reserved/15 text-stage-reserved border-stage-reserved/40" },
+  losing_ground: { stroke: DATA_STATUS_FAR, text: "text-ember", badge: "bg-ember/15 text-ember border-ember/40" },
 };
 
 /** Losing ground is a long dash; closing pending a short one — both mean "no closing for a while", only one means nothing is in the works. */
@@ -22,14 +28,14 @@ export function campaignTag(c: Campaign): string {
 export const DEAL_SHORT: Record<string, string> = { fixed_interest: "Fixed", profit_share: "Share", own_capital: "Own" };
 
 /** Reserved lots are drawn as a hollow ring so they never read as closed; stuck reservations get a dashed amber ring. */
-export const RING_STROKE = { reserved: "hsl(var(--stage-reserved))", stuck: "hsl(var(--siege))" } as const;
+export const RING_STROKE = { reserved: STAGE_RESERVED, stuck: DATA_STATUS_FAR } as const;
 export type LotRing = keyof typeof RING_STROKE;
 
 export const STAGE_FILL: Record<LotStage, string> = {
-  available: "hsl(var(--stage-available))",
-  reserved: "hsl(var(--stage-reserved))",
-  closed: "hsl(var(--stage-closed))",
-  note_sold: "hsl(var(--stage-note-sold))",
+  available: STAGE_AVAILABLE,
+  reserved: STAGE_RESERVED,
+  closed: STAGE_CLOSED,
+  note_sold: STAGE_NOTE_SOLD,
 };
 
 /** The Quest state a lot is tinted by: its stage, plus "stuck 60+ days" for reservations the pipeline flags. */
@@ -38,7 +44,9 @@ export function ringFor(lot: Lot, pipeline: Pipeline | undefined): LotRing | nul
   return pipeline?.stuckIds.has(lot.propertyId) ? "stuck" : "reserved";
 }
 
-export const HOVER_STROKE = "hsl(var(--gold))";
+export const HOVER_STROKE = DATA_GOAL;
+export const MAP_GRID_STROKE = DATA_AXIS;
+export const MAP_PLATE_STROKE = DATA_GOAL;
 
 export function territoryFill(pctClosed: number): string {
   // From the theme's untouched ground to its gold as the farm sells out (tokens: --territory-from/--territory-to).
