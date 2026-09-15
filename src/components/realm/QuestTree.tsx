@@ -3,6 +3,7 @@ import { Check, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moneyCompact } from "@/lib/format";
 import { useRealmStrings } from "@/i18n/realm";
+import { DATA_GOAL } from "./chartTokens";
 
 export interface QuestNode {
   id: string;
@@ -67,7 +68,7 @@ export function QuestTree({ nodes, current, className }: QuestTreeProps) {
                       cy="18"
                       r="16.5"
                       fill="none"
-                      stroke="hsl(var(--gold))"
+                      stroke={DATA_GOAL}
                       strokeWidth="2"
                       strokeDasharray={`${(within / 100) * 103.7} 103.7`}
                       strokeLinecap="round"

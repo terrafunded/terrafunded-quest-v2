@@ -8,7 +8,7 @@ import { useTheme } from "@/theme/ThemeProvider";
 import { useSponsorsStrings, type SponsorsUiStrings } from "@/i18n/sponsors";
 import { money, moneyCompact, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CARD, FOREGROUND, GOLD, LIBERTY, MUTED, SPONSOR, STEEL, TOOLTIP_CLASS, TOOLTIP_STYLE, useChartReveal } from "./chartTokens";
+import { CARD, DATA_AXIS, DATA_CAT, DATA_OWED, DATA_PROFIT_RECYCLED, FOREGROUND, TOOLTIP_CLASS, TOOLTIP_STYLE, useChartReveal } from "./chartTokens";
 
 /**
  * CAPITAL COMPOSITION — one donut, two rings, plus a small recovery donut.
@@ -35,10 +35,10 @@ import { CARD, FOREGROUND, GOLD, LIBERTY, MUTED, SPONSOR, STEEL, TOOLTIP_CLASS, 
  */
 
 const KIND_FILL: Record<CapitalKind, string> = {
-  own_capital: STEEL,
-  profit_share: GOLD,
-  fixed_interest: SPONSOR,
-  other: MUTED,
+  own_capital: DATA_CAT[0],
+  profit_share: DATA_CAT[1],
+  fixed_interest: DATA_CAT[2],
+  other: DATA_CAT[3],
 };
 
 /** Clockwise from 12 o'clock, so "descending" reads like a clock face. */
@@ -185,8 +185,8 @@ export function CapitalDonut({ composition, liberation, onSelect }: { compositio
   const thresholdText = pct(concentration.thresholdPct, 0);
 
   const recovered = [
-    { key: "returned", name: t.donut.returned, value: liberation.totalReturned, fill: LIBERTY, opacity: 1 },
-    { key: "outstanding", name: t.donut.outstanding, value: Math.max(0, liberation.totalCapital - liberation.totalReturned), fill: SPONSOR, opacity: 0.45 },
+    { key: "returned", name: t.donut.returned, value: liberation.totalReturned, fill: DATA_PROFIT_RECYCLED, opacity: 1 },
+    { key: "outstanding", name: t.donut.outstanding, value: Math.max(0, liberation.totalCapital - liberation.totalReturned), fill: DATA_OWED, opacity: 0.55 },
   ];
 
   const renderLabel = (props: { cx?: number | string; cy?: number | string; outerRadius?: number | string; index?: number }) => {
@@ -200,11 +200,11 @@ export function CapitalDonut({ composition, liberation, onSelect }: { compositio
     const lineEnd = { x: slot.x + (slot.anchor === "start" ? -6 : 6), y: slot.y };
     return (
       <g data-testid="capital-donut-label" data-arc={arc.id}>
-        <polyline points={`${slot.edge.x},${slot.edge.y} ${slot.elbow.x},${slot.elbow.y} ${lineEnd.x},${lineEnd.y}`} fill="none" stroke={MUTED} strokeOpacity={0.6} strokeWidth={1} />
+        <polyline points={`${slot.edge.x},${slot.edge.y} ${slot.elbow.x},${slot.elbow.y} ${lineEnd.x},${lineEnd.y}`} fill="none" stroke={DATA_AXIS} strokeOpacity={0.6} strokeWidth={1} />
         <text x={slot.x} y={slot.y - 3} textAnchor={slot.anchor} fill={FOREGROUND} fontSize={12}>
           {arc.name}
         </text>
-        <text x={slot.x} y={slot.y + 11} textAnchor={slot.anchor} fill={MUTED} fontSize={11} className="tabular">
+        <text x={slot.x} y={slot.y + 11} textAnchor={slot.anchor} fill={DATA_AXIS} fontSize={11} className="tabular">
           {t.donut.arcLabel(moneyCompact(arc.capitalDeployed), pct(arc.share, 1))}
         </text>
       </g>

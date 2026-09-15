@@ -9,10 +9,37 @@ export const LIBERTY = "hsl(var(--liberty))";
 export const SPONSOR = "hsl(var(--sponsor))";
 export const STEEL = "hsl(var(--steel))";
 export const CARD = "hsl(var(--card))";
+export const BACKGROUND = "hsl(var(--background))";
 export const FOREGROUND = "hsl(var(--foreground))";
 export const MUTED = "hsl(var(--muted-foreground))";
 export const BORDER = "hsl(var(--border))";
 export const POPOVER = "hsl(var(--popover))";
+
+/** Semantic data series — the only colors a chart series may use. */
+export const DATA_PROFIT_INVENTORY = "hsl(var(--data-profit-inventory))";
+export const DATA_PROFIT_RECYCLED = "hsl(var(--data-profit-recycled))";
+export const DATA_PROFIT_FRESH = "hsl(var(--data-profit-fresh))";
+export const DATA_OWED = "hsl(var(--data-owed))";
+export const DATA_INTEREST = "hsl(var(--data-interest))";
+export const DATA_RAISE = "hsl(var(--data-raise))";
+export const DATA_INVENTORY = "hsl(var(--data-inventory))";
+export const DATA_GOAL = "hsl(var(--data-goal))";
+export const DATA_AXIS = "hsl(var(--data-axis))";
+export const DATA_STATUS_FAR = "hsl(var(--data-status-far))";
+export const DATA_STATUS_NEAR = "hsl(var(--data-status-near))";
+export const DATA_STATUS_HIT = "hsl(var(--data-status-hit))";
+export const DATA_CAT = [
+  "hsl(var(--data-cat-1))",
+  "hsl(var(--data-cat-2))",
+  "hsl(var(--data-cat-3))",
+  "hsl(var(--data-cat-4))",
+  "hsl(var(--data-cat-5))",
+  "hsl(var(--data-cat-6))",
+] as const;
+
+export const AREA_FILL_OPACITY = 0.28;
+export const GRID_STROKE_OPACITY = 0.35;
+export const SERIES_STROKE_WIDTH = 2;
 
 /**
  * Hover cursor: recharts' default is an opaque #ccc rectangle over the hovered band, which reads
