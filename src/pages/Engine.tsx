@@ -158,6 +158,17 @@ export default function EnginePage() {
           {engineVerdict(result, lang)}
         </p>
         <p className="mt-3 text-sm text-muted-foreground">{t.band[result.band]}</p>
+        {result.figures.interestShareOfProfit !== null && result.figures.totalInterest > 0 && (
+          <p
+            className="mt-4 border-t border-border/40 pt-4 text-base leading-snug text-foreground sm:text-lg"
+            data-testid="engine-interest-verdict"
+          >
+            {t.interestBesideVerdict(
+              moneyCompact(result.figures.totalInterest),
+              `${result.figures.interestShareOfProfit.toFixed(0)}%`,
+            )}
+          </p>
+        )}
       </section>
 
       {/* Bottleneck call */}
@@ -166,7 +177,9 @@ export default function EnginePage() {
         <p className="mt-1 text-xl font-heading text-gold" data-testid="engine-bottleneck-label">
           {t.bottleneckLabel[result.bottleneck]}
         </p>
-        <p className="mt-2 text-sm text-muted-foreground">{result.bottleneckDetail}</p>
+        <p className="mt-2 text-sm text-muted-foreground" data-testid="engine-bottleneck-detail">
+          {t.bottleneckDetail(result.bottleneckCode)}
+        </p>
       </section>
 
       {/* Inputs */}
@@ -372,7 +385,7 @@ export default function EnginePage() {
           <Figure
             label={t.capitalDeadline}
             value={result.figures.capitalDeadlineIso ? date(result.figures.capitalDeadlineIso) : t.never}
-            hint={result.figures.capitalDeadlineReason}
+            hint={t.capitalDeadlineDetail(result.figures.capitalDeadlineCode)}
             testId="engine-capital-deadline"
           />
           <Figure
@@ -380,7 +393,16 @@ export default function EnginePage() {
             value={moneyCompact(result.figures.totalAdSpend)}
             hint={result.figures.adSpendShareOfProfit !== null ? t.adShare(pct(result.figures.adSpendShareOfProfit)) : undefined}
           />
-          <Figure label={t.totalInterest} value={moneyCompact(result.figures.totalInterest)} testId="engine-interest" />
+          <Figure
+            label={t.totalInterest}
+            value={moneyCompact(result.figures.totalInterest)}
+            hint={
+              result.figures.interestShareOfProfit !== null
+                ? t.interestShareHint(`${result.figures.interestShareOfProfit.toFixed(0)}%`)
+                : undefined
+            }
+            testId="engine-interest"
+          />
         </div>
       </section>
 

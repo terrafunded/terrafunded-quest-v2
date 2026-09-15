@@ -46,6 +46,10 @@ export interface EngineUiStrings {
   totalInterest: string;
   bottleneck: string;
   bottleneckLabel: Record<EngineBottleneck, string>;
+  bottleneckDetail: (code: import("@/domain/engine").EngineBottleneckCode) => string;
+  capitalDeadlineDetail: (code: import("@/domain/engine").EngineCapitalDeadlineCode) => string;
+  interestBesideVerdict: (interest: string, share: string) => string;
+  interestShareHint: (share: string) => string;
   charts: string;
   turnsChart: string;
   turnsChartHint: string;
@@ -128,6 +132,38 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
       capital: "Capital",
       none: "None — goal covered",
     },
+
+    bottleneckDetail: (code) => {
+      switch (code.code) {
+        case "none":
+          return "Deployed capital and inventory cover the goal at this pace — no constraint binds.";
+        case "land_before_return":
+          return `Inventory runs dry in month ${code.dryMonth}, before capital returns in month ${code.returnMonth}. Fly to Texas — buy land, do not wait on a raise.`;
+        case "land_inventory":
+          return `Inventory lasts ${code.inventoryMonths.toFixed(1)} months; capital needs ${code.cycleMonths.toFixed(1)} months to return. The land gap binds.`;
+        case "sales_pace":
+          return `Inventory hits zero in month ${code.dryMonth} while capital is still out. A faster pace returns capital sooner (cycle couples to pace); a slower pace wastes the raise.`;
+        case "sales_pace_no_fresh":
+          return `At ${code.salesPace.toFixed(1)} lots/month the deployed capital cannot reach the goal before the deadline even with a raise that still completes a turn. Speed (or land that converts sooner) moves the needle more than capital.`;
+        case "capital_no_turn":
+          return `A ${code.cycleMonths.toFixed(1)}-month cycle cannot complete a turn before the deadline. Raise earlier or shorten the cycle.`;
+        case "capital_short":
+          return `Profit falls short with the capital already deployed. Fresh capital must land by month ${code.deadlineMonth} to complete a turn.`;
+      }
+    },
+    capitalDeadlineDetail: (code) => {
+      switch (code.code) {
+        case "not_needed":
+          return "No fresh capital is required — recycled capital funds the remaining farms.";
+        case "no_turn":
+          return `A ${code.cycleMonths.toFixed(1)}-month turn cannot complete before ${code.deadline}.`;
+        case "last_buy":
+          return `Last month a farm can be bought and still return capital by the deadline: purchase month ${code.buyMonth} + ${code.cycleMonths}-month cycle ≤ deadline month ${code.deadlineMonth}.`;
+      }
+    },
+    interestBesideVerdict: (interest, share) =>
+      `${interest} of every turn goes to sponsor interest — ${share} of the net profit the engine produces. More turns mean more interest; that is the strongest argument against simply adding another cycle.`,
+    interestShareHint: (share) => `${share} of net profit — the price of turning capital`,
     charts: "Charts",
     turnsChart: "The Turns",
     turnsChartHint: "One swimlane per farm. See the same dollar work three times. Vertical lines mark inventory-dry months and the capital deadline.",
@@ -209,6 +245,38 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
       capital: "Capital",
       none: "Ninguno — meta cubierta",
     },
+
+    bottleneckDetail: (code) => {
+      switch (code.code) {
+        case "none":
+          return "El capital desplegado y el inventario cubren la meta a este ritmo — no hay cuello de botella.";
+        case "land_before_return":
+          return `El inventario se agota en el mes ${code.dryMonth}, antes de que el capital regrese en el mes ${code.returnMonth}. Vuela a Texas — compra tierra, no esperes un raise.`;
+        case "land_inventory":
+          return `El inventario dura ${code.inventoryMonths.toFixed(1)} meses; el capital necesita ${code.cycleMonths.toFixed(1)} meses para regresar. Falta tierra.`;
+        case "sales_pace":
+          return `El inventario llega a cero en el mes ${code.dryMonth} mientras el capital sigue afuera. Un ritmo más rápido devuelve el capital antes (el ciclo se acopla al ritmo); uno más lento desperdicia el raise.`;
+        case "sales_pace_no_fresh":
+          return `A ${code.salesPace.toFixed(1)} lotes/mes el capital desplegado no alcanza la meta antes del plazo ni con un raise que aún complete un giro. La velocidad (o tierra que convierta antes) mueve más la aguja que el capital.`;
+        case "capital_no_turn":
+          return `Un ciclo de ${code.cycleMonths.toFixed(1)} meses no puede completar un giro antes del plazo. Levanta antes o acorta el ciclo.`;
+        case "capital_short":
+          return `La utilidad se queda corta con el capital ya desplegado. El capital fresco debe llegar para el mes ${code.deadlineMonth} para completar un giro.`;
+      }
+    },
+    capitalDeadlineDetail: (code) => {
+      switch (code.code) {
+        case "not_needed":
+          return "No hace falta capital fresco — el capital reciclado financia las fincas que faltan.";
+        case "no_turn":
+          return `Un giro de ${code.cycleMonths.toFixed(1)} meses no puede completarse antes de ${code.deadline}.`;
+        case "last_buy":
+          return `Último mes en que se puede comprar una finca y aún devolver capital antes del plazo: mes de compra ${code.buyMonth} + ciclo de ${code.cycleMonths} meses ≤ mes plazo ${code.deadlineMonth}.`;
+      }
+    },
+    interestBesideVerdict: (interest, share) =>
+      `${interest} de cada giro se va en interés a sponsors — ${share} de la utilidad neta que produce el motor. Más giros significan más interés; ese es el argumento más fuerte contra simplemente añadir otro ciclo.`,
+    interestShareHint: (share) => `${share} de la utilidad neta — el precio de girar el capital`,
     charts: "Gráficas",
     turnsChart: "Los Giros",
     turnsChartHint: "Un carril por finca. Mira el mismo dólar trabajar tres veces. Líneas verticales: meses sin inventario y la fecha límite del capital.",

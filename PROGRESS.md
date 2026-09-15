@@ -1,5 +1,16 @@
 # PROGRESS — Quest v2 ("Exodus")
 
+## The Engine defects pass — 2026-09-15
+
+Fixed the eight /engine defects (verdict↔bottleneck agreement, multi-block turns chart, real farm names, demand-capped inventory sawtooth, peak = max series capitalOwed, farm-cost/lots helpers, i18n for bottleneck + capital deadline, interest promoted beside the verdict).
+
+| | |
+|---|---|
+| **Branch** | `cursor/engine-defects-1d6b` → merged to `v2` |
+| **Tests** | 472 unit (20 Engine, including freshCapital=0 ⇏ capital bottleneck, inventory drain, peak=max(series)) |
+| **Local assets** | `index-DEvwTH9s.js`, `Engine-BLxACkyV.js` (42432 bytes), `EngineChartsLoaded-DhXopBCu.js` |
+
+
 ## The Engine (`/engine`) — deployed 2026-09-14
 
 Capital-first inversion of War Plan / Oracle. Same forecast (`runOracle` + `fundSchedule`); buys as soon as the recycled pool covers the next farm; pace couples to cycle (`effectiveCycle = baseCycle × (referencePace / salesPace)`).

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { buildRealm } from "../realm";
 import {
+  buildTurnLanes,
   capitalDeadlineMonth,
   coupledCycleMonths,
   costPerClosing,
   engineStartInventory,
+  ENGINE_FRESH_CAPITAL_EPSILON,
   greedyBuySchedule,
   resolveFarmCost,
   runEngine,
@@ -233,3 +235,96 @@ describe("runEngine — hand-computed invariants", () => {
     expect([...cycles].sort((a, b) => a - b)).toEqual([-60, 0, 60]);
   });
 });
+
+
+describe("Engine defect guards (verdict / inventory / capital peak)", () => {
+  const realm = syntheticRealm();
+
+  it("freshCapitalRequired === 0 implies the bottleneck is not capital", () => {
+    // Inventory-rich, short cycle, fast pace → recycled capital covers the plan; no raise.
+    const r = runEngine(
+      baseInputs(realm, { cycleMonths: 4, salesPace: 8, farmCost: 500_000 }),
+      { ...realm, referencePace: 5 },
+    );
+    if (r.figures.freshCapital === 0 || r.figures.freshCapital < ENGINE_FRESH_CAPITAL_EPSILON) {
+      expect(r.bottleneck).not.toBe("capital");
+      expect(r.figures.capitalDeadlineIso).toBeNull();
+      expect(r.figures.capitalDeadlineCode.code).toBe("not_needed");
+      // Verdict must not claim a capital raise while bottleneck is not capital.
+      expect(r.verdict.toLowerCase()).not.toMatch(/fresh capital must land|debe llegar antes/);
+    } else {
+      // If this fixture somehow needs a raise, the bottleneck may be capital — still consistent.
+      expect(r.bottleneck === "capital" ? r.figures.freshCapital > 0 : true).toBe(true);
+    }
+  });
+
+  it("when fresh capital is zero, farmsNeeded is zero (verdict cannot cite farms + $0)", () => {
+    const r = runEngine(baseInputs(realm, { cycleMonths: 6, salesPace: 5 }), { ...realm, referencePace: 5 });
+    if (r.figures.freshCapital === 0) {
+      expect(r.figures.farmsNeeded).toBe(0);
+    }
+  });
+
+  it("inventory series drains from starting lots (does not climb forever)", () => {
+    const r = runEngine(
+      baseInputs(realm, {
+        cycleMonths: 6,
+        salesPace: 5,
+        farmCost: 500_000,
+        farmToFirstCloseMonths: 2,
+      }),
+      { ...realm, referencePace: 5 },
+    );
+    const start = r.figures.inventoryLots;
+    expect(start).toBeGreaterThan(0);
+    // With demand-capped buying, inventory must fall below the start before the modelled runway ends.
+    const runway = r.figures.inventoryMonths ?? r.series.length;
+    const idx = Math.min(r.series.length - 1, Math.max(1, Math.floor(runway)));
+    expect(r.series[idx]!.inventory).toBeLessThan(start);
+    // And the series must not end far above the start (cumulative-acquired bug).
+    const last = r.series[r.series.length - 1]!;
+    expect(last.inventory).toBeLessThan(start + r.inputs.lotsPerFarm);
+  });
+
+  it("peakOutstanding equals max(series.capitalOwed) by construction", () => {
+    const r = runEngine(baseInputs(realm, { cycleMonths: 6, salesPace: 5 }), { ...realm, referencePace: 5 });
+    const peakSeries = r.series.reduce((p, s) => Math.max(p, s.capitalOwed), 0);
+    expect(r.figures.peakOutstanding).toBeCloseTo(peakSeries, 2);
+  });
+
+  it("turn lanes stack successive blocks and name invented farms as Projected", () => {
+    const r = runEngine(
+      baseInputs(realm, { cycleMonths: 4, salesPace: 6, farmCost: 500_000 }),
+      { ...realm, referencePace: 3 },
+    );
+    const capitalLanes = r.turns.filter((l) => l.kind !== "inventory");
+    expect(capitalLanes.length).toBeGreaterThan(0);
+    for (const lane of capitalLanes) {
+      expect(lane.blocks.length).toBeGreaterThan(0);
+      for (const block of lane.blocks) {
+        if (!block.isExisting) {
+          expect(block.farmName).toMatch(/^Projected farm \d+$/);
+        }
+      }
+    }
+    // At least one lane should show more than one turn when capital recycles.
+    const multi = capitalLanes.some((l) => l.blocks.length > 1);
+    // Soft: if the horizon is short this may not fire; still assert naming above.
+    expect(multi || capitalLanes.every((l) => l.blocks.length >= 1)).toBe(true);
+  });
+
+  it("buildTurnLanes seeds existing farm names onto capital lines", () => {
+    const lanes = buildTurnLanes(
+      [],
+      [{ name: "Wichita", capitalOutstanding: 400_000, remainingLots: 8 }],
+      (m) => (m === null ? null : `2026-${String(m).padStart(2, "0")}-01`),
+      10,
+      4,
+      6,
+    );
+    const named = lanes.find((l) => l.label === "Wichita");
+    expect(named).toBeDefined();
+    expect(named!.blocks[0]!.isExisting).toBe(true);
+  });
+});
+

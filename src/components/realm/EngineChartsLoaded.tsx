@@ -117,20 +117,47 @@ function TurnsTimeline({
               </div>
               {lanes.map((lane, i) => {
                 const top = 28 + i * 44;
-                const start = lane.purchaseMonth ?? 1;
-                const end = lane.returnMonth ?? Math.min(maxMonth, start + Math.round(result.effectiveCycleMonths));
-                const left = ((start - 1) / maxMonth) * 100;
-                const width = Math.max(2, ((end - start) / maxMonth) * 100);
-                const color = lane.kind === "fresh" ? SPONSOR : lane.kind === "recycled" ? LIBERTY : STEEL;
+                const blocks =
+                  lane.blocks.length > 0
+                    ? lane.blocks
+                    : lane.purchaseMonth !== null
+                      ? [
+                          {
+                            farmName: lane.label,
+                            isExisting: false,
+                            purchaseMonth: lane.purchaseMonth,
+                            purchaseIso: lane.purchaseIso,
+                            returnMonth: lane.returnMonth,
+                            returnIso: lane.returnIso,
+                            cost: lane.cost,
+                            recycled: lane.recycled,
+                            fresh: lane.fresh,
+                            lots: lane.lots,
+                            kind: (lane.kind === "fresh" ? "fresh" : "recycled") as "fresh" | "recycled",
+                          },
+                        ]
+                      : [];
                 return (
                   <div key={lane.id} className="absolute left-0 right-0" style={{ top, height: 36 }}>
                     <div className="mb-0.5 truncate text-xs text-muted-foreground">{lane.label}</div>
                     <div className="relative h-4 rounded-sm bg-muted/40">
-                      <div
-                        className="absolute top-0 h-full rounded-sm"
-                        style={{ left: `${left}%`, width: `${width}%`, background: color, opacity: 0.85 }}
-                        title={`${moneyCompact(lane.cost)} · recycled ${moneyCompact(lane.recycled)} · fresh ${moneyCompact(lane.fresh)}`}
-                      />
+                      {blocks.map((block, bi) => {
+                        const start = Math.max(0, block.purchaseMonth);
+                        const end =
+                          block.returnMonth ??
+                          Math.min(maxMonth, start + Math.round(result.effectiveCycleMonths));
+                        const left = (start / maxMonth) * 100;
+                        const width = Math.max(2, ((end - start) / maxMonth) * 100);
+                        const color = block.kind === "fresh" ? SPONSOR : LIBERTY;
+                        return (
+                          <div
+                            key={`${lane.id}-${bi}-${block.farmName}`}
+                            className="absolute top-0 h-full rounded-sm"
+                            style={{ left: `${left}%`, width: `${width}%`, background: color, opacity: 0.85 }}
+                            title={`${block.farmName}: ${moneyCompact(block.cost)} · recycled ${moneyCompact(block.recycled)} · fresh ${moneyCompact(block.fresh)}`}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -155,28 +182,51 @@ function TurnsTimeline({
           </div>
         ) : (
           <ul className="space-y-2">
-            {lanes.map((lane) => (
-              <li key={lane.id} className="rounded-md border border-border/60 p-2">
-                <div className="font-heading text-sm">{lane.label}</div>
-                <div className="text-xs text-muted-foreground">
-                  {lane.purchaseIso ? monthLabel(lane.purchaseIso) : "—"} → {lane.returnIso ? monthLabel(lane.returnIso) : "—"}
-                  {" · "}
-                  {moneyCompact(lane.cost)}
-                  {lane.recycled > 0 ? ` · recycled ${moneyCompact(lane.recycled)}` : ""}
-                  {lane.fresh > 0 ? ` · fresh ${moneyCompact(lane.fresh)}` : ""}
-                </div>
-                <div className="mt-1 h-2 overflow-hidden rounded-sm bg-muted/40">
-                  <div
-                    className="h-full"
-                    style={{
-                      width: "100%",
-                      background: lane.kind === "fresh" ? SPONSOR : lane.kind === "recycled" ? LIBERTY : STEEL,
-                      opacity: 0.85,
-                    }}
-                  />
-                </div>
-              </li>
-            ))}
+            {lanes.map((lane) => {
+              const blocks =
+                lane.blocks.length > 0
+                  ? lane.blocks
+                  : [
+                      {
+                        farmName: lane.label,
+                        purchaseIso: lane.purchaseIso,
+                        returnIso: lane.returnIso,
+                        cost: lane.cost,
+                        recycled: lane.recycled,
+                        fresh: lane.fresh,
+                        kind: (lane.kind === "fresh" ? "fresh" : "recycled") as "fresh" | "recycled",
+                      },
+                    ];
+              return (
+                <li key={lane.id} className="rounded-md border border-border/60 p-2">
+                  <div className="font-heading text-sm">{lane.label}</div>
+                  <ul className="mt-1 space-y-1">
+                    {blocks.map((block, bi) => (
+                      <li key={`${lane.id}-m-${bi}`} className="text-xs text-muted-foreground">
+                        <span className="text-foreground">{block.farmName}</span>
+                        {" · "}
+                        {block.purchaseIso ? monthLabel(block.purchaseIso) : "—"} →{" "}
+                        {block.returnIso ? monthLabel(block.returnIso) : "—"}
+                        {" · "}
+                        {moneyCompact(block.cost)}
+                        {block.recycled > 0 ? ` · recycled ${moneyCompact(block.recycled)}` : ""}
+                        {block.fresh > 0 ? ` · fresh ${moneyCompact(block.fresh)}` : ""}
+                        <div className="mt-1 h-2 overflow-hidden rounded-sm bg-muted/40">
+                          <div
+                            className="h-full"
+                            style={{
+                              width: "100%",
+                              background: block.kind === "fresh" ? SPONSOR : LIBERTY,
+                              opacity: 0.85,
+                            }}
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
