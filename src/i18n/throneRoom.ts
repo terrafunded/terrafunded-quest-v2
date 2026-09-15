@@ -53,6 +53,7 @@ export interface ThroneRoomUiStrings {
   warPlanLink: string;
   capitalOutstanding: string;
   capitalOutstandingHint: string;
+  capitalCommittedUnfunded: (amount: string) => string;
   benchmarkTurn: string;
   days: (n: string) => string;
   months: (n: string) => string;
@@ -148,6 +149,7 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     warPlanLink: "the plan →",
     capitalOutstanding: "Capital outstanding",
     capitalOutstandingHint: "today's captive sponsor capital (excludes own-capital farms)",
+    capitalCommittedUnfunded: (amount) => `${amount} committed, not yet funded`,
     benchmarkTurn: "Benchmark turn",
     days: (n) => `${n} days`,
     months: (n) => `${n} months`,
@@ -253,6 +255,7 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     warPlanLink: "el plan →",
     capitalOutstanding: "Capital pendiente",
     capitalOutstandingHint: "capital de sponsors cautivo hoy (excluye fincas de capital propio)",
+    capitalCommittedUnfunded: (amount) => `${amount} comprometido, aún no fondeado`,
     benchmarkTurn: "Ciclo de referencia",
     days: (n) => `${n} días`,
     months: (n) => `${n} meses`,

@@ -118,7 +118,8 @@ export function buildInterestLedger(
     outstandingPrincipal: round2(outstanding),
     accruedToDate: round2(accrued),
     paidToDate: round2(paidToDate),
-    unpaidInterest: round2(accrued - paidToDate),
+    unpaidInterest:
+      farm.deal_type === "profit_share" ? 0 : round2(accrued - paidToDate),
     dailyAccrual: round2(dailyAccrual),
     distributions,
   };

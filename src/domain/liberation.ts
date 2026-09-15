@@ -77,6 +77,8 @@ export function computeLiberation(farms: FarmEconomics[], investors: InvestorSum
 
   for (const f of farms) {
     if (f.dealType === "own_capital" || !f.investorId || f.capitalDeployed <= 0 || f.capitalBasisSource !== "investor_capital") continue;
+    // Unfunded committed capital is not a hostage today — it is not outstanding and does not accrue.
+    if (!f.funded) continue;
     const farmDists = distributions.filter((d) => d.farm_acquisition_id === f.farmId);
     const returned = f.capitalReturned;
     const freed = returned >= f.capitalDeployed - 0.01;

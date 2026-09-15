@@ -5,6 +5,21 @@ import { farmCapitalBasis, isSold, isSubdividedFarm } from "./lot";
 import { monthsBetween, parseDate } from "./dates";
 import { groupBy, indexBy, round2, sum } from "./math";
 
+/**
+ * Capital is drawn today only when money has already left: a funding_date on or
+ * before `asOf`, or — if Payments never wrote funding_date — a closing_date on or
+ * before `asOf`. A future closing with no funding_date is committed, not outstanding.
+ */
+export function isCapitalDrawn(
+  farm: { funding_date?: string | null; closing_date?: string | null; fundingDate?: string | null; closingDate?: string | null },
+  asOf: Date,
+): boolean {
+  const funding = parseDate(farm.funding_date ?? farm.fundingDate ?? null);
+  if (funding) return funding <= asOf;
+  const closing = parseDate(farm.closing_date ?? farm.closingDate ?? null);
+  return closing !== null && closing <= asOf;
+}
+
 export interface StageCounts {
   available: number;
   reserved: number;
@@ -45,7 +60,12 @@ export interface FarmEconomics {
   netProfitInPipeline: number;
   cashRealized: number;
   capitalReturned: number;
+  /** Investor capital still out *today* — zero when the farm is not yet funded. */
   capitalOutstanding: number;
+  /** Investor capital signed but not drawn (no funding_date, closing still in the future). */
+  capitalCommittedUnfunded: number;
+  /** True when capital has already been drawn as of `asOf`. */
+  funded: boolean;
   monthsSinceFunding: number | null;
   interest: InterestLedger;
   lots: Lot[];
@@ -80,6 +100,8 @@ export function computeFarms(
     const stages = countStages(farmLots);
     const totalLots = farm.total_lots ?? farmLots.length;
     const funding = parseDate(farm.funding_date) ?? parseDate(farm.closing_date);
+    const drawn = isCapitalDrawn(farm, asOf);
+    const committed = round2(Math.max(0, (farm.investor_capital ?? 0) - interest.capitalReturned));
 
     out.push({
       farmId: farm.id,
@@ -110,7 +132,9 @@ export function computeFarms(
       netProfitInPipeline: round2(sum(reserved.map((l) => (l.grossProfit ?? 0) - (l.investorTake ?? 0)))),
       cashRealized: round2(sum(farmLots.map((l) => l.cashRealized))),
       capitalReturned: interest.capitalReturned,
-      capitalOutstanding: round2(Math.max(0, (farm.investor_capital ?? 0) - interest.capitalReturned)),
+      capitalOutstanding: drawn ? committed : 0,
+      capitalCommittedUnfunded: drawn ? 0 : committed,
+      funded: drawn,
       monthsSinceFunding: funding && funding <= asOf ? round2(monthsBetween(funding, asOf)) : null,
       interest,
       lots: farmLots,

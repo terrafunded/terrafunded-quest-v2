@@ -38,7 +38,13 @@ export function DebtCountdown({ debt, className }: { debt: Debt; className?: str
       </div>
 
       <div className="grid gap-4 sm:grid-cols-[1.35fr_0.75fr_1.15fr]">
-        <Cell label={t.capitalOwed} hint={t.capitalOwedHint(debt.openPositions, money(debt.interestPerDay))}>
+        <Cell
+          label={t.capitalOwed}
+          hint={
+            t.capitalOwedHint(debt.openPositions, money(debt.interestPerDay)) +
+            (debt.capitalCommittedUnfunded > 0 ? t.committedUnfunded(money(debt.capitalCommittedUnfunded)) : "")
+          }
+        >
           <AnimatedCounter value={debt.capitalOwed} className="text-ember" data-testid="debt-capital-owed" />
         </Cell>
         <Cell label={t.daysLeft} hint={debt.daysLeft > 0 ? t.daysLeftTo(date(debt.deadline)) : t.deadlinePassed}>

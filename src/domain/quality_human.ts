@@ -87,6 +87,7 @@ const KIND_ORDER: readonly QualityKind[] = [
   "legacy_farm_with_lots",
   "cash_deal_missing_down_payment",
   "parcel_geometry_mismatch",
+  "empty_source_table",
 ];
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -266,6 +267,14 @@ const T: Record<QualityLang, Record<QualityKind, (c: Ctx) => Texts>> = {
       values: { left: { label: "Mapa", value: `${c.num("polygons") ?? "?"} parcelas` }, right: { label: "Payments", value: `${c.num("lotRows") ?? "?"} lotes` } },
       using: "Quest muestra la cuadrícula en lugar del mapa para esta finca hasta que coincidan.",
     }),
+    empty_source_table: (c) => ({
+      title: "Una tabla de Payments llegó vacía",
+      explanation: `La tabla ${c.str("tableLabel") ?? "de Payments"} que Quest lee devolvió 0 filas, así que las cifras que dependen de ella se calculan desde nada.`,
+      check: "Si la tabla existe, si la cuenta puede leerla y si de verdad no hay filas.",
+      fix: "Payments → confirmar que la tabla sigue existiendo y que esta cuenta puede leerla",
+      values: { left: { label: "Tabla", value: c.str("tableLabel") ?? "—" }, right: { label: "Filas", value: "0" } },
+      using: "Quest usa las filas que llegaron: ninguna.",
+    }),
   },
   en: {
     price_mismatch: (c) => ({
@@ -395,6 +404,14 @@ const T: Record<QualityLang, Record<QualityKind, (c: Ctx) => Texts>> = {
       fix: `Properties → ${c.farm} → add the missing lots or correct their numbers (or update the ${c.farm} availability map in Payments)`,
       values: { left: { label: "Map", value: `${c.num("polygons") ?? "?"} parcels` }, right: { label: "Payments", value: `${c.num("lotRows") ?? "?"} lots` } },
       using: "Quest shows the grid instead of the map for this farm until they agree.",
+    }),
+    empty_source_table: (c) => ({
+      title: "A Payments table came back empty",
+      explanation: `The ${c.str("tableLabel") ?? "Payments"} table Quest reads returned 0 rows, so figures that depend on it are computed from nothing.`,
+      check: "Whether the table exists, whether this account can read it, and whether it really has no rows.",
+      fix: "Payments → confirm the table still exists and that this account can read it",
+      values: { left: { label: "Table", value: c.str("tableLabel") ?? "—" }, right: { label: "Rows", value: "0" } },
+      using: "Quest uses whatever rows came back — here, none.",
     }),
   },
 };

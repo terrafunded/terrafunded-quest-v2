@@ -237,7 +237,10 @@ function ExodusBody({ realm, tableErrors, defaults }: { realm: Realm; tableError
                 <NumberInput id="ex-notes-pct-number" value={inputs.notesPct} onChange={(n) => update({ notesPct: n })} min={0} max={EXODUS_NOTES_PCT_MAX} step={1} suffix="%" testId="exodus-notes-pct-number" />
               </div>
             </div>
-            <FieldFooter hint={t.notesPctHint(money(s.noteTarget))} real={`${real.noteSaleRatio.sales} note_sales · ${t.maxMark(plan.maxNotesPct)}`} />
+            <FieldFooter
+              hint={t.notesPctHint(money(s.noteTarget))}
+              real={`${t.noteSalesCount(real.noteSaleRatio.sales, realm.lots.filter((l) => l.noteSaleId).length)} · ${t.maxMark(plan.maxNotesPct)}`}
+            />
           </div>
 
           <div className="min-w-0">

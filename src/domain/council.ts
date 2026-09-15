@@ -4,6 +4,7 @@ import { addDays, parseDate, toIsoDate } from "./dates";
 import { round2, sum } from "./math";
 import { money, moneyExact, number, pct } from "../lib/format";
 import { computeStageBottleneck } from "./pipeline";
+import { engineDefaultsFromRealm, runEngine } from "./engine";
 
 /**
  * Above this share of total deployed capital for one outside sponsor, the concentration rule
@@ -100,12 +101,17 @@ export function recycledCapitalNext90(realm: Realm): { date: string; farm: strin
   return out.sort((a, b) => a.date.localeCompare(b.date) || a.sponsor.localeCompare(b.sponsor));
 }
 
-function paceInsight(realm: Realm, lang: QualityLang): Insight {
+/** Same coverage verdict the Engine page prints: shortfallDollars ≤ 0. */
+export function engineGoalCovered(realm: Realm, lang: QualityLang = "en"): boolean {
+  const defaults = engineDefaultsFromRealm(realm, realm.rotation.benchmark?.farmName ?? null);
+  const engine = runEngine(defaults.inputs, { ...realm, referencePace: defaults.referencePace }, lang);
+  return engine.figures.shortfallDollars <= 0;
+}
+
+function paceInsight(realm: Realm, lang: QualityLang, covered: boolean): Insight {
   const g = realm.goal;
   const producing = realm.oxygen.netProfitPerDayAtPace;
   const required = realm.debt.requiredNetProfitPerDay;
-  const behind = producing !== null && required !== null && producing < required;
-  const ahead = producing !== null && required !== null && producing > required;
   const figures = {
     netProfitToDate: money(g.netProfitToDate),
     remaining: money(g.remaining),
@@ -117,7 +123,8 @@ function paceInsight(realm: Realm, lang: QualityLang): Insight {
     deadline: g.deadline,
   };
   const worth = impact(money(g.remaining), daysWord(g.daysToDeadline, lang));
-  if (behind) {
+  // Verdict follows the shared Engine path, not the flat $/day or lots/month required pace.
+  if (!covered) {
     return {
       id: "pace",
       rule: "pace",
@@ -125,23 +132,8 @@ function paceInsight(realm: Realm, lang: QualityLang): Insight {
       title: lang === "es" ? "El ritmo va por debajo de lo que pide el horizonte" : "The pace is below what the horizon asks",
       body:
         lang === "es"
-          ? `Se producen ${figures.producingPerDay} de utilidad neta al día; para ${figures.deadline} hacen falta ${figures.requiredPerDay}. Quedan ${figures.remaining} y ${daysWord(g.daysToDeadline, lang)}.`
-          : `Producing ${figures.producingPerDay} of net profit a day; the ${figures.deadline} horizon needs ${figures.requiredPerDay}. ${figures.remaining} remains and ${daysWord(g.daysToDeadline, lang)} are left.`,
-      figures,
-      impact: worth,
-      href: "/",
-    };
-  }
-  if (ahead) {
-    return {
-      id: "pace",
-      rule: "pace",
-      severity: "ok",
-      title: lang === "es" ? "El ritmo cubre el horizonte" : "The pace covers the horizon",
-      body:
-        lang === "es"
-          ? `Se producen ${figures.producingPerDay} al día contra ${figures.requiredPerDay} pedidos. Quedan ${figures.remaining} y ${daysWord(g.daysToDeadline, lang)}.`
-          : `Producing ${figures.producingPerDay} a day against ${figures.requiredPerDay} required. ${figures.remaining} remains and ${daysWord(g.daysToDeadline, lang)} are left.`,
+          ? `La proyección de capital no cubre la meta a ${figures.deadline}. Se producen ${figures.producingPerDay} de utilidad neta al día; el ritmo plano pide ${figures.requiredPerDay}. Quedan ${figures.remaining} y ${daysWord(g.daysToDeadline, lang)}.`
+          : `The capital projection does not cover the goal by ${figures.deadline}. Producing ${figures.producingPerDay} of net profit a day; the flat pace asks ${figures.requiredPerDay}. ${figures.remaining} remains and ${daysWord(g.daysToDeadline, lang)} are left.`,
       figures,
       impact: worth,
       href: "/",
@@ -151,11 +143,11 @@ function paceInsight(realm: Realm, lang: QualityLang): Insight {
     id: "pace",
     rule: "pace",
     severity: "ok",
-    title: lang === "es" ? "El ritmo cae justo en el horizonte" : "The pace lands on the horizon",
+    title: lang === "es" ? "El ritmo cubre el horizonte" : "The pace covers the horizon",
     body:
       lang === "es"
-        ? `Se producen ${figures.producingPerDay} al día; el horizonte pide ${figures.requiredPerDay}.`
-        : `Producing ${figures.producingPerDay} a day; the horizon asks ${figures.requiredPerDay}.`,
+        ? `La proyección de capital cubre la meta a ${figures.deadline}. Se producen ${figures.producingPerDay} al día; el ritmo plano pide ${figures.requiredPerDay}. Quedan ${figures.remaining} y ${daysWord(g.daysToDeadline, lang)}.`
+        : `The capital projection covers the goal by ${figures.deadline}. Producing ${figures.producingPerDay} a day; the flat pace asks ${figures.requiredPerDay}. ${figures.remaining} remains and ${daysWord(g.daysToDeadline, lang)} are left.`,
     figures,
     impact: worth,
     href: "/",
@@ -359,7 +351,7 @@ function losingGroundInsight(realm: Realm, lang: QualityLang): Insight {
   };
 }
 
-function conversionInsight(realm: Realm, lang: QualityLang): Insight {
+function conversionInsight(realm: Realm, lang: QualityLang, covered: boolean): Insight {
   const c = realm.pipeline.conversion;
   const e = realm.expected;
   const resolved = c.resolvedPct === null ? "—" : pct(c.resolvedPct);
@@ -376,7 +368,9 @@ function conversionInsight(realm: Realm, lang: QualityLang): Insight {
     closingsPerMonth: number(e.closingsPerMonth),
     requiredClosingsPerMonth: e.requiredClosingsPerMonth === null ? "—" : number(e.requiredClosingsPerMonth),
   };
-  const short = e.requiredReservationsPerMonth !== null && e.reservationsPerMonth < e.requiredReservationsPerMonth;
+  const flatShort = e.requiredReservationsPerMonth !== null && e.reservationsPerMonth < e.requiredReservationsPerMonth;
+  // Do not call the reservation pace "short" when the Engine path already covers the goal.
+  const short = !covered && flatShort;
   return {
     id: "conversion",
     rule: "conversion",
@@ -448,14 +442,15 @@ function qualityInsight(realm: Realm, lang: QualityLang): Insight {
  * figures) so the weekly payload's shape never depends on which alarms fired.
  */
 export function computeCouncil(realm: Realm, lang: QualityLang = "en"): Insight[] {
+  const covered = engineGoalCovered(realm, lang);
   return [
-    paceInsight(realm, lang),
+    paceInsight(realm, lang, covered),
     stuckInsight(realm, lang),
     stageBottleneckInsight(realm, lang),
     inventoryInsight(realm, lang),
     concentrationInsight(realm, lang),
     losingGroundInsight(realm, lang),
-    conversionInsight(realm, lang),
+    conversionInsight(realm, lang, covered),
     recycleInsight(realm, lang),
     qualityInsight(realm, lang),
   ];

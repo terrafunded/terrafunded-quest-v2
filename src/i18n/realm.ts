@@ -47,6 +47,7 @@ export interface RealmUiStrings {
     asOf: (asOf: string, deadline: string) => string;
     capitalOwed: string;
     capitalOwedHint: (openPositions: number, interestPerDay: string) => string;
+    committedUnfunded: (amount: string) => string;
     daysLeft: string;
     daysLeftTo: (deadline: string) => string;
     deadlinePassed: string;
@@ -276,6 +277,7 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       asOf: (asOf, deadline) => `as of ${asOf} · deadline ${deadline}`,
       capitalOwed: "Capital still owed to sponsors",
       capitalOwedHint: (open, interest) => `${open} open ${open === 1 ? "position" : "positions"} · ${interest} of interest accrues per day`,
+      committedUnfunded: (amount) => ` · ${amount} committed, not yet funded`,
       daysLeft: "Days left",
       daysLeftTo: (deadline) => `to ${deadline}`,
       deadlinePassed: "the deadline has passed",
@@ -504,6 +506,7 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       asOf: (asOf, deadline) => `al ${asOf} · fecha límite ${deadline}`,
       capitalOwed: "Capital que aún se debe a los sponsors",
       capitalOwedHint: (open, interest) => `${open} ${open === 1 ? "posición abierta" : "posiciones abiertas"} · ${interest} de interés se acumulan por día`,
+      committedUnfunded: (amount) => ` · ${amount} comprometido, aún no fondeado`,
       daysLeft: "Días restantes",
       daysLeftTo: (deadline) => `hasta el ${deadline}`,
       deadlinePassed: "la fecha límite ya pasó",

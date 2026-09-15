@@ -10,10 +10,12 @@ import { resolveEra, type EraStart } from "./era";
 export interface Debt {
   asOf: string;
   deadline: string;
-  /** Σ (investor_capital − capital_return distributions) over farms not funded with own capital. */
+  /** Σ (investor_capital − capital_return) over sponsor farms whose capital is already drawn. */
   capitalOwed: number;
   /** Own capital (Terrafunded's) still tied up in unsold farms; shown separately, never blended. */
   ownCapitalOutstanding: number;
+  /** Sponsor capital signed but not yet funded — out of today's outstanding and daily accrual. */
+  capitalCommittedUnfunded: number;
   /** Number of sponsor positions still owed anything. */
   openPositions: number;
   daysLeft: number;
@@ -53,6 +55,7 @@ export function computeDebt(farms: FarmEconomics[], goal: GoalStatus, lots: Lot[
   const owed = farms.filter((f) => f.dealType !== "own_capital");
   const own = farms.filter((f) => f.dealType === "own_capital");
   const capitalOwed = round2(owed.reduce((s, f) => s + f.capitalOutstanding, 0));
+  const capitalCommittedUnfunded = round2(owed.reduce((s, f) => s + f.capitalCommittedUnfunded, 0));
   const daysLeft = Math.max(0, goal.daysToDeadline);
   const asOf = parseDate(goal.asOf);
 
@@ -86,6 +89,7 @@ export function computeDebt(farms: FarmEconomics[], goal: GoalStatus, lots: Lot[
     deadline: goal.deadline,
     capitalOwed,
     ownCapitalOutstanding: round2(own.reduce((s, f) => s + f.capitalOutstanding, 0)),
+    capitalCommittedUnfunded,
     openPositions: owed.filter((f) => f.capitalOutstanding > 0).length,
     daysLeft,
     remainingNetProfit: goal.remaining,

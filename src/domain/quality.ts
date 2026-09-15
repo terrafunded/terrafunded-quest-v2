@@ -22,7 +22,9 @@ export type QualityKind =
   | "note_before_farm_purchase"
   | "cash_deal_missing_down_payment"
   /** Raised by `parcels.ts`, not here: the Availability map's parcels disagree with the ledger's lots. */
-  | "parcel_geometry_mismatch";
+  | "parcel_geometry_mismatch"
+  /** A Payments table the model reads came back with zero rows. */
+  | "empty_source_table";
 
 export interface QualityIssue {
   id: string;
@@ -293,6 +295,47 @@ export function computeQualityIssues(i: QualityInputs): QualityIssue[] {
     if (f !== 0) return f;
     return (a.lotName ?? "").localeCompare(b.lotName ?? "");
   });
+}
+
+/**
+ * Warn when a table Quest's figures depend on is empty. Live fetches that return
+ * [] (permissions, a dropped table, a broken column list) look like "no data"
+ * rather than an error unless this fires.
+ */
+/** Plain-language names for Payments tables the model reads. Never shown as column ids. */
+export const SOURCE_TABLE_LABEL: Record<string, { es: string; en: string }> = {
+  farm_acquisitions: { es: "adquisiciones de fincas", en: "farm acquisitions" },
+  properties: { es: "propiedades", en: "properties" },
+  file_cases: { es: "expedientes", en: "file cases" },
+  notes: { es: "notas", en: "notes" },
+  note_sales: { es: "ventas de pagarés", en: "note sales" },
+  investor_distributions: { es: "distribuciones a inversionistas", en: "investor distributions" },
+  property_costs: { es: "costos de propiedad", en: "property costs" },
+  investors: { es: "inversionistas", en: "investors" },
+  clients: { es: "clientes", en: "clients" },
+};
+
+export function emptySourceTableIssues(
+  tables: Record<string, number>,
+  lang: "es" | "en" = "en",
+): QualityIssue[] {
+  const issues: QualityIssue[] = [];
+  for (const [table, rows] of Object.entries(tables)) {
+    if (rows > 0) continue;
+    const tableLabel = SOURCE_TABLE_LABEL[table]?.[lang] ?? table.replace(/_/g, " ");
+    issues.push({
+      id: `empty_source_table:${table}`,
+      kind: "empty_source_table",
+      severity: "warning",
+      farmName: null,
+      lotName: null,
+      propertyId: null,
+      message: `Payments table ${table} returned 0 rows. Figures that read it are computed from nothing.`,
+      details: { table, tableLabel, rows },
+      since: null,
+    });
+  }
+  return issues;
 }
 
 function fmt(n: number | null): string {

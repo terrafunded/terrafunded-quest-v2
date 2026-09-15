@@ -335,6 +335,19 @@ export function deriveEngineDefaults(ctx: WarPlanContext): EngineDefaults {
   };
 }
 
+/** Drawn today plus sponsor capital that funds later — the Engine starts that book from its funding month. */
+function engineExistingBook(ctx: EngineContext): { existingFarms: EngineExistingFarm[]; owedStart: number } {
+  const existingFarms: EngineExistingFarm[] = ctx.farms
+    .filter((f) => f.capitalOutstanding + f.capitalCommittedUnfunded > 0 || (f.totalLots - f.soldLots) > 0)
+    .map((f) => ({
+      name: f.name,
+      capitalOutstanding: Math.max(0, f.capitalOutstanding + f.capitalCommittedUnfunded),
+      remainingLots: Math.max(0, f.totalLots - f.soldLots),
+    }));
+  const committed = round2(sum(ctx.farms.filter((f) => f.dealType !== "own_capital").map((f) => f.capitalCommittedUnfunded)));
+  return { existingFarms, owedStart: Math.max(0, sponsorLedger(ctx).capitalOwed + committed) };
+}
+
 /** Enrich defaults with the rotation benchmark farm name once the realm has solved the War Plan. */
 export function withBenchmarkFarm(defaults: EngineDefaults, benchmarkFarmName: string | null): EngineDefaults {
   return {
@@ -1025,14 +1038,7 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext, lang: "en" |
 
   const inventoryNetProfit = round2(inv.total * (ledgerAvg ?? netPerLot));
   const inventoryMonths = inputs.salesPace > 0 ? round2(inv.total / inputs.salesPace) : null;
-  const existingFarms: EngineExistingFarm[] = ctx.farms
-    .filter((f) => f.capitalOutstanding > 0 || (f.totalLots - f.soldLots) > 0)
-    .map((f) => ({
-      name: f.name,
-      capitalOutstanding: Math.max(0, f.capitalOutstanding),
-      remainingLots: Math.max(0, f.totalLots - f.soldLots),
-    }));
-  const owedStart = Math.max(0, sponsorLedger(ctx).capitalOwed);
+  const { existingFarms, owedStart } = engineExistingBook(ctx);
 
   // Pass 1: only capital already in the mix (deployed today) — no fresh top-up.
   const base = simulateOnce(inputs, goal, asOf, grid, ctx.oracleDefaults, referencePace, inv.total, inv.total, inputs.investorMix, 0, Math.max(capDeadline, k), existingFarms, owedStart);
@@ -1266,14 +1272,7 @@ function runEngineLight(
   referencePace: number,
   inv: ReturnType<typeof engineStartInventory>,
 ): { profit: number; fresh: number; farmsNeeded: number; capitalDeadlineIso: string | null } {
-  const existingFarms: EngineExistingFarm[] = ctx.farms
-    .filter((f) => f.capitalOutstanding > 0 || (f.totalLots - f.soldLots) > 0)
-    .map((f) => ({
-      name: f.name,
-      capitalOutstanding: Math.max(0, f.capitalOutstanding),
-      remainingLots: Math.max(0, f.totalLots - f.soldLots),
-    }));
-  const owedStart = Math.max(0, sponsorLedger(ctx).capitalOwed);
+  const { existingFarms, owedStart } = engineExistingBook(ctx);
   const effectiveCycle = coupledCycleMonths(inputs.cycleMonths, inputs.salesPace, referencePace);
   const capDeadline = capitalDeadlineMonth(grid.deadlineIndex, effectiveCycle);
   const buyThrough = Math.max(capDeadline, grid.deadlineIndex);

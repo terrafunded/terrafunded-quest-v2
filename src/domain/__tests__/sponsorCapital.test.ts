@@ -43,9 +43,9 @@ describe("computeCapitalComposition on the fixture", () => {
     expect(composition.totalDeployed).toBe(investorsTotal);
     const rawTotal = round2([...rawCapitalByInvestor().values()].reduce((s, v) => s + v.capital, 0));
     expect(composition.totalDeployed).toBe(rawTotal);
-    // Own + outside partition the total; outside is what the hostages strip calls capital.
+    // Own + outside partition the total. Outside includes committed-unfunded; hostages are drawn only.
     expect(round2(composition.ownDeployed + composition.outsideDeployed)).toBe(composition.totalDeployed);
-    expect(composition.outsideDeployed).toBe(realm.liberation.totalCapital);
+    expect(composition.outsideDeployed).toBe(round2(realm.liberation.totalCapital + realm.debt.capitalCommittedUnfunded));
   });
 
   it("orders arcs descending, one per sponsor and kind, with shares that sum to 100", () => {

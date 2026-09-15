@@ -355,6 +355,11 @@ export function ThroneRoom() {
                 {money(rot.capitalOutstanding)}
               </dd>
               <dd className="text-[11px] text-muted-foreground">{t.capitalOutstandingHint}</dd>
+              {realm.debt.capitalCommittedUnfunded > 0 && (
+                <dd className="text-[11px] text-muted-foreground" data-testid="rotation-committed-unfunded">
+                  {t.capitalCommittedUnfunded(money(realm.debt.capitalCommittedUnfunded))}
+                </dd>
+              )}
             </div>
             <div className="rounded-md bg-background/40 p-3">
               <dt className="stat-label">{t.benchmarkTurn}</dt>
@@ -463,6 +468,11 @@ export function ThroneRoom() {
                 {t.captiveSponsor}
                 {realm.debt.ownCapitalOutstanding > 0 ? (
                   <span data-testid="key-own-capital">{t.ownCapitalTied(money(realm.debt.ownCapitalOutstanding))}</span>
+                ) : null}
+                {realm.debt.capitalCommittedUnfunded > 0 ? (
+                  <span data-testid="key-committed-unfunded">
+                    {t.capitalCommittedUnfunded(money(realm.debt.capitalCommittedUnfunded))}
+                  </span>
                 ) : null}
               </span>
             }

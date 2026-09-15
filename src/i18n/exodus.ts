@@ -21,6 +21,7 @@ export interface ExodusUiStrings {
   inputs: string;
   notesPct: string;
   notesPctHint: (target: string) => string;
+  noteSalesCount: (all: number, farmLots: number) => string;
   maxMark: (pct: number) => string;
   lpCapital: string;
   lpCapitalReal: string;
@@ -135,6 +136,7 @@ export const EXODUS_UI: Record<QualityLang, ExodusUiStrings> = {
     inputs: "Inputs",
     notesPct: "Share paid in notes",
     notesPctHint: (target) => `of the LP capital: ${target} of notes at 100% of their unpaid balance`,
+    noteSalesCount: (all, farmLots) => `${all} note sales, all · ${farmLots} on farm lots`,
     maxMark: (pct) => `the inventory covers up to ${pct}%`,
     lpCapital: "LP capital to return",
     lpCapitalReal: "fixed — LP_CAPITAL_TO_RETURN",
@@ -256,6 +258,7 @@ export const EXODUS_UI: Record<QualityLang, ExodusUiStrings> = {
     inputs: "Datos de entrada",
     notesPct: "Parte pagada en pagarés",
     notesPctHint: (target) => `del capital de los LP: ${target} en pagarés al 100% de su saldo insoluto`,
+    noteSalesCount: (all, farmLots) => `${all} ventas de pagarés, todas · ${farmLots} en lotes de finca`,
     maxMark: (pct) => `el inventario cubre hasta ${pct}%`,
     lpCapital: "Capital de los LP a devolver",
     lpCapitalReal: "fijo — LP_CAPITAL_TO_RETURN",

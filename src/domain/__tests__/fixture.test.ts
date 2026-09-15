@@ -247,10 +247,11 @@ describe("fixture: goal and rollups reconcile", () => {
     expect(realm.treasury.totalCashIn).toBe(round2(realm.goal.cashRealized + realm.treasury.totalOtherNoteSales));
   });
 
-  it("capital outstanding equals Σ investor_capital − Σ capital_return distributions on subdivided farms", () => {
+  it("capital outstanding equals drawn investor capital (unfunded committed capital is excluded)", () => {
     const capital = sum(realm.farms.map((f) => f.capitalDeployed));
     const returned = sum(fixture.investorDistributions.filter((d) => d.kind === "capital_return").map((d) => d.amount));
-    expect(realm.goal.capitalOutstanding).toBe(round2(capital - returned));
+    expect(realm.goal.capitalOutstanding).toBe(round2(sum(realm.farms.map((f) => f.capitalOutstanding))));
+    expect(realm.goal.capitalOutstanding).toBe(round2(capital - returned - realm.debt.capitalCommittedUnfunded));
   });
 
   it("produces a verdict sentence and a projection", () => {

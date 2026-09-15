@@ -148,15 +148,33 @@ export default function Quality() {
         </Button>
       </PageHeader>
       <TableErrorsBanner errors={data.tableErrors} />
+      {data.realm.quality.some((i) => i.kind === "empty_source_table") && (
+        <div
+          className="mb-4 rounded-md border border-stage-reserved/40 bg-stage-reserved/10 px-4 py-3 text-sm"
+          role="alert"
+          data-testid="quality-empty-source-tables"
+        >
+          {t.emptySourceTables(
+            data.realm.quality
+              .filter((i) => i.kind === "empty_source_table")
+              .map((i) => String(i.details.tableLabel ?? i.details.table ?? ""))
+              .filter(Boolean)
+              .join(", "),
+          )}
+        </div>
+      )}
 
       <section aria-label={t.title} className="mb-6 grid gap-3 sm:grid-cols-3" data-testid="quality-summary">
         <div className="parchment-card p-4">
-          <div className="stat-label">{t.lotsWithIssues}</div>
-          <div className="mt-1.5 font-heading text-2xl tabular" data-testid="quality-summary-lots" data-value={summary.lotsWithIssues}>
-            {summary.lotsWithIssues}
-            {summary.farmsWithIssues > 0 && <span className="ml-2 text-sm font-normal text-muted-foreground">{t.andFarms(summary.farmsWithIssues)}</span>}
+          <div className="stat-label">{t.issuesLabel}</div>
+          <div className="mt-1.5 font-heading text-2xl tabular" data-testid="quality-summary-issues" data-value={summary.issues}>
+            {summary.issues}
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">{t.totals(cards.length, summary.issues)}</div>
+          <div className="mt-1 text-xs text-muted-foreground" data-testid="quality-summary-lots" data-value={summary.lotsWithIssues}>
+            {t.lotsWithIssuesCount(summary.lotsWithIssues)}
+            {summary.farmsWithIssues > 0 && <span className="ml-1">{t.andFarms(summary.farmsWithIssues)}</span>}
+            <span className="ml-1">· {t.totals(cards.length, summary.issues)}</span>
+          </div>
         </div>
         <div className="parchment-card p-4">
           <div className="stat-label">{t.profitAffected}</div>

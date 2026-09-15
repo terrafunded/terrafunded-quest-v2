@@ -17,7 +17,29 @@ import {
 import { reconcileThroneAndEngine } from "@/domain/reconcile";
 import { GOAL_NET_PROFIT } from "@/config/goal";
 import { mean, round2, sum } from "@/domain/math";
+import { parseDate } from "@/domain/dates";
+import { computeLotLedgers } from "@/domain/lotLedger";
 import { money, moneyCompact, number as fmtNumber } from "@/lib/format";
+
+/** Rounding: money stored to the cent. */
+export const TOL_CENTS = 0.02;
+/** Rounding: dollar figures after display rounding. */
+export const TOL_DOLLAR = 1;
+/**
+ * debt_per_day: requiredNetProfitPerDay is rounded to cents before × daysLeft.
+ * Do not change that arithmetic — this slack covers the $2–3 rounding residue.
+ */
+export const TOL_DEBT_PER_DAY = 5;
+/**
+ * lotsStillNeeded = ceil(remaining ÷ avg). The product can exceed remaining by less than one lot.
+ * $250,000 is above any single lot's net in the book and well under 10% of remaining.
+ */
+export const TOL_ONE_LOT_CEIL = 250_000;
+/**
+ * Engine monthly interest vs avg outstanding × mix rate × years.
+ * Modelling slack, stated percentage, under 10%. Never derived from the delta.
+ */
+export const TOL_INTEREST_MODEL_PCT = 0.08;
 import { THRONE_ROOM_UI } from "@/i18n/throneRoom";
 import { ENGINE_UI } from "@/i18n/engine";
 import { QUALITY_UI } from "@/i18n/quality";
@@ -312,13 +334,35 @@ function collectFigures(
       page: "/",
       section: "rotation",
       label: t.capitalOutstanding,
-      displayed: moneyCompact(g.capitalOutstanding, lang),
-      raw: g.capitalOutstanding,
-      subtitle: t.capitalOutstandingHint,
+      displayed: moneyCompact(realm.debt.capitalOwed, lang),
+      raw: realm.debt.capitalOwed,
+      subtitle:
+        realm.debt.capitalCommittedUnfunded > 0
+          ? `${t.capitalOutstandingHint} · ${t.capitalCommittedUnfunded(money(realm.debt.capitalCommittedUnfunded, lang))}`
+          : t.capitalOutstandingHint,
       units: "USD",
-      source: { file: "src/domain/goal.ts", export: "computeGoal" },
-      inputs: { farms: realm.farms.length },
-      formula: "Σ farm.capitalOutstanding",
+      source: { file: "src/domain/debt.ts", export: "computeDebt" },
+      inputs: {
+        sponsorFarms: realm.farms.filter((f) => f.dealType !== "own_capital").length,
+        capitalCommittedUnfunded: realm.debt.capitalCommittedUnfunded,
+      },
+      formula: "Σ capitalOutstanding where dealType ≠ own_capital and capital is already drawn",
+    },
+    {
+      id: "throne.capitalCommittedUnfunded",
+      page: "/",
+      section: "rotation",
+      label: lang === "es" ? "Capital comprometido, aún no fondeado" : "Capital committed, not yet funded",
+      displayed: moneyCompact(realm.debt.capitalCommittedUnfunded, lang),
+      raw: realm.debt.capitalCommittedUnfunded,
+      subtitle:
+        lang === "es"
+          ? "Firmado, sin funding_date (o cierre futuro). Fuera del outstanding de hoy."
+          : "Signed, no funding_date (or future closing). Out of today's outstanding.",
+      units: "USD",
+      source: { file: "src/domain/debt.ts", export: "computeDebt" },
+      inputs: { unfundedFarms: realm.farms.filter((f) => !f.funded && f.dealType !== "own_capital").length },
+      formula: "Σ capitalCommittedUnfunded where dealType ≠ own_capital",
     },
     {
       id: "throne.cashRealized",
@@ -327,7 +371,14 @@ function collectFigures(
       label: t.cashRealized,
       displayed: moneyCompact(g.cashRealized, lang),
       raw: g.cashRealized,
-      subtitle: t.cashRealizedHint,
+      subtitle:
+        realm.treasury.totalOtherNoteSales > 0
+          ? t.cashReconcile(
+              money(g.cashRealized, lang),
+              money(realm.treasury.totalOtherNoteSales, lang),
+              money(realm.treasury.totalCashIn, lang),
+            )
+          : t.cashRealizedHint,
       units: "USD",
       source: { file: "src/domain/goal.ts", export: "computeGoal" },
       inputs: {},
@@ -369,14 +420,36 @@ function collectFigures(
       id: "throne.oxygen",
       page: "/",
       section: "debtOxygen",
-      label: lang === "es" ? "Ritmo (días ganados)" : "Pace (days gained)",
+      label: lang === "es" ? "Ritmo acumulado (días ganados)" : "Cumulative pace (days gained)",
       displayed: fmtNumber(realm.oxygen.totalDaysGained, lang),
       raw: realm.oxygen.totalDaysGained,
-      subtitle: null,
+      subtitle:
+        lang === "es"
+          ? "Suma de todos los cierres. No es la pastilla de la barra (ventana de 90 días)."
+          : "Sum over every closing. Not the topbar pill (90-day window).",
       units: "days",
       source: { file: "src/domain/oxygen.ts", export: "computeOxygen" },
       inputs: { closedLots: realm.oxygen.ranked.length },
       formula: "Σ daysGained over closed lots",
+    },
+    {
+      id: "throne.oxygenTrailing",
+      page: "/",
+      section: "debtOxygen",
+      label: lang === "es" ? "Ritmo de 90 días (barra superior)" : "Trailing 90-day pace (topbar)",
+      displayed: `${fmtNumber(realm.oxygen.trailingDaysGained, lang)}/${fmtNumber(realm.oxygen.trailingWindowDays, lang)}`,
+      raw: realm.oxygen.trailingDaysGained,
+      subtitle:
+        lang === "es"
+          ? `Días ganados en los últimos ${realm.oxygen.trailingWindowDays} días. Cifra de la pastilla, no el acumulado.`
+          : `Days gained in the last ${realm.oxygen.trailingWindowDays} days. The pill figure, not the cumulative.`,
+      units: "days",
+      source: { file: "src/domain/oxygen.ts", export: "computeOxygen" },
+      inputs: {
+        trailingDaysGained: realm.oxygen.trailingDaysGained,
+        trailingWindowDays: realm.oxygen.trailingWindowDays,
+      },
+      formula: "Σ daysGained for closings inside the trailing window",
     },
     {
       id: "engine.netProfitAtDeadline",
@@ -422,7 +495,7 @@ function collectFigures(
       raw: f.totalInterest,
       subtitle:
         f.interestShareOfProfit !== null
-          ? e.interestShareHint(fmtNumber(f.interestShareOfProfit, lang))
+          ? e.interestShareHint(`${fmtNumber(f.interestShareOfProfit, lang)}%`)
           : null,
       units: "USD",
       source: { file: "src/domain/engine.ts", export: "runEngine" },
@@ -517,14 +590,23 @@ function collectFigures(
       label: tr.cashIn,
       displayed: moneyCompact(realm.treasury.totalCashIn, lang),
       raw: realm.treasury.totalCashIn,
-      subtitle: null,
+      subtitle:
+        realm.treasury.totalOtherNoteSales > 0
+          ? tr.cashInHintReconcile(
+              money(g.cashRealized, lang),
+              money(realm.treasury.totalOtherNoteSales, lang),
+              money(realm.treasury.totalCashIn, lang),
+              moneyCompact(realm.treasury.totalOtherNoteSales, lang),
+            )
+          : tr.cashInHintFarm(moneyCompact(realm.treasury.totalDownPayments, lang), moneyCompact(realm.treasury.totalNoteSales, lang)),
       units: "USD",
       source: { file: "src/domain/treasury.ts", export: "computeTreasury" },
       inputs: {
         downPayments: realm.treasury.totalDownPayments,
         noteSales: realm.treasury.totalNoteSales,
+        otherNoteSales: realm.treasury.totalOtherNoteSales,
       },
-      formula: "downPayments + noteSales (+ other + undated)",
+      formula: "farm-lot down payments + farm-lot note sales + other note sales (non-farm lots) + undated",
     },
     {
       id: "treasury.cashOut",
@@ -559,14 +641,14 @@ function collectFigures(
       id: "quality.issueCount",
       page: "/quality",
       section: "summary",
-      label: q.lotsWithIssues,
-      displayed: fmtNumber(new Set(realm.quality.map((i) => i.propertyId)).size, lang),
+      label: q.issuesLabel,
+      displayed: fmtNumber(realm.quality.length, lang),
       raw: realm.quality.length,
-      subtitle: null,
+      subtitle: q.lotsWithIssuesCount(new Set(realm.quality.filter((i) => i.propertyId).map((i) => i.propertyId)).size),
       units: "issues",
       source: { file: "src/domain/quality.ts", export: "computeQualityIssues" },
       inputs: { issues: realm.quality.length },
-      formula: "count of ledger contradictions",
+      formula: "count of ledger contradictions (not distinct lots)",
     },
     {
       id: "quality.profitAffected",
@@ -714,6 +796,17 @@ function collectFigures(
   ];
 }
 
+/**
+ * Reconciliations that were removed because the two sides measure different things.
+ * A tolerance derived from the delta (or from max(left, right)) would make them
+ * pass by construction and verify nothing:
+ *
+ * - treasury.totalCashIn vs goal.cashRealized — treasury includes non-farm-lot note
+ *   sales (Kevin Shortle $57,000 on 2026-08-18). Both figures are labelled on screen.
+ * - warPlan.rotation.peakOutstanding vs today's capital outstanding — plan peak ≠ books today.
+ * - engine.turns vs chart block count — turns is Σ cost ÷ peak; blocks are visual lanes.
+ * - engine.schedule.length vs series months with returns — different units / tautological.
+ */
 function runReconciliations(
   realm: Realm,
   engine: EngineResult,
@@ -733,9 +826,6 @@ function runReconciliations(
   const weightedRate = mixCap > 0 ? sum(mix.map((e) => e.capital * e.ratePct)) / mixCap / 100 : 0.2;
   const interestApprox = round2(avgOutstanding * weightedRate * years);
 
-  const blockCount = engine.turns.reduce((n, lane) => n + lane.blocks.length, 0);
-  const seriesReturns = engine.series.filter((s) => ((s as { capitalReturned?: number }).capitalReturned ?? 0) > 0).length;
-
   const stageSum =
     realm.lots.filter((l) => l.stage === "available").length +
     realm.lots.filter((l) => l.stage === "reserved").length +
@@ -743,8 +833,7 @@ function runReconciliations(
     realm.lots.filter((l) => l.stage === "note_sold").length;
 
   const conv = realm.pipeline.conversion;
-  const stillOpen = (conv as { stillReserved?: number }).stillReserved ?? 0;
-  const convSum = conv.closed + conv.cancelled + stillOpen;
+  const convSum = conv.closed + conv.cancelled + conv.stillReserved;
   const oxygenSum = round2(sum(realm.oxygen.ranked.map((o) => o.daysGained)));
   const debtProduct =
     realm.debt.requiredNetProfitPerDay !== null
@@ -757,15 +846,13 @@ function runReconciliations(
 
   const throneEngine = reconcileThroneAndEngine(g, engine, "era", lang);
 
-  const treasuryGap = Math.abs(round2(realm.treasury.totalCashIn - g.cashRealized));
-
   return [
     mkCheck(
       "net_profit_sold_lots",
       lang === "es" ? "Σ utilidad neta lotes vendidos == goal.netProfitToDate" : "Σ net profit sold lots == goal.netProfitToDate",
       { label: "Σ lot.netProfit (sold)", value: soldNet },
       { label: "goal.netProfitToDate", value: netToDate },
-      0.02,
+      TOL_CENTS,
       lang === "es"
         ? "La utilidad a la fecha no cuadra con la suma de los lotes vendidos."
         : "Net profit to date does not match the sum of sold lots.",
@@ -775,7 +862,7 @@ function runReconciliations(
       lang === "es" ? "goal.netProfitToDate == Σ actividad mensual" : "goal.netProfitToDate == Σ monthly activity",
       { label: "goal.netProfitToDate", value: netToDate },
       { label: "Σ history.netProfit", value: histCum },
-      0.02,
+      TOL_CENTS,
       lang === "es"
         ? "La actividad mensual no suma la utilidad a la fecha."
         : "Monthly activity does not sum to net profit to date.",
@@ -785,7 +872,7 @@ function runReconciliations(
       lang === "es" ? "restante + utilidad a la fecha == 10,000,000" : "remaining + netProfitToDate == 10,000,000",
       { label: "remaining + netProfitToDate", value: round2(g.remaining + netToDate) },
       { label: "GOAL_NET_PROFIT", value: GOAL_NET_PROFIT },
-      0.02,
+      TOL_CENTS,
       lang === "es" ? "La identidad de la meta se rompió." : "Goal identity broke.",
     ),
     mkCheck(
@@ -793,7 +880,7 @@ function runReconciliations(
       lang === "es" ? "lotsStillNeeded × avg ≈ remaining" : "lotsStillNeeded × avg ≈ remaining",
       { label: "lotsStillNeeded × avg", value: lotsNeededProduct },
       { label: "remaining", value: g.remaining },
-      g.avgNetProfitPerClosedLot ?? 1,
+      TOL_ONE_LOT_CEIL,
       lang === "es"
         ? "El redondeo de lotsStillNeeded se alejó demasiado del restante."
         : "lotsStillNeeded rounding drifted too far from remaining.",
@@ -813,7 +900,7 @@ function runReconciliations(
       lang === "es" ? "Proyección peakOutstanding == max(serie)" : "Capital projection peakOutstanding == max(series)",
       { label: "figures.peakOutstanding", value: engine.figures.peakOutstanding },
       { label: "max(series.capitalOwed)", value: peakSeries },
-      0.02,
+      TOL_CENTS,
       lang === "es"
         ? "La tarjeta de pico no coincide con el máximo de la serie simulada."
         : "Peak card does not match the simulated series maximum.",
@@ -823,68 +910,25 @@ function runReconciliations(
       lang === "es" ? "Interés total vs (promedio × tasa × años)" : "Total interest vs (avg × rate × years)",
       { label: "figures.totalInterest", value: engine.figures.totalInterest },
       { label: "avgOutstanding × rate × years", value: interestApprox },
-      Math.max(50_000, interestApprox * 0.35),
+      round2(interestApprox * TOL_INTEREST_MODEL_PCT),
       lang === "es"
-        ? "El interés simulado diverge de la aproximación promedio×tasa×años más allá de la tolerancia."
-        : "Simulated interest diverges from avg×rate×years beyond tolerance.",
-    ),
-    mkCheck(
-      "engine_turns_vs_blocks",
-      lang === "es" ? "Giros de capital vs bloques del gráfico" : "Capital turns vs chart blocks",
-      { label: "figures.turns", value: engine.figures.turns },
-      { label: "turn lane blocks", value: blockCount },
-      Math.max(engine.figures.turns, blockCount, 1),
-      lang === "es"
-        ? "La cifra de giros no cuadra con los bloques dibujados."
-        : "Turns figure does not reconcile with drawn blocks.",
-    ),
-    mkCheck(
-      "engine_return_events",
-      lang === "es" ? "Eventos de retorno en el calendario" : "Return events on the schedule",
-      { label: "schedule length", value: engine.schedule.length },
-      {
-        label: "series months with returns (or schedule)",
-        value: seriesReturns || engine.schedule.length,
-      },
-      Math.max(engine.schedule.length, 1),
-      lang === "es"
-        ? "Los retornos de capital no aparecen en la simulación."
-        : "Capital returns do not appear in the simulation.",
-    ),
-    mkCheck(
-      "rotation_vs_outstanding",
-      lang === "es" ? "Capital rotando (Plan) vs capital outstanding hoy" : "Capital rotating (Plan) vs capital outstanding today",
-      { label: "warPlan.rotation.peakOutstanding", value: realm.warPlan.rotation.peakOutstanding },
-      { label: "goal.capitalOutstanding", value: g.capitalOutstanding },
-      Math.max(g.capitalOutstanding, realm.warPlan.rotation.peakOutstanding, 1),
-      lang === "es"
-        ? "El pico de rotación del Plan y el capital adeudado hoy miden cosas distintas."
-        : "Plan rotation peak and today's capital outstanding measure different things.",
-    ),
-    mkCheck(
-      "treasury_vs_cash",
-      lang === "es" ? "Flujo de efectivo entradas vs cash realizado" : "Cash flow in vs cash realized",
-      { label: "treasury.totalCashIn", value: realm.treasury.totalCashIn },
-      { label: "goal.cashRealized", value: g.cashRealized },
-      treasuryGap <= 0.02 ? 0.02 : treasuryGap + 1,
-      lang === "es"
-        ? "Las entradas de flujo de efectivo no coinciden con el cash realizado."
-        : "Cash flow in does not match goal cash realized.",
+        ? "El interés simulado diverge de la aproximación promedio×tasa×años más allá del 8 %."
+        : "Simulated interest diverges from avg×rate×years beyond 8%.",
     ),
     mkCheck(
       "oxygen_sum",
-      lang === "es" ? "Σ días ganados por lote == ritmo de portada" : "Σ per-lot days gained == pace headline",
+      lang === "es" ? "Σ días ganados por lote == ritmo acumulado" : "Σ per-lot days gained == cumulative pace",
       { label: "Σ ranked.daysGained", value: oxygenSum },
       { label: "oxygen.totalDaysGained", value: realm.oxygen.totalDaysGained },
       0,
-      lang === "es" ? "El ritmo de portada no es la suma por lote." : "Headline pace is not the per-lot sum.",
+      lang === "es" ? "El ritmo acumulado no es la suma por lote." : "Cumulative pace is not the per-lot sum.",
     ),
     mkCheck(
       "debt_per_day",
       lang === "es" ? "requiredNetProfitPerDay × daysLeft == remaining" : "requiredNetProfitPerDay × daysLeft == remaining",
       { label: "required × daysLeft", value: debtProduct },
       { label: "debt.remainingNetProfit", value: realm.debt.remainingNetProfit },
-      1,
+      TOL_DEBT_PER_DAY,
       lang === "es"
         ? "El producto diario × días no recupera el restante."
         : "Daily requirement × days left does not recover remaining.",
@@ -899,12 +943,9 @@ function runReconciliations(
     ),
     mkCheck(
       "pipeline_conversion_denom",
-      lang === "es" ? "closed+cancelled+still-open == cohorte" : "closed+cancelled+still-open == cohort",
+      lang === "es" ? "closed+cancelled+still-open == cohorte con cancelaciones" : "closed+cancelled+still-open == cohort with cancellations",
       { label: "closed+cancelled+stillReserved", value: convSum },
-      {
-        label: "resolvedDenominator or cohort",
-        value: conv.resolvedDenominator || (conv as { cohort?: number }).cohort || 0,
-      },
+      { label: "cohortWithCancellations", value: conv.cohortWithCancellations },
       0,
       lang === "es"
         ? "El denominador de conversión del pipeline no cuadra."
@@ -915,7 +956,7 @@ function runReconciliations(
       lang === "es" ? "Proyección Resumen vs Proyección de capital a la fecha límite" : "Overview projection vs Capital projection at deadline",
       { label: "throneProjectedAtDeadline", value: throneEngine.throneProjectedAtDeadline },
       { label: "engineNetAtDeadline", value: throneEngine.engineNetAtDeadline },
-      1,
+      TOL_DOLLAR,
       throneEngine.dollarReason ??
         (lang === "es"
           ? "Resumen (sin tope) y Proyección de capital (con inventario/capital) discrepan."
@@ -970,7 +1011,15 @@ export function buildPlatformExport(realm: Realm, opts: BuildPlatformExportOptio
       propertyCosts: realm.snapshot.propertyCosts.map((r) => ({ ...r })),
       investors: realm.snapshot.investors.map((r) => ({ ...r })),
       clients: realm.snapshot.clients.map((r) => ({ ...r })),
-      lotLedgers: [],
+      lotLedgers: [...computeLotLedgers(realm.snapshot, parseDate(realm.goal.asOf) ?? new Date(`${realm.goal.asOf}T00:00:00Z`), null).values()].map(
+        (l) => ({
+          farmId: l.farmId,
+          farmName: l.farmName,
+          asOf: l.asOf,
+          ratePct: l.ratePct,
+          lots: l.lots,
+        }),
+      ),
       history: realm.history.map((h) => ({ ...h })),
     },
     excluded,

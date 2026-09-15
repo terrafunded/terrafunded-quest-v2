@@ -4,7 +4,7 @@ import { computeLots, isSold, type Lot } from "./lot";
 import { computeFarms, type FarmEconomics } from "./farm";
 import { computeGoal, withVerdict, type GoalStatus } from "./goal";
 import { computePathToGoal, withPathToGoalFarms, type PathToGoal } from "./pathToGoal";
-import { computeQualityIssues, type QualityIssue } from "./quality";
+import { computeQualityIssues, emptySourceTableIssues, type QualityIssue } from "./quality";
 import { computeEvents, withLiberationEvents, type RealmEvent } from "./events";
 import { computeInvestors, type InvestorSummary } from "./investors";
 import { computeTreasury, type Treasury } from "./treasury";
@@ -175,8 +175,8 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
     computePipeline(lots, asOf, { closedLotsPerMonth: goal.closedLotsPerMonth, eraStart }),
   );
   const expected = stage(timings, "computeExpected", () => computeExpected(lots, pipeline, goal, asOf, { eraStart }));
-  const getQuality = defer(timings, "computeQualityIssues", () =>
-    computeQualityIssues({
+  const getQuality = defer(timings, "computeQualityIssues", () => [
+    ...computeQualityIssues({
       farms: snapshot.farmAcquisitions,
       properties: snapshot.properties,
       fileCases: snapshot.fileCases,
@@ -184,7 +184,21 @@ export function buildRealm(snapshot: PaymentsSnapshot, now: Date = new Date(), o
       noteSales: snapshot.noteSales,
       clients: snapshot.clients,
     }),
-  );
+    ...emptySourceTableIssues(
+      {
+        farm_acquisitions: snapshot.farmAcquisitions.length,
+        properties: snapshot.properties.length,
+        file_cases: snapshot.fileCases.length,
+        notes: snapshot.notes.length,
+        note_sales: snapshot.noteSales.length,
+        investor_distributions: snapshot.investorDistributions.length,
+        property_costs: snapshot.propertyCosts.length,
+        investors: snapshot.investors.length,
+        clients: snapshot.clients.length,
+      },
+      lang,
+    ),
+  ]);
   const investors = stage(timings, "computeInvestors", () => computeInvestors(snapshot.investors, farms, snapshot.investorDistributions));
   const treasury = stage(timings, "computeTreasury", () => computeTreasury(lots, snapshot.investorDistributions, snapshot.noteSales));
   const oracleDefaults = stage(timings, "deriveOracleDefaults", () => deriveOracleDefaults(lots, farms, goal, { eraStart }));

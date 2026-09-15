@@ -39,6 +39,19 @@ describe("buildInterestLedger", () => {
     expect(buildInterestLedger(farm({ deal_type: "own_capital" }), [], ASOF).accruedToDate).toBe(0);
   });
 
+  it("a profit-share farm never reports negative unpaid interest", () => {
+    const f = farm({ deal_type: "profit_share", profit_share_pct: 50, investor_capital: 484_000 });
+    const l = buildInterestLedger(
+      f,
+      [distribution(f.id, { distribution_date: "2026-04-01", amount: 175_742, kind: "profit_share" })],
+      ASOF,
+    );
+    expect(l.accruedToDate).toBe(0);
+    expect(l.paidToDate).toBe(175_742);
+    expect(l.unpaidInterest).toBe(0);
+    expect(l.unpaidInterest).toBeGreaterThanOrEqual(0);
+  });
+
   it("uses funding_date, falling back to closing_date", () => {
     const a = buildInterestLedger(farm({ deal_type: "fixed_interest", annual_interest_rate: 20, funding_date: "2026-09-01", closing_date: "2026-01-01" }), [], ASOF);
     expect(a.accrualStart).toBe("2026-09-01");
