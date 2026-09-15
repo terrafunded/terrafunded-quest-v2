@@ -15,5 +15,6 @@ playwright/.auth
 *.tsbuildinfo
 .vercel
 api/_weeklyCouncil/dist
+api/_nightlyExport/dist
 .env*
 !.env.example

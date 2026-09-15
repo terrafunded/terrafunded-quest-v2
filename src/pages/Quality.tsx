@@ -1,9 +1,11 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ClipboardCheck, Copy, Download, Eye, EyeOff } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Camera, Check, ClipboardCheck, Copy, Download, Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/data/auth";
 import { useRealm } from "@/data/useRealm";
 import { useFarmGeometries } from "@/data/useFarmGeometry";
 import { useHorizon } from "@/horizon/HorizonProvider";
-import { buildPlatformExport, downloadPlatformExport } from "@/lib/platformExport";
+import { buildPlatformExport, downloadPlatformExport, type PlatformExportDocument } from "@/lib/platformExport";
 import {
   groupIssuesByLot,
   humanDate,
@@ -17,17 +19,25 @@ import {
   whatsappForCard,
   type HumanIssue,
   type LotCard,
+  type QualityIssue,
   type QualityLang,
   type QualitySeverity,
+  type Realm,
 } from "@/domain";
 import { useLang } from "@/i18n/lang";
 import { QUALITY_UI, type QualityUiStrings } from "@/i18n/quality";
 import { useReviewState } from "@/lib/qualityReview";
+import { useFrozenSnapshots } from "@/lib/useFrozenSnapshots";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
 import { cn } from "@/lib/utils";
+
+interface ViewingSnapshot {
+  name: string;
+  document: PlatformExportDocument;
+}
 
 const SEVERITIES: QualitySeverity[] = ["error", "warning", "info"];
 const SEVERITY_DOT: Record<QualitySeverity, string> = { error: "bg-ember", warning: "bg-stage-reserved", info: "bg-muted-foreground" };
@@ -76,8 +86,33 @@ function useCopy(): [CopyStatus, (text: string) => void] {
   return [status, copy];
 }
 
+function liveCommitSha(): string {
+  return (
+    (import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA as string | undefined) ??
+    (import.meta.env.VITE_GIT_COMMIT_SHA as string | undefined) ??
+    "local"
+  );
+}
+
+function buildLiveExport(
+  realm: Realm,
+  lang: QualityLang,
+  horizon: number,
+  extraIssues: QualityIssue[],
+): PlatformExportDocument {
+  const doc = buildPlatformExport(realm, {
+    lang,
+    exitHorizon: horizon,
+    commitSha: liveCommitSha(),
+    appVersion: "2.0.0",
+  });
+  if (extraIssues.length === 0) return doc;
+  return { ...doc, quality: [...doc.quality, ...extraIssues] };
+}
+
 export default function Quality() {
   const { data, isLoading, error, refetch } = useRealm();
+  const { session } = useAuth();
   const [lang] = useLang();
   const { horizon } = useHorizon();
   const t = QUALITY_UI[lang];
@@ -85,30 +120,40 @@ export default function Quality() {
   const [showReviewed, setShowReviewed] = useState(true);
   const { state, update, reviewed } = useReviewState();
   const [allStatus, copyAll] = useCopy();
+  const snapshots = useFrozenSnapshots();
+  const [params, setParams] = useSearchParams();
+  const [viewing, setViewing] = useState<ViewingSnapshot | null>(null);
+  const [nameOpen, setNameOpen] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nightlyLoading, setNightlyLoading] = useState(false);
 
   const exportEverything = useCallback(() => {
+    if (viewing) {
+      downloadPlatformExport(viewing.document);
+      return;
+    }
     if (!data) return;
-    const commitSha =
-      (import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA as string | undefined) ??
-      (import.meta.env.VITE_GIT_COMMIT_SHA as string | undefined) ??
-      "local";
-    const doc = buildPlatformExport(data.realm, {
-      lang,
-      exitHorizon: horizon,
-      commitSha,
-      appVersion: "2.0.0",
-    });
-    downloadPlatformExport(doc);
-  }, [data, lang, horizon]);
+    downloadPlatformExport(buildLiveExport(data.realm, lang, horizon, []));
+  }, [data, lang, horizon, viewing]);
 
-  const asOf = data?.realm.goal.asOf ?? new Date().toISOString().slice(0, 10);
+  const asOf = viewing?.document.meta.asOf ?? data?.realm.goal.asOf ?? new Date().toISOString().slice(0, 10);
   // The Realm's parcel maps are asserted against the ledger per farm; a drawing that disagrees is
   // reported here from the same reconcile function the Realm uses to decide on its fallback.
-  const farms = useMemo(() => data?.realm.farms ?? [], [data]);
+  const farms = useMemo(() => (viewing ? [] : (data?.realm.farms ?? [])), [data, viewing]);
   const farmNames = useMemo(() => farms.map((f) => f.name), [farms]);
   const geometries = useFarmGeometries(farmNames);
-  const parcelIssues = useMemo(() => parcelGeometryIssues(farms.map((farm, i) => reconcileParcels(farm, geometries[i]?.status === "ready" ? geometries[i].geometry : null))), [farms, geometries]);
-  const cards = useMemo(() => groupIssuesByLot([...(data?.realm.quality ?? []), ...parcelIssues], lang), [data, parcelIssues, lang]);
+  const parcelIssues = useMemo(
+    () =>
+      viewing
+        ? []
+        : parcelGeometryIssues(farms.map((farm, i) => reconcileParcels(farm, geometries[i]?.status === "ready" ? geometries[i].geometry : null))),
+    [farms, geometries, viewing],
+  );
+  const issueSource = useMemo<QualityIssue[]>(() => {
+    if (viewing) return viewing.document.quality ?? [];
+    return [...(data?.realm.quality ?? []), ...parcelIssues];
+  }, [data, parcelIssues, viewing]);
+  const cards = useMemo(() => groupIssuesByLot(issueSource, lang), [issueSource, lang]);
   const summary = useMemo(() => summarizeQuality(cards, asOf, reviewed), [cards, asOf, reviewed]);
   const counts = useMemo(() => {
     const c: Record<QualitySeverity, number> = { error: 0, warning: 0, info: 0 };
@@ -125,9 +170,65 @@ export default function Quality() {
       .filter((c): c is LotCard => c !== null);
   }, [cards, severity, showReviewed, reviewed]);
 
-  if (isLoading) return <LoadingState />;
-  if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
-  if (!data) return null;
+  const nightlyDate = params.get("nightlyDate");
+  const nightlyHorizon = params.get("horizon");
+  const nightlySha = params.get("sha");
+
+  useEffect(() => {
+    if (!nightlyDate || !nightlyHorizon || !nightlySha) return;
+    const token = session?.access_token;
+    if (!token) return;
+    let cancelled = false;
+    setNightlyLoading(true);
+    void fetch(
+      `/api/nightly-export?date=${encodeURIComponent(nightlyDate)}&horizon=${encodeURIComponent(nightlyHorizon)}&sha=${encodeURIComponent(nightlySha)}`,
+      { headers: { authorization: `Bearer ${token}` } },
+    )
+      .then(async (res) => {
+        const body = (await res.json()) as { ok?: boolean; run?: { document: PlatformExportDocument; createdAt?: string } };
+        if (cancelled || !body.ok || !body.run) return;
+        setViewing({ name: QUALITY_UI[lang].snapshotNightlyName, document: body.run.document });
+      })
+      .finally(() => {
+        if (!cancelled) setNightlyLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [nightlyDate, nightlyHorizon, nightlySha, session?.access_token, lang]);
+
+  const saveNamedSnapshot = useCallback(async () => {
+    if (!data || !nameDraft.trim()) return;
+    const doc = buildLiveExport(data.realm, lang, horizon, parcelIssues);
+    await snapshots.save(nameDraft.trim(), doc);
+    setNameDraft("");
+    setNameOpen(false);
+  }, [data, nameDraft, lang, horizon, parcelIssues, snapshots]);
+
+  const openSaved = useCallback(
+    async (id: string, name: string) => {
+      const document = await snapshots.open(id);
+      if (!document) return;
+      setViewing({ name, document });
+    },
+    [snapshots],
+  );
+
+  const backToLive = useCallback(() => {
+    setViewing(null);
+    if (nightlyDate || nightlyHorizon || nightlySha) {
+      const next = new URLSearchParams(params);
+      next.delete("nightlyDate");
+      next.delete("horizon");
+      next.delete("sha");
+      setParams(next, { replace: true });
+    }
+  }, [nightlyDate, nightlyHorizon, nightlySha, params, setParams]);
+
+  if (!viewing && nightlyLoading) return <LoadingState />;
+  if (!viewing && isLoading) return <LoadingState />;
+  if (!viewing && error) return <ErrorState error={error} onRetry={() => void refetch()} />;
+  if (!viewing && !data) return null;
 
   const hiddenByReview = !showReviewed && visible.length === 0 && cards.some((c) => c.issues.some((i) => severity === "all" || i.severity === severity));
   const visibleIssues = visible.reduce((a, c) => a + c.issues.length, 0);
@@ -135,27 +236,105 @@ export default function Quality() {
   return (
     <div lang={lang} data-testid="quality-page" data-lang={lang}>
       <PageHeader title={t.title} subtitle={t.subtitle}>
+        {!viewing && (
+          <Button variant="outline" size="sm" onClick={() => setNameOpen(true)} data-testid="quality-save-snapshot">
+            <Camera /> {t.snapshotSave}
+          </Button>
+        )}
+        {viewing && (
+          <Button variant="outline" size="sm" onClick={backToLive} data-testid="quality-snapshot-live">
+            {t.snapshotBack}
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
           onClick={exportEverything}
           data-testid="quality-export-all"
         >
-          <Download /> {t.exportAll}
+          <Download /> {viewing ? t.snapshotDownload : t.exportAll}
         </Button>
         <Button variant="outline" size="sm" onClick={() => copyAll(whatsappForAll(visible, summary, asOf, { reviewed, includeReviewed: showReviewed }))} data-testid="quality-copy-all" data-status={allStatus}>
           {allStatus === "copied" ? <ClipboardCheck /> : <Copy />} {allStatus === "copied" ? t.copied : allStatus === "failed" ? t.copyFailed : t.copyAll}
         </Button>
       </PageHeader>
-      <TableErrorsBanner errors={data.tableErrors} />
-      {data.realm.quality.some((i) => i.kind === "empty_source_table") && (
+      {viewing && (
+        <div
+          className="mb-4 rounded-md border border-gold/40 bg-gold/10 px-4 py-3 text-sm"
+          role="status"
+          data-testid="quality-snapshot-banner"
+          data-horizon={viewing.document.meta.exitHorizon}
+          data-commit={viewing.document.meta.commitSha}
+          data-profit={String(viewing.document.figures.find((f) => f.id === "throne.netProfitToDate")?.raw ?? "")}
+        >
+          {t.snapshotBanner(
+            viewing.name,
+            humanDate(viewing.document.meta.snapshotAt.slice(0, 10), lang),
+            viewing.document.meta.exitHorizon,
+            viewing.document.meta.commitSha,
+          )}
+        </div>
+      )}
+      {nameOpen && !viewing && (
+        <div
+          className="mb-4 rounded-md border border-border bg-card p-4"
+          role="dialog"
+          aria-labelledby="quality-snapshot-name-label"
+          data-testid="quality-snapshot-dialog"
+        >
+          <label id="quality-snapshot-name-label" className="text-sm font-medium" htmlFor="quality-snapshot-name">
+            {t.snapshotNameLabel}
+          </label>
+          <Input
+            id="quality-snapshot-name"
+            className="mt-2"
+            value={nameDraft}
+            placeholder={t.snapshotNamePlaceholder}
+            maxLength={80}
+            onChange={(e) => setNameDraft(e.target.value)}
+            data-testid="quality-snapshot-name"
+          />
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => void saveNamedSnapshot()} disabled={!nameDraft.trim()} data-testid="quality-snapshot-confirm">
+              {t.snapshotConfirm}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setNameOpen(false); setNameDraft(""); }} data-testid="quality-snapshot-cancel">
+              {t.snapshotCancel}
+            </Button>
+          </div>
+        </div>
+      )}
+      <section className="mb-6" aria-label={t.snapshotList} data-testid="quality-snapshot-list">
+        <h2 className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">{t.snapshotList}</h2>
+        {snapshots.items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t.snapshotEmpty}</p>
+        ) : (
+          <ul className="space-y-2">
+            {snapshots.items.map((item) => (
+              <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 px-3 py-2" data-testid="quality-snapshot-row">
+                <div className="min-w-0">
+                  <div className="font-medium" data-testid="quality-snapshot-row-name">{item.name}</div>
+                  <div className="text-xs text-muted-foreground tabular">
+                    {t.snapshotMeta(humanDate(item.createdAt.slice(0, 10), lang), item.horizon, item.commitSha)}
+                  </div>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => void openSaved(item.id, item.name)} data-testid="quality-snapshot-open">
+                  {t.snapshotOpen}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      {!viewing && data && <TableErrorsBanner errors={data.tableErrors} />}
+      {issueSource.some((i) => i.kind === "empty_source_table") && (
         <div
           className="mb-4 rounded-md border border-stage-reserved/40 bg-stage-reserved/10 px-4 py-3 text-sm"
           role="alert"
           data-testid="quality-empty-source-tables"
         >
           {t.emptySourceTables(
-            data.realm.quality
+            issueSource
               .filter((i) => i.kind === "empty_source_table")
               .map((i) => String(i.details.tableLabel ?? i.details.table ?? ""))
               .filter(Boolean)

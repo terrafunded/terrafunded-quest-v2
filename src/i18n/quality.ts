@@ -42,6 +42,19 @@ export interface QualityUiStrings {
   allReviewedBody: string;
   whatsappHint: string;
   totals: (lots: number, issues: number) => string;
+  snapshotSave: string;
+  snapshotNameLabel: string;
+  snapshotNamePlaceholder: string;
+  snapshotConfirm: string;
+  snapshotCancel: string;
+  snapshotList: string;
+  snapshotEmpty: string;
+  snapshotOpen: string;
+  snapshotDownload: string;
+  snapshotBack: string;
+  snapshotBanner: (name: string, date: string, horizon: number, commit: string) => string;
+  snapshotMeta: (date: string, horizon: number, commit: string) => string;
+  snapshotNightlyName: string;
 }
 
 export const QUALITY_UI: Record<QualityLang, QualityUiStrings> = {
@@ -87,6 +100,20 @@ export const QUALITY_UI: Record<QualityLang, QualityUiStrings> = {
     allReviewedBody: "Todo lo de este filtro ya está marcado como revisado. Muestra los revisados para verlo de nuevo.",
     whatsappHint: "El mensaje se copia en español, listo para pegar al equipo.",
     totals: (lots, issues) => `${issues} ${issues === 1 ? "problema" : "problemas"} en ${lots} ${lots === 1 ? "tarjeta" : "tarjetas"}`,
+    snapshotSave: "Guardar foto",
+    snapshotNameLabel: "Nombre de la foto",
+    snapshotNamePlaceholder: "Reunión LPs octubre",
+    snapshotConfirm: "Guardar",
+    snapshotCancel: "Cancelar",
+    snapshotList: "Fotos guardadas",
+    snapshotEmpty: "Ninguna foto guardada todavía.",
+    snapshotOpen: "Abrir",
+    snapshotDownload: "Descargar esta foto",
+    snapshotBack: "Volver a datos en vivo",
+    snapshotBanner: (name, date, horizon, commit) =>
+      `Foto «${name}» del ${date}. Horizonte ${horizon}. Commit ${commit}. No es el dato en vivo.`,
+    snapshotMeta: (date, horizon, commit) => `${date} · ${horizon} · ${commit}`,
+    snapshotNightlyName: "Exportación nocturna",
   },
   en: {
     title: "Data Quality",
@@ -130,5 +157,19 @@ export const QUALITY_UI: Record<QualityLang, QualityUiStrings> = {
     allReviewedBody: "Everything under this filter is already marked as reviewed. Show reviewed to see it again.",
     whatsappHint: "The message is copied in Spanish, ready to paste to the team.",
     totals: (lots, issues) => `${issues} ${issues === 1 ? "issue" : "issues"} across ${lots} ${lots === 1 ? "card" : "cards"}`,
+    snapshotSave: "Save snapshot",
+    snapshotNameLabel: "Snapshot name",
+    snapshotNamePlaceholder: "LP meeting October",
+    snapshotConfirm: "Save",
+    snapshotCancel: "Cancel",
+    snapshotList: "Saved snapshots",
+    snapshotEmpty: "No saved snapshots yet.",
+    snapshotOpen: "Open",
+    snapshotDownload: "Download this snapshot",
+    snapshotBack: "Back to live data",
+    snapshotBanner: (name, date, horizon, commit) =>
+      `Snapshot “${name}” from ${date}. Horizon ${horizon}. Commit ${commit}. This is not live data.`,
+    snapshotMeta: (date, horizon, commit) => `${date} · ${horizon} · ${commit}`,
+    snapshotNightlyName: "Nightly export",
   },
 };

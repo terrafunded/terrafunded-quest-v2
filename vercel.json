@@ -9,8 +9,18 @@
     "api/weekly-council.js": {
       "maxDuration": 30,
       "includeFiles": "api/_weeklyCouncil/dist/**"
+    },
+    "api/nightly-export.js": {
+      "maxDuration": 60,
+      "includeFiles": "api/_nightlyExport/dist/**"
     }
   },
+  "crons": [
+    {
+      "path": "/api/nightly-export",
+      "schedule": "0 6 * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/lots/:path*", "destination": "https://payments.terrafunded.com/lots/:path*" },
     { "source": "/((?!api/|lots/).*)", "destination": "/index" }

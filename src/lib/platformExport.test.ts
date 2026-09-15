@@ -34,6 +34,9 @@ describe("platformExport", () => {
     });
     expect(doc.meta.commitSha).toBe("abc123");
     expect(doc.meta.exitHorizon).toBe(2027);
+    expect(doc.quality.length).toBe(realm.quality.length);
+    expect(doc.figures.some((f) => f.id === "throne.closingsToDate")).toBe(true);
+    expect(doc.figures.some((f) => f.id === "throne.capitalReturnedToDate")).toBe(true);
     expect(doc.figures.length).toBeGreaterThan(10);
     expect(doc.rows.lots.length).toBeGreaterThan(50);
     expect(doc.rows.farms.length).toBeGreaterThan(5);

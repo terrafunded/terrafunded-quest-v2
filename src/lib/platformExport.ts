@@ -6,6 +6,7 @@
 
 import type { Realm } from "@/domain/realm";
 import type { PaymentsSnapshot } from "@/domain/types";
+import type { QualityIssue } from "@/domain/quality";
 import type { QualityLang } from "@/domain/quality_human";
 import { isSubdividedFarm, isSold } from "@/domain/lot";
 import {
@@ -116,6 +117,8 @@ export interface PlatformExportDocument {
     history: Record<string, unknown>[];
   };
   excluded: ExportExcludedRow[];
+  /** Ledger contradictions at export time — enough to re-render /quality from this document. */
+  quality: QualityIssue[];
 }
 
 export interface BuildPlatformExportOptions {
@@ -285,6 +288,19 @@ function collectFigures(
       formula: "Σ netProfit of sold lots",
     },
     {
+      id: "throne.closingsToDate",
+      page: "/",
+      section: "headline",
+      label: lang === "es" ? "Cierres a la fecha" : "Closings to date",
+      displayed: fmtNumber(g.closedLots, lang),
+      raw: g.closedLots,
+      subtitle: null,
+      units: "closings",
+      source: { file: "src/domain/goal.ts", export: "computeGoal" },
+      inputs: { closedLots: g.closedLots },
+      formula: "count of sold lots",
+    },
+    {
       id: "throne.remaining",
       page: "/",
       section: "headline",
@@ -383,6 +399,19 @@ function collectFigures(
       source: { file: "src/domain/goal.ts", export: "computeGoal" },
       inputs: {},
       formula: "Σ lot.cashRealized",
+    },
+    {
+      id: "throne.capitalReturnedToDate",
+      page: "/",
+      section: "keyFigures",
+      label: lang === "es" ? "Capital devuelto a la fecha" : "Capital returned to date",
+      displayed: moneyCompact(realm.treasury.totalCapitalReturns, lang),
+      raw: realm.treasury.totalCapitalReturns,
+      subtitle: null,
+      units: "USD",
+      source: { file: "src/domain/treasury.ts", export: "computeTreasury" },
+      inputs: { capitalReturns: realm.treasury.totalCapitalReturns },
+      formula: "Σ investor_distributions kind=capital",
     },
     {
       id: "throne.profitOnPaper",
@@ -1023,6 +1052,7 @@ export function buildPlatformExport(realm: Realm, opts: BuildPlatformExportOptio
       history: realm.history.map((h) => ({ ...h })),
     },
     excluded,
+    quality: realm.quality.map((issue) => ({ ...issue, details: { ...issue.details } })),
   };
 }
 
@@ -1104,6 +1134,7 @@ export function renderPlatformExportText(doc: PlatformExportDocument): string {
   lines.push(`investors: ${doc.rows.investors.length}`);
   lines.push(`clients: ${doc.rows.clients.length}`);
   lines.push(`history months: ${doc.rows.history.length}`);
+  lines.push(`quality issues: ${doc.quality.length}`);
   lines.push("");
   lines.push(`EXCLUDED FROM QUEST (${doc.excluded.length})`);
   lines.push("---------------------");
