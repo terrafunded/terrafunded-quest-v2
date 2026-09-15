@@ -4,7 +4,7 @@ import { Menu, Wind } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
 import { useHorizon } from "@/horizon/HorizonProvider";
 import { oxygenPace } from "@/domain";
-import { useLang } from "@/i18n/lang";
+import { useNavStrings } from "@/i18n/nav";
 import { useRealmStrings } from "@/i18n/realm";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ export function AppShell() {
   const location = useLocation();
   const { data } = useRealm();
   const { horizon } = useHorizon();
-  const [lang] = useLang();
+  const nav = useNavStrings();
   const t = useRealmStrings().oxygen;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -80,7 +80,7 @@ export function AppShell() {
               variant="ghost"
               size="icon"
               className="-ml-4"
-              aria-label="Open menu"
+              aria-label={nav.openMenu}
               aria-expanded={menuOpen}
               aria-controls="nav-drawer"
               data-testid="nav-menu-button"
@@ -93,7 +93,7 @@ export function AppShell() {
               <Link
                 to="/"
                 className="pointer-events-auto inline-flex min-h-11 items-center rounded-md px-2.5 font-display text-[13px] uppercase tracking-[0.08em] text-gold transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:text-sm sm:tracking-[var(--brand-tracking)]"
-                aria-label={lang === "es" ? "Quest — volver a la Sala del Trono" : "Quest — back to the Throne Room"}
+                aria-label={nav.homeAria}
                 data-testid="topbar-realm-name"
               >
                 Quest · <span data-testid="topbar-horizon">{horizon}</span>

@@ -1,7 +1,8 @@
 import { useId, useMemo } from "react";
 import { motion } from "framer-motion";
 import type { FarmEconomics, Pipeline } from "@/domain";
-import { STAGE_LABEL } from "@/lib/format";
+import { useRealmMapStrings } from "@/i18n/realmMap";
+import { stageLabel } from "@/lib/format";
 import { HOVER_STROKE, RING_STROKE, STAGE_FILL, ringFor, territoryFill } from "./realmTokens";
 
 const TILE = 26;
@@ -30,6 +31,7 @@ function gridShape(n: number): { cols: number; rows: number } {
  */
 export function FarmGridMap({ farm, pipeline, hoveredLotId, inView, onSelect }: { farm: FarmEconomics; pipeline: Pipeline | undefined; hoveredLotId: string | null; inView: boolean; onSelect: () => void }) {
   const uid = useId().replace(/:/g, "");
+  const t = useRealmMapStrings();
   const layout = useMemo(() => {
     const lots = [...farm.lots].sort((a, b) => Number(a.lotNumber ?? 0) - Number(b.lotNumber ?? 0));
     const { cols, rows } = gridShape(lots.length);
@@ -88,7 +90,7 @@ export function FarmGridMap({ farm, pipeline, hoveredLotId, inView, onSelect }: 
                 data-stage={lot.stage}
                 data-ring={ring ?? undefined}
                 data-hovered={hoveredLotId === lot.propertyId || undefined}
-                aria-label={`${lot.name}: ${STAGE_LABEL[lot.stage]}${ring === "stuck" ? ", stuck reservation" : ""}`}
+                aria-label={t.lotAria(lot.name, stageLabel(lot.stage), ring === "stuck")}
               />
               {lot.lotNumber !== null && (
                 <text x={x + TILE / 2} y={y + TILE / 2 + 0.5} textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={700} className="pointer-events-none select-none tabular" style={{ fill: "hsl(var(--foreground))", paintOrder: "stroke", stroke: "hsl(var(--background) / 0.75)", strokeWidth: 2.4, strokeLinejoin: "round" }} data-testid="lot-number">

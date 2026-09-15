@@ -3,12 +3,14 @@ import { Link } from "react-router-dom";
 import type { Campaign, FarmEconomics, ParcelReconciliation, Pipeline } from "@/domain";
 import type { GeometryResult } from "@/data/useFarmGeometry";
 import { useInViewOnce } from "@/hooks/useInViewOnce";
+import { useCommonStrings } from "@/i18n/common";
+import { useRealmMapStrings } from "@/i18n/realmMap";
 import { pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FarmGridMap } from "./FarmGridMap";
 import { FarmParcelMap } from "./FarmParcelMap";
 import { mapModeOf } from "./mapMode";
-import { CAMPAIGN_META, DEAL_SHORT, MAP_BOX_ASPECT, campaignTag } from "./realmTokens";
+import { CAMPAIGN_META, MAP_BOX_ASPECT } from "./realmTokens";
 
 /** Border style per campaign state — the same long/short dash the packed map used on its territory outline. */
 const CAMPAIGN_BORDER: Partial<Record<Campaign["state"], string>> = { losing_ground: "border-dashed", closing_pending: "border-dotted" };
@@ -42,8 +44,18 @@ export function FarmCard({
   onOpen: () => void;
 }) {
   const [ref, inView] = useInViewOnce<HTMLElement>(0.15);
+  const common = useCommonStrings();
+  const t = useRealmMapStrings().card;
   const meta = campaign ? CAMPAIGN_META[campaign.state] : null;
+  const campaignLabel = campaign ? common.campaign[campaign.state] : null;
   const mode = mapModeOf(geometry, reconciliation);
+  const dealShort = farm.dealType ? (common.dealShort[farm.dealType] ?? farm.dealType) : "";
+  const tag =
+    campaign?.state === "closing_pending"
+      ? common.campaignPending(campaign.reservedLots)
+      : campaign && campaign.state !== "conquered" && campaign.lotsLeftToCover !== null
+        ? common.campaignToCover(campaign.lotsLeftToCover)
+        : "";
 
   return (
     <motion.article
@@ -55,7 +67,7 @@ export function FarmCard({
       style={{ borderColor: meta?.stroke ?? "hsl(var(--gold) / 0.35)" }}
       role="button"
       tabIndex={0}
-      aria-label={`${farm.name} territory${meta ? `, ${meta.label}` : ""}`}
+      aria-label={t.territoryAria(farm.name, campaignLabel)}
       data-testid="territory"
       data-campaign={campaign?.state}
       data-map={mode}
@@ -72,13 +84,13 @@ export function FarmCard({
         <div className="min-w-0">
           <h2 className="truncate font-heading text-base text-[hsl(var(--map-label))]">{farm.name}</h2>
           <p className="mt-0.5 text-xs text-muted-foreground tabular">
-            {farm.soldLots}/{farm.totalLots} closed · {pct(farm.pctClosed, 0)} · {DEAL_SHORT[farm.dealType ?? ""] ?? farm.dealType}
+            {t.closedLine(farm.soldLots, farm.totalLots, pct(farm.pctClosed, 0), dealShort)}
           </p>
         </div>
-        {campaign && meta && (
+        {campaign && meta && campaignLabel && (
           <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em]", meta.badge)} data-testid="campaign-label">
-            {meta.label}
-            {campaignTag(campaign)}
+            {campaignLabel}
+            {tag}
           </span>
         )}
       </header>
@@ -95,15 +107,15 @@ export function FarmCard({
         <p className="mt-2 text-[11px] leading-snug text-muted-foreground" data-testid="map-fallback-reason" data-reason={reconciliation.status === "mismatch" ? "mismatch" : geometry.status === "error" ? "error" : "no_geometry"}>
           {reconciliation.status === "mismatch" ? (
             <>
-              Schematic · the survey drawing has {reconciliation.polygons} parcel{reconciliation.polygons === 1 ? "" : "s"}, the ledger {reconciliation.lotRows} lot{reconciliation.lotRows === 1 ? "" : "s"} —{" "}
+              {t.schematicMismatch(reconciliation.polygons, reconciliation.lotRows)}
               <Link to="/quality" className="underline decoration-dotted underline-offset-2 hover:text-foreground" onClick={(e) => e.stopPropagation()}>
-                see Data Quality
+                {t.seeQuality}
               </Link>
             </>
           ) : geometry.status === "error" ? (
-            <>Schematic · the survey drawing could not be loaded from Payments</>
+            <>{t.schematicError}</>
           ) : (
-            <>Schematic · Payments has no survey drawing for this farm</>
+            <>{t.schematicNone}</>
           )}
         </p>
       )}

@@ -1,10 +1,9 @@
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { DEFAULT_QUALITY_LANG, QUALITY_LANGS, type QualityLang } from "@/domain/quality_human";
 
 /**
- * The page language chosen in the drawer. /quality, /council, /exodus and /engine read it;
- * the rest of the app stays in English. Stored once, app-wide.
- * Persisted in localStorage; default Spanish.
+ * App-wide UI language. The drawer selector governs the entire Quest surface —
+ * every page, chart, badge, date and number. Persisted in localStorage; default Spanish.
  */
 export const LANG_STORAGE_KEY = "quest.lang";
 
@@ -31,7 +30,15 @@ export function writeStoredLang(lang: QualityLang) {
   } catch {
     /* storage unavailable: the choice still applies for this visit */
   }
+  syncDocumentLang(lang);
   for (const l of listeners) l();
+}
+
+/** Keep `<html lang>` in sync so the browser and assistive tech match the UI. */
+export function syncDocumentLang(lang: QualityLang = readStoredLang()) {
+  if (typeof document === "undefined") return;
+  document.documentElement.lang = lang === "es" ? "es" : "en";
+  document.title = lang === "es" ? "Quest" : "Quest";
 }
 
 function subscribe(listener: () => void) {
@@ -49,5 +56,8 @@ function subscribe(listener: () => void) {
 export function useLang(): [QualityLang, (lang: QualityLang) => void] {
   const lang = useSyncExternalStore(subscribe, readStoredLang, () => DEFAULT_QUALITY_LANG);
   const setLang = useCallback((next: QualityLang) => writeStoredLang(next), []);
+  useEffect(() => {
+    syncDocumentLang(lang);
+  }, [lang]);
   return [lang, setLang];
 }

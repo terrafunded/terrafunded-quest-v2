@@ -3,6 +3,7 @@ import { useRealm } from "@/data/useRealm";
 import { Stat } from "@/components/realm/Stat";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
+import { useTreasuryStrings } from "@/i18n/treasury";
 import { money, moneyCompact, moneyExact, monthLabel } from "@/lib/format";
 
 const GOLD = "hsl(var(--gold))";
@@ -12,54 +13,55 @@ const VIOLET = "hsl(var(--arcane))";
 
 export default function Treasury() {
   const { data, isLoading, error, refetch } = useRealm();
+  const tUi = useTreasuryStrings();
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
   if (!data) return null;
 
   const t = data.realm.treasury;
   const rows = t.months.map((m) => ({ ...m, label: monthLabel(m.month), cashOutNeg: -m.cashOut }));
+  const s = tUi.series;
 
   return (
     <div>
-      <PageHeader title="Treasury" subtitle="Real cash only. In: down payments at closing (full price on cash deals), farm-lot note sales, and other note sales outside the farms. Out: every investor distribution. Monthly buyer collections are out of scope." />
+      <PageHeader title={tUi.title} subtitle={tUi.subtitle} />
       <TableErrorsBanner errors={data.tableErrors} />
 
       <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
-          label="Cash in"
+          label={tUi.cashIn}
           value={money(t.totalCashIn)}
           hint={
             t.totalOtherNoteSales > 0 ? (
               <span data-testid="treasury-cash-reconcile">
-                Cash realized {money(data.realm.goal.cashRealized)} + other note sales {money(t.totalOtherNoteSales)} = Treasury cash in {money(t.totalCashIn)}
-                {" · "}includes non-farm note sales ({moneyCompact(t.totalOtherNoteSales)})
+                {tUi.cashInHintReconcile(money(data.realm.goal.cashRealized), money(t.totalOtherNoteSales), money(t.totalCashIn), moneyCompact(t.totalOtherNoteSales))}
               </span>
             ) : (
-              `Farm-lot cash: down payments ${moneyCompact(t.totalDownPayments)} · notes ${moneyCompact(t.totalNoteSales)}`
+              tUi.cashInHintFarm(moneyCompact(t.totalDownPayments), moneyCompact(t.totalNoteSales))
             )
           }
           valueClassName="text-stage-closed"
           data-testid="treasury-cash-in"
         />
-        <Stat label="Cash out to sponsors" value={money(t.totalCashOut)} hint={`Capital ${moneyCompact(t.totalCapitalReturns)} · profit share ${moneyCompact(t.totalProfitShares)}`} valueClassName="text-sponsor" data-testid="treasury-cash-out" />
-        <Stat label="Net cash" value={money(t.net)} valueClassName={t.net >= 0 ? "text-gold" : "text-ember"} />
+        <Stat label={tUi.cashOut} value={money(t.totalCashOut)} hint={tUi.cashOutHint(moneyCompact(t.totalCapitalReturns), moneyCompact(t.totalProfitShares))} valueClassName="text-sponsor" data-testid="treasury-cash-out" />
+        <Stat label={tUi.netCash} value={money(t.net)} valueClassName={t.net >= 0 ? "text-gold" : "text-ember"} />
         <Stat
-          label="Note sales, all"
+          label={tUi.noteSalesAll}
           value={money(t.totalAllNoteSales)}
           hint={
             t.totalOtherNoteSales > 0
-              ? `Farm lots ${moneyCompact(t.totalNoteSales)} · ${moneyCompact(t.totalOtherNoteSales)} on notes outside the farms (the gap vs Cash realized)`
-              : "all on farm lots"
+              ? tUi.noteSalesHintOther(moneyCompact(t.totalNoteSales), moneyCompact(t.totalOtherNoteSales))
+              : tUi.noteSalesHintAllFarm
           }
         />
       </section>
 
       {rows.length === 0 ? (
-        <EmptyState title="No cash movements yet" />
+        <EmptyState title={tUi.empty} />
       ) : (
         <>
           <div className="parchment-card mb-6 p-4">
-            <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-gold">Monthly cash in vs. out</h2>
+            <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-gold">{tUi.monthlyChart}</h2>
             <div className="h-72 w-full">
               <ResponsiveContainer>
                 <ComposedChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} stackOffset="sign">
@@ -72,18 +74,18 @@ export default function Treasury() {
                     labelStyle={{ color: GOLD }}
                   />
                   <Legend wrapperStyle={{ fontSize: 15 }} />
-                  <Bar dataKey="downPayments" name="Down payments" stackId="in" fill={GREEN} radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="noteSales" name="Note sales" stackId="in" fill={GOLD} />
-                  <Bar dataKey="otherNoteSales" name="Other notes" stackId="in" fill="hsl(var(--gold-dim))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="cashOutNeg" name="To sponsors" stackId="out" fill={PINK} radius={[0, 0, 4, 4]} />
-                  <Line type="monotone" dataKey="cumulativeNet" name="Cumulative net" stroke={VIOLET} strokeWidth={2} dot={false} />
+                  <Bar dataKey="downPayments" name={s.downPayments} stackId="in" fill={GREEN} radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="noteSales" name={s.noteSales} stackId="in" fill={GOLD} />
+                  <Bar dataKey="otherNoteSales" name={s.otherNotes} stackId="in" fill="hsl(var(--gold-dim))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="cashOutNeg" name={s.toSponsors} stackId="out" fill={PINK} radius={[0, 0, 4, 4]} />
+                  <Line type="monotone" dataKey="cumulativeNet" name={s.cumulativeNet} stroke={VIOLET} strokeWidth={2} dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           <div className="parchment-card mb-6 p-4">
-            <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-gold">Cumulative</h2>
+            <h2 className="mb-3 font-heading text-sm uppercase tracking-[0.2em] text-gold">{tUi.cumulativeChart}</h2>
             <div className="h-56 w-full">
               <ResponsiveContainer>
                 <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -96,8 +98,8 @@ export default function Treasury() {
                     labelStyle={{ color: GOLD }}
                   />
                   <Legend wrapperStyle={{ fontSize: 15 }} />
-                  <Bar dataKey="cumulativeCashIn" name="Cumulative in" fill={GREEN} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="cumulativeCashOut" name="Cumulative out" fill={PINK} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="cumulativeCashIn" name={s.cumulativeIn} fill={GREEN} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="cumulativeCashOut" name={s.cumulativeOut} fill={PINK} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -107,46 +109,46 @@ export default function Treasury() {
             <Table className="min-w-[760px] max-sm:min-w-0" data-mobile="cards" data-testid="treasury-table">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead>Month</TableHead>
-                  <TableHead className="text-right">Down payments</TableHead>
-                  <TableHead className="text-right">Note sales</TableHead>
-                  <TableHead className="text-right">Other notes</TableHead>
-                  <TableHead className="text-right">Cash in</TableHead>
-                  <TableHead className="text-right">Capital returned</TableHead>
-                  <TableHead className="text-right">Profit shared</TableHead>
-                  <TableHead className="text-right">Cash out</TableHead>
-                  <TableHead className="text-right">Net</TableHead>
-                  <TableHead className="text-right">Cumulative</TableHead>
+                  <TableHead>{tUi.col.month}</TableHead>
+                  <TableHead className="text-right">{tUi.col.downPayments}</TableHead>
+                  <TableHead className="text-right">{tUi.col.noteSales}</TableHead>
+                  <TableHead className="text-right">{tUi.col.otherNotes}</TableHead>
+                  <TableHead className="text-right">{tUi.col.cashIn}</TableHead>
+                  <TableHead className="text-right">{tUi.col.capitalReturned}</TableHead>
+                  <TableHead className="text-right">{tUi.col.profitShared}</TableHead>
+                  <TableHead className="text-right">{tUi.col.cashOut}</TableHead>
+                  <TableHead className="text-right">{tUi.col.net}</TableHead>
+                  <TableHead className="text-right">{tUi.col.cumulative}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {[...rows].reverse().map((m) => (
                   <TableRow key={m.month}>
-                    <TableCell data-label="Month" className="font-medium">{m.label}</TableCell>
-                    <TableCell data-label="Down payments" className="text-right tabular">{moneyExact(m.downPayments)}</TableCell>
-                    <TableCell data-label="Note sales" className="text-right tabular">{moneyExact(m.noteSales)}</TableCell>
-                    <TableCell data-label="Other notes" className="text-right tabular text-muted-foreground">{m.otherNoteSales ? moneyExact(m.otherNoteSales) : "—"}</TableCell>
-                    <TableCell data-label="Cash in" className="text-right tabular text-stage-closed">{moneyExact(m.cashIn)}</TableCell>
-                    <TableCell data-label="Capital returned" className="text-right tabular">{moneyExact(m.capitalReturns)}</TableCell>
-                    <TableCell data-label="Profit shared" className="text-right tabular">{moneyExact(m.profitShares)}</TableCell>
-                    <TableCell data-label="Cash out" className="text-right tabular text-sponsor">{moneyExact(m.cashOut)}</TableCell>
-                    <TableCell data-label="Net" className={`text-right tabular ${m.net < 0 ? "text-ember" : ""}`}>{moneyExact(m.net)}</TableCell>
-                    <TableCell data-label="Cumulative" className="text-right tabular">{moneyExact(m.cumulativeNet)}</TableCell>
+                    <TableCell data-label={tUi.col.month} className="font-medium">{m.label}</TableCell>
+                    <TableCell data-label={tUi.col.downPayments} className="text-right tabular">{moneyExact(m.downPayments)}</TableCell>
+                    <TableCell data-label={tUi.col.noteSales} className="text-right tabular">{moneyExact(m.noteSales)}</TableCell>
+                    <TableCell data-label={tUi.col.otherNotes} className="text-right tabular text-muted-foreground">{m.otherNoteSales ? moneyExact(m.otherNoteSales) : "—"}</TableCell>
+                    <TableCell data-label={tUi.col.cashIn} className="text-right tabular text-stage-closed">{moneyExact(m.cashIn)}</TableCell>
+                    <TableCell data-label={tUi.col.capitalReturned} className="text-right tabular">{moneyExact(m.capitalReturns)}</TableCell>
+                    <TableCell data-label={tUi.col.profitShared} className="text-right tabular">{moneyExact(m.profitShares)}</TableCell>
+                    <TableCell data-label={tUi.col.cashOut} className="text-right tabular text-sponsor">{moneyExact(m.cashOut)}</TableCell>
+                    <TableCell data-label={tUi.col.net} className={`text-right tabular ${m.net < 0 ? "text-ember" : ""}`}>{moneyExact(m.net)}</TableCell>
+                    <TableCell data-label={tUi.col.cumulative} className="text-right tabular">{moneyExact(m.cumulativeNet)}</TableCell>
                   </TableRow>
                 ))}
                 {t.undatedCashIn > 0 && (
                   <TableRow className="text-muted-foreground">
-                    <TableCell className="italic">Undated closings</TableCell>
+                    <TableCell className="italic">{tUi.undated}</TableCell>
                     <TableCell className="text-right tabular">{moneyExact(t.undatedCashIn)}</TableCell>
                     <TableCell colSpan={8} className="text-sm">
-                      Completed file cases with no closing_date (see Data Quality). Counted in totals, not in any month.
+                      {tUi.undatedHint}
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell className="font-heading">Totals</TableCell>
+                  <TableCell className="font-heading">{tUi.totals}</TableCell>
                   <TableCell className="text-right tabular">{moneyExact(t.totalDownPayments)}</TableCell>
                   <TableCell className="text-right tabular">{moneyExact(t.totalNoteSales)}</TableCell>
                   <TableCell className="text-right tabular">{moneyExact(t.totalOtherNoteSales)}</TableCell>

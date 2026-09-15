@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "@/theme/ThemeProvider";
 import { themeIcon, type IconName } from "@/theme/icons";
 import { useLang } from "@/i18n/lang";
+import { useNavStrings } from "@/i18n/nav";
 import { EXIT_HORIZONS } from "@/config/goal";
 import { useHorizon } from "@/horizon/HorizonProvider";
 import type { QualityLang } from "@/domain/quality_human";
@@ -18,21 +19,22 @@ const LANG_OPTIONS: readonly { id: QualityLang; label: string; name: string }[] 
   { id: "en", label: "EN", name: "English" },
 ];
 
-const NAV_ITEMS: readonly { to: string; label: string; icon: IconName }[] = [
-  { to: "/", label: "Throne Room", icon: "throne" },
-  { to: "/council", label: "Council", icon: "council" },
-  { to: "/engine", label: "The Engine", icon: "engine" },
-  { to: "/warplan", label: "War Plan", icon: "warplan" },
-  { to: "/exodus", label: "Exodus", icon: "exodus" },
-  { to: "/realm", label: "The Realm", icon: "realm" },
-  { to: "/quests", label: "Quests", icon: "quests" },
-  { to: "/pipeline", label: "Pipeline", icon: "pipeline" },
-  { to: "/sponsors", label: "Sponsors", icon: "sponsors" },
-  { to: "/treasury", label: "Treasury", icon: "treasury" },
-  { to: "/oracle", label: "Oracle", icon: "oracle" },
-  { to: "/chronicle", label: "Chronicle", icon: "chronicle" },
-  { to: "/trophies", label: "Trophies", icon: "trophies" },
-  { to: "/quality", label: "Data Quality", icon: "quality" },
+/** Routes + icons — labels come from `useNavStrings().byPath`. */
+const NAV_ITEMS: readonly { to: string; icon: IconName }[] = [
+  { to: "/", icon: "throne" },
+  { to: "/council", icon: "council" },
+  { to: "/engine", icon: "engine" },
+  { to: "/warplan", icon: "warplan" },
+  { to: "/exodus", icon: "exodus" },
+  { to: "/realm", icon: "realm" },
+  { to: "/quests", icon: "quests" },
+  { to: "/pipeline", icon: "pipeline" },
+  { to: "/sponsors", icon: "sponsors" },
+  { to: "/treasury", icon: "treasury" },
+  { to: "/oracle", icon: "oracle" },
+  { to: "/chronicle", icon: "chronicle" },
+  { to: "/trophies", icon: "trophies" },
+  { to: "/quality", icon: "quality" },
 ];
 
 const FOCUSABLE =
@@ -54,6 +56,7 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
   const { session, signOut } = useAuth();
   const { themeId, d } = useTheme();
   const [lang, setLang] = useLang();
+  const t = useNavStrings();
   const { horizon, setHorizon } = useHorizon();
   const reduceMotion = useReducedMotion();
   const panelRef = useRef<HTMLElement>(null);
@@ -140,7 +143,7 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
         <div className="fixed inset-0 z-50" data-testid="nav-drawer-root">
           <motion.button
             type="button"
-            aria-label="Close menu"
+            aria-label={t.closeMenu}
             data-testid="nav-backdrop"
             tabIndex={-1}
             className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
@@ -167,19 +170,19 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
           >
             <div className="flex min-h-14 shrink-0 items-center justify-between border-b border-border/70 px-4 pt-[env(safe-area-inset-top)]">
               <h2 id={titleId} className="font-display text-sm uppercase tracking-[var(--brand-tracking)] text-gold">
-                Quest
+                {t.quest}
               </h2>
-              <Button type="button" variant="ghost" size="icon" aria-label="Close menu" data-drawer-close onClick={close}>
+              <Button type="button" variant="ghost" size="icon" aria-label={t.closeMenu} data-drawer-close onClick={close}>
                 <X />
               </Button>
             </div>
 
-            <nav className="flex-1 space-y-0.5 overflow-y-auto overscroll-contain px-3 py-3" aria-label="Primary">
+            <nav className="flex-1 space-y-0.5 overflow-y-auto overscroll-contain px-3 py-3" aria-label={t.primaryNav}>
               <div className="mb-3">
-                <div className="stat-label mb-2">Horizonte · Exit</div>
+                <div className="stat-label mb-2">{t.exitHorizon}</div>
                 <div
                   role="radiogroup"
-                  aria-label="Exit horizon"
+                  aria-label={t.exitHorizonAria}
                   className="grid grid-cols-3 gap-2"
                   data-testid="horizon-toggle"
                   data-horizon={horizon}
@@ -190,7 +193,7 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
                       type="button"
                       role="radio"
                       aria-checked={horizon === year}
-                      aria-label={`Exit ${year}`}
+                      aria-label={t.exitYear(year)}
                       data-testid={`horizon-${year}`}
                       onClick={() => setHorizon(year)}
                       className={cn(
@@ -205,13 +208,12 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
                   ))}
                 </div>
                 <p className="mt-1 text-[11px] text-muted-foreground" data-testid="horizon-caption">
-                  {lang === "es"
-                    ? `Toda cifra requerida en cada pantalla se mide contra el 31 dic ${horizon}.`
-                    : `Every required figure on every page is measured against Dec 31, ${horizon}.`}
+                  {t.exitHorizonCaption(horizon)}
                 </p>
               </div>
               {NAV_ITEMS.map((item) => {
                 const Icon = themeIcon(themeId, item.icon);
+                const label = t.byPath[item.to] ?? item.to;
                 return (
                   <NavLink
                     key={item.to}
@@ -226,7 +228,7 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
                     }
                   >
                     <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                    {item.label}
+                    {label}
                   </NavLink>
                 );
               })}
@@ -234,8 +236,8 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
 
             <div className="shrink-0 space-y-3 border-t border-border/70 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <div>
-                <div className="stat-label mb-2">Idioma · Language</div>
-                <div role="radiogroup" aria-label="Language" className="grid grid-cols-2 gap-2" data-testid="lang-toggle" data-lang={lang}>
+                <div className="stat-label mb-2">{t.language}</div>
+                <div role="radiogroup" aria-label={t.language} className="grid grid-cols-2 gap-2" data-testid="lang-toggle" data-lang={lang}>
                   {LANG_OPTIONS.map((o) => (
                     <button
                       key={o.id}
@@ -254,14 +256,14 @@ export function NavDrawer({ open, onOpenChange, triggerRef }: NavDrawerProps) {
                     </button>
                   ))}
                 </div>
-                <p className="mt-1 text-[11px] text-muted-foreground">Data Quality follows this; the rest of Quest stays in English.</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{t.languageCaption}</p>
               </div>
               <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                 <div className="min-w-0 truncate" title={session?.user.email ?? ""} data-testid="nav-user-email">
                   {session?.user.email}
                 </div>
-                <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => void signOut()} aria-label="Sign out">
-                  <LogOut /> Sign out
+                <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => void signOut()} aria-label={t.signOut}>
+                  <LogOut /> {t.signOut}
                 </Button>
               </div>
             </div>

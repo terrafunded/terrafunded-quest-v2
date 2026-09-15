@@ -9,7 +9,9 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { StageBadge } from "@/components/realm/StageBadge";
 import { Ellipsize } from "@/components/realm/FitMoney";
 import { EmptyState, ErrorState, LoadingState, PageHeader, TableErrorsBanner } from "@/components/realm/PageStates";
-import { STAGE_LABEL, date, days, moneyExact } from "@/lib/format";
+import { useCommonStrings } from "@/i18n/common";
+import { useQuestsStrings } from "@/i18n/quests";
+import { dealLabel, date, days, moneyExact, stageLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type SortKey =
@@ -30,30 +32,25 @@ type SortKey =
 
 const STAGE_ORDER: Record<LotStage, number> = { available: 0, reserved: 1, closed: 2, note_sold: 3 };
 
-const COLUMNS: { key: SortKey; label: string; numeric?: boolean; className?: string }[] = [
-  { key: "name", label: "Lot", className: "min-w-[200px]" },
-  { key: "buyerName", label: "Buyer", className: "min-w-[190px]" },
-  { key: "stage", label: "Stage" },
-  { key: "fileCaseSalePrice", label: "Contract price", numeric: true },
-  { key: "salePrice", label: "Sale price", numeric: true },
-  { key: "landCost", label: "Land cost", numeric: true },
-  { key: "grossProfit", label: "Gross", numeric: true },
-  { key: "investorTake", label: "Investor take", numeric: true },
-  { key: "netProfit", label: "Net", numeric: true },
-  { key: "cashRealized", label: "Cash realized", numeric: true },
-  { key: "daysInPipeline", label: "Days", numeric: true },
-  { key: "expectedCloseDate", label: "Expected close", className: "min-w-[150px]" },
-  { key: "daysGained", label: "Oxygen", numeric: true },
+const COLUMN_KEYS: { key: SortKey; numeric?: boolean; className?: string }[] = [
+  { key: "name", className: "min-w-[200px]" },
+  { key: "buyerName", className: "min-w-[190px]" },
+  { key: "stage" },
+  { key: "fileCaseSalePrice", numeric: true },
+  { key: "salePrice", numeric: true },
+  { key: "landCost", numeric: true },
+  { key: "grossProfit", numeric: true },
+  { key: "investorTake", numeric: true },
+  { key: "netProfit", numeric: true },
+  { key: "cashRealized", numeric: true },
+  { key: "daysInPipeline", numeric: true },
+  { key: "expectedCloseDate", className: "min-w-[150px]" },
+  { key: "daysGained", numeric: true },
 ];
 
-/**
- * A ledger row: the lot plus its oxygen score (days gained toward the exit), whether its reservation
- * is stuck, and — for live reservations — the expected closing and the provisional days it promises.
- */
 type Row = Lot & { daysGained: number | null; stuck: boolean; expected: ExpectedLot | null; expectedCloseDate: string | null; provisionalDays: number | null };
 
 const STUCK_FILTER = "stuck";
-/** `?filter=expected`: live reservations whose expected closing falls in the current month. */
 const EXPECTED_FILTER = "expected";
 const URL_FILTERS = new Set([STUCK_FILTER, EXPECTED_FILTER]);
 
@@ -71,6 +68,8 @@ const sumOf = (lots: Row[], key: keyof Row) => lots.reduce((s, l) => s + ((l[key
 
 export default function Quests() {
   const { data, isLoading, error, refetch } = useRealm();
+  const t = useQuestsStrings();
+  const common = useCommonStrings();
   const [params] = useSearchParams();
   const [farm, setFarm] = useState("all");
   const urlFilter = params.get("filter") ?? "";
@@ -122,6 +121,7 @@ export default function Quests() {
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
   if (!data) return null;
 
+  const colLabel = (key: SortKey) => t.columns[key] ?? key;
   const ascFirst = (key: SortKey) => key === "name" || key === "buyerName" || key === "expectedCloseDate";
   const toggleSort = (key: SortKey) => setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: ascFirst(key) ? "asc" : "desc" }));
 
@@ -141,28 +141,28 @@ export default function Quests() {
 
   return (
     <div>
-      <PageHeader title="Quests" subtitle="Every lot sale, straight from file cases and notes. Contract price is the file-case figure; sale price follows the note when one exists. Oxygen is the days each closing moved the exit date; a reservation shows the days it would gain, lighter, until it closes. Expected close is the reservation date plus the farm's median reservation→closing lag. Hourglass rows are reservations stuck past 60 days.">
-        <Select value={farm} onChange={(e) => setFarm(e.target.value)} aria-label="Filter by farm" className="w-40">
-          <option value="all">All farms</option>
+      <PageHeader title={t.title} subtitle={t.subtitle}>
+        <Select value={farm} onChange={(e) => setFarm(e.target.value)} aria-label={t.filterFarm} className="w-40">
+          <option value="all">{t.allFarms}</option>
           {farms.map((f) => (
             <option key={f} value={f}>
               {f}
             </option>
           ))}
         </Select>
-        <Select value={stage} onChange={(e) => setStage(e.target.value)} aria-label="Filter by stage" className="w-52">
-          <option value="sold">All sales (with a case)</option>
-          <option value="all">All lots</option>
-          <option value={STUCK_FILTER}>Stuck reservations ({data?.realm.pipeline.stuckAfterDays ?? 60}+ days)</option>
-          <option value={EXPECTED_FILTER}>Expected this month ({expectedThisMonth})</option>
+        <Select value={stage} onChange={(e) => setStage(e.target.value)} aria-label={t.filterStage} className="w-52">
+          <option value="sold">{t.allSales}</option>
+          <option value="all">{t.allLots}</option>
+          <option value={STUCK_FILTER}>{t.stuckReservations(data?.realm.pipeline.stuckAfterDays ?? 60)}</option>
+          <option value={EXPECTED_FILTER}>{t.expectedThisMonth(expectedThisMonth)}</option>
           {LOT_STAGES.map((s) => (
             <option key={s} value={s}>
-              {STAGE_LABEL[s]}
+              {stageLabel(s)}
             </option>
           ))}
         </Select>
-        <Select value={investor} onChange={(e) => setInvestor(e.target.value)} aria-label="Filter by investor" className="w-44">
-          <option value="all">All sponsors</option>
+        <Select value={investor} onChange={(e) => setInvestor(e.target.value)} aria-label={t.filterInvestor} className="w-44">
+          <option value="all">{t.allSponsors}</option>
           {investors.map((i) => (
             <option key={i} value={i}>
               {i}
@@ -172,13 +172,13 @@ export default function Quests() {
         <Select
           value={sort.key}
           onChange={(e) => setSort({ key: e.target.value as SortKey, dir: ascFirst(e.target.value as SortKey) ? "asc" : "desc" })}
-          aria-label="Sort by"
+          aria-label={t.sortBy}
           className="w-44 sm:hidden"
           data-testid="mobile-sort"
         >
-          {COLUMNS.map((c) => (
+          {COLUMN_KEYS.map((c) => (
             <option key={c.key} value={c.key}>
-              Sort: {c.label}
+              {t.sortPrefix(colLabel(c.key))}
             </option>
           ))}
         </Select>
@@ -187,16 +187,16 @@ export default function Quests() {
       <TableErrorsBanner errors={data.tableErrors} />
 
       {filtered.length === 0 ? (
-        <EmptyState title="No quests match" body="Loosen the filters to see lots." />
+        <EmptyState title={t.emptyTitle} body={t.emptyBody} />
       ) : (
         <div className="parchment-card overflow-hidden">
           <Table className="min-w-[1520px] max-sm:min-w-0" data-mobile="cards" data-testid="ledger-table">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                {COLUMNS.map((c) => (
+                {COLUMN_KEYS.map((c) => (
                   <TableHead key={c.key} className={cn(c.numeric && "text-right", c.className)}>
                     <Button variant="ghost" size="sm" className={cn("-mx-2 h-7 gap-1 px-2 text-[11px] uppercase tracking-wider", c.numeric && "ml-auto")} onClick={() => toggleSort(c.key)}>
-                      {c.label}
+                      {colLabel(c.key)}
                       {sort.key === c.key ? sort.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" /> : <ArrowUpDown className="h-3 w-3 opacity-40" />}
                     </Button>
                   </TableHead>
@@ -206,39 +206,39 @@ export default function Quests() {
             <TableBody>
               {filtered.map((l) => (
                 <TableRow key={l.propertyId} data-testid="ledger-row" data-stuck={l.stuck || undefined} className={cn(l.stuck && "bg-siege/8")}>
-                  <TableCell data-label="Lot" className="whitespace-nowrap">
+                  <TableCell data-label={t.columns.name} className="whitespace-nowrap">
                     <Ellipsize className="font-medium">{l.name}</Ellipsize>
                     <div className="text-xs text-muted-foreground">
-                      {l.dealType ?? "—"} · {l.investorName ?? "own capital"}
+                      {l.dealType ? dealLabel(l.dealType) : "—"} · {l.investorName ?? common.ownCapital}
                     </div>
                   </TableCell>
-                  <TableCell data-label="Buyer" className="max-w-[220px] whitespace-nowrap">
+                  <TableCell data-label={t.columns.buyerName} className="max-w-[220px] whitespace-nowrap">
                     {l.buyerName ? (
                       <Ellipsize>{l.buyerName}</Ellipsize>
                     ) : l.buyerIsTestClient ? (
-                      <span className="italic text-muted-foreground">test client</span>
+                      <span className="italic text-muted-foreground">{t.testClient}</span>
                     ) : (
                       "—"
                     )}
                     <div className="truncate text-xs text-muted-foreground">
-                      {l.reservationDate ? `Res. ${date(l.reservationDate)}` : ""}
-                      {l.closeDate ? ` · Closed ${date(l.closeDate)}` : ""}
+                      {l.reservationDate ? t.reserved(date(l.reservationDate)) : ""}
+                      {l.closeDate ? ` · ${t.closed(date(l.closeDate))}` : ""}
                     </div>
                   </TableCell>
-                  <TableCell data-label="Stage">
+                  <TableCell data-label={t.columns.stage}>
                     <StageBadge stage={l.stage} />
                   </TableCell>
-                  <TableCell data-label="Contract price" className="text-right tabular">{moneyExact(l.fileCaseSalePrice)}</TableCell>
-                  <TableCell className={cn("text-right tabular", l.priceSource === "note" && l.fileCaseSalePrice !== l.salePrice && "text-stage-reserved")} data-label="Sale price">
+                  <TableCell data-label={t.columns.fileCaseSalePrice} className="text-right tabular">{moneyExact(l.fileCaseSalePrice)}</TableCell>
+                  <TableCell className={cn("text-right tabular", l.priceSource === "note" && l.fileCaseSalePrice !== l.salePrice && "text-stage-reserved")} data-label={t.columns.salePrice}>
                     {moneyExact(l.salePrice)}
                   </TableCell>
-                  <TableCell data-label="Land cost" className="text-right tabular">{moneyExact(l.landCost)}</TableCell>
-                  <TableCell data-label="Gross" className="text-right tabular">{moneyExact(l.grossProfit)}</TableCell>
-                  <TableCell data-label="Investor take" className="text-right tabular">{moneyExact(l.investorTake)}</TableCell>
-                  <TableCell className={cn("text-right tabular font-medium", (l.netProfit ?? 0) < 0 && "text-ember")} data-label="Net">{moneyExact(l.netProfit)}</TableCell>
-                  <TableCell data-label="Cash realized" className="text-right tabular text-stage-closed">{moneyExact(l.cashRealized)}</TableCell>
-                  <TableCell className={cn("text-right tabular whitespace-nowrap", l.stuck && "text-siege")} data-label="Days">
-                    {l.stuck && <Hourglass className="mr-1 inline h-3 w-3" aria-label="Stuck reservation" />}
+                  <TableCell data-label={t.columns.landCost} className="text-right tabular">{moneyExact(l.landCost)}</TableCell>
+                  <TableCell data-label={t.columns.grossProfit} className="text-right tabular">{moneyExact(l.grossProfit)}</TableCell>
+                  <TableCell data-label={t.columns.investorTake} className="text-right tabular">{moneyExact(l.investorTake)}</TableCell>
+                  <TableCell className={cn("text-right tabular font-medium", (l.netProfit ?? 0) < 0 && "text-ember")} data-label={t.columns.netProfit}>{moneyExact(l.netProfit)}</TableCell>
+                  <TableCell data-label={t.columns.cashRealized} className="text-right tabular text-stage-closed">{moneyExact(l.cashRealized)}</TableCell>
+                  <TableCell className={cn("text-right tabular whitespace-nowrap", l.stuck && "text-siege")} data-label={t.columns.daysInPipeline}>
+                    {l.stuck && <Hourglass className="mr-1 inline h-3 w-3" aria-label={t.stuckAria} />}
                     {days(l.daysInPipeline)}
                   </TableCell>
                   <TableCell
@@ -246,7 +246,7 @@ export default function Quests() {
                     data-testid="ledger-expected"
                     data-value={l.expectedCloseDate ?? ""}
                     data-month={l.expected?.expectedMonth ?? undefined}
-                    data-label="Expected close"
+                    data-label={t.columns.expectedCloseDate}
                   >
                     <ExpectedCloseCell x={l.expected} thisMonth={thisMonth} />
                   </TableCell>
@@ -255,7 +255,7 @@ export default function Quests() {
                     data-testid="ledger-oxygen"
                     data-value={l.daysGained ?? ""}
                     data-provisional={l.daysGained === null && l.provisionalDays !== null ? l.provisionalDays : undefined}
-                    data-label="Oxygen"
+                    data-label={t.columns.daysGained}
                   >
                     {l.daysGained !== null ? `${l.daysGained > 0 ? "+" : ""}${l.daysGained}d` : l.provisionalDays !== null ? `~${l.provisionalDays > 0 ? "+" : ""}${l.provisionalDays}d` : "—"}
                   </TableCell>
@@ -264,7 +264,7 @@ export default function Quests() {
             </TableBody>
             <TableFooter>
               <TableRow data-testid="ledger-totals">
-                <TableCell data-label="Totals" className="font-heading">Totals · {totals.count} lots</TableCell>
+                <TableCell data-label="Totals" className="font-heading">{t.totals(totals.count)}</TableCell>
                 <TableCell />
                 <TableCell />
                 <TableCell className="text-right tabular font-semibold text-gold" data-testid="ledger-total-contract-price">
@@ -283,8 +283,8 @@ export default function Quests() {
                   {moneyExact(totals.cash)}
                 </TableCell>
                 <TableCell />
-                <TableCell className="whitespace-nowrap text-xs text-muted-foreground" data-label="Expected close" data-testid="ledger-total-expected" data-value={totals.expectedNet}>
-                  {totals.reservations > 0 ? `${totals.reservations} pending · ${moneyExact(totals.expectedNet)} expected` : ""}
+                <TableCell className="whitespace-nowrap text-xs text-muted-foreground" data-label={t.columns.expectedCloseDate} data-testid="ledger-total-expected" data-value={totals.expectedNet}>
+                  {totals.reservations > 0 ? t.pendingExpected(totals.reservations, moneyExact(totals.expectedNet)) : ""}
                 </TableCell>
                 <TableCell className="text-right tabular font-semibold text-oxygen" data-testid="ledger-total-oxygen" data-value={totals.oxygen}>
                   {totals.oxygen > 0 ? "+" : ""}
@@ -299,16 +299,17 @@ export default function Quests() {
   );
 }
 
-/** The expected closing of a live reservation: the date, then how far off it is and which median produced it. */
 function ExpectedCloseCell({ x, thisMonth }: { x: ExpectedLot | null; thisMonth: string }) {
+  const t = useQuestsStrings();
   if (!x) return <>—</>;
-  if (!x.expectedCloseDate || x.daysToExpectedClose === null) return <span className="text-muted-foreground">no median yet</span>;
-  const when = x.overdue ? `${-x.daysToExpectedClose}d late` : x.daysToExpectedClose === 0 ? "today" : `in ${x.daysToExpectedClose}d`;
+  if (!x.expectedCloseDate || x.daysToExpectedClose === null) return <span className="text-muted-foreground">{t.noMedianYet}</span>;
+  const when = x.overdue ? t.late(-x.daysToExpectedClose) : x.daysToExpectedClose === 0 ? t.today : t.inDays(x.daysToExpectedClose);
+  const source = x.medianSource === "farm" ? t.farmMedian : t.realmMedian;
   return (
     <>
       <div className={cn(x.expectedMonth === thisMonth && !x.overdue && "font-medium text-oxygen")}>{date(x.expectedCloseDate)}</div>
       <div className="text-xs text-muted-foreground">
-        {when} · {x.medianSource === "farm" ? "farm" : "realm"} median {x.medianDaysToClose}d
+        {when} · {t.medianDays(source, x.medianDaysToClose)}
       </div>
     </>
   );
