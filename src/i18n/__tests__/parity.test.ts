@@ -25,25 +25,29 @@ import { WAR_PLAN_UI } from "../warPlan";
 
 type Dict = Record<string, unknown>;
 
+function asLangDict(dict: unknown): { en: Dict; es: Dict } {
+  return dict as { en: Dict; es: Dict };
+}
+
 const DICTIONARIES: Record<string, { en: Dict; es: Dict }> = {
-  CHRONICLE_UI: CHRONICLE_UI as { en: Dict; es: Dict },
-  COMMON_UI: COMMON_UI as { en: Dict; es: Dict },
-  COUNCIL_UI: COUNCIL_UI as { en: Dict; es: Dict },
-  ENGINE_UI: ENGINE_UI as { en: Dict; es: Dict },
-  EXODUS_UI: EXODUS_UI as { en: Dict; es: Dict },
-  LOGIN_UI: LOGIN_UI as { en: Dict; es: Dict },
-  NAV_UI: NAV_UI as { en: Dict; es: Dict },
-  ORACLE_UI: ORACLE_UI as { en: Dict; es: Dict },
-  PIPELINE_UI: PIPELINE_UI as { en: Dict; es: Dict },
-  QUALITY_UI: QUALITY_UI as { en: Dict; es: Dict },
-  QUESTS_UI: QUESTS_UI as { en: Dict; es: Dict },
-  REALM_UI: REALM_UI as { en: Dict; es: Dict },
-  REALM_MAP_UI: REALM_MAP_UI as { en: Dict; es: Dict },
-  SPONSORS_UI: SPONSORS_UI as { en: Dict; es: Dict },
-  THRONE_ROOM_UI: THRONE_ROOM_UI as { en: Dict; es: Dict },
-  TREASURY_UI: TREASURY_UI as { en: Dict; es: Dict },
-  TROPHIES_UI: TROPHIES_UI as { en: Dict; es: Dict },
-  WAR_PLAN_UI: WAR_PLAN_UI as { en: Dict; es: Dict },
+  CHRONICLE_UI: asLangDict(CHRONICLE_UI),
+  COMMON_UI: asLangDict(COMMON_UI),
+  COUNCIL_UI: asLangDict(COUNCIL_UI),
+  ENGINE_UI: asLangDict(ENGINE_UI),
+  EXODUS_UI: asLangDict(EXODUS_UI),
+  LOGIN_UI: asLangDict(LOGIN_UI),
+  NAV_UI: asLangDict(NAV_UI),
+  ORACLE_UI: asLangDict(ORACLE_UI),
+  PIPELINE_UI: asLangDict(PIPELINE_UI),
+  QUALITY_UI: asLangDict(QUALITY_UI),
+  QUESTS_UI: asLangDict(QUESTS_UI),
+  REALM_UI: asLangDict(REALM_UI),
+  REALM_MAP_UI: asLangDict(REALM_MAP_UI),
+  SPONSORS_UI: asLangDict(SPONSORS_UI),
+  THRONE_ROOM_UI: asLangDict(THRONE_ROOM_UI),
+  TREASURY_UI: asLangDict(TREASURY_UI),
+  TROPHIES_UI: asLangDict(TROPHIES_UI),
+  WAR_PLAN_UI: asLangDict(WAR_PLAN_UI),
 };
 
 /** Recursively collect leaf key paths. Functions and primitives are leaves. */
