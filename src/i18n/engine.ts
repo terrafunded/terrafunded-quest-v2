@@ -42,6 +42,9 @@ export interface EngineUiStrings {
   shortfall: string;
   shortfallLots: string;
   shortfallFarms: string;
+  shortfallFarmsHint: string;
+  farmsStillNeeded: string;
+  farmsStillNeededHint: string;
   freshCapital: string;
   peakOutstanding: string;
   peakHint: string;
@@ -131,10 +134,15 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     netNoFresh: "Net profit with no new capital",
     shortfall: "Shortfall",
     shortfallLots: "Shortfall in lots",
-    shortfallFarms: "Shortfall in farms",
+    shortfallFarms: "Shortfall in farms (fresh capital)",
+    shortfallFarmsHint:
+      "Farms that need fresh capital only — zero when the recycled pool covers the gap. Not the Throne Room farms figure.",
+    farmsStillNeeded: "Farms still needed (capital turns)",
+    farmsStillNeededHint:
+      "Same formula as the Throne Room — inventory gap ÷ (lots/farm × capital turns before the deadline).",
     freshCapital: "Fresh capital required",
     peakOutstanding: "Peak outstanding",
-    peakHint: "The maximum owed across all sponsors in any month — what actually has to be raised, not the sum of farm costs.",
+    peakHint: "The maximum owed across all sponsors in any month — what actually has to be raised, not the sum of farm costs. Same powder under more turns does not raise the peak.",
     capitalDeadline: "The capital deadline",
     totalAdSpend: "Total ad spend implied",
     adShare: (pct) => `${pct} of net profit — cheap next to capital`,
@@ -254,10 +262,15 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     netNoFresh: "Utilidad neta sin capital nuevo",
     shortfall: "Faltante",
     shortfallLots: "Faltante en lotes",
-    shortfallFarms: "Faltante en fincas",
+    shortfallFarms: "Faltante en fincas (capital fresco)",
+    shortfallFarmsHint:
+      "Fincas que necesitan capital fresco — cero cuando el pool reciclado cubre el hueco. No es la cifra de fincas del Trono.",
+    farmsStillNeeded: "Fincas aún necesarias (giros de capital)",
+    farmsStillNeededHint:
+      "La misma fórmula que el Trono — hueco de inventario ÷ (lotes/finca × giros de capital antes de la fecha límite).",
     freshCapital: "Capital fresco requerido",
     peakOutstanding: "Pico adeudado",
-    peakHint: "Lo máximo adeudado a sponsors en un mes — lo que realmente hay que levantar, no la suma de costos de finca.",
+    peakHint: "Lo máximo adeudado a sponsors en un mes — lo que realmente hay que levantar, no la suma de costos de finca. El mismo polvo con más giros no sube el pico.",
     capitalDeadline: "La fecha límite del capital",
     totalAdSpend: "Gasto en anuncios implícito",
     adShare: (pct) => `${pct} de la utilidad neta — barato frente al capital`,

@@ -50,6 +50,11 @@ export function TrophyCard({ trophy, index = 0 }: { trophy: Trophy; index?: numb
           </span>
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">{trophy.description}</p>
+        {trophy.id === "pace_keeper" && (
+          <p className="mt-1 text-[11px] uppercase tracking-wide text-sponsor" data-testid="pace-keeper-horizon-note">
+            {t.horizonDependent}
+          </p>
+        )}
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <motion.div
             className={cn("h-full rounded-full", trophy.earned ? "bg-gold" : "bg-muted-foreground/60")}

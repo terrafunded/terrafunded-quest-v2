@@ -35,6 +35,8 @@ export interface OracleUiStrings {
   beforeThe: (d: string) => string;
   afterThe: (d: string) => string;
   notReached: string;
+  /** On-screen note: current-pace exit date ignores the horizon selector. */
+  paceExitNote: string;
   daysEarlier: (n: string) => string;
   daysLater: (n: string) => string;
   sameDay: string;
@@ -99,6 +101,7 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     beforeThe: (d) => `before the ${d} deadline`,
     afterThe: (d) => `after the ${d} deadline`,
     notReached: "the goal is not reached within the horizon",
+    paceExitNote: "Pace projection — does not move with the exit horizon selector; only the deadline line does.",
     daysEarlier: (n) => `${n} days earlier`,
     daysLater: (n) => `${n} days later`,
     sameDay: "same day",
@@ -162,6 +165,7 @@ export const ORACLE_UI: Record<QualityLang, OracleUiStrings> = {
     beforeThe: (d) => `antes de la fecha límite ${d}`,
     afterThe: (d) => `después de la fecha límite ${d}`,
     notReached: "la meta no se alcanza dentro del horizonte",
+    paceExitNote: "Proyección al ritmo — no se mueve con el selector de horizonte; solo se mueve la línea de fecha límite.",
     daysEarlier: (n) => `${n} días antes`,
     daysLater: (n) => `${n} días después`,
     sameDay: "el mismo día",

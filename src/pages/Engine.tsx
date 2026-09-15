@@ -11,6 +11,7 @@ import {
   reconcileThroneAndEngine,
   resolveFarmCost,
   runEngine,
+  sharedFarmsStillNeeded,
   type EngineInputs,
   type EngineSensitivityCell,
 } from "@/domain";
@@ -431,7 +432,13 @@ export default function EnginePage() {
           <Figure label={t.netNoFresh} value={moneyCompact(result.figures.netProfitNoFresh)} testId="engine-net-no-fresh" />
           <Figure label={t.shortfall} value={moneyCompact(result.figures.shortfallDollars)} testId="engine-shortfall" />
           <Figure label={t.shortfallLots} value={result.figures.shortfallLots === null ? "—" : number(result.figures.shortfallLots)} />
-          <Figure label={t.shortfallFarms} value={number(result.figures.shortfallFarms)} />
+          <Figure
+            label={t.farmsStillNeeded}
+            value={number(sharedFarmsStillNeeded(data.realm) ?? 0)}
+            hint={t.farmsStillNeededHint}
+            testId="engine-farms-still-needed"
+          />
+          <Figure label={t.shortfallFarms} value={number(result.figures.shortfallFarms)} hint={t.shortfallFarmsHint} />
           <Figure label={t.freshCapital} value={moneyCompact(result.figures.freshCapital)} testId="engine-fresh-capital" />
           <Figure label={t.peakOutstanding} value={moneyCompact(result.figures.peakOutstanding)} hint={t.peakHint} testId="engine-peak" />
           <Figure

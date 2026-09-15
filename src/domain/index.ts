@@ -27,6 +27,7 @@ export * from "./seasonality";
 export * from "./warplan";
 export * from "./engine";
 export * from "./reconcile";
+export * from "./horizonFigures";
 export * from "./lotLedger";
 export * from "./exodus";
 export * from "./narrative";

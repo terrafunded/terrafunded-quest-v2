@@ -1,3 +1,155 @@
+# Horizon figure audit (2027 / 2028 / 2029)
+
+Captured from the payments fixture at as-of 2026-09-11 by `captureHorizonFigures` — values, not source reading.
+
+## Method
+
+1. Build the realm at each of the three exit horizons against the same snapshot.
+2. Derive Engine + Council the same way the pages do.
+3. Extract every displayed figure with its label and classification.
+4. Assert historical identity, horizon-dependent direction, and labeled deliberately-independent figures.
+
+## Violations found and fixed
+
+| id | class | bug | fix |
+|---|---|---|---|
+| `/engine.shortfallDollars` | HORIZON-DEPENDENT | Plateaued at $0 for 2028 and 2029 under a strict `decrease` rule | Direction `non_increase` (floor at $0 is correct once the longer horizon clears the goal) |
+| `/warplan.rotationFarms` | HORIZON-DEPENDENT | 5 → 5 → 4 under strict `decrease` | Direction `non_increase` (ceiling / discrete farms) |
+| `/council.pace.*` required keys | HISTORICAL (misclassified) | `requiredClosingsPerMonth` / `daysLeft` moved with the horizon | Reclassified as HORIZON-DEPENDENT |
+| `/council.conversion.required*` | HISTORICAL (misclassified) | Required pace moved with the horizon | Reclassified as HORIZON-DEPENDENT |
+| `/council.*.severity` (stuck, inventory, concentration, …) | HORIZON-DEPENDENT (misclassified) | Book-reading severities that never consult the deadline | Reclassified as HISTORICAL |
+| `/council.pace.severity` / `conversion.severity` | HORIZON-DEPENDENT | Softened with horizon but not all-three-distinct | Severity rank with `non_increase` |
+| `/council.inventory.needed` / `inventoryGap` | DELIBERATELY INDEPENDENT unlabeled | Flat closings-to-goal next to moving figures | On-screen note: remaining ÷ avg $/lot, same at every exit year |
+| `/trophies.count` | HISTORICAL | Pace Keeper flipped on 2029 | Split: historical earned (ex Pace Keeper) + `paceKeeperEarned` HORIZON-DEPENDENT; card note |
+| Throne vs Engine farms | dual source | Could drift apart | Both read `sharedFarmsStillNeeded` / `farmsStillNeededWithTurns`; Engine shows the shared figure beside fresh-capital shortfall |
+
+Permanent guard: `src/domain/__tests__/horizonFigures.test.ts` — captures all three horizons and asserts the invariants above.
+
+## Full table
+
+| id | page | label | 2027 | 2028 | 2029 | class | note |
+|---|---|---|---|---|---|---|---|
+| `/.availableLots` | / | Lots available | 50 | 50 | 50 | HISTORICAL |  |
+| `/.capitalOutstanding` | / | Capital outstanding | 4945355.48 | 4945355.48 | 4945355.48 | HISTORICAL |  |
+| `/.capitalOwed` | / | Capital owed today | 4145355.48 | 4145355.48 | 4145355.48 | HISTORICAL |  |
+| `/.cashRealized` | / | Cash realized | 2156494.3 | 2156494.3 | 2156494.3 | HISTORICAL |  |
+| `/.closedLots` | / | Closings to date | 38 | 38 | 38 | HISTORICAL |  |
+| `/.committedNetProfit` | / | Committed net profit | 2198937.18 | 2198937.18 | 2198937.18 | HISTORICAL |  |
+| `/.daysToDeadline` | / | Days to deadline | 476 | 842 | 1207 | HORIZON-DEPENDENT | increase |
+| `/.deadline` | / | Deadline | 2027-12-31 | 2028-12-31 | 2029-12-31 | HORIZON-DEPENDENT | later_iso |
+| `/.farmsStillNeeded` | / | Farms still needed (capital turns) | 4 | 3 | 2 | HORIZON-DEPENDENT | decrease |
+| `/.farmsStillNeededShared` | / | Farms still needed (shared formula) | 4 | 3 | 2 | HORIZON-DEPENDENT | decrease |
+| `/.interestPerDay` | / | Interest per day | 1279.96 | 1279.96 | 1279.96 | HISTORICAL |  |
+| `/.interestToDeadline` | / | Interest accrued by deadline | 609260.96 | 1077726.32 | 1544911.72 | HORIZON-DEPENDENT | increase |
+| `/.liveReservations` | / | Live reservations | 33 | 33 | 33 | HISTORICAL |  |
+| `/.lotsStillNeeded` | / | Closings still needed to the deadline | 132 | 132 | 132 | DELIBERATELY INDEPENDENT | labeled |
+| `/.neededPerDay` | / | NEEDED $/day | 16310.13 | 9220.45 | 6432.16 | HORIZON-DEPENDENT | decrease |
+| `/.netProfitToDate` | / | Net profit to date | 2236378.34 | 2236378.34 | 2236378.34 | HISTORICAL |  |
+| `/.producingPerDay` | / | PRODUCING $/day | 9145.63 | 9145.63 | 9145.63 | HISTORICAL |  |
+| `/.projectedDate` | / | Projected goal date at current pace | 2029-01-08 | 2029-01-08 | 2029-01-08 | DELIBERATELY INDEPENDENT | labeled |
+| `/.pulseRatio` | / | Pulse % of required pace | 56.07 | 99.19 | 142.19 | HORIZON-DEPENDENT | increase |
+| `/.requiredLotsPerMonth` | / | Required lots/month | 8.44 | 4.77 | 3.33 | HORIZON-DEPENDENT | decrease |
+| `/.requiredReservationsPerMonth` | / | Required reservations/month | 8.44 | 4.77 | 3.33 | HORIZON-DEPENDENT | decrease |
+| `/.reservedLots` | / | Lots reserved | 33 | 33 | 33 | HISTORICAL |  |
+| `/chronicle.eventCount` | /chronicle | Chronicle events (ex-milestones) | 167 | 167 | 167 | HISTORICAL |  |
+| `/chronicle.eventIds` | /chronicle | Chronicle event ids | farm:088979f5-e0da-4070-bdec-8169c2a474f1|far… | farm:088979f5-e0da-4070-bdec-8169c2a474f1|far… | farm:088979f5-e0da-4070-bdec-8169c2a474f1|far… | HISTORICAL |  |
+| `/council.concentration.largestDollars` | /council | Council · concentration · largestDollars | $2,196,000 | $2,196,000 | $2,196,000 | HISTORICAL |  |
+| `/council.concentration.largestName` | /council | Council · concentration · largestName | Townson Family | Townson Family | Townson Family | HISTORICAL |  |
+| `/council.concentration.largestShare` | /council | Council · concentration · largestShare | 39.5% | 39.5% | 39.5% | HISTORICAL |  |
+| `/council.concentration.severity` | /council | Council · One sponsor holds more than a third of deployed capital | warning | warning | warning | HISTORICAL |  |
+| `/council.concentration.threshold` | /council | Council · concentration · threshold | 33% | 33% | 33% | HISTORICAL |  |
+| `/council.concentration.topTwoShare` | /council | Council · concentration · topTwoShare | 59.0% | 59.0% | 59.0% | HISTORICAL |  |
+| `/council.concentration.totalDeployed` | /council | Council · concentration · totalDeployed | $5,563,604 | $5,563,604 | $5,563,604 | HISTORICAL |  |
+| `/council.conversion.closingsPerMonth` | /council | Council · conversion · closingsPerMonth | 4.73 | 4.73 | 4.73 | HISTORICAL |  |
+| `/council.conversion.cohort` | /council | Council · conversion · cohort | 48 | 48 | 48 | HISTORICAL |  |
+| `/council.conversion.conversion` | /council | Council · conversion · conversion | 75% | 75% | 75% | HISTORICAL |  |
+| `/council.conversion.requiredClosingsPerMonth` | /council | Council conversion · requiredClosingsPerMonth | 8.44 | 4.77 | 3.33 | HORIZON-DEPENDENT | decrease |
+| `/council.conversion.requiredReservationsPerMonth` | /council | Council conversion · requiredReservationsPerMonth | 8.44 | 4.77 | 3.33 | HORIZON-DEPENDENT | decrease |
+| `/council.conversion.reservationsPerMonth` | /council | Council · conversion · reservationsPerMonth | 7.1 | 7.1 | 7.1 | HISTORICAL |  |
+| `/council.conversion.severity` | /council | Council · Reservations against what the horizon asks | 2 | 1 | 1 | HORIZON-DEPENDENT | non_increase |
+| `/council.inventory.available` | /council | Council inventory · available | 50 | 50 | 50 | HISTORICAL |  |
+| `/council.inventory.inventoryGap` | /council | Council inventory · inventoryGap | 82 | 82 | 82 | DELIBERATELY INDEPENDENT | labeled |
+| `/council.inventory.needed` | /council | Council inventory · needed | 132 | 132 | 132 | DELIBERATELY INDEPENDENT | labeled |
+| `/council.inventory.reserved` | /council | Council inventory · reserved | 33 | 33 | 33 | HISTORICAL |  |
+| `/council.inventory.severity` | /council | Council · Inventory will not cover the remaining lots | warning | warning | warning | HISTORICAL |  |
+| `/council.losing_ground.farms` | /council | Council · losing_ground · farms | 0 | 0 | 0 | HISTORICAL |  |
+| `/council.losing_ground.names` | /council | Council · losing_ground · names | — | — | — | HISTORICAL |  |
+| `/council.losing_ground.outstanding` | /council | Council · losing_ground · outstanding | $0 | $0 | $0 | HISTORICAL |  |
+| `/council.losing_ground.severity` | /council | Council · No farm is losing ground | ok | ok | ok | HISTORICAL |  |
+| `/council.pace.closingsPerMonth` | /council | Council · pace · closingsPerMonth | 4.73 | 4.73 | 4.73 | HISTORICAL |  |
+| `/council.pace.daysLeft` | /council | Council pace · daysLeft | 476 | 842 | 1207 | HORIZON-DEPENDENT | increase |
+| `/council.pace.deadline` | /council | Council pace · deadline | 2027-12-31 | 2028-12-31 | 2029-12-31 | HORIZON-DEPENDENT | later_iso |
+| `/council.pace.netProfitToDate` | /council | Council · pace · netProfitToDate | $2,236,378 | $2,236,378 | $2,236,378 | HISTORICAL |  |
+| `/council.pace.producingPerDay` | /council | Council · pace · producingPerDay | $9,145.63 | $9,145.63 | $9,145.63 | HISTORICAL |  |
+| `/council.pace.remaining` | /council | Council · pace · remaining | $7,763,622 | $7,763,622 | $7,763,622 | HISTORICAL |  |
+| `/council.pace.requiredClosingsPerMonth` | /council | Council pace · requiredClosingsPerMonth | 8.44 | 4.77 | 3.33 | HORIZON-DEPENDENT | decrease |
+| `/council.pace.requiredPerDay` | /council | Council pace · requiredPerDay | 16310.13 | 9220.45 | 6432.16 | HORIZON-DEPENDENT | decrease |
+| `/council.pace.severity` | /council | Council · The pace is below what the horizon asks | 3 | 3 | 1 | HORIZON-DEPENDENT | non_increase |
+| `/council.quality.errors` | /council | Council · quality · errors | 8 | 8 | 8 | HISTORICAL |  |
+| `/council.quality.severity` | /council | Council · Disagreements on the ledger | warning | warning | warning | HISTORICAL |  |
+| `/council.quality.total` | /council | Council · quality · total | 24 | 24 | 24 | HISTORICAL |  |
+| `/council.quality.warnings` | /council | Council · quality · warnings | 12 | 12 | 12 | HISTORICAL |  |
+| `/council.recycle.count` | /council | Council · recycle · count | 0 | 0 | 0 | HISTORICAL |  |
+| `/council.recycle.dates` | /council | Council · recycle · dates | — | — | — | HISTORICAL |  |
+| `/council.recycle.severity` | /council | Council · Capital returning in 90 days | ok | ok | ok | HISTORICAL |  |
+| `/council.recycle.total` | /council | Council · recycle · total | $0 | $0 | $0 | HISTORICAL |  |
+| `/council.recycle.windowDays` | /council | Council · recycle · windowDays | 90 | 90 | 90 | HISTORICAL |  |
+| `/council.stuck.afterDays` | /council | Council · stuck · afterDays | 60 | 60 | 60 | HISTORICAL |  |
+| `/council.stuck.severity` | /council | Council · 16 stuck reservations | critical | critical | critical | HISTORICAL |  |
+| `/council.stuck.stuck` | /council | Council · stuck · stuck | 16 | 16 | 16 | HISTORICAL |  |
+| `/council.stuck.trapped` | /council | Council · stuck · trapped | $1,103,375 | $1,103,375 | $1,103,375 | HISTORICAL |  |
+| `/engine.availableLots` | /engine | Available lots | 50 | 50 | 50 | HISTORICAL |  |
+| `/engine.deadline` | /engine | Engine deadline | 2027-12-31 | 2028-12-31 | 2029-12-31 | HORIZON-DEPENDENT | later_iso |
+| `/engine.farmsBought` | /engine | Farms bought in schedule | 4 | 8 | 12 | HORIZON-DEPENDENT | increase |
+| `/engine.farmsNeeded` | /engine | Farms needing fresh capital | 0 | 0 | 0 | DELIBERATELY INDEPENDENT | labeled |
+| `/engine.farmsStillNeededShared` | /engine | Farms still needed (shared formula) | 4 | 3 | 2 | HORIZON-DEPENDENT | decrease |
+| `/engine.inventoryLots` | /engine | Inventory lots | 83 | 83 | 83 | HISTORICAL |  |
+| `/engine.inventoryNetProfit` | /engine | Inventory net profit | 5381050.19 | 5381050.19 | 5381050.19 | HISTORICAL |  |
+| `/engine.netProfitAtDeadline` | /engine | Net profit at deadline | 6440143.65 | 10066914.65 | 13770532.34 | HORIZON-DEPENDENT | increase |
+| `/engine.netProfitNoFresh` | /engine | Net profit without fresh capital | 6440143.65 | 10066914.65 | 13770532.34 | HORIZON-DEPENDENT | increase |
+| `/engine.peakOutstanding` | /engine | Peak outstanding | 3995739.78 | 3995739.78 | 3995739.78 | DELIBERATELY INDEPENDENT | labeled |
+| `/engine.reservedLots` | /engine | Reserved lots | 33 | 33 | 33 | HISTORICAL |  |
+| `/engine.shortfallDollars` | /engine | Shortfall $ | 3559856.35 | 0 | 0 | HORIZON-DEPENDENT | non_increase |
+| `/engine.totalInterest` | /engine | Total interest to deadline | 766251.76 | 1288950.9 | 1808632.22 | HORIZON-DEPENDENT | increase |
+| `/engine.turns` | /engine | Capital turns | 0.62 | 1.25 | 1.87 | HORIZON-DEPENDENT | increase |
+| `/exodus.daysToDeadline` | /exodus | Exodus days to deadline | 476 | 842 | 1207 | HORIZON-DEPENDENT | increase |
+| `/exodus.deadline` | /exodus | Exodus deadline | 2027-12-31 | 2028-12-31 | 2029-12-31 | HORIZON-DEPENDENT | later_iso |
+| `/exodus.monthsToDeadline` | /exodus | Exodus months to deadline | 15.64 | 27.66 | 39.66 | HORIZON-DEPENDENT | increase |
+| `/oracle.currentExitDate` | /oracle | Oracle current-pace exit date | 2028-01-11 | 2028-01-11 | 2028-01-11 | DELIBERATELY INDEPENDENT | labeled |
+| `/oracle.deadline` | /oracle | Oracle deadline | 2027-12-31 | 2028-12-31 | 2029-12-31 | HORIZON-DEPENDENT | later_iso |
+| `/oracle.hitsDeadline` | /oracle | Oracle current pace hits deadline | 0 | 1 | 1 | HORIZON-DEPENDENT | non_decrease |
+| `/pipeline.netProfitTrapped` | /pipeline | Pipeline profit trapped | 1103375.31 | 1103375.31 | 1103375.31 | HISTORICAL |  |
+| `/pipeline.reserved` | /pipeline | Pipeline reserved count | 33 | 33 | 33 | HISTORICAL |  |
+| `/pipeline.stuckCount` | /pipeline | Stuck reservations | 16 | 16 | 16 | HISTORICAL |  |
+| `/quality.issueCount` | /quality | Quality issues | 24 | 24 | 24 | HISTORICAL |  |
+| `/quests.available` | /quests | Quests · available lots | 50 | 50 | 50 | HISTORICAL |  |
+| `/quests.closed` | /quests | Quests · closed lots | 24 | 24 | 24 | HISTORICAL |  |
+| `/quests.noteSold` | /quests | Quests · note-sold lots | 14 | 14 | 14 | HISTORICAL |  |
+| `/quests.reserved` | /quests | Quests · reserved lots | 33 | 33 | 33 | HISTORICAL |  |
+| `/realm.farmCount` | /realm | Realm · farms | 10 | 10 | 10 | HISTORICAL |  |
+| `/realm.lotCount` | /realm | Realm · lots | 121 | 121 | 121 | HISTORICAL |  |
+| `/sponsors.interestAccruedSum` | /sponsors | Interest accrued to date (all sponsors) | 249368.88 | 249368.88 | 249368.88 | HISTORICAL |  |
+| `/sponsors.investorCount` | /sponsors | Sponsors with capital | 6 | 6 | 6 | HISTORICAL |  |
+| `/treasury.totalCashIn` | /treasury | Treasury cash in | 2213494.3 | 2213494.3 | 2213494.3 | HISTORICAL |  |
+| `/treasury.totalCashOut` | /treasury | Treasury cash out | 793990.46 | 793990.46 | 793990.46 | HISTORICAL |  |
+| `/trophies.historicalEarned` | /trophies | Trophies earned (ex Pace Keeper) | 20 | 20 | 20 | HISTORICAL |  |
+| `/trophies.paceKeeperEarned` | /trophies | Pace Keeper earned | 0 | 0 | 1 | HORIZON-DEPENDENT | non_decrease |
+| `/trophies.total` | /trophies | Trophies defined | 29 | 29 | 29 | HISTORICAL |  |
+| `/warplan.deadlineRow` | /warplan | War Plan final row date | 2027-12-31 | 2028-12-31 | 2029-12-31 | HORIZON-DEPENDENT | later_iso |
+| `/warplan.lastPurchaseDate` | /warplan | War Plan last purchase date | 2027-07-31 | 2028-07-31 | 2029-07-31 | HORIZON-DEPENDENT | later_iso |
+| `/warplan.requiredClosingsPerMonth` | /warplan | War Plan required closings/month | 8.5 | 4.49 | 3.04 | HORIZON-DEPENDENT | decrease |
+| `/warplan.rotationFarms` | /warplan | War Plan rotation farms | 5 | 5 | 4 | HORIZON-DEPENDENT | non_increase |
+| `/warplan.rotationPeak` | /warplan | War Plan peak outstanding | 2342600 | 1874080 | 937040 | HORIZON-DEPENDENT | decrease |
+| `drawer.horizonYear` | drawer | Drawer exit horizon year | 2027 | 2028 | 2029 | HORIZON-DEPENDENT | increase |
+| `topbar.deadline` | topbar | Exit deadline | 2027-12-31 | 2028-12-31 | 2029-12-31 | HORIZON-DEPENDENT | later_iso |
+| `topbar.horizonYear` | topbar | Exit horizon year | 2027 | 2028 | 2029 | HORIZON-DEPENDENT | increase |
+
+## Violation count after fixes
+
+**0** (must stay zero).
+
+---
+
 
 ## Full bilingual i18n — 2026-09-15
 
