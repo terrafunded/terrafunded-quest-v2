@@ -442,7 +442,12 @@ export default function EnginePage() {
             testId="engine-farms-still-needed"
           />
           <Figure label={t.shortfallFarms} value={number(result.figures.shortfallFarms)} hint={t.shortfallFarmsHint} />
-          <Figure label={t.freshCapital} value={moneyCompact(result.figures.freshCapital)} testId="engine-fresh-capital" />
+          <Figure
+            label={t.freshCapital}
+            value={moneyCompact(result.figures.freshCapital)}
+            hint={t.freshCapitalVsFarms}
+            testId="engine-fresh-capital"
+          />
           <Figure label={t.peakOutstanding} value={moneyCompact(result.figures.peakOutstanding)} hint={t.peakHint} testId="engine-peak" />
           <Figure
             label={t.capitalDeadline}
@@ -466,6 +471,9 @@ export default function EnginePage() {
             testId="engine-interest"
           />
         </div>
+        <p className="mt-3 text-sm text-muted-foreground" data-testid="engine-fresh-vs-farms">
+          {t.freshCapitalVsFarms}
+        </p>
       </section>
 
       <EngineCharts result={result} t={t} onLoadSensitivity={loadSensitivity} />

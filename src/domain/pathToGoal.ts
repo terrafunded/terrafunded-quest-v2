@@ -8,11 +8,15 @@
  * required schedule (the same capital-turn simulation the Engine family uses) — never from
  * lots ÷ lots-per-farm or the closed-form turns formula.
  *
+ * PROJECTED EXIT AT CURRENT PACE is the era remaining ÷ trailing closings/month date
+ * (AUDIT.md §1). One function; Throne, Oracle, Council, Exodus and the export all read it.
+ *
  * INVENTORY is a runway question: how many months the lots on hand last at the current
  * closing pace, when inventory hits zero, and by when the next farm must be funded so
  * inventory never runs out (working back by the observed farm→first-close lag).
  */
-import { addMonths, monthsBetween, parseDate, toIsoDate } from "./dates";
+import { deadlineForHorizon, type ExitHorizon } from "../config/goal";
+import { addMonths, daysBetween, monthsBetween, parseDate, toIsoDate } from "./dates";
 import type { GoalStatus } from "./goal";
 import { round2 } from "./math";
 import type { WarPlan } from "./warplan";
@@ -20,7 +24,7 @@ import type { WarPlan } from "./warplan";
 export type InventoryRunwaySeverity = "critical" | "warning" | "ok";
 
 export interface PathToGoal {
-  /** Flat: remaining ÷ avg net profit per lot. Total closings to the deadline — not inventory. */
+  /** Flat: remaining ÷ lifetime avg net profit per lot. Total closings to the deadline — not inventory. */
   lotsToSell: number | null;
   /**
    * Rotation: farms in the required War Plan buy schedule (capital turns before the deadline).
@@ -28,15 +32,23 @@ export interface PathToGoal {
    */
   farmsToBuy: number;
   /**
-   * Rotation: peak land capital outstanding under the required schedule — the amount that
-   * actually has to be raised (not Σ farm costs).
+   * War Plan `required.capitalToRaise`: fresh money the mix brings (Σ farm cost − recycled).
+   * Must match `warPlan.required.capitalToRaise`, never `rotation.peakOutstanding`.
    */
   capitalToRaise: number;
-  /** Fresh money the mix brings under the required plan (Σ cost − recycled). */
-  freshCapital: number;
+  /**
+   * War Plan `rotation.peakOutstanding`: most new-farm land capital out at once.
+   * Must match `warPlan.rotation.peakOutstanding`, never `required.capitalToRaise`.
+   */
+  peakOutstanding: number;
   /** totalDeployed ÷ peakOutstanding on the required plan. */
   turns: number | null;
   cycleMonths: number | null;
+  /**
+   * Authoritative "projected exit date at current pace" (era $/lot).
+   * `projectedDateRecent`, falling back to lifetime only when there is no era average.
+   */
+  projectedExitAtCurrentPace: string | null;
   inventoryOnHand: number;
   closingPacePerMonth: number;
   /** Months today's available lots last at the trailing closing pace. */
@@ -54,6 +66,26 @@ export interface PathToGoal {
   monthsUntilFundBy: number | null;
   /** Severity from how close the next-farm funding date is — not from a gap against lotsToSell. */
   inventorySeverity: InventoryRunwaySeverity;
+}
+
+/** Era-basis projected exit: remaining ÷ era $/lot ÷ trailing closings per month. */
+export function projectedExitAtCurrentPace(goal: Pick<GoalStatus, "projectedDateRecent" | "projectedDate">): string | null {
+  return goal.projectedDateRecent ?? goal.projectedDate;
+}
+
+/**
+ * Interest on today's outstanding capital from asOf to a horizon deadline.
+ * Display only — not deducted from remaining, lots still needed, or War Plan / Engine net.
+ */
+export function interestCarryToDeadline(interestPerDay: number, asOf: Date, horizon: ExitHorizon): number {
+  const deadline = parseDate(deadlineForHorizon(horizon));
+  if (!deadline) return 0;
+  return round2(interestPerDay * daysBetween(asOf, deadline));
+}
+
+/** Extra interest of this horizon versus the 2027 exit, on today's outstanding only. */
+export function extraInterestVersus2027(interestPerDay: number, asOf: Date, horizon: ExitHorizon): number {
+  return round2(interestCarryToDeadline(interestPerDay, asOf, horizon) - interestCarryToDeadline(interestPerDay, asOf, 2027));
 }
 
 /**
@@ -92,10 +124,11 @@ export function computePathToGoal(goal: GoalStatus, warPlan: WarPlan, asOf: Date
   return {
     lotsToSell: goal.lotsStillNeeded,
     farmsToBuy: required.farmsToBuy,
-    capitalToRaise: rotation.peakOutstanding,
-    freshCapital: required.capitalToRaise,
+    capitalToRaise: required.capitalToRaise,
+    peakOutstanding: rotation.peakOutstanding,
     turns: rotation.turnsNeeded,
     cycleMonths: rotation.cycleMonths,
+    projectedExitAtCurrentPace: projectedExitAtCurrentPace(goal),
     inventoryOnHand,
     closingPacePerMonth,
     inventoryRunwayMonths,

@@ -174,6 +174,13 @@ function ExodusBody({ realm, tableErrors, defaults }: { realm: Realm; tableError
         </Button>
       </PageHeader>
       <TableErrorsBanner errors={tableErrors} />
+      <p data-testid="projected-exit-at-current-pace" className="mb-6 text-sm">
+        <span className="stat-label">{t.projectedExitAtCurrentPace}</span>{" "}
+        <span className="font-heading tabular text-foreground">
+          {realm.pathToGoal.projectedExitAtCurrentPace ? date(realm.pathToGoal.projectedExitAtCurrentPace) : "—"}
+        </span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">{t.projectedExitFormula}</span>
+      </p>
 
       <section aria-label={t.verdict} className={cn("parchment-card mb-6 p-5", s.feasible ? "border-gold/40" : "border-destructive/50")} data-testid="exodus-verdict-card">
         <div className="stat-label">{t.verdict}</div>

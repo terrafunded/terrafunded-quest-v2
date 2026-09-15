@@ -46,6 +46,7 @@ export interface EngineUiStrings {
   farmsStillNeeded: string;
   farmsStillNeededHint: string;
   freshCapital: string;
+  freshCapitalVsFarms: string;
   peakOutstanding: string;
   peakHint: string;
   capitalDeadline: string;
@@ -141,9 +142,11 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     farmsStillNeeded: "Farms to buy (rotation schedule)",
     farmsStillNeededHint:
       "Same Plan rotation schedule as Overview — farms the required plan buys with capital turning before the deadline, not lots ÷ lots-per-farm.",
-    freshCapital: "Fresh capital required",
-    peakOutstanding: "Peak outstanding",
-    peakHint: "The maximum owed across all sponsors in any month — what actually has to be raised, not the sum of farm costs. Same powder under more turns does not raise the peak.",
+    freshCapital: "Fresh capital required at current pace",
+    freshCapitalVsFarms:
+      "Fresh capital can be $0 while farms are still needed because this page runs at the current closing pace — recycled returns cover new buys at that pace. The farms figure is the required-pace rotation schedule, which is faster.",
+    peakOutstanding: "Peak outstanding (including capital already in the ground)",
+    peakHint: "Maximum owed in any month of this current-pace series, including today's outstanding. Not the Plan peak, which covers only new farms.",
     capitalDeadline: "The capital deadline",
     totalAdSpend: "Total ad spend implied",
     adShare: (pct) => `${pct} of net profit at closing — cheap next to capital`,
@@ -270,9 +273,11 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     farmsStillNeeded: "Fincas a comprar (calendario de rotación)",
     farmsStillNeededHint:
       "El mismo calendario de rotación del Plan que Resumen — fincas que el plan requerido compra con el capital girando antes de la fecha límite, no lotes ÷ lotes-por-finca.",
-    freshCapital: "Capital fresco requerido",
-    peakOutstanding: "Pico adeudado",
-    peakHint: "Lo máximo adeudado a sponsors en un mes — lo que realmente hay que levantar, no la suma de costos de finca. El mismo polvo con más giros no sube el pico.",
+    freshCapital: "Capital fresco requerido al ritmo actual",
+    freshCapitalVsFarms:
+      "El capital fresco puede ser $0 y aun así faltar fincas porque esta página corre al ritmo actual de cierres — los retornos reciclados cubren las compras a ese ritmo. La cifra de fincas es el calendario de rotación al ritmo requerido, que es más rápido.",
+    peakOutstanding: "Pico adeudado (incluye el capital ya en tierra)",
+    peakHint: "Máximo adeudado en cualquier mes de esta serie al ritmo actual, incluido el capital ya adeudado de hoy. No es el pico del Plan, que cubre solo fincas nuevas.",
     capitalDeadline: "La fecha límite del capital",
     totalAdSpend: "Gasto en anuncios implícito",
     adShare: (pct) => `${pct} de la utilidad neta al cierre — barato frente al capital`,

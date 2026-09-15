@@ -5,12 +5,13 @@ import { ArrowRight, CalendarClock, Coins, Landmark, RefreshCw, Scroll } from "l
 import { useRealm } from "@/data/useRealm";
 import {
   engineDefaultsFromRealm,
+  extraInterestVersus2027,
   latestEvents,
   reconcileThroneAndEngine,
   runEngine,
   type RealmEvent,
 } from "@/domain";
-import { MILESTONE_STEP } from "@/config/goal";
+import { MILESTONE_STEP, type ExitHorizon } from "@/config/goal";
 import { FitMoney } from "@/components/realm/FitMoney";
 import { ProgressRing } from "@/components/realm/ProgressRing";
 import { GrowthBurst } from "@/components/realm/GrowthBurst";
@@ -79,6 +80,14 @@ export function ThroneRoom() {
   const tsy = realm.treasury;
   const layers = realm.profitLayers;
   const noteSalePctLabel = `${(layers.noteSaleRatio * 100).toFixed(1)}%`;
+  const exitHorizon = Number(g.deadline.slice(0, 4)) as ExitHorizon;
+  const interestPerDay = realm.debt.interestPerDay ?? 0;
+  const extraInterest = extraInterestVersus2027(interestPerDay, realm.asOf, exitHorizon);
+  const extra2028 = extraInterestVersus2027(interestPerDay, realm.asOf, 2028);
+  const extra2029 = extraInterestVersus2027(interestPerDay, realm.asOf, 2029);
+  const projectedExitLabel = realm.pathToGoal.projectedExitAtCurrentPace
+    ? date(realm.pathToGoal.projectedExitAtCurrentPace)
+    : "—";
   const recent = latestEvents(realm.events, 5, ["reservation", "cancellation", "closing", "note_sale", "distribution", "liberation"]);
   const rot = realm.rotation;
   const plan = realm.warPlan.rotation;
@@ -279,13 +288,17 @@ export function ThroneRoom() {
                 </span>
               </p>
               <p className="text-xs">{t.eraNote}</p>
+              <p data-testid="projected-exit-at-current-pace" className="text-sm">
+                <span className="stat-label">{t.projectedExitAtCurrentPace}</span>{" "}
+                <span className="font-heading tabular text-foreground">{projectedExitLabel}</span>
+                <span className="mt-0.5 block text-xs">{t.projectedExitFormula}</span>
+              </p>
               <p data-testid="pace-era-avg" className="text-xs sm:text-sm">
                 <span className="text-oxygen">{t.era}</span>
                 {g.recentSinceLabel ? ` ${g.recentSinceLabel}` : ""}
                 {t.perLotLotsFarms(
                   g.recentAvgNetProfitPerClosedLot === null ? "—" : money(g.recentAvgNetProfitPerClosedLot),
                   String(g.lotsStillNeededRecent ?? "—"),
-                  String(g.farmsStillNeededRecent ?? "—"),
                   String(g.requiredLotsPerMonthToHitDeadlineRecent ?? "—"),
                   g.projectedDateRecent ? date(g.projectedDateRecent) : "—",
                   t.closingsCount(g.recentClosedLots),
@@ -296,25 +309,45 @@ export function ThroneRoom() {
                 {t.perLotLotsFarms(
                   g.avgNetProfitPerClosedLot === null ? "—" : money(g.avgNetProfitPerClosedLot),
                   String(g.lotsStillNeeded ?? "—"),
-                  String(g.farmsStillNeeded ?? "—"),
                   String(g.requiredLotsPerMonthToHitDeadline ?? "—"),
                   g.projectedDate ? date(g.projectedDate) : "—",
                   t.closingsCount(g.closedLots),
                 )}
+                <span className="mt-0.5 block text-[11px]">{t.lifetimeDateAssumption}</span>
               </p>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground sm:justify-start">
+            <div className="space-y-2 text-sm text-muted-foreground sm:text-left">
               <span className="inline-flex items-center gap-1.5">
                 <CalendarClock className="h-4 w-4 text-gold" />
                 <span data-testid="days-to-deadline">{t.daysToDeadline(number(g.daysToDeadline), date(g.deadline))}</span>
               </span>
-              <span>
-                {t.lotsStillNeeded(String(g.lotsStillNeeded ?? "—"), String(g.farmsStillNeeded ?? "—"))}
-                {g.lotsStillNeededRecent !== null && (
-                  <span className="text-xs">{t.eraLotsFarms(g.lotsStillNeededRecent, String(g.farmsStillNeededRecent ?? "—"))}</span>
-                )}
-              </span>
+              <div data-testid="lots-still-needed">
+                {t.lotsStillNeeded(String(g.lotsStillNeeded ?? "—"))}
+                <span className="mt-0.5 block text-[11px]">{t.lotsStillNeededHint}</span>
+              </div>
+              {g.lotsStillNeededRecent !== null && (
+                <div data-testid="lots-still-needed-era">
+                  {t.lotsStillNeededEra(String(g.lotsStillNeededRecent))}
+                  <span className="mt-0.5 block text-[11px]">{t.lotsStillNeededEraHint}</span>
+                </div>
+              )}
+              <div data-testid="warplan-lots-needed">
+                {t.warPlanLotsNeeded}: {number(realm.warPlan.required.lotsNeeded)}
+                <span className="mt-0.5 block text-[11px]">{t.warPlanLotsNeededHint}</span>
+              </div>
+              <div data-testid="rotation-farms">
+                {t.rotationFarms(String(g.farmsStillNeeded ?? "—"))}
+                <span className="mt-0.5 block text-[11px]">{t.rotationFarmsHint}</span>
+              </div>
             </div>
+            <p className="text-xs text-muted-foreground" data-testid="interest-carry-note">
+              {t.interestCarryNote(
+                String(exitHorizon),
+                money(extraInterest),
+                money(extra2028),
+                money(extra2029),
+              )}
+            </p>
             {throneEngineReconcile && (!throneEngineReconcile.dollarsAgree || !throneEngineReconcile.farmsAgree) && (
               <p className="text-xs text-muted-foreground" data-testid="engine-throne-reconcile">
                 {t.engineReconcile}

@@ -146,6 +146,8 @@ export interface WarPlanUiStrings {
   adSpendMonth: string;
   noteSalesMonth: string;
   lotsClosedByDeadline: string;
+  lotsClosedByDeadlineHint: string;
+  interestCarryNote: (horizon: string, extra: string, vs2028: string, vs2029: string) => string;
   inventoryAtDeadline: string;
   cumulativeAtDeadline: (mode: string) => string;
   turnsNotBack: string;
@@ -345,7 +347,7 @@ export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
     rotationScope: "Land only: houses, receivables and overhead are out of scope by design.",
     turnsIncomplete: (incomplete, farms, word) => `${incomplete} of ${farms} ${word} cannot complete before the deadline`,
     peakOutstanding: "Peak capital outstanding",
-    peakHint: "The most land capital out at once — what actually has to be raised",
+    peakHint: "The most land capital out at once on new farms only — what actually has to be raised",
     totalDeployed: "Total capital deployed",
     totalDeployedHint: (farms, word, recycled) => `Every purchase over ${farms} ${word}, counting recycled dollars each time · ${recycled} recycled`,
     turnsNeeded: "Turns needed",
@@ -413,7 +415,12 @@ export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
     reservationsMonth: "Reservations / month",
     adSpendMonth: "Ad spend / month",
     noteSalesMonth: "Note sales / month",
-    lotsClosedByDeadline: "Lots closed by the deadline",
+    lotsClosedByDeadline: "Lots the required-pace plan closes by the deadline",
+    lotsClosedByDeadlineHint: "Fractional closings this schedule books through the deadline — not ceil(remaining ÷ $/lot).",
+    interestCarryNote: (horizon, extra, vs2028, vs2029) =>
+      extra === "$0"
+        ? `Interest on capital already outstanding is not deducted from this plan's net. A 2028 exit would cost ${vs2028} more interest than 2027; 2029 would cost ${vs2029} more.`
+        : `Interest on capital already outstanding is not deducted from this plan's net. The ${horizon} exit costs ${extra} more interest than 2027.`,
     inventoryAtDeadline: "Inventory at the deadline",
     cumulativeAtDeadline: (mode) => `Cumulative ${mode} at the deadline`,
     turnsNotBack: "Turns not back by the deadline",
@@ -626,7 +633,7 @@ export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
     rotationScope: "Solo tierra: casas, cuentas por cobrar y overhead quedan fuera de alcance por diseño.",
     turnsIncomplete: (incomplete, farms, word) => `${incomplete} de ${farms} ${word} no pueden completarse antes de la fecha límite`,
     peakOutstanding: "Pico de capital pendiente",
-    peakHint: "El máximo capital de tierra fuera a la vez — lo que realmente hay que levantar",
+    peakHint: "El máximo capital de tierra fuera a la vez, solo en fincas nuevas — lo que realmente hay que levantar",
     totalDeployed: "Capital total desplegado",
     totalDeployedHint: (farms, word, recycled) => `Cada compra en ${farms} ${word}, contando dólares reciclados cada vez · ${recycled} reciclados`,
     turnsNeeded: "Ciclos necesarios",
@@ -694,7 +701,12 @@ export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
     reservationsMonth: "Reservas / mes",
     adSpendMonth: "Anuncios / mes",
     noteSalesMonth: "Ventas de pagarés / mes",
-    lotsClosedByDeadline: "Lotes cerrados a la fecha límite",
+    lotsClosedByDeadline: "Lotes que cierra el plan al ritmo requerido hasta la fecha límite",
+    lotsClosedByDeadlineHint: "Cierres fraccionarios que este calendario registra hasta la fecha límite — no ceil(restante ÷ $/lote).",
+    interestCarryNote: (horizon, extra, vs2028, vs2029) =>
+      extra === "$0"
+        ? `El interés sobre el capital ya adeudado no se resta de la utilidad neta de este plan. Una salida 2028 costaría ${vs2028} más de interés que 2027; 2029 costaría ${vs2029} más.`
+        : `El interés sobre el capital ya adeudado no se resta de la utilidad neta de este plan. La salida ${horizon} cuesta ${extra} más de interés que 2027.`,
     inventoryAtDeadline: "Inventario a la fecha límite",
     cumulativeAtDeadline: (mode) => `${mode} acumulado a la fecha límite`,
     turnsNotBack: "Ciclos que no vuelven a la fecha límite",
