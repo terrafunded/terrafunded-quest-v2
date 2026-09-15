@@ -1,6 +1,7 @@
 import type { GoalStatus } from "./goal";
 import type { EngineResult } from "./engine";
 import { round2 } from "./math";
+import type { QualityLang } from "./quality_human";
 
 /**
  * Explicit Throne Room ↔ Engine reconciliation.
@@ -70,6 +71,7 @@ export function reconcileThroneAndEngine(
   goal: GoalStatus,
   engine: Pick<EngineResult, "figures">,
   basis: ReconcileBasis = "era",
+  lang: QualityLang = "en",
 ): ThroneEngineReconcile {
   const throne = throneProjected(goal, basis);
   const engineNet = engine.figures.netProfitAtDeadline;
@@ -90,13 +92,17 @@ export function reconcileThroneAndEngine(
   let dollarReason: string | null = null;
   if (!dollarsAgree) {
     dollarReason =
-      "The Engine caps sales at available inventory and capital turns; the Throne Room assumes lots are always available.";
+      lang === "es"
+        ? "El Motor limita las ventas al inventario disponible y a los ciclos de capital; el Trono asume que siempre hay lotes disponibles."
+        : "The Engine caps sales at available inventory and capital turns; the Throne Room assumes lots are always available.";
   }
 
   let farmReason: string | null = null;
   if (!farmsAgree) {
     farmReason =
-      "The Throne Room counts farms from the inventory gap at the ledger $/lot; the Engine counts farms the capital-turn schedule can fund before the deadline.";
+      lang === "es"
+        ? "El Trono cuenta fincas desde el hueco de inventario al $/lote del libro; el Motor cuenta las fincas que el calendario de ciclos de capital puede fondear antes de la fecha límite."
+        : "The Throne Room counts farms from the inventory gap at the ledger $/lot; the Engine counts farms the capital-turn schedule can fund before the deadline.";
   }
 
   return {

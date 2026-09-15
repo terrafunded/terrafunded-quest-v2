@@ -25,6 +25,7 @@ import {
 import { addDays, daysBetween, monthsBetween, parseDate, toIsoDate } from "./dates";
 import { mean, median, round2, sum } from "./math";
 import { resolveEra, type Era, type EraStart } from "./era";
+import type { QualityLang } from "./quality_human";
 import { DAYS_PER_MONTH } from "../config/goal";
 import {
   WARPLAN_DEFAULT_AD_SPEND_PER_CLOSING,
@@ -801,12 +802,13 @@ function aggregateFunding(
   return { funding, unfunded: round2(unfunded), perInvestor, peakOutstanding: round2(peakOutstanding), recycled: round2(recycled) };
 }
 
-const monthFmt = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+const monthFmtEn = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+const monthFmtEs = new Intl.DateTimeFormat("es", { month: "short", year: "numeric", timeZone: "UTC" });
 
 /** Month label from an ISO date (e.g. "Mar 2027"). The year is the date's year, not the exit horizon. */
-export function warPlanMonthLabel(iso: string): string {
+export function warPlanMonthLabel(iso: string, lang: QualityLang = "en"): string {
   const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
-  return Number.isNaN(d.getTime()) ? iso : monthFmt.format(d);
+  return Number.isNaN(d.getTime()) ? iso : (lang === "es" ? monthFmtEs : monthFmtEn).format(d);
 }
 
 /** $3.6M / $21K / $500 — the verdict's own compact dollars, so the domain needs no UI formatter. */
@@ -818,33 +820,54 @@ export function usdCompact(n: number): string {
   return `${sign}$${Math.round(abs)}`;
 }
 
-function fundingClause(c: WarPlanColumn): string {
+function fundingClause(c: WarPlanColumn, lang: QualityLang = "en"): string {
   const parts = c.funding.map((f) => `${f.name} ${usdCompact(f.amount)}`);
-  if (c.unfunded > 0) parts.push(`unfunded ${usdCompact(c.unfunded)}`);
+  if (c.unfunded > 0) parts.push(lang === "es" ? `sin fondear ${usdCompact(c.unfunded)}` : `unfunded ${usdCompact(c.unfunded)}`);
   return parts.length > 0 ? ` (${parts.join(", ")})` : "";
 }
 
-/** One sentence: what must happen. Pure so it can be tested. */
-export function warPlanVerdict(plan: WarPlan): string {
+/** One sentence: what must happen. Pure so it can be tested. Defaults to English. */
+export function warPlanVerdict(plan: WarPlan, lang: QualityLang = "en"): string {
   const r = plan.required;
   const pace = r.closingsPerMonth.toFixed(1);
-  const farms = `${r.farmsToBuy} farm${r.farmsToBuy === 1 ? "" : "s"}`;
+  const farms = lang === "es" ? `${r.farmsToBuy} finca${r.farmsToBuy === 1 ? "" : "s"}` : `${r.farmsToBuy} farm${r.farmsToBuy === 1 ? "" : "s"}`;
   const target = usdCompact(plan.goal.goal);
   const when = plan.goal.deadline;
+  if (lang === "es") {
+    if (plan.deadlineMonthIndex === 0) {
+      return plan.feasible
+        ? `La meta ya está cumplida: ${target} están en mano, compra 0 fincas y levanta $0.`
+        : `La fecha límite ${when} no está en el futuro: ningún plan puede agregar cierres antes, así que compra 0 fincas y levanta $0.`;
+    }
+    if (!plan.feasible) {
+      return `Ningún ritmo alcanza ${target} para ${when}: incluso ${pace} lotes/mes con ${farms} y ${usdCompact(r.capitalToRaise)} levantados${fundingClause(r, lang)} llega a ${usdCompact(r.targetAtDeadline)}. Empuja la fecha límite o baja la meta.`;
+    }
+    if (r.closingsPerMonth <= 0) {
+      return `La meta ya está cumplida: ${target} están en mano, compra 0 fincas y levanta $0.`;
+    }
+    const last =
+      r.farmsToBuy > 0 && r.lastPurchaseDate
+        ? `, la última no después de ${warPlanMonthLabel(r.lastPurchaseDate, lang)}`
+        : ` — los ${plan.startInventory} lotes de hoy alcanzan`;
+    const until = plan.lastClosingDate
+      ? ` hasta ${warPlanMonthLabel(plan.lastClosingDate, lang)} (luego solo ventas de pagarés)`
+      : "";
+    return `Compra ${farms}${last}, levanta ${usdCompact(r.capitalToRaise)}${fundingClause(r, lang)}, cierra ${pace} lotes/mes${until}, vende ${r.noteSalesPerMonth.toFixed(1)} pagarés/mes y gasta al menos ${usdCompact(r.adSpendPerMonth)}/mes en anuncios.`;
+  }
   if (plan.deadlineMonthIndex === 0) {
     return plan.feasible
       ? `The target is already met: ${target} is in hand, buy 0 farms and raise $0.`
       : `The deadline ${when} is not in the future: no plan can add closings before it, so buy 0 farms and raise $0.`;
   }
   if (!plan.feasible) {
-    return `No pace reaches ${target} by ${when}: even ${pace} lots/month with ${farms} and ${usdCompact(r.capitalToRaise)} raised${fundingClause(r)} lands at ${usdCompact(r.targetAtDeadline)}. Push the deadline or lower the target.`;
+    return `No pace reaches ${target} by ${when}: even ${pace} lots/month with ${farms} and ${usdCompact(r.capitalToRaise)} raised${fundingClause(r, lang)} lands at ${usdCompact(r.targetAtDeadline)}. Push the deadline or lower the target.`;
   }
   if (r.closingsPerMonth <= 0) {
     return `The target is already met: ${target} is in hand, buy 0 farms and raise $0.`;
   }
-  const last = r.farmsToBuy > 0 && r.lastPurchaseDate ? `, the last one no later than ${warPlanMonthLabel(r.lastPurchaseDate)}` : ` — today's ${plan.startInventory} lots are enough`;
-  const until = plan.lastClosingDate ? ` until ${warPlanMonthLabel(plan.lastClosingDate)} (then only note sales)` : "";
-  return `Buy ${farms}${last}, raise ${usdCompact(r.capitalToRaise)}${fundingClause(r)}, close ${pace} lots/month${until}, sell ${r.noteSalesPerMonth.toFixed(1)} notes/month and spend at least ${usdCompact(r.adSpendPerMonth)}/month on ads.`;
+  const last = r.farmsToBuy > 0 && r.lastPurchaseDate ? `, the last one no later than ${warPlanMonthLabel(r.lastPurchaseDate, lang)}` : ` — today's ${plan.startInventory} lots are enough`;
+  const until = plan.lastClosingDate ? ` until ${warPlanMonthLabel(plan.lastClosingDate, lang)} (then only note sales)` : "";
+  return `Buy ${farms}${last}, raise ${usdCompact(r.capitalToRaise)}${fundingClause(r, lang)}, close ${pace} lots/month${until}, sell ${r.noteSalesPerMonth.toFixed(1)} notes/month and spend at least ${usdCompact(r.adSpendPerMonth)}/month on ads.`;
 }
 
 /**
@@ -853,7 +876,7 @@ export function warPlanVerdict(plan: WarPlan): string {
  * note sales and sponsor paybacks — for the current pace, the required plan and the plan plus one
  * buffer farm.
  */
-export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPlan {
+export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext, lang: QualityLang = "en"): WarPlan {
   const asOf = ctx.asOf;
   const goal = computeGoal(ctx.lots, ctx.farms, asOf, { goal: inputs.target, deadline: inputs.deadline });
   const deadline = parseDate(goal.deadline) ?? asOf;
@@ -1001,40 +1024,64 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
   // when the deadline has passed or the target is already in hand.
   const bufferMonth = requiredSchedule.length > 0 ? (requiredSchedule[requiredSchedule.length - 1] as number) : Math.max(1, Math.min(k, maxPurchaseMonth));
   const bufferSchedule = k > 0 && (pace > 0 || requiredSchedule.length > 0) ? [...requiredSchedule, bufferMonth].sort((a, b) => a - b) : requiredSchedule;
-  const modeLabel = cashMode ? "cash in the bank after paying every sponsor" : "net profit at closing";
-  const lastClosingDate = pauseClosings && lastUsefulMonth > 0 ? (grid.months[lastUsefulMonth - 1]?.end.toISOString().slice(0, 10) ?? null) : null;
-  const pauseClause = lastClosingDate ? ` until ${warPlanMonthLabel(lastClosingDate)}, then only note sales` : "";
 
   const era = resolveEra(asOf, ctx.eraStart);
+  const es = lang === "es";
+  const modeLabel = cashMode
+    ? es
+      ? "efectivo en banco después de pagar a cada sponsor"
+      : "cash in the bank after paying every sponsor"
+    : es
+      ? "utilidad neta al cierre"
+      : "net profit at closing";
+  const lastClosingDate = pauseClosings && lastUsefulMonth > 0 ? (grid.months[lastUsefulMonth - 1]?.end.toISOString().slice(0, 10) ?? null) : null;
+  const pauseClause = lastClosingDate
+    ? es
+      ? ` hasta ${warPlanMonthLabel(lastClosingDate, lang)}, luego solo ventas de pagarés`
+      : ` until ${warPlanMonthLabel(lastClosingDate, lang)}, then only note sales`
+    : "";
+
   const current = build(
     "current_pace",
-    "At the current pace",
+    es ? "Al ritmo actual" : "At the current pace",
     ctx.oracleDefaults.lotsPerMonth,
     cadenceSchedule(ctx.oracleDefaults.newFarmEveryMonths),
     base,
     (c) =>
-      `${c.closingsPerMonth} lots/month and a farm every ${ctx.oracleDefaults.newFarmEveryMonths} months${era ? ` (${era.since})` : ""} — the trailing averages, farms funded from your mix in order.`,
+      es
+        ? `${c.closingsPerMonth} lotes/mes y una finca cada ${ctx.oracleDefaults.newFarmEveryMonths} meses${era ? ` (${era.since})` : ""} — los promedios recientes, fincas fondeadas de tu mezcla en orden.`
+        : `${c.closingsPerMonth} lots/month and a farm every ${ctx.oracleDefaults.newFarmEveryMonths} months${era ? ` (${era.since})` : ""} — the trailing averages, farms funded from your mix in order.`,
   );
   const required = build(
     "required_plan",
-    "The required plan",
+    es ? "El plan requerido" : "The required plan",
     pace,
     requiredSchedule,
     planParams,
     (c) =>
       c.farmsToBuy > 0
-        ? `${c.closingsPerMonth} lots/month${pauseClause} with ${c.farmsToBuy} farm${c.farmsToBuy === 1 ? "" : "s"} bought just in time (the last no later than ${c.lastPurchaseDate ? warPlanMonthLabel(c.lastPurchaseDate) : "—"}) so inventory never runs short, measured on ${modeLabel}.`
-        : `${c.closingsPerMonth} lots/month${pauseClause} from today's ${startInventory} lots — no new farm needed, measured on ${modeLabel}.`,
+        ? es
+          ? `${c.closingsPerMonth} lotes/mes${pauseClause} con ${c.farmsToBuy} finca${c.farmsToBuy === 1 ? "" : "s"} comprada${c.farmsToBuy === 1 ? "" : "s"} justo a tiempo (la última no después de ${c.lastPurchaseDate ? warPlanMonthLabel(c.lastPurchaseDate, lang) : "—"}) para que el inventario nunca se agote, medido sobre ${modeLabel}.`
+          : `${c.closingsPerMonth} lots/month${pauseClause} with ${c.farmsToBuy} farm${c.farmsToBuy === 1 ? "" : "s"} bought just in time (the last no later than ${c.lastPurchaseDate ? warPlanMonthLabel(c.lastPurchaseDate, lang) : "—"}) so inventory never runs short, measured on ${modeLabel}.`
+        : es
+          ? `${c.closingsPerMonth} lotes/mes${pauseClause} desde los ${startInventory} lotes de hoy — no hace falta finca nueva, medido sobre ${modeLabel}.`
+          : `${c.closingsPerMonth} lots/month${pauseClause} from today's ${startInventory} lots — no new farm needed, measured on ${modeLabel}.`,
   );
   const buffer = build(
     "required_plus_buffer",
-    "Required plan, one buffer farm",
+    es ? "Plan requerido, una finca de colchón" : "Required plan, one buffer farm",
     pace,
     bufferSchedule,
     planParams,
     (c) =>
-      `The same pace with one more farm bought alongside the last, as a cushion for lots that do not sell: ${c.farmsToBuy} farms, ${usdCompact(c.capitalToRaise)} to raise.` +
-      (cashMode ? " In cash mode its unsold lots are land, not cash, so at the deadline the cushion costs its price unless those lots sell." : ""),
+      (es
+        ? `El mismo ritmo con una finca más comprada junto a la última, como colchón para lotes que no se venden: ${c.farmsToBuy} fincas, ${usdCompact(c.capitalToRaise)} por levantar.`
+        : `The same pace with one more farm bought alongside the last, as a cushion for lots that do not sell: ${c.farmsToBuy} farms, ${usdCompact(c.capitalToRaise)} to raise.`) +
+      (cashMode
+        ? es
+          ? " En modo efectivo sus lotes sin vender son tierra, no efectivo, así que a la fecha límite el colchón cuesta su precio a menos que esos lotes se vendan."
+          : " In cash mode its unsold lots are land, not cash, so at the deadline the cushion costs its price unless those lots sell."
+        : ""),
   );
 
   const currentExit = parseDate(current.exitDate);
@@ -1061,18 +1108,19 @@ export function solveWarPlan(inputs: WarPlanInputs, ctx: WarPlanContext): WarPla
     ledger,
     seasonality: seasonality.map((f) => Math.round(f * 1000) / 1000),
     benchmark,
-    rotation: rotationPlan(all[1] as WarPlanColumn, inputs.investorMix, cycleMonths, benchmark.turnsCompleted, k, grid, goal, feasible, startInventory),
+    rotation: rotationPlan(all[1] as WarPlanColumn, inputs.investorMix, cycleMonths, benchmark.turnsCompleted, k, grid, goal, feasible, startInventory, lang),
     current: all[0] as WarPlanColumn,
     required: all[1] as WarPlanColumn,
     buffer: all[2] as WarPlanColumn,
     all,
     verdict: "",
   };
-  return { ...plan, verdict: warPlanVerdict(plan) };
+  return { ...plan, verdict: warPlanVerdict(plan, lang) };
 }
 
-function turnsLabel(turns: number): string {
+function turnsLabel(turns: number, lang: QualityLang = "en"): string {
   const n = Number.isInteger(turns) ? String(turns) : turns.toFixed(1);
+  if (lang === "es") return `${n} ciclo${turns === 1 ? "" : "s"}`;
   return `${n} turn${turns === 1 ? "" : "s"}`;
 }
 
@@ -1087,6 +1135,7 @@ export function rotationPlan(
   goal: GoalStatus,
   feasible: boolean,
   startInventory: number,
+  lang: QualityLang = "en",
 ): RotationPlan {
   const planned = column.schedule;
   const { perInvestor, peakOutstanding, recycled } = aggregateFunding(planned, mix, deadlineIndex);
@@ -1104,23 +1153,43 @@ export function rotationPlan(
   const turnsIncomplete = column.turnsIncomplete;
 
   const target = usdCompact(goal.goal);
-  const cycle = cycleMonths === null ? null : `${cycleMonths.toFixed(1)} months`;
+  const cycle = cycleMonths === null ? null : lang === "es" ? `${cycleMonths.toFixed(1)} meses` : `${cycleMonths.toFixed(1)} months`;
+  const es = lang === "es";
   let headline: string;
   if (deadlineIndex === 0) {
     headline = feasible
-      ? `The target is already met: no land capital has to turn.`
-      : `The deadline ${goal.deadline} is not in the future: no capital turn can start before it.`;
+      ? es
+        ? `La meta ya está cumplida: no hace falta que rote capital de tierra.`
+        : `The target is already met: no land capital has to turn.`
+      : es
+        ? `La fecha límite ${goal.deadline} no está en el futuro: ningún ciclo de capital puede empezar antes.`
+        : `The deadline ${goal.deadline} is not in the future: no capital turn can start before it.`;
   } else if (planned.length === 0) {
     headline = feasible
-      ? `Today's ${startInventory} lots reach ${target} by ${goal.deadline} without a new farm: no land capital has to turn.`
-      : `No pace reaches ${target} by ${goal.deadline} from today's ${startInventory} lots, and no farm bought now could convert in time: no capital turn helps.`;
+      ? es
+        ? `Los ${startInventory} lotes de hoy alcanzan ${target} para ${goal.deadline} sin una finca nueva: no hace falta que rote capital de tierra.`
+        : `Today's ${startInventory} lots reach ${target} by ${goal.deadline} without a new farm: no land capital has to turn.`
+      : es
+        ? `Ningún ritmo alcanza ${target} para ${goal.deadline} desde los ${startInventory} lotes de hoy, y ninguna finca comprada ahora podría convertir a tiempo: ningún ciclo de capital ayuda.`
+        : `No pace reaches ${target} by ${goal.deadline} from today's ${startInventory} lots, and no farm bought now could convert in time: no capital turn helps.`;
   } else if (cycle === null) {
-    headline = `The length of a capital turn is unknown — no freed farm to measure it, none projectable, or the input left blank — so the plan needs ${usdCompact(totalDeployed)} of land capital across ${planned.length} farm${planned.length === 1 ? "" : "s"} with nothing rotating; the first must be bought by ${firstTurnStartBy ? warPlanMonthLabel(firstTurnStartBy) : "—"}.`;
+    headline = es
+      ? `Se desconoce la duración de un ciclo de capital — ninguna finca liberada para medirla, ninguna proyectable, o la entrada quedó en blanco — así que el plan necesita ${usdCompact(totalDeployed)} de capital de tierra en ${planned.length} finca${planned.length === 1 ? "" : "s"} sin rotar; la primera debe comprarse para ${firstTurnStartBy ? warPlanMonthLabel(firstTurnStartBy, lang) : "—"}.`
+      : `The length of a capital turn is unknown — no freed farm to measure it, none projectable, or the input left blank — so the plan needs ${usdCompact(totalDeployed)} of land capital across ${planned.length} farm${planned.length === 1 ? "" : "s"} with nothing rotating; the first must be bought by ${firstTurnStartBy ? warPlanMonthLabel(firstTurnStartBy, lang) : "—"}.`;
   } else if (!feasible) {
-    headline = `No pace reaches ${target} by ${goal.deadline}: even ${usdCompact(peakOutstanding)} of land capital rotating every ${cycle} (${turnsLabel(turnsNeeded ?? 0)} across ${planned.length} farms) lands at ${usdCompact(column.targetAtDeadline)}.`;
+    headline = es
+      ? `Ningún ritmo alcanza ${target} para ${goal.deadline}: incluso ${usdCompact(peakOutstanding)} de capital de tierra rotando cada ${cycle} (${turnsLabel(turnsNeeded ?? 0, lang)} en ${planned.length} fincas) llega a ${usdCompact(column.targetAtDeadline)}.`
+      : `No pace reaches ${target} by ${goal.deadline}: even ${usdCompact(peakOutstanding)} of land capital rotating every ${cycle} (${turnsLabel(turnsNeeded ?? 0, lang)} across ${planned.length} farms) lands at ${usdCompact(column.targetAtDeadline)}.`;
   } else {
-    const incomplete = turnsIncomplete > 0 ? ` ${turnsIncomplete} of the ${planned.length} turns cannot complete before the deadline.` : "";
-    headline = `With ${usdCompact(peakOutstanding)} of land capital rotating every ${cycle} you reach ${target} by the deadline; you need ${turnsLabel(turnsNeeded ?? 0)}; the first turn must start by ${firstTurnStartBy ? warPlanMonthLabel(firstTurnStartBy) : "—"}.${incomplete}`;
+    const incomplete =
+      turnsIncomplete > 0
+        ? es
+          ? ` ${turnsIncomplete} de los ${planned.length} ciclos no pueden completarse antes de la fecha límite.`
+          : ` ${turnsIncomplete} of the ${planned.length} turns cannot complete before the deadline.`
+        : "";
+    headline = es
+      ? `Con ${usdCompact(peakOutstanding)} de capital de tierra rotando cada ${cycle} alcanzas ${target} a la fecha límite; necesitas ${turnsLabel(turnsNeeded ?? 0, lang)}; el primer ciclo debe empezar para ${firstTurnStartBy ? warPlanMonthLabel(firstTurnStartBy, lang) : "—"}.${incomplete}`
+      : `With ${usdCompact(peakOutstanding)} of land capital rotating every ${cycle} you reach ${target} by the deadline; you need ${turnsLabel(turnsNeeded ?? 0)}; the first turn must start by ${firstTurnStartBy ? warPlanMonthLabel(firstTurnStartBy, lang) : "—"}.${incomplete}`;
   }
 
   return {

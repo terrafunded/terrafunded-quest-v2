@@ -3,6 +3,7 @@ import type { Lot } from "./lot";
 import { isSold } from "./lot";
 import { addDays, daysBetween, parseDate, toIsoDate } from "./dates";
 import { mean, round2 } from "./math";
+import type { QualityLang } from "./quality_human";
 
 export type CampaignState = "conquered" | "under_siege" | "closing_pending" | "losing_ground";
 
@@ -44,10 +45,17 @@ export interface Campaign {
 
 export const LOSING_GROUND_DAYS = 60;
 
-export function computeCampaigns(farms: FarmEconomics[], lots: Lot[], asOf: Date, losingGroundDays = LOSING_GROUND_DAYS): Campaign[] {
+export function computeCampaigns(
+  farms: FarmEconomics[],
+  lots: Lot[],
+  asOf: Date,
+  losingGroundDays = LOSING_GROUND_DAYS,
+  lang: QualityLang = "en",
+): Campaign[] {
   const realmAvg = mean(lots.filter(isSold).map((l) => l.salePrice ?? 0).filter((n) => n > 0));
   const asOfIso = toIsoDate(asOf);
   const staleBefore = toIsoDate(addDays(asOf, -losingGroundDays));
+  const es = lang === "es";
 
   return farms.map((f): Campaign => {
     const sold = f.lots.filter(isSold);
@@ -76,22 +84,33 @@ export function computeCampaigns(farms: FarmEconomics[], lots: Lot[], asOf: Date
     let reason: string;
     if (shortfall === 0 || lotsUnsold === 0) {
       state = "conquered";
-      reason = shortfall === 0 ? "sales already cover capital and interest" : "every lot is sold";
+      reason = shortfall === 0
+        ? es ? "las ventas ya cubren capital e interés" : "sales already cover capital and interest"
+        : es ? "todos los lotes están vendidos" : "every lot is sold";
     } else if (interestAccruing && (lastClosingDate === null || lastClosingDate < staleBefore)) {
       if (reservedLots > 0) {
         // Reservations are waiting to close: the ground is held, not lost.
         state = "closing_pending";
-        reason = `${reservedLots} ${reservedLots === 1 ? "reservation" : "reservations"} waiting to close${lastClosingDate === null ? ", no closing yet" : `, none in ${daysSinceLastClosing} days`}`;
+        reason = es
+          ? `${reservedLots} ${reservedLots === 1 ? "reserva" : "reservas"} esperando cerrar${lastClosingDate === null ? ", sin cierre aún" : `, ninguna en ${daysSinceLastClosing} días`}`
+          : `${reservedLots} ${reservedLots === 1 ? "reservation" : "reservations"} waiting to close${lastClosingDate === null ? ", no closing yet" : `, none in ${daysSinceLastClosing} days`}`;
       } else {
         state = "losing_ground";
-        reason =
-          lastClosingDate === null
+        reason = es
+          ? lastClosingDate === null
+            ? `interés acumulándose al ${f.annualRatePct}% sin cierre aún`
+            : `interés acumulándose al ${f.annualRatePct}% y sin cierre en ${daysSinceLastClosing} días`
+          : lastClosingDate === null
             ? `interest accruing at ${f.annualRatePct}% with no closing yet`
             : `interest accruing at ${f.annualRatePct}% and no closing in ${daysSinceLastClosing} days`;
       }
     } else {
       state = "under_siege";
-      reason = lotsLeftToCover !== null ? `${lotsLeftToCover} more ${lotsLeftToCover === 1 ? "lot" : "lots"} to cover the capital` : "no sale price to measure against";
+      reason = lotsLeftToCover !== null
+        ? es
+          ? `${lotsLeftToCover} ${lotsLeftToCover === 1 ? "lote" : "lotes"} más para cubrir el capital`
+          : `${lotsLeftToCover} more ${lotsLeftToCover === 1 ? "lot" : "lots"} to cover the capital`
+        : es ? "sin precio de venta contra el cual medir" : "no sale price to measure against";
     }
 
     return {
