@@ -3,7 +3,13 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, CalendarClock, Coins, Landmark, RefreshCw, Scroll } from "lucide-react";
 import { useRealm } from "@/data/useRealm";
-import { latestEvents, type RealmEvent } from "@/domain";
+import {
+  engineDefaultsFromRealm,
+  latestEvents,
+  reconcileThroneAndEngine,
+  runEngine,
+  type RealmEvent,
+} from "@/domain";
 import { MILESTONE_STEP } from "@/config/goal";
 import { FitMoney } from "@/components/realm/FitMoney";
 import { ProgressRing } from "@/components/realm/ProgressRing";
@@ -48,6 +54,15 @@ export function ThroneRoom() {
     });
   }, [data]);
 
+  const throneEngineReconcile = useMemo(() => {
+    if (!data) return null;
+    const farm = data.realm.rotation.benchmark?.farmName ?? null;
+    const defaults = engineDefaultsFromRealm(data.realm, farm);
+    const engine = runEngine(defaults.inputs, { ...data.realm, referencePace: defaults.referencePace });
+    const basis = defaults.inputs.profitBasis === "era" ? "era" : "lifetime";
+    return reconcileThroneAndEngine(data.realm.goal, engine, basis);
+  }, [data]);
+
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
   if (!data) return null;
@@ -55,10 +70,19 @@ export function ThroneRoom() {
   const { realm, tableErrors } = data;
   const g = realm.goal;
   const x = realm.expected;
+  const tsy = realm.treasury;
   const recent = latestEvents(realm.events, 5, ["reservation", "cancellation", "closing", "note_sale", "distribution", "liberation"]);
   const rot = realm.rotation;
   const plan = realm.warPlan.rotation;
   const turnsNeeded = plan.turnsNeeded === null ? "—" : Number.isInteger(plan.turnsNeeded) ? String(plan.turnsNeeded) : plan.turnsNeeded.toFixed(1);
+  const conversionForecastLabel =
+    x.conversionSource === "resolved"
+      ? "resolved conversion"
+      : x.conversionSource === "with_cancellations"
+        ? "blended conversion (incl. cancellations)"
+        : x.conversionSource === "without_cancellations"
+          ? "blended conversion"
+          : "assumed conversion";
 
   if (realm.lots.length === 0) {
     return (
@@ -109,7 +133,8 @@ export function ThroneRoom() {
                 "no reservation is waiting to close"
               ) : (
                 <>
-                  {money(x.netProfitAtStake)} at stake × {pct(x.conversionPct, 0)} conversion = this figure
+                  {money(x.netProfitAtStake)} at stake × {pct(x.conversionPct, 0)} {conversionForecastLabel} = this figure
+                  <span className="text-muted-foreground/80"> (forecasts use {conversionForecastLabel})</span>
                   {x.landsBy && (
                     <>
                       {" "}
@@ -158,8 +183,31 @@ export function ThroneRoom() {
                 Need <strong className="text-foreground tabular">{x.requiredReservationsPerMonth === null ? "—" : number(x.requiredReservationsPerMonth)}</strong> reservations/month
                 <span className="text-xs">
                   {" "}
-                  · {x.requiredClosingsPerMonth === null ? "—" : number(x.requiredClosingsPerMonth)} closings/month at {pct(x.conversionPct, 0)} conversion from the ledger average
+                  · {x.requiredClosingsPerMonth === null ? "—" : number(x.requiredClosingsPerMonth)} closings/month at {pct(x.conversionPct, 0)}{" "}
+                  {conversionForecastLabel}
                 </span>
+              </p>
+              <p className="text-xs">
+                Era average is the better estimator of today&apos;s business (excludes pre-operation closings). Lifetime keeps every closed lot.
+              </p>
+              <p data-testid="pace-era-avg" className="text-xs sm:text-sm">
+                <span className="text-oxygen">Era</span>
+                {g.recentSinceLabel ? ` ${g.recentSinceLabel}` : ""}:{" "}
+                <strong className="text-foreground tabular">{g.recentAvgNetProfitPerClosedLot === null ? "—" : money(g.recentAvgNetProfitPerClosedLot)}</strong>
+                /lot · <strong className="text-foreground tabular">{g.lotsStillNeededRecent ?? "—"}</strong> lots ·{" "}
+                <strong className="text-foreground tabular">{g.farmsStillNeededRecent ?? "—"}</strong> farms · need{" "}
+                <strong className="text-foreground tabular">{g.requiredLotsPerMonthToHitDeadlineRecent ?? "—"}</strong>/mo · lands{" "}
+                <strong className="text-foreground tabular">{g.projectedDateRecent ? date(g.projectedDateRecent) : "—"}</strong>
+                {g.recentClosedLots > 0 ? ` · ${g.recentClosedLots} closings` : ""}
+              </p>
+              <p data-testid="pace-lifetime-avg" className="text-xs sm:text-sm">
+                <span className="text-muted-foreground">Lifetime</span>:{" "}
+                <strong className="text-foreground tabular">{g.avgNetProfitPerClosedLot === null ? "—" : money(g.avgNetProfitPerClosedLot)}</strong>
+                /lot · <strong className="text-foreground tabular">{g.lotsStillNeeded ?? "—"}</strong> lots ·{" "}
+                <strong className="text-foreground tabular">{g.farmsStillNeeded ?? "—"}</strong> farms · need{" "}
+                <strong className="text-foreground tabular">{g.requiredLotsPerMonthToHitDeadline ?? "—"}</strong>/mo · lands{" "}
+                <strong className="text-foreground tabular">{g.projectedDate ? date(g.projectedDate) : "—"}</strong>
+                {g.closedLots > 0 ? ` · ${g.closedLots} closings` : ""}
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground sm:justify-start">
@@ -172,8 +220,24 @@ export function ThroneRoom() {
               <span>
                 <strong className="text-foreground tabular">{g.lotsStillNeeded ?? "—"}</strong> lots still needed ·{" "}
                 <strong className="text-foreground tabular">{g.farmsStillNeeded ?? "—"}</strong> more farms
+                {g.lotsStillNeededRecent !== null && (
+                  <span className="text-xs">
+                    {" "}
+                    (era: {g.lotsStillNeededRecent} lots · {g.farmsStillNeededRecent ?? "—"} farms)
+                  </span>
+                )}
               </span>
             </div>
+            {throneEngineReconcile && (!throneEngineReconcile.dollarsAgree || !throneEngineReconcile.farmsAgree) && (
+              <p className="text-xs text-muted-foreground" data-testid="engine-throne-reconcile">
+                Throne pace is unconstrained; the Engine caps inventory and capital turns
+                {throneEngineReconcile.dollarReason ? ` — ${throneEngineReconcile.dollarReason}` : ""}
+                {throneEngineReconcile.farmReason ? ` ${throneEngineReconcile.farmReason}` : ""}{" "}
+                <Link to="/engine" className="touch-link text-gold hover:text-foreground">
+                  see The Engine →
+                </Link>
+              </p>
+            )}
           </div>
         </div>
 
@@ -247,7 +311,7 @@ export function ThroneRoom() {
               <dd className="mt-1 font-heading text-xl tabular text-sponsor" data-testid="rotation-outstanding">
                 {money(rot.capitalOutstanding)}
               </dd>
-              <dd className="text-[11px] text-muted-foreground">land capital still out with sponsors</dd>
+              <dd className="text-[11px] text-muted-foreground">today&apos;s captive sponsor capital (excludes own-capital farms)</dd>
             </div>
             <div className="rounded-md bg-background/40 p-3">
               <dt className="stat-label">Benchmark turn</dt>
@@ -255,7 +319,17 @@ export function ThroneRoom() {
                 {rot.cycleDays === null ? "—" : `${number(rot.cycleDays)} days`}
               </dd>
               <dd className="text-[11px] text-muted-foreground" data-testid="rotation-benchmark-hint">
-                {rot.benchmark ? `${rot.benchmark.farmName} · ${rot.benchmark.months.toFixed(1)} months${rot.benchmark.projected ? ", projected" : ""}` : "no farm freed, none projectable"}
+                {rot.benchmark ? (
+                  <>
+                    {rot.benchmark.farmName} ·{" "}
+                    <span data-testid="rotation-benchmark-months">
+                      {rot.cycleMonths !== null ? rot.cycleMonths.toFixed(1) : "—"} months
+                    </span>
+                    {rot.benchmark.projected ? ", projected" : ""}
+                  </>
+                ) : (
+                  "no farm freed, none projectable"
+                )}
                 {rot.sinceLabel && (
                   <>
                     {" "}
@@ -278,7 +352,9 @@ export function ThroneRoom() {
                 {turnsNeeded}
               </dd>
               <dd className="text-[11px] text-muted-foreground">
-                {plan.turnsNeeded === null ? "no capital has to turn" : `${money(plan.peakOutstanding)} rotating across ${plan.farms} ${plan.farms === 1 ? "farm" : "farms"}`}
+                {plan.turnsNeeded === null
+                  ? "no capital has to turn"
+                  : `${money(plan.peakOutstanding)} peak in the war-plan buy schedule across ${plan.farms} ${plan.farms === 1 ? "farm" : "farms"} (not today's ${money(rot.capitalOutstanding)} already outstanding with sponsors)`}
                 {plan.turnsIncomplete > 0 && <span className="text-ember"> · {plan.turnsIncomplete} not back by the deadline</span>}
               </dd>
             </div>
@@ -303,12 +379,26 @@ export function ThroneRoom() {
 
       <Reveal>
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Key figures">
-          <Stat label="Cash realized" value={money(g.cashRealized)} hint="Down payments + note sales, money in the door" valueClassName="text-stage-closed" />
+          <Stat
+            label="Cash realized"
+            value={money(g.cashRealized)}
+            hint={
+              tsy.totalOtherNoteSales > 0 ? (
+                <span data-testid="treasury-cash-reconcile">
+                  Farm-lot cash only. Cash realized {money(g.cashRealized)} + other note sales {money(tsy.totalOtherNoteSales)} = Treasury cash in{" "}
+                  {money(tsy.totalCashIn)}
+                </span>
+              ) : (
+                "Farm-lot cash only — down payments + note sales on farm lots"
+              )
+            }
+            valueClassName="text-stage-closed"
+          />
           <Stat label="Profit on paper" value={money(g.profitOnPaper)} hint="Net profit recognized but not yet cash" />
           <Stat
             label="Pipeline profit"
             value={money(g.netProfitInPipeline)}
-            hint={`${g.reservedLots} reserved lots, if every one closes as priced · ${money(x.committedNetProfit)} committed at ${pct(x.conversionPct, 0)} · ${money(realm.pipeline.netProfitTrapped)} stuck`}
+            hint={`${g.reservedLots} reserved lots, if every one closes as priced · ${money(x.committedNetProfit)} committed at ${pct(x.conversionPct, 0)} ${conversionForecastLabel} · ${money(realm.pipeline.netProfitTrapped)} stuck`}
             valueClassName="text-stage-reserved"
           />
           <Stat
@@ -320,7 +410,7 @@ export function ThroneRoom() {
             }
             hint={
               <span data-testid="key-capital-outstanding-hint">
-                Still owed to sponsors
+                Today&apos;s captive sponsor capital
                 {realm.debt.ownCapitalOutstanding > 0 ? (
                   <span data-testid="key-own-capital">
                     {" · + "}

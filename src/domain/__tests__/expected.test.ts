@@ -81,7 +81,7 @@ describe("expected: per reservation", () => {
   it("uses the conversion with cancellations: 2 closed of 2 matured + 1 cancelled = 66.67 %", () => {
     expect(realm.pipeline.conversion).toMatchObject({ cohort: 2, closed: 2, cancelled: 1, pct: 100, pctWithCancellations: 66.67 });
     expect(e.conversionPct).toBe(66.67);
-    expect(e.conversionSource).toBe("with_cancellations");
+    expect(e.conversionSource).toBe("resolved");
   });
 
   it("expected close = reservation + the farm's median when it has closings, else the realm's", () => {

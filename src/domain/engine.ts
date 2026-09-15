@@ -72,6 +72,11 @@ export interface EngineInputs {
   farmToFirstCloseMonths: number;
   /** Funding order; capital is what is already deployed (can rotate). */
   investorMix: InvestorMixEntry[];
+  /**
+   * Which $/lot average drives inventory profit and shortfall math.
+   * Default `era` — excludes pre-operation closings; toggle to `lifetime` for the all-time ledger.
+   */
+  profitBasis: "era" | "lifetime";
 }
 
 export interface EngineRealValues {
@@ -84,6 +89,8 @@ export interface EngineRealValues {
   cycleBenchmarkFarm: string | null;
   conversionPct: number | null;
   conversionWithCancellationsPct: number | null;
+  /** Resolved conversion preferred for forecasts; open matured reservations excluded. */
+  conversionResolvedPct: number | null;
   salesPace: number;
   lotsPerFarm: number | null;
   defaultLandCostPerLot: number;
@@ -245,7 +252,7 @@ export function deriveEngineDefaults(ctx: WarPlanContext): EngineDefaults {
       : Math.round(war.real.defaultLandCostPerLot * lotsPerFarm);
   const cycleMonths = benchmark.cycleMonths ?? 9;
   const salesPace = Math.max(0.01, war.real.closingsPerMonth);
-  const conversionPct = war.real.conversionWithCancellationsPct ?? war.real.conversionPct ?? 75;
+  const conversionPct = war.real.conversionResolvedPct ?? war.real.conversionWithCancellationsPct ?? war.real.conversionPct ?? 75;
   const first = farmToFirstCloseMonths(ctx.farms);
 
   return {
@@ -260,6 +267,8 @@ export function deriveEngineDefaults(ctx: WarPlanContext): EngineDefaults {
       salesPace: round2(salesPace),
       farmToFirstCloseMonths: first.months ?? 3,
       investorMix: prefillInvestorMix(ctx.investors),
+      // Era average is the better estimator: it excludes pre-operation closings.
+      profitBasis: "era",
     },
     real: {
       cycleMonths: benchmark.cycleMonths,
@@ -270,6 +279,7 @@ export function deriveEngineDefaults(ctx: WarPlanContext): EngineDefaults {
       cycleBenchmarkFarm: null,
       conversionPct: war.real.conversionPct,
       conversionWithCancellationsPct: war.real.conversionWithCancellationsPct,
+      conversionResolvedPct: war.real.conversionResolvedPct,
       salesPace: war.real.closingsPerMonth,
       lotsPerFarm: war.real.lotsPerFarm,
       defaultLandCostPerLot: war.real.defaultLandCostPerLot,
@@ -944,14 +954,18 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
   const inv = engineStartInventory(goal.availableLots, goal.reservedLots, inputs.conversionPct);
   const capDeadline = capitalDeadlineMonth(k, effectiveCycle);
   const adPerClosing = costPerClosing(inputs.costPerReservation, inputs.conversionPct);
+  const ledgerAvg =
+    inputs.profitBasis === "era"
+      ? (goal.recentAvgNetProfitPerClosedLot ?? goal.avgNetProfitPerClosedLot)
+      : goal.avgNetProfitPerClosedLot;
   const netPerLot = (() => {
     const g = inputs;
     const gross = ctx.oracleDefaults.avgSalePrice - (resolveFarmCost(g) / Math.max(1, g.lotsPerFarm));
-    // Prefer the ledger average when present — inventory profit should match the throne.
-    return goal.avgNetProfitPerClosedLot ?? round2(gross * (1 - ctx.oracleDefaults.investorTakePct / 100));
+    // Prefer the chosen ledger average (era by default) — inventory profit should match the throne's chosen basis.
+    return ledgerAvg ?? round2(gross * (1 - ctx.oracleDefaults.investorTakePct / 100));
   })();
 
-  const inventoryNetProfit = round2(inv.total * (goal.avgNetProfitPerClosedLot ?? netPerLot));
+  const inventoryNetProfit = round2(inv.total * (ledgerAvg ?? netPerLot));
   const inventoryMonths = inputs.salesPace > 0 ? round2(inv.total / inputs.salesPace) : null;
   const existingFarms: EngineExistingFarm[] = ctx.farms
     .filter((f) => f.capitalOutstanding > 0 || (f.totalLots - f.soldLots) > 0)
@@ -1038,8 +1052,7 @@ export function runEngine(inputs: EngineInputs, ctx: EngineContext): EngineResul
         : `Last month a farm can be bought and still return capital by the deadline: purchase month ${capDeadline} + ${Math.round(effectiveCycle)}-month cycle ≤ deadline month ${k}.`;
 
   const shortfallLots =
-    goal.avgNetProfitPerClosedLot !== null && goal.avgNetProfitPerClosedLot > 0
-      ? Math.ceil(shortfall / goal.avgNetProfitPerClosedLot)
+    ledgerAvg !== null && ledgerAvg > 0 ? Math.ceil(shortfall / ledgerAvg)
       : null;
   const shortfallFarms =
     inputs.lotsPerFarm > 0 && shortfallLots !== null ? Math.ceil(shortfallLots / inputs.lotsPerFarm) : farmsNeeded;

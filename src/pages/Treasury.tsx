@@ -21,14 +21,37 @@ export default function Treasury() {
 
   return (
     <div>
-      <PageHeader title="Treasury" subtitle="Real cash only. In: down payments at closing (full price on cash deals) and note sales. Out: every investor distribution. Monthly buyer collections are out of scope." />
+      <PageHeader title="Treasury" subtitle="Real cash only. In: down payments at closing (full price on cash deals), farm-lot note sales, and other note sales outside the farms. Out: every investor distribution. Monthly buyer collections are out of scope." />
       <TableErrorsBanner errors={data.tableErrors} />
 
       <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Cash in" value={money(t.totalCashIn)} hint={`Down payments ${moneyCompact(t.totalDownPayments)} · notes ${moneyCompact(t.totalAllNoteSales)}`} valueClassName="text-stage-closed" data-testid="treasury-cash-in" />
+        <Stat
+          label="Cash in"
+          value={money(t.totalCashIn)}
+          hint={
+            t.totalOtherNoteSales > 0 ? (
+              <span data-testid="treasury-cash-reconcile">
+                Cash realized {money(data.realm.goal.cashRealized)} + other note sales {money(t.totalOtherNoteSales)} = Treasury cash in {money(t.totalCashIn)}
+                {" · "}includes non-farm note sales ({moneyCompact(t.totalOtherNoteSales)})
+              </span>
+            ) : (
+              `Farm-lot cash: down payments ${moneyCompact(t.totalDownPayments)} · notes ${moneyCompact(t.totalNoteSales)}`
+            )
+          }
+          valueClassName="text-stage-closed"
+          data-testid="treasury-cash-in"
+        />
         <Stat label="Cash out to sponsors" value={money(t.totalCashOut)} hint={`Capital ${moneyCompact(t.totalCapitalReturns)} · profit share ${moneyCompact(t.totalProfitShares)}`} valueClassName="text-sponsor" data-testid="treasury-cash-out" />
         <Stat label="Net cash" value={money(t.net)} valueClassName={t.net >= 0 ? "text-gold" : "text-ember"} />
-        <Stat label="Note sales, all" value={money(t.totalAllNoteSales)} hint={t.totalOtherNoteSales > 0 ? `${moneyCompact(t.totalOtherNoteSales)} on notes outside the farms` : "all on farm lots"} />
+        <Stat
+          label="Note sales, all"
+          value={money(t.totalAllNoteSales)}
+          hint={
+            t.totalOtherNoteSales > 0
+              ? `Farm lots ${moneyCompact(t.totalNoteSales)} · ${moneyCompact(t.totalOtherNoteSales)} on notes outside the farms (the gap vs Cash realized)`
+              : "all on farm lots"
+          }
+        />
       </section>
 
       {rows.length === 0 ? (

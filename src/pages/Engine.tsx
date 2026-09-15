@@ -8,6 +8,7 @@ import {
   costPerClosing,
   engineDefaultsFromRealm,
   engineVerdict,
+  reconcileThroneAndEngine,
   resolveFarmCost,
   runEngine,
   type EngineInputs,
@@ -136,6 +137,10 @@ export default function EnginePage() {
   const farmCost = resolveFarmCost(inputs);
   const cycleMin = Math.max(1, (real.cycleMonths ?? 6) - 4);
   const cycleMax = (real.cycleMonths ?? 6) + 6;
+  const g = data.realm.goal;
+  const reconcile = reconcileThroneAndEngine(g, result, inputs.profitBasis === "era" ? "era" : "lifetime");
+  const eraAvg = g.recentAvgNetProfitPerClosedLot;
+  const lifetimeAvg = g.avgNetProfitPerClosedLot;
 
   return (
     <div lang={lang} data-testid="engine-page" data-lang={lang} data-horizon={horizonDeadline.slice(0, 4)}>
@@ -169,6 +174,12 @@ export default function EnginePage() {
             )}
           </p>
         )}
+        {(!reconcile.dollarsAgree || !reconcile.farmsAgree) && (
+          <div className="mt-4 space-y-1 border-t border-border/40 pt-4 text-sm text-muted-foreground" data-testid="engine-throne-reconcile">
+            {reconcile.dollarReason && <p>{reconcile.dollarReason}</p>}
+            {reconcile.farmReason && <p>{reconcile.farmReason}</p>}
+          </div>
+        )}
       </section>
 
       {/* Bottleneck call */}
@@ -185,6 +196,41 @@ export default function EnginePage() {
       {/* Inputs */}
       <section aria-label={t.inputs} className="parchment-card mb-6 p-4 sm:p-5" data-testid="engine-inputs">
         <h2 className="mb-4 font-heading text-lg">{t.inputs}</h2>
+
+        <div className="mb-5" data-testid="engine-profit-basis">
+          <p className="mb-2 text-sm">{t.profitBasis}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={inputs.profitBasis === "era" ? "default" : "outline"}
+              className="min-h-11"
+              onClick={() => update({ profitBasis: "era" })}
+              data-testid="engine-profit-basis-era"
+            >
+              {t.profitBasisEra}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={inputs.profitBasis === "lifetime" ? "default" : "outline"}
+              className="min-h-11"
+              onClick={() => update({ profitBasis: "lifetime" })}
+              data-testid="engine-profit-basis-lifetime"
+            >
+              {t.profitBasisLifetime}
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">{t.profitBasisWhy}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t.profitBasisFigures(
+              eraAvg === null ? "—" : money(eraAvg),
+              lifetimeAvg === null ? "—" : money(lifetimeAvg),
+              g.recentClosedLots,
+              g.closedLots,
+            )}
+          </p>
+        </div>
 
         <div className="mb-5">
           <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
@@ -252,7 +298,13 @@ export default function EnginePage() {
             min={1}
             max={100}
             suffix="%"
-            real={t.conversionHint(real.conversionWithCancellationsPct !== null ? pct(real.conversionWithCancellationsPct) : "—")}
+            real={t.conversionHint(
+              real.conversionResolvedPct !== null
+                ? pct(real.conversionResolvedPct)
+                : real.conversionWithCancellationsPct !== null
+                  ? pct(real.conversionWithCancellationsPct)
+                  : "—",
+            )}
           />
           <NumberField
             id="engine-lots"

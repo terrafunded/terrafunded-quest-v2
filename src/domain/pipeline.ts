@@ -31,16 +31,26 @@ export interface Conversion {
   cohort: number;
   closed: number;
   stillReserved: number;
-  /** closed ÷ cohort, in percent. Null when the cohort is empty. */
+  /**
+   * Blended: closed ÷ cohort, in percent. Counts still-open matured reservations in the
+   * denominator — useful as a trailing pulse, not as a forecast input (open ≠ failed).
+   */
   pct: number | null;
   /** Matured reservations whose only file case was cancelled — a conversion failure. */
   cancelled: number;
   /** cohort + cancelled. */
   cohortWithCancellations: number;
-  /** closed ÷ (cohort + cancelled), in percent — the conversion the War Plan spends ad dollars against. */
+  /** closed ÷ (cohort + cancelled), in percent — blended with cancellations, still includes open. */
   pctWithCancellations: number | null;
   /** cancelled ÷ (cohort + cancelled), in percent. */
   cancellationRatePct: number | null;
+  /**
+   * Resolved: closed ÷ (closed + cancelled). Open matured reservations are excluded — they have
+   * not failed yet. Forecasts (Expected, Engine, War Plan, Council) use this figure.
+   */
+  resolvedPct: number | null;
+  /** closed + cancelled — the resolved denominator. */
+  resolvedDenominator: number;
   maturityDays: number;
   /** Reservations on or before this date belong to the cohort. */
   cutoff: string;
@@ -182,6 +192,7 @@ export function computeConversion(lots: Lot[], asOf: Date, maturityDays = CONVER
     else stillReserved += 1;
   }
   const withCancellations = cohort + cancelled;
+  const resolvedDenominator = closed + cancelled;
   return {
     cohort,
     closed,
@@ -191,6 +202,8 @@ export function computeConversion(lots: Lot[], asOf: Date, maturityDays = CONVER
     cohortWithCancellations: withCancellations,
     pctWithCancellations: withCancellations > 0 ? round2((closed / withCancellations) * 100) : null,
     cancellationRatePct: withCancellations > 0 ? round2((cancelled / withCancellations) * 100) : null,
+    resolvedPct: resolvedDenominator > 0 ? round2((closed / resolvedDenominator) * 100) : null,
+    resolvedDenominator,
     maturityDays,
     cutoff: toIsoDate(cutoff),
   };

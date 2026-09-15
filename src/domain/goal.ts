@@ -68,6 +68,8 @@ export interface GoalStatus {
   inventoryGap: number | null;
   avgLotsPerFarm: number | null;
   farmsStillNeeded: number | null;
+  /** Inventory gap at the era $/lot: ceil((lotsStillNeededRecent − available) ÷ avgLotsPerFarm). */
+  farmsStillNeededRecent: number | null;
   onTrack: boolean | null;
   verdict: string;
 }
@@ -139,6 +141,9 @@ export function computeGoal(lots: Lot[], farms: FarmEconomics[], asOf: Date, opt
   const inventoryGap = lotsStillNeeded !== null ? lotsStillNeeded - available.length : null;
   const farmsStillNeeded =
     inventoryGap !== null && avgLotsPerFarm ? Math.max(0, Math.ceil(inventoryGap / avgLotsPerFarm)) : null;
+  const inventoryGapRecent = lotsStillNeededRecent !== null ? lotsStillNeededRecent - available.length : null;
+  const farmsStillNeededRecent =
+    inventoryGapRecent !== null && avgLotsPerFarm ? Math.max(0, Math.ceil(inventoryGapRecent / avgLotsPerFarm)) : null;
 
   const onTrack =
     remaining === 0 ? true : projectedDate !== null ? (parseDate(projectedDate) ?? deadline) <= deadline : null;
@@ -185,6 +190,7 @@ export function computeGoal(lots: Lot[], farms: FarmEconomics[], asOf: Date, opt
     inventoryGap,
     avgLotsPerFarm: avgLotsPerFarm === null ? null : round2(avgLotsPerFarm),
     farmsStillNeeded,
+    farmsStillNeededRecent,
     onTrack,
     verdict: "",
   };

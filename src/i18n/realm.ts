@@ -136,6 +136,12 @@ export interface RealmUiStrings {
     closingsPerMonth: string;
     onlyPace: string;
     conversion: string;
+    resolvedConversion: string;
+    resolvedHint: string;
+    stillOpen: string;
+    stillOpenHint: string;
+    blendedConversion: string;
+    blendedHint: string;
     conversionHint: (closed: number, cohort: number, maturityDays: number) => string;
     cancelled: (pct: string) => string;
     inclCancellations: (pct: string) => string;
@@ -348,6 +354,12 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       closingsPerMonth: "Closings / mo",
       onlyPace: "the only pace that counts",
       conversion: "Conversion",
+      resolvedConversion: "Resolved (forecasts)",
+      resolvedHint: "closed ÷ (closed + cancelled)",
+      stillOpen: "Still open",
+      stillOpenHint: "matured, not failures yet",
+      blendedConversion: "Blended",
+      blendedHint: "including unresolved reservations",
       conversionHint: (closed, cohort, maturity) => `${closed} of ${cohort} reserved ${maturity}+ days ago closed`,
       cancelled: (pct) => `${pct} cancelled`,
       inclCancellations: (pct) => `, ${pct} incl. cancellations`,
@@ -565,6 +577,12 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       closingsPerMonth: "Cierres / mes",
       onlyPace: "el único ritmo que cuenta",
       conversion: "Conversión",
+      resolvedConversion: "Resuelta (pronósticos)",
+      resolvedHint: "cerrados ÷ (cerrados + cancelados)",
+      stillOpen: "Aún abiertas",
+      stillOpenHint: "maduras, aún no fallidas",
+      blendedConversion: "Mezclada",
+      blendedHint: "incluye reservas sin resolver",
       conversionHint: (closed, cohort, maturity) => `${closed} de ${cohort} reservados hace ${maturity}+ días cerraron`,
       cancelled: (pct) => `${pct} canceladas`,
       inclCancellations: (pct) => `, ${pct} incl. cancelaciones`,

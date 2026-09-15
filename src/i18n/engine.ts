@@ -10,6 +10,11 @@ export interface EngineUiStrings {
   assumption: string;
   measured: string;
   inputs: string;
+  profitBasis: string;
+  profitBasisEra: string;
+  profitBasisLifetime: string;
+  profitBasisWhy: string;
+  profitBasisFigures: (era: string, lifetime: string, eraLots: number, lifetimeLots: number) => string;
   cycleMonths: string;
   cycleHint: (farm: string | null, excluded: string, source: string | null) => string;
   cycleSlider: string;
@@ -89,6 +94,12 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     assumption: "Assumption",
     measured: "Measured",
     inputs: "Inputs",
+    profitBasis: "Profit per lot basis",
+    profitBasisEra: "Era average (default)",
+    profitBasisLifetime: "Lifetime average",
+    profitBasisWhy: "Era excludes pre-operation closings — better estimator of today's business.",
+    profitBasisFigures: (era, lifetime, eraLots, lifetimeLots) =>
+      `Era ${era}/lot (${eraLots} closings) · Lifetime ${lifetime}/lot (${lifetimeLots} closings).`,
     cycleMonths: "Cycle length (months)",
     cycleHint: (farm, excluded, source) =>
       `Default from the rotation benchmark${source ? ` (${source})` : ""}${farm ? ` — ${farm}` : ""}. Lamar and other pre-era turns are excluded by ERA_START${excluded ? `: ${excluded}` : ""}. Slide to see the range; the whole page swings on this number.`,
@@ -96,7 +107,7 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     costPerReservation: "Cost per reservation",
     costPerReservationHint: "No ad-spend table in Payments. Cost per closing = this ÷ conversion.",
     conversion: "Conversion",
-    conversionHint: (pct) => `Pipeline conversion including cancellations (measured ${pct}).`,
+    conversionHint: (pct) => `Resolved conversion used for forecasts (measured ${pct}).`,
     costPerClosing: (n) => `Cost per closing ${n}`,
     lotsPerFarm: "Lots per farm",
     farmCost: "Cost per farm",
@@ -202,6 +213,12 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     assumption: "Supuesto",
     measured: "Medido",
     inputs: "Entradas",
+    profitBasis: "Base de utilidad por lote",
+    profitBasisEra: "Promedio de la era (por defecto)",
+    profitBasisLifetime: "Promedio de por vida",
+    profitBasisWhy: "La era excluye cierres pre-operación — mejor estimador del negocio de hoy.",
+    profitBasisFigures: (era, lifetime, eraLots, lifetimeLots) =>
+      `Era ${era}/lote (${eraLots} cierres) · Por vida ${lifetime}/lote (${lifetimeLots} cierres).`,
     cycleMonths: "Duración del ciclo (meses)",
     cycleHint: (farm, excluded, source) =>
       `Por defecto del ciclo de rotación${source ? ` (${source})` : ""}${farm ? ` — ${farm}` : ""}. Lamar y otros giros pre-era quedan fuera por ERA_START${excluded ? `: ${excluded}` : ""}. Desliza para ver el rango; toda la página gira sobre este número.`,
@@ -209,7 +226,7 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     costPerReservation: "Costo por reserva",
     costPerReservationHint: "No hay tabla de anuncios en Payments. Costo por cierre = esto ÷ conversión.",
     conversion: "Conversión",
-    conversionHint: (pct) => `Conversión del pipeline con cancelaciones (medida ${pct}).`,
+    conversionHint: (pct) => `Conversión resuelta usada en pronósticos (medida ${pct}).`,
     costPerClosing: (n) => `Costo por cierre ${n}`,
     lotsPerFarm: "Lotes por finca",
     farmCost: "Costo por finca",

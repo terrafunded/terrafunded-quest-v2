@@ -797,15 +797,22 @@ describe("cancellations count against conversion", () => {
     expect(c.cancellationRatePct).toBe(round2((1 / 7) * 100));
   });
 
-  it("the War Plan spends ads and books reservations against the conversion that includes cancellations", () => {
+  it("the War Plan spends ads and books reservations against the resolved conversion (open reservations excluded)", () => {
     const d = realm.warPlanDefaults;
-    expect(d.inputs.conversionPct).toBe(57.14);
-    expect(d.real).toMatchObject({ conversionPct: 66.67, conversionWithCancellationsPct: 57.14, cancellationRatePct: 14.29, cancelledReservations: 2 });
+    // Resolved = closed ÷ (closed + cancelled) = 4/5 = 80%. Blended-with-cancellations (57.14%) still reported on real.
+    expect(d.inputs.conversionPct).toBe(80);
+    expect(d.real).toMatchObject({
+      conversionPct: 66.67,
+      conversionWithCancellationsPct: 57.14,
+      conversionResolvedPct: 80,
+      cancellationRatePct: 14.29,
+      cancelledReservations: 2,
+    });
     const plan = solveWarPlan({ ...d.inputs, target: 1_000_000, seasonal: false }, realm);
     const r = plan.required;
     expect(r.closingsPerMonth).toBeGreaterThan(0);
-    expect(r.adSpendPerMonth).toBe(round2((r.closingsPerMonth / 0.5714) * 2_500));
-    expect(r.reservationsPerMonth).toBe(round2(r.closingsPerMonth / 0.5714));
+    expect(r.adSpendPerMonth).toBe(round2((r.closingsPerMonth / 0.8) * 2_500));
+    expect(r.reservationsPerMonth).toBe(round2(r.closingsPerMonth / 0.8));
     expect(r.reservationsPerMonth).toBeGreaterThan(r.closingsPerMonth);
   });
 });
