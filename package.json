@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:i18n": "vitest run src/i18n",
     "e2e": "playwright test",
     "snapshot": "tsx scripts/snapshot.ts",
     "check": "tsx scripts/check-connection.ts",

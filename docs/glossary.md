@@ -58,3 +58,13 @@ Canonical Spanish for every domain term. One term per concept across the whole a
 - Dates: `es-MX` → `19 may 2026` (never `May 19, 2026` in Spanish).
 - Money: `$` prefix with locale grouping (`es-MX` / `en-US`).
 - Plurals: `1 lote` / `2 lotes`; `1 lot` / `2 lots` — never mix.
+
+## Guards
+
+Regression guards live under `src/i18n/__tests__/` and `e2e/i18n-markers.spec.ts` (`npm run test:i18n` for the unit pair).
+
+1. **EN/ES key parity** (`parity.test.ts`) — every `*_UI` dictionary must expose identical leaf key paths in `en` and `es` (functions count as leaves).
+2. **No raw JSX English** (`no_raw_jsx_english.test.ts`) — TypeScript AST scan of `src/pages` and `src/components` flags JSX text and `aria-label` / `title` / `placeholder` / `alt` string literals that look like English prose (space + Latin letter, length > 3). Brand tokens without spaces (`Quest`, `Exodus`, `Sponsors`), pure numbers, testids, classNames, technical codes, `data-*`, and hrefs are out of scope. Remaining migration debt is listed in `I18N_LITERAL_ALLOWLIST` (full-string match); shrink that set, do not grow it for new copy.
+3. **Playwright bilingual markers** (`e2e/i18n-markers.spec.ts`) — each major route is loaded in `es` and `en`; body text must not contain the other language's domain markers (`Farm` / `Available` / English month names vs `Finca` / `Disponible` / `Utilidad`, etc.).
+
+**Deliberate English keeps** (OK in Spanish UI): **Quest**, **Exodus**, **Sponsor(s)**. Bare **Capital** is not treated as an English leak because Spanish copy reuses it (`Capital desplegado`, `capital propio`).
