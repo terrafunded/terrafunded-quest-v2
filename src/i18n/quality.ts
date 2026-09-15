@@ -13,6 +13,8 @@ export interface QualityUiStrings {
   oldestHint: (days: number, since: string) => string;
   oldestUndated: string;
   copyAll: string;
+  /** Downloads JSON + text of every figure, row and reconciliation across the app. */
+  exportAll: string;
   copyCard: string;
   copied: string;
   copyFailed: string;
@@ -53,6 +55,7 @@ export const QUALITY_UI: Record<QualityLang, QualityUiStrings> = {
     oldestHint: (days, since) => `${days} ${days === 1 ? "día" : "días"} · desde el ${since}`,
     oldestUndated: "sin fecha en los registros",
     copyAll: "Copiar todo para WhatsApp",
+    exportAll: "Exportar todo",
     copyCard: "Copiar para WhatsApp",
     copied: "Copiado",
     copyFailed: "No se pudo copiar",
@@ -91,6 +94,7 @@ export const QUALITY_UI: Record<QualityLang, QualityUiStrings> = {
     oldestHint: (days, since) => `${days} ${days === 1 ? "day" : "days"} · since ${since}`,
     oldestUndated: "no date on the records",
     copyAll: "Copy all for WhatsApp",
+    exportAll: "Export everything",
     copyCard: "Copy for WhatsApp",
     copied: "Copied",
     copyFailed: "Could not copy",
