@@ -190,10 +190,13 @@ export function greedyBuySchedule(
   let m = 1;
   while (m <= lastBuyMonth && schedule.length < maxFarms) {
     if (demand && demand.salesPace > 0) {
-      const lotsSecured = demand.startInventory + schedule.length * lotsPerFarm;
-      // Months of runway at the modelled pace. Buy only when a stockout is inside the land lag
-      // (otherwise inventory climbs forever as ASAP buys land faster than sales clear lots).
-      const runwayMonths = lotsSecured / demand.salesPace;
+      // Approximate on-hand lots at month m: start inventory, minus sales so far, plus farms
+      // that have already landed (bought landLag months ago). Buy only when a stockout is
+      // inside the land lag — otherwise ASAP buying piles inventory forever.
+      const landed = schedule.filter((b) => b + landLag <= m).length * lotsPerFarm;
+      const soldSoFar = demand.salesPace * Math.max(0, m - 1);
+      const onHand = Math.max(0, demand.startInventory + landed - soldSoFar);
+      const runwayMonths = onHand / demand.salesPace;
       const leadTime = Math.max(1, landLag + 1);
       if (runwayMonths > leadTime) {
         m += 1;
@@ -204,7 +207,11 @@ export function greedyBuySchedule(
     const last = trial[trial.length - 1];
     if (last && last.unfunded <= 1e-6) {
       schedule.push(m);
-      // Same month may fund another farm if the mix still has capital.
+      if (demand && demand.salesPace > 0) {
+        // Demand-capped mode: one farm per stockout signal, then wait for sales to drain again.
+        m += 1;
+      }
+      // Without demand: same month may fund another farm if the mix still has capital.
     } else {
       m += 1;
     }
