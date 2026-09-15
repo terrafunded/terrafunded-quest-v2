@@ -96,8 +96,6 @@ export function reconcileThroneAndEngine(
     goal.monthsToDeadline,
     cycleMonths,
   );
-  const engineFarmsForGap =
-    engineFarmsNeeded > 0 ? engineFarmsNeeded : (rotationFarms ?? Math.max(engineFarmsNeeded, engineFarmsBought));
   const farmGap = throne.farms === null || rotationFarms === null ? null : throne.farms - rotationFarms;
   const farmsAgree =
     farmGap === null ||
