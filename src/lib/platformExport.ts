@@ -25,7 +25,7 @@ import { NAV_UI } from "@/i18n/nav";
 import { TREASURY_UI } from "@/i18n/treasury";
 import { PIPELINE_UI } from "@/i18n/pipeline";
 import { WAR_PLAN_UI } from "@/i18n/warPlan";
-import { farmsStillNeededWithTurns } from "@/domain/goal";
+import { } from "@/domain/goal";
 
 export interface ExportFigure {
   id: string;
@@ -790,23 +790,14 @@ function runReconciliations(
         : "lotsStillNeeded rounding drifted too far from remaining.",
     ),
     mkCheck(
-      "throne_vs_engine_farms",
-      lang === "es" ? "Trono farmsStillNeeded vs Motor farmsNeeded" : "Throne farmsStillNeeded vs Engine farmsNeeded",
+      "throne_vs_path_farms",
+      lang === "es" ? "Trono farmsStillNeeded vs pathToGoal.farmsToBuy" : "Throne farmsStillNeeded vs pathToGoal.farmsToBuy",
       { label: "throne.farmsStillNeeded", value: g.farmsStillNeeded },
-      {
-        label: "rotation farmsStillNeeded (shared formula)",
-        value: farmsStillNeededWithTurns(
-          g.inventoryGap,
-          g.avgLotsPerFarm,
-          g.monthsToDeadline,
-          engine.inputs.cycleMonths,
-        ),
-      },
+      { label: "pathToGoal.farmsToBuy", value: realm.pathToGoal.farmsToBuy },
       0,
-      throneEngine.farmReason ??
-        (lang === "es"
-          ? "El modelo plano del Trono y el de rotación del Motor discrepan en fincas."
-          : "Throne flat model and Engine rotation model disagree on farms."),
+      lang === "es"
+        ? "El Trono y el pathToGoal compartido discrepan en fincas."
+        : "Throne and shared pathToGoal disagree on farms.",
     ),
     mkCheck(
       "engine_peak_equals_series_max",

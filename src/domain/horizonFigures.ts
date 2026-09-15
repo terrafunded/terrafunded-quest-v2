@@ -12,7 +12,6 @@
 import type { Realm } from "./realm";
 import { engineDefaultsFromRealm, runEngine, type EngineResult } from "./engine";
 import { computeCouncil, type Insight } from "./council";
-import { farmsStillNeededWithTurns } from "./goal";
 import { pulseRatioPct } from "./pulse";
 import { round2 } from "./math";
 import type { ExitHorizon } from "../config/goal";
@@ -80,14 +79,12 @@ function fig(
   };
 }
 
-/** Shared farms-to-buy figure — Throne, Engine reconcile, and this catalog all read it. */
+/**
+ * Shared farms-to-buy figure — Throne, Engine, Council and War Plan all read
+ * `realm.pathToGoal.farmsToBuy` (War Plan required rotation schedule).
+ */
 export function sharedFarmsStillNeeded(realm: Realm): number | null {
-  return farmsStillNeededWithTurns(
-    realm.goal.inventoryGap,
-    realm.goal.avgLotsPerFarm,
-    realm.goal.monthsToDeadline,
-    realm.rotation.cycleMonths,
-  );
+  return realm.pathToGoal.farmsToBuy;
 }
 
 function throneFigures(realm: Realm): HorizonFigure[] {
@@ -121,11 +118,20 @@ function throneFigures(realm: Realm): HorizonFigure[] {
     }),
     fig("/", "neededPerDay", "NEEDED $/day", needed, "horizon_dependent", { direction: "decrease" }),
     fig("/", "pulseRatio", "Pulse % of required pace", ratio, "horizon_dependent", { direction: "increase" }),
-    fig("/", "farmsStillNeeded", "Farms still needed (capital turns)", g.farmsStillNeeded, "horizon_dependent", {
-      direction: "decrease",
+    fig("/", "farmsStillNeeded", "Farms to buy (rotation schedule)", g.farmsStillNeeded, "horizon_dependent", {
+      direction: "non_increase",
     }),
-    fig("/", "farmsStillNeededShared", "Farms still needed (shared formula)", sharedFarmsStillNeeded(realm), "horizon_dependent", {
-      direction: "decrease",
+    fig("/", "farmsStillNeededShared", "Farms to buy (shared pathToGoal)", sharedFarmsStillNeeded(realm), "horizon_dependent", {
+      direction: "non_increase",
+    }),
+    fig("/", "capitalToRaise", "Capital to raise (rotation peak)", realm.pathToGoal.capitalToRaise, "horizon_dependent", {
+      direction: "non_increase",
+    }),
+    fig("/", "inventoryRunwayMonths", "Inventory runway months", realm.pathToGoal.inventoryRunwayMonths, "historical", {
+      labeled: true,
+    }),
+    fig("/", "nextFarmFundByDate", "Next farm fund-by date", realm.pathToGoal.nextFarmFundByDate, "historical", {
+      labeled: true,
     }),
     fig("/", "interestToDeadline", "Interest accrued by deadline", n((d.interestPerDay ?? 0) * (d.daysLeft ?? 0)), "horizon_dependent", {
       direction: "increase",
@@ -166,8 +172,11 @@ function engineFigures(realm: Realm, engine: EngineResult): HorizonFigure[] {
       direction: "increase",
     }),
     fig("/engine", "deadline", "Engine deadline", engine.deadline, "horizon_dependent", { direction: "later_iso" }),
-    fig("/engine", "farmsStillNeededShared", "Farms still needed (shared formula)", shared, "horizon_dependent", {
-      direction: "decrease",
+    fig("/engine", "farmsStillNeededShared", "Farms to buy (shared pathToGoal)", shared, "horizon_dependent", {
+      direction: "non_increase",
+    }),
+    fig("/engine", "capitalToRaiseShared", "Capital to raise (shared pathToGoal)", realm.pathToGoal.capitalToRaise, "horizon_dependent", {
+      direction: "non_increase",
     }),
     fig("/engine", "farmsNeeded", "Farms needing fresh capital", f.farmsNeeded, "deliberately_independent", {
       labeled: true,
@@ -237,7 +246,15 @@ function councilFigures(insights: Insight[]): HorizonFigure[] {
 
     for (const [k, v] of Object.entries(insight.figures)) {
       const id = `${insight.id}.${k}`;
-      if (insight.id === "inventory" && (k === "needed" || k === "inventoryGap")) {
+      if (
+        insight.id === "inventory" &&
+        (k === "lotsToSell" ||
+          k === "farmsToBuy" ||
+          k === "runwayMonths" ||
+          k === "inventoryZeroDate" ||
+          k === "nextFarmFundByDate" ||
+          k === "farmToFirstCloseLagMonths")
+      ) {
         out.push(
           fig("/council", id, `Council inventory · ${k}`, v, "deliberately_independent", {
             labeled: true,
@@ -249,7 +266,7 @@ function councilFigures(insights: Insight[]): HorizonFigure[] {
         const dir: FigureDirection =
           k === "deadline" ? "later_iso" : k === "daysLeft" ? "increase" : "decrease";
         // Numeric council figures are pre-formatted strings — compare numerically when possible.
-        const numeric = Number(String(v).replace(/[^0-9.\-]/g, ""));
+        const numeric = Number(String(v).replace(/[^0-9.-]/g, ""));
         const value = k === "deadline" || !Number.isFinite(numeric) ? v : numeric;
         out.push(fig("/council", id, `Council ${insight.id} · ${k}`, value, "horizon_dependent", { direction: dir }));
       } else {
