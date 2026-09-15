@@ -66,20 +66,20 @@ export function PipelinePanel({ pipeline, className }: { pipeline: Pipeline; cla
           </div>
           <div className="col-span-2 rounded-md bg-background/40 p-3" data-testid="pipeline-conversion-block">
             <div className="stat-label">{t.conversion}</div>
-            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
               <div>
                 <div className="text-[11px] text-muted-foreground">{t.resolvedConversion}</div>
-                <div className="font-heading text-xl tabular text-stage-closed" data-testid="pipeline-conversion-resolved">
-                  {c.resolvedPct === null ? "—" : pct(c.resolvedPct)}
+                <div className="text-pretty font-heading text-sm tabular leading-snug text-stage-closed sm:text-base" data-testid="pipeline-conversion-resolved">
+                  {c.resolvedPct === null
+                    ? "—"
+                    : t.resolvedStatement(pct(c.resolvedPct), c.closed, c.resolvedDenominator, c.stillReserved)}
                 </div>
                 <div className="text-[11px] text-muted-foreground">{t.resolvedHint}</div>
-              </div>
-              <div>
-                <div className="text-[11px] text-muted-foreground">{t.stillOpen}</div>
-                <div className="font-heading text-xl tabular text-stage-reserved" data-testid="pipeline-conversion-open">
-                  {c.stillReserved}
-                </div>
-                <div className="text-[11px] text-muted-foreground">{t.stillOpenHint}</div>
+                {c.thinSample ? (
+                  <div className="mt-1 text-[11px] text-ember" data-testid="pipeline-conversion-warning">
+                    {t.resolvedWarning}
+                  </div>
+                ) : null}
               </div>
               <div>
                 <div className="text-[11px] text-muted-foreground">{t.blendedConversion}</div>
@@ -87,7 +87,7 @@ export function PipelinePanel({ pipeline, className }: { pipeline: Pipeline; cla
                   {c.pct === null ? "—" : pct(c.pct)}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  {t.blendedHint}
+                  {t.blendedLabel}
                   {c.cancellationRatePct !== null && (
                     <>
                       {" · "}

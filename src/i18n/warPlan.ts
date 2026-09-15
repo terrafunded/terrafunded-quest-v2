@@ -31,7 +31,7 @@ export interface WarPlanUiStrings {
   adSpendHint: string;
   conversion: string;
   conversionIncl: (withCanc: string, closed: string, cohort: string, live: string) => string;
-  conversionHint: (rate: string | null, cancelled: string, allCancelled: string) => string;
+  conversionHint: (rate: string | null, cancelled: string, allCancelled: string, closed: number, denom: number, open: number) => string;
   farmLag: string;
   farmLagReal: (months: string, farms: number) => string;
   farmLagNone: string;
@@ -288,8 +288,10 @@ export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
     adSpendHint: "Monthly ads = closings ÷ conversion × this",
     conversion: "Reservation → closing conversion",
     conversionIncl: (withCanc, closed, cohort, live) => `${withCanc} incl. cancellations (${closed} of ${cohort}) · ${live} live only`,
-    conversionHint: (rate, cancelled, all) =>
-      rate === null ? "Cancelled reservations count as failures" : `Cancellation rate ${rate} — ${cancelled} matured reservations cancelled, ${all} cancelled in all`,
+    conversionHint: (rate, cancelled, all, closed, denom, open) =>
+      rate === null
+        ? `Cancelled reservations count as failures · ${closed} of ${denom} resolved · ${open} still open`
+        : `Cancellation rate ${rate} — ${cancelled} matured reservations cancelled, ${all} cancelled in all · ${closed} of ${denom} resolved · ${open} still open`,
     farmLag: "Farm purchase → first closing",
     farmLagReal: (months, farms) => `${months} mo (median of ${farms} farms)`,
     farmLagNone: "no farm has closed a lot yet",
@@ -567,8 +569,10 @@ export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
     adSpendHint: "Anuncios mensuales = cierres ÷ conversión × esto",
     conversion: "Conversión reserva → cierre",
     conversionIncl: (withCanc, closed, cohort, live) => `${withCanc} incl. cancelaciones (${closed} de ${cohort}) · ${live} solo vivas`,
-    conversionHint: (rate, cancelled, all) =>
-      rate === null ? "Las reservas canceladas cuentan como fallos" : `Tasa de cancelación ${rate} — ${cancelled} reservas maduras canceladas, ${all} canceladas en total`,
+    conversionHint: (rate, cancelled, all, closed, denom, open) =>
+      rate === null
+        ? `Las reservas canceladas cuentan como fallos · ${closed} de ${denom} resueltas · ${open} aún abiertas`
+        : `Tasa de cancelación ${rate} — ${cancelled} reservas maduras canceladas, ${all} canceladas en total · ${closed} de ${denom} resueltas · ${open} aún abiertas`,
     farmLag: "Compra de finca → primer cierre",
     farmLagReal: (months, farms) => `${months} mes (mediana de ${farms} fincas)`,
     farmLagNone: "ninguna finca ha cerrado un lote aún",

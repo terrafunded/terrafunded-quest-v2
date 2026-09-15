@@ -42,7 +42,7 @@ test.describe("Council", () => {
     await expect(page.getByTestId("weekly-read-unavailable")).toBeVisible();
     await expect(page.getByTestId("weekly-read-body")).toHaveCount(0);
     await expect(page.getByTestId("council-insights")).toBeVisible();
-    await expect(page.getByTestId("council-insight")).toHaveCount(8);
+    await expect(page.getByTestId("council-insight")).toHaveCount(9);
     await expect(page.getByTestId("weekly-read")).toHaveAttribute("data-source", "written");
     await expect(page.getByTestId("council-insights")).toHaveAttribute("data-source", "ledger");
   });
@@ -58,7 +58,7 @@ test.describe("Council", () => {
     await expect(page.getByTestId("weekly-read-watch")).toContainText("binding constraint");
     await expect(page.getByTestId("weekly-read-generated")).toContainText(/generated|generada/i);
     await expect(page.getByTestId("weekly-read-disclaimer")).toBeVisible();
-    await expect(page.getByTestId("council-insight")).toHaveCount(8);
+    await expect(page.getByTestId("council-insight")).toHaveCount(9);
     const weeklyBox = await page.getByTestId("weekly-read").boundingBox();
     const ledgerBox = await page.getByTestId("council-insights").boundingBox();
     expect(weeklyBox && ledgerBox && weeklyBox.y < ledgerBox.y).toBe(true);

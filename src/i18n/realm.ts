@@ -139,10 +139,13 @@ export interface RealmUiStrings {
     onlyPace: string;
     conversion: string;
     resolvedConversion: string;
+    resolvedStatement: (pct: string, closed: number, denom: number, open: number) => string;
     resolvedHint: string;
+    resolvedWarning: string;
     stillOpen: string;
     stillOpenHint: string;
     blendedConversion: string;
+    blendedLabel: string;
     blendedHint: string;
     conversionHint: (closed: number, cohort: number, maturityDays: number) => string;
     cancelled: (pct: string) => string;
@@ -360,10 +363,13 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       onlyPace: "the only pace that counts",
       conversion: "Conversion",
       resolvedConversion: "Resolved (forecasts)",
+      resolvedStatement: (p, closed, denom, open) => `${p} — ${closed} of ${denom} resolved · ${open} still open`,
       resolvedHint: "closed ÷ (closed + cancelled)",
+      resolvedWarning: "This estimate rests on few resolved outcomes relative to how many reservations are still open.",
       stillOpen: "Still open",
       stillOpenHint: "matured, not failures yet",
       blendedConversion: "Blended",
+      blendedLabel: "including unresolved reservations",
       blendedHint: "including unresolved reservations",
       conversionHint: (closed, cohort, maturity) => `${closed} of ${cohort} reserved ${maturity}+ days ago closed`,
       cancelled: (pct) => `${pct} cancelled`,
@@ -585,10 +591,13 @@ export const REALM_UI: Record<QualityLang, RealmUiStrings> = {
       onlyPace: "el único ritmo que cuenta",
       conversion: "Conversión",
       resolvedConversion: "Resuelta (pronósticos)",
+      resolvedStatement: (p, closed, denom, open) => `${p} — ${closed} de ${denom} resueltas · ${open} aún abiertas`,
       resolvedHint: "cerrados ÷ (cerrados + cancelados)",
+      resolvedWarning: "Esta estimación descansa en pocos desenlaces resueltos frente a las reservas que siguen abiertas.",
       stillOpen: "Aún abiertas",
       stillOpenHint: "maduras, aún no fallidas",
       blendedConversion: "Mezclada",
+      blendedLabel: "incluye reservas sin resolver",
       blendedHint: "incluye reservas sin resolver",
       conversionHint: (closed, cohort, maturity) => `${closed} de ${cohort} reservados hace ${maturity}+ días cerraron`,
       cancelled: (pct) => `${pct} canceladas`,

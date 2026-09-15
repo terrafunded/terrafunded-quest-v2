@@ -80,6 +80,12 @@ export interface Lot {
   closeDate: string | null;
   estimatedClosingDate: string | null;
   daysInPipeline: number | null;
+  currentStageName: string | null;
+  currentStageNumber: number | null;
+  progressPct: number | null;
+  hasBlockedStages: boolean;
+  hasOverdueStages: boolean;
+  fileCaseUpdatedAt: string | null;
 
   noteId: string | null;
   noteCode: string | null;
@@ -378,6 +384,12 @@ export function computeLots(inputs: LotInputs): Lot[] {
       closeDate: close ? toIsoDate(close) : null,
       estimatedClosingDate: fileCase?.estimated_closing_date ?? null,
       daysInPipeline,
+      currentStageName: fileCase?.current_stage_name ?? null,
+      currentStageNumber: fileCase?.current_stage_number ?? null,
+      progressPct: fileCase?.progress_pct ?? null,
+      hasBlockedStages: fileCase?.has_blocked_stages === true,
+      hasOverdueStages: fileCase?.has_overdue_stages === true,
+      fileCaseUpdatedAt: fileCase?.updated_at ?? null,
       noteId: note?.id ?? null,
       noteCode: note?.note_code ?? null,
       noteFinancedAmount: note?.financed_amount ?? null,

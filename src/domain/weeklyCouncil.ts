@@ -118,7 +118,15 @@ export function buildWeeklyFacts(realm: Realm, insights: Insight[], opts: { hori
       requiredClosingsPerMonth: g.requiredLotsPerMonthToHitDeadline === null ? "—" : number(g.requiredLotsPerMonthToHitDeadline),
       reservationsPerMonth: number(realm.expected.reservationsPerMonth),
       requiredReservationsPerMonth: realm.expected.requiredReservationsPerMonth === null ? "—" : number(realm.expected.requiredReservationsPerMonth),
-      conversion: realm.pipeline.conversion.pct === null ? "—" : pct(realm.pipeline.conversion.pct, 0),
+      conversion: (() => {
+        const c = realm.pipeline.conversion;
+        const resolved = c.resolvedPct === null ? "—" : pct(c.resolvedPct, 0);
+        const blended = c.pct === null ? "—" : pct(c.pct, 0);
+        if (c.resolvedPct === null) return blended;
+        return opts.lang === "es"
+          ? `${resolved} — ${c.closed} de ${c.resolvedDenominator} resueltas · ${c.stillReserved} aún abiertas · ${blended} incluye sin resolver`
+          : `${resolved} — ${c.closed} of ${c.resolvedDenominator} resolved · ${c.stillReserved} still open · ${blended} including unresolved`;
+      })(),
       lotsAvailable: String(g.availableLots),
       lotsReserved: String(g.reservedLots),
       lotsStillNeeded: g.lotsStillNeeded === null ? "—" : String(g.lotsStillNeeded),

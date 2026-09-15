@@ -21,7 +21,7 @@ export interface EngineUiStrings {
   costPerReservation: string;
   costPerReservationHint: string;
   conversion: string;
-  conversionHint: (pct: string) => string;
+  conversionHint: (pct: string, closed: number, denom: number, open: number) => string;
   costPerClosing: (n: string) => string;
   lotsPerFarm: string;
   farmCost: string;
@@ -113,7 +113,8 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     costPerReservation: "Cost per reservation",
     costPerReservationHint: "No ad-spend table in Payments. Cost per closing = this ÷ conversion.",
     conversion: "Conversion",
-    conversionHint: (pct) => `Resolved conversion used for forecasts (measured ${pct}).`,
+    conversionHint: (pct, closed, denom, open) =>
+      `Resolved conversion used for forecasts (measured ${pct} — ${closed} of ${denom} resolved · ${open} still open).`,
     costPerClosing: (n) => `Cost per closing ${n}`,
     lotsPerFarm: "Lots per farm",
     farmCost: "Cost per farm",
@@ -241,7 +242,8 @@ export const ENGINE_UI: Record<QualityLang, EngineUiStrings> = {
     costPerReservation: "Costo por reserva",
     costPerReservationHint: "No hay tabla de anuncios en Payments. Costo por cierre = esto ÷ conversión.",
     conversion: "Conversión",
-    conversionHint: (pct) => `Conversión resuelta usada en pronósticos (medida ${pct}).`,
+    conversionHint: (pct, closed, denom, open) =>
+      `Conversión resuelta usada en pronósticos (medida ${pct} — ${closed} de ${denom} resueltas · ${open} aún abiertas).`,
     costPerClosing: (n) => `Costo por cierre ${n}`,
     lotsPerFarm: "Lotes por finca",
     farmCost: "Costo por finca",

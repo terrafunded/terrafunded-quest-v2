@@ -227,6 +227,9 @@ export default function WarPlanPage() {
               real.cancellationRatePct === null ? null : pct(real.cancellationRatePct, 1),
               number(data.realm.pipeline.conversion.cancelled),
               number(real.cancelledReservations),
+              data.realm.pipeline.conversion.closed,
+              data.realm.pipeline.conversion.resolvedDenominator,
+              data.realm.pipeline.conversion.stillReserved,
             )}
           />
           <NumberField
