@@ -36,6 +36,8 @@ export interface ThroneRoomUiStrings {
   eraLotsFarms: (lots: number, farms: string) => string;
   engineReconcile: string;
   seeEngine: string;
+  verdictLotsMonth: string;
+  verdictLotsMonthAnnotated: string;
   thisMonthAria: string;
   reservationsThisMonth: string;
   pledgedIn: (month: string) => string;
@@ -127,6 +129,8 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     eraLotsFarms: (lots, farms) => ` (era: ${lots} lots · ${farms} farms)`,
     engineReconcile: "Throne pace is unconstrained; the Engine caps inventory and capital turns",
     seeEngine: "see The Engine →",
+    verdictLotsMonth: "lots/month",
+    verdictLotsMonthAnnotated: "lots/month from the ledger average",
     thisMonthAria: "This month",
     reservationsThisMonth: "Reservations this month",
     pledgedIn: (m) => `pledged in ${m}`,
@@ -228,6 +232,8 @@ export const THRONE_ROOM_UI: Record<QualityLang, ThroneRoomUiStrings> = {
     eraLotsFarms: (lots, farms) => ` (era: ${lots} lotes · ${farms} fincas)`,
     engineReconcile: "El ritmo del Trono no tiene tope; El Motor limita inventario y giros de capital",
     seeEngine: "ver El Motor →",
+    verdictLotsMonth: "lotes/mes",
+    verdictLotsMonthAnnotated: "lotes/mes del promedio del libro",
     thisMonthAria: "Este mes",
     reservationsThisMonth: "Reservas este mes",
     pledgedIn: (m) => `comprometidas en ${m}`,

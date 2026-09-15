@@ -3,6 +3,7 @@ import type { Expected } from "./expected";
 import { runOracle, type OracleParams, type OracleResult, type OracleRunOptions, type ScheduledClosing } from "./oracle";
 import { daysBetween, parseDate } from "./dates";
 import { round2 } from "./math";
+import type { QualityLang } from "./quality_human";
 
 export type FutureId = "current_pace" | "required_pace" | "one_more_farm" | "closings_only";
 
@@ -46,6 +47,7 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 export interface FuturesOptions {
   /** "since Mar 2026" when the farm cadence is measured from the era start (oracle.ts farmCadence); tagged in the premises. */
   cadenceSince?: string | null;
+  lang?: QualityLang;
 }
 
 /**
@@ -62,7 +64,11 @@ export function computeFutures(
   expected?: Expected,
   opts: FuturesOptions = {},
 ): Futures {
-  const cadence = `a new farm every ${defaults.newFarmEveryMonths} months${opts.cadenceSince ? ` (${opts.cadenceSince})` : ""}`;
+  const lang = opts.lang ?? "en";
+  const es = lang === "es";
+  const cadence = es
+    ? `una finca nueva cada ${defaults.newFarmEveryMonths} meses${opts.cadenceSince ? ` (${opts.cadenceSince})` : ""}`
+    : `a new farm every ${defaults.newFarmEveryMonths} months${opts.cadenceSince ? ` (${opts.cadenceSince})` : ""}`;
   const build = (id: FutureId, title: string, premise: string, params: OracleParams, inventory: number, opts: OracleRunOptions = {}): Future => {
     const result = runOracle(params, goal, inventory, asOf, opts);
     return {
@@ -79,10 +85,13 @@ export function computeFutures(
     };
   };
 
+  const liveWord = plural(expected?.liveReservations ?? 0, es ? "reserva" : "reservation", es ? "reservas" : "reservations");
   const closingsOnly = build(
     "closings_only",
-    "If no reservation ever closed",
-    `${defaults.lotsPerMonth} closings/month and ${cadence} — the trailing closing pace alone, blind to the ${expected?.liveReservations ?? 0} live ${plural(expected?.liveReservations ?? 0, "reservation", "reservations")}.`,
+    es ? "Si ninguna reserva cerrara" : "If no reservation ever closed",
+    es
+      ? `${defaults.lotsPerMonth} cierres/mes y ${cadence} — solo el ritmo de cierres, ciego a las ${expected?.liveReservations ?? 0} ${liveWord} vivas.`
+      : `${defaults.lotsPerMonth} closings/month and ${cadence} — the trailing closing pace alone, blind to the ${expected?.liveReservations ?? 0} live ${liveWord}.`,
     defaults,
     startInventory,
   );
@@ -97,10 +106,15 @@ export function computeFutures(
   const currentOpts: OracleRunOptions = expected ? { scheduled, paceLagDays: lagDays } : {};
   const currentParams: OracleParams = { ...defaults, lotsPerMonth: steadyPace };
   const currentPremise = expected
-    ? `${expected.liveReservations} live ${plural(expected.liveReservations, "reservation", "reservations")} close on their expected dates at ${expected.conversionPct}% conversion` +
-      `${expected.overdueCount > 0 ? ` (${expected.overdueCount} already overdue, counted in the first month)` : ""}; after the ${lagDays}-day lag, new reservations at ${expected.reservationsPerMonth}/month keep closing at that rate — ${steadyPace} lots/month — with ${cadence}.`
-    : `${defaults.lotsPerMonth} lots/month and ${cadence} — exactly the trailing averages.`;
-  const current = build("current_pace", "At the current pace", currentPremise, currentParams, startInventory, currentOpts);
+    ? es
+      ? `${expected.liveReservations} ${liveWord} vivas cierran en sus fechas esperadas al ${expected.conversionPct}% de conversión` +
+        `${expected.overdueCount > 0 ? ` (${expected.overdueCount} ya vencidas, contadas en el primer mes)` : ""}; tras el desfase de ${lagDays} días, nuevas reservas a ${expected.reservationsPerMonth}/mes siguen cerrando a ese ritmo — ${steadyPace} lotes/mes — con ${cadence}.`
+      : `${expected.liveReservations} live ${liveWord} close on their expected dates at ${expected.conversionPct}% conversion` +
+        `${expected.overdueCount > 0 ? ` (${expected.overdueCount} already overdue, counted in the first month)` : ""}; after the ${lagDays}-day lag, new reservations at ${expected.reservationsPerMonth}/month keep closing at that rate — ${steadyPace} lots/month — with ${cadence}.`
+    : es
+      ? `${defaults.lotsPerMonth} lotes/mes y ${cadence} — exactamente los promedios recientes.`
+      : `${defaults.lotsPerMonth} lots/month and ${cadence} — exactly the trailing averages.`;
+  const current = build("current_pace", es ? "Al ritmo actual" : "At the current pace", currentPremise, currentParams, startInventory, currentOpts);
 
   // Required pace in the Oracle's own economics (its net profit per lot), so this future lands
   // on the deadline; GoalStatus.requiredLotsPerMonthToHitDeadline uses the ledger average instead.
@@ -117,8 +131,10 @@ export function computeFutures(
       : defaults.newFarmEveryMonths;
   const required = build(
     "required_pace",
-    "At the required pace",
-    `${requiredPace} lots/month — what the deadline demands — buying a farm every ${farmCadence} months to keep inventory.`,
+    es ? "Al ritmo requerido" : "At the required pace",
+    es
+      ? `${requiredPace} lotes/mes — lo que exige la fecha límite — comprando una finca cada ${farmCadence} meses para mantener inventario.`
+      : `${requiredPace} lots/month — what the deadline demands — buying a farm every ${farmCadence} months to keep inventory.`,
     { ...defaults, lotsPerMonth: requiredPace, newFarmEveryMonths: farmCadence },
     startInventory,
   );
@@ -128,8 +144,10 @@ export function computeFutures(
   const perFarmPace = activeFarms > 0 ? round2(steadyPace / activeFarms) : 0;
   const oneMoreFarm = build(
     "one_more_farm",
-    "Current pace, one more farm",
-    `One extra farm of ${defaults.avgLotsPerFarm} lots bought today and selling like the others: ${round2(steadyPace + perFarmPace)} lots/month in total${expected ? ", on top of the same reservations" : ""}.`,
+    es ? "Ritmo actual, una finca más" : "Current pace, one more farm",
+    es
+      ? `Una finca extra de ${defaults.avgLotsPerFarm} lotes comprada hoy y vendiendo como las demás: ${round2(steadyPace + perFarmPace)} lotes/mes en total${expected ? ", encima de las mismas reservas" : ""}.`
+      : `One extra farm of ${defaults.avgLotsPerFarm} lots bought today and selling like the others: ${round2(steadyPace + perFarmPace)} lots/month in total${expected ? ", on top of the same reservations" : ""}.`,
     { ...currentParams, lotsPerMonth: round2(steadyPace + perFarmPace) },
     startInventory + defaults.avgLotsPerFarm,
     currentOpts,

@@ -138,7 +138,7 @@ export default function EnginePage() {
   const cycleMin = Math.max(1, (real.cycleMonths ?? 6) - 4);
   const cycleMax = (real.cycleMonths ?? 6) + 6;
   const g = data.realm.goal;
-  const reconcile = reconcileThroneAndEngine(g, result, inputs.profitBasis === "era" ? "era" : "lifetime");
+  const reconcile = reconcileThroneAndEngine(g, result, inputs.profitBasis === "era" ? "era" : "lifetime", lang);
   const eraAvg = g.recentAvgNetProfitPerClosedLot;
   const lifetimeAvg = g.avgNetProfitPerClosedLot;
 

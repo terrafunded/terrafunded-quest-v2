@@ -28,6 +28,7 @@ import { Reveal } from "@/components/realm/Reveal";
 import { Stat } from "@/components/realm/Stat";
 import { EmptyState, ErrorState, LoadingState, TableErrorsBanner } from "@/components/realm/PageStates";
 import { useCommonStrings } from "@/i18n/common";
+import { useLang } from "@/i18n/lang";
 import { useThroneRoomStrings } from "@/i18n/throneRoom";
 import { date, money, moneyCompact, monthLabel, number, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ const EVENT_CLASS: Record<RealmEvent["kind"], string> = {
 
 export function ThroneRoom() {
   const { data, isLoading, error, refetch } = useRealm();
+  const [lang] = useLang();
   const t = useThroneRoomStrings();
   const common = useCommonStrings();
 
@@ -64,8 +66,8 @@ export function ThroneRoom() {
     const defaults = engineDefaultsFromRealm(data.realm, farm);
     const engine = runEngine(defaults.inputs, { ...data.realm, referencePace: defaults.referencePace });
     const basis = defaults.inputs.profitBasis === "era" ? "era" : "lifetime";
-    return reconcileThroneAndEngine(data.realm.goal, engine, basis);
-  }, [data]);
+    return reconcileThroneAndEngine(data.realm.goal, engine, basis, lang);
+  }, [data, lang]);
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
@@ -178,8 +180,8 @@ export function ThroneRoom() {
           </ProgressRing>
           <div className="space-y-3">
             <p className="font-heading text-lg leading-snug text-foreground sm:text-xl" data-testid="verdict">
-              {g.verdict.startsWith("You need")
-                ? g.verdict.replace("lots/month", "lots/month from the ledger average")
+              {g.verdict.includes(t.verdictLotsMonth)
+                ? g.verdict.replace(t.verdictLotsMonth, t.verdictLotsMonthAnnotated)
                 : g.verdict}
             </p>
             <div className="space-y-1 text-sm text-muted-foreground">

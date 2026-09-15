@@ -230,8 +230,8 @@ function FutureCard({ f, index, onAdopt, cadenceSince, t }: { f: Future; index: 
         )}
       </div>
       <p className="mt-3 flex-1 text-sm text-foreground/85">
-        {f.id === "required_pace" && f.premise.includes("lots/month")
-          ? f.premise.replace("lots/month", "lots/month replaying today's mix")
+        {f.id === "required_pace" && (f.premise.includes("lots/month") || f.premise.includes("lotes/mes"))
+          ? f.premise.replace("lots/month", `lots/month ${t.replayingMix}`).replace("lotes/mes", `lotes/mes ${t.replayingMix}`)
           : f.premise}
       </p>
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">

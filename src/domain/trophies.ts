@@ -9,6 +9,7 @@ import type { Streaks } from "./streaks";
 import type { Liberation } from "./liberation";
 import { groupBy, round2 } from "./math";
 import { monthKey, parseDate } from "./dates";
+import type { QualityLang } from "./quality_human";
 
 export type TrophyTier = "bronze" | "silver" | "gold" | "legendary";
 /** Rarity tiers (Phase 2 §5): how hard the trophy is to earn. Derived from the tier. */
@@ -47,10 +48,45 @@ export interface TrophyInputs {
   /** Streaks of reservations made (realm.reservationStreaks). */
   reservationStreaks?: Streaks;
   liberation?: Liberation;
+  /** UI language for titles/descriptions. Defaults to English for tests. */
+  lang?: QualityLang;
 }
 
 const pct = (value: number, target: number) => (target <= 0 ? 100 : round2(Math.max(0, Math.min(100, (value / target) * 100))));
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+
+
+const TROPHY_COPY: Record<string, { title: Record<QualityLang, string>; description: Record<QualityLang, string> }> = {
+  first_blood: { title: { en: "First Blood", es: "Primera Sangre" }, description: { en: "Close the first lot sale in the realm.", es: "Cierra la primera venta de lote del reino." } },
+  first_note_sold: { title: { en: "The First Scroll", es: "El Primer Pergamino" }, description: { en: "Sell the first promissory note for cash.", es: "Vende el primer pagaré por efectivo." } },
+  net_profit_1m: { title: { en: "1M Banner", es: "Estandarte 1M" }, description: { en: "Cumulative net profit crosses $1,000,000.", es: "La utilidad neta acumulada cruza $1,000,000." } },
+  net_profit_2m: { title: { en: "2M Banner", es: "Estandarte 2M" }, description: { en: "Cumulative net profit crosses $2,000,000.", es: "La utilidad neta acumulada cruza $2,000,000." } },
+  net_profit_5m: { title: { en: "5M Banner", es: "Estandarte 5M" }, description: { en: "Cumulative net profit crosses $5,000,000.", es: "La utilidad neta acumulada cruza $5,000,000." } },
+  net_profit_10m: { title: { en: "Exodus", es: "Éxodo" }, description: { en: "Reach $10,000,000 of net profit. The fund closes.", es: "Alcanza $10,000,000 de utilidad neta. El fondo cierra." } },
+  farm_fully_sold: { title: { en: "Territory Conquered", es: "Territorio Conquistado" }, description: { en: "Every lot on a farm has closed.", es: "Cada lote de una finca ha cerrado." } },
+  farm_half_sold: { title: { en: "Halfway Banner", es: "Estandarte a Mitad" }, description: { en: "A farm has closed at least half of its lots.", es: "Una finca ha cerrado al menos la mitad de sus lotes." } },
+  swift_sword: { title: { en: "Swift Sword", es: "Espada Veloz" }, description: { en: "Close a lot within 30 days of reservation.", es: "Cierra un lote dentro de 30 días de la reserva." } },
+  best_month_5: { title: { en: "Harvest Moon", es: "Luna de Cosecha" }, description: { en: "Close five or more lots in a single month.", es: "Cierra cinco o más lotes en un solo mes." } },
+  treasury_100k_month: { title: { en: "Overflowing Coffers", es: "Cofres Rebosantes" }, description: { en: "Bring $100,000 of real cash into the treasury in one month.", es: "Trae $100,000 de efectivo real a la tesorería en un mes." } },
+  cash_1m: { title: { en: "War Chest", es: "Cofre de Guerra" }, description: { en: "Cumulative cash realized (down payments + note sales) passes $1,000,000.", es: "El efectivo acumulado realizado (enganches + ventas de pagarés) supera $1,000,000." } },
+  sponsor_repaid: { title: { en: "Debt of Honor", es: "Deuda de Honor" }, description: { en: "Return all capital to a sponsor.", es: "Devuelve todo el capital a un sponsor." } },
+  ten_notes: { title: { en: "Ten Scrolls", es: "Diez Pergaminos" }, description: { en: "Sell ten promissory notes.", es: "Vende diez pagarés." } },
+  fifty_lots: { title: { en: "Half a Hundred", es: "Medio Centenar" }, description: { en: "Close fifty lots.", es: "Cierra cincuenta lotes." } },
+  hundred_lots: { title: { en: "Centurion", es: "Centurión" }, description: { en: "Close one hundred lots.", es: "Cierra cien lotes." } },
+  nine_realms: { title: { en: "Nine Realms", es: "Nueve Reinos" }, description: { en: "Hold nine subdivided farms.", es: "Posee nueve fincas subdivididas." } },
+  golden_lot: { title: { en: "Golden Acre", es: "Acre Dorado" }, description: { en: "Net more than $75,000 on a single lot.", es: "Obtén más de $75,000 netos en un solo lote." } },
+  pace_keeper: { title: { en: "Pace Keeper", es: "Guardián del Ritmo" }, description: { en: "Current pace is enough to hit the deadline.", es: "El ritmo actual basta para alcanzar la fecha límite." } },
+  streak_3: { title: { en: "Unbroken Chain", es: "Cadena Intacta" }, description: { en: "Close at least one lot in three consecutive months.", es: "Cierra al menos un lote en tres meses consecutivos." } },
+  streak_weeks_3: { title: { en: "Week After Week", es: "Semana Tras Semana" }, description: { en: "Close at least one lot in three consecutive weeks.", es: "Cierra al menos un lote en tres semanas consecutivas." } },
+  streak_weeks_6: { title: { en: "Relentless", es: "Implacable" }, description: { en: "Six consecutive weeks with a closing.", es: "Seis semanas consecutivas con un cierre." } },
+  busy_week_3: { title: { en: "Harvest Week", es: "Semana de Cosecha" }, description: { en: "Three closings inside a single week.", es: "Tres cierres en una sola semana." } },
+  pledge_streak_3: { title: { en: "Steady Pledges", es: "Compromisos Firmes" }, description: { en: "Take at least one reservation in three consecutive months.", es: "Toma al menos una reserva en tres meses consecutivos." } },
+  pledge_streak_weeks_3: { title: { en: "Pledge After Pledge", es: "Compromiso Tras Compromiso" }, description: { en: "Take at least one reservation in three consecutive weeks.", es: "Toma al menos una reserva en tres semanas consecutivas." } },
+  pledge_streak_weeks_6: { title: { en: "The Long Line", es: "La Larga Fila" }, description: { en: "Six consecutive weeks with a reservation.", es: "Seis semanas consecutivas con una reserva." } },
+  busy_pledge_week_3: { title: { en: "Market Day", es: "Día de Mercado" }, description: { en: "Three reservations inside a single week.", es: "Tres reservas en una sola semana." } },
+  first_liberation: { title: { en: "Chains Broken", es: "Cadenas Rotas" }, description: { en: "Return 100% of a sponsor's capital on one farm.", es: "Devuelve el 100% del capital de un sponsor en una finca." } },
+  all_free: { title: { en: "No Hostages", es: "Sin Rehenes" }, description: { en: "Every sponsor position fully repaid.", es: "Cada posición de sponsor reembolsada por completo." } },
+};
 
 /** At least 15 achievements, every one derived from real rows. */
 export function computeTrophies(i: TrophyInputs): Trophy[] {
@@ -384,7 +420,16 @@ export function computeTrophies(i: TrophyInputs): Trophy[] {
     });
   }
 
-  return trophies.map((t) => ({ ...t, rarity: RARITY_BY_TIER[t.tier] }));
+  const lang = i.lang ?? "en";
+  return trophies.map((t) => {
+    const copy = TROPHY_COPY[t.id];
+    return {
+      ...t,
+      title: copy?.title[lang] ?? t.title,
+      description: copy?.description[lang] ?? t.description,
+      rarity: RARITY_BY_TIER[t.tier],
+    };
+  });
 }
 
 function lastCloseDate(lots: Lot[]): string | null {
