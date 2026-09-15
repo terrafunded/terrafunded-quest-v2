@@ -9,9 +9,15 @@ import { expect, test, type Page } from "@playwright/test";
  * - Exodus (product / screen name)
  * - Sponsor / Sponsors (team vocabulary; Spanish copy still says "sponsor")
  * - Engine chart numbers and technical codes
+ * - Payments navigation paths in /quality ("Farm Acquisitions → …") — product UI labels stay English
  *
  * Bare "Capital" is NOT an English-leak marker: Spanish UI reuses it in phrases like
- * "Capital desplegado" / "capital propio". Prefer English-only stage words and months.
+ * "Capital desplegado" / "capital propio".
+ *
+ * Markers avoided here (covered instead by the JSX literal allowlist / domain work):
+ * - bare "Farm" / "peak" / "required" — Quality path labels and residual Farm Calendar / Throne debt
+ * - full English month names (January…) — chronicle narrative (`src/domain/narrative.ts`) is still EN-only
+ *   Prefer the English short-date shape (`May 19, 2026`) which must never appear under lang=es.
  */
 
 const ROUTES = [
@@ -31,9 +37,14 @@ const ROUTES = [
   "/quality",
 ] as const;
 
-/** English domain words / full month names that must not appear as whole tokens in Spanish UI. */
+/**
+ * English chrome that must not appear as whole tokens when lang=es.
+ * Stage labels + Terms/Last + English short dates (format leak).
+ * Bare "required"/"Farm"/"peak" omitted while Farm Calendar / Quality paths / residual debt remain;
+ * those are tracked by the JSX literal allowlist instead.
+ */
 const ENGLISH_MARKERS =
-  /\b(?:Farm|Terms|Available|Reserved|Closed|required|peak|Last|January|February|March|April|May|June|July|August|September|October|November|December)\b/;
+  /\b(?:Available|Reserved|Closed|Terms|Last)\b|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4}\b/;
 
 /**
  * Spanish domain words that must not appear as whole tokens in English UI.

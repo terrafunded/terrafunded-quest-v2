@@ -486,7 +486,7 @@ function RotationStat({ label, value, hint, tone, testId }: { label: string; val
   );
 }
 
-function BenchmarkPanel({ b, t, lang }: { b: RotationBenchmark; t: WarPlanUiStrings; lang: import("@/domain/quality_human").QualityLang }) {
+function BenchmarkPanel({ b, t, lang: _lang }: { b: RotationBenchmark; t: WarPlanUiStrings; lang: import("@/domain/quality_human").QualityLang }) {
   const bench = b.benchmark;
   const graded = b.grades.filter((g) => g.verdict !== "benchmark");
   return (

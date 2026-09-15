@@ -58,6 +58,8 @@ export interface WarPlanUiStrings {
   seasonalityNone: (reason: string, have: number, need: number, since: string, closings: string, excluded: number) => string;
   seasonalityPeak: (closings: string, since: string, peak: string, peakF: string, trough: string, troughF: string, floor: string) => string;
   noDatedClosings: string;
+  /** Translate domain seasonality.reason codes shown in the inputs. */
+  seasonalityReason: (reason: string | null) => string;
   investorMix: string;
   investorMixHint: string;
   scenarioName: string;
@@ -150,6 +152,7 @@ export interface WarPlanUiStrings {
   ofFarms: (a: number, b: number) => string;
   redFlags: string;
   months: (n: number) => string;
+  monthWord: (n: number) => string;
   shownMonthByMonth: string;
   showMonthByMonth: string;
   monthByMonth: (title: string) => string;
@@ -254,6 +257,8 @@ export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
     seasonalityPeak: (closings, since, peak, peakF, trough, troughF, floor) =>
       `${closings} closings${since} · peak ${peak} ×${peakF}, trough ${trough} ×${troughF} (floor ${floor})`,
     noDatedClosings: "no dated closings",
+    seasonalityReason: (reason) =>
+      reason === "not enough history for seasonality" ? "not enough history for seasonality" : reason ?? "no seasonal profile",
     investorMix: "Investor mix",
     investorMixHint: "New farms are funded top to bottom; each new lot pays its own farm's deal. Prefilled from the sponsors' real positions.",
     scenarioName: "Scenario name",
@@ -352,6 +357,7 @@ export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
     ofFarms: (a, b) => `${a} of ${b}`,
     redFlags: "Red flags",
     months: (n) => `${n} ${n === 1 ? "month" : "months"}`,
+    monthWord: (n) => (n === 1 ? "month" : "months"),
     shownMonthByMonth: "Shown month by month",
     showMonthByMonth: "Show month by month",
     monthByMonth: (title) => `Month by month — ${title}`,
@@ -460,6 +466,8 @@ export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
     seasonalityPeak: (closings, since, peak, peakF, trough, troughF, floor) =>
       `${closings} cierres${since} · pico ${peak} ×${peakF}, valle ${trough} ×${troughF} (piso ${floor})`,
     noDatedClosings: "sin cierres fechados",
+    seasonalityReason: (reason) =>
+      reason === "not enough history for seasonality" ? "no hay suficiente historial para estacionalidad" : reason ?? "sin perfil estacional",
     investorMix: "Mezcla de inversionistas",
     investorMixHint: "Las fincas nuevas se fondean de arriba a abajo; cada lote nuevo paga el trato de su propia finca. Prefill de las posiciones reales de los sponsors.",
     scenarioName: "Nombre del escenario",
@@ -558,6 +566,7 @@ export const WAR_PLAN_UI: Record<QualityLang, WarPlanUiStrings> = {
     ofFarms: (a, b) => `${a} de ${b}`,
     redFlags: "Alertas",
     months: (n) => `${n} ${n === 1 ? "mes" : "meses"}`,
+    monthWord: (n) => (n === 1 ? "mes" : "meses"),
     shownMonthByMonth: "Mostrado mes a mes",
     showMonthByMonth: "Mostrar mes a mes",
     monthByMonth: (title) => `Mes a mes — ${title}`,
