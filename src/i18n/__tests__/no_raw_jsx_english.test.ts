@@ -23,7 +23,7 @@ const ATTRS = new Set(["aria-label", "title", "placeholder", "alt"]);
 
 /** Deliberate English keeps (brand chrome). Shrink further only when brand copy itself is localized. */
 export const I18N_LITERAL_ALLOWLIST = new Set<string>([
-  // AppShell topbar brand mark — "Quest" is the product name (Exodus / Sponsors also stay English by design).
+  // AppShell topbar brand mark — Quest is the product name (Exodus / Sponsors also stay English by design).
   "Quest ·",
 ]);
 
